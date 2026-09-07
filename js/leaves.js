@@ -93,28 +93,14 @@ const Leaves = {
     const emps = DB.get('employees');
     const types = DB.get('leave_types');
 
-    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-    const myId = Auth.employee?.id;
-    const myReportees = emps.filter(e => e.reportingTo === myId || e.managerId === myId);
-    const hasReportees = myReportees.length > 0;
-    const canApprove = isHrOrAdmin || hasReportees;
-
-    let myLeaves = leaves;
-    if (!isHrOrAdmin) {
-      if (hasReportees) {
-        myLeaves = leaves.filter(l => l.employeeId === myId || myReportees.some(r => r.id === l.employeeId));
-      } else {
-        myLeaves = leaves.filter(l => l.employeeId === myId);
-      }
-    }
+    const canApprove = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.role === 'dept_manager';
+    const isEmployee = Auth.role === 'employee';
+    const myLeaves = isEmployee ? leaves.filter(l => l.employeeId === Auth.employee.id) : leaves;
 
     container.innerHTML = `
       <div class="card" style="padding:0">
         <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-weight:700;font-size:14px">${isHrOrAdmin ? 'All Leave Requests (Company Scope)' : (hasReportees ? 'Team & Direct Reports Leave Requests' : 'My Personal Leave Requests')}</span>
-            ${!isHrOrAdmin && hasReportees ? `<span class="badge badge-success" style="font-size:10px"><i class="fa fa-users-line"></i> Direct Reports Scope</span>` : ''}
-          </div>
+          <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : 'All Leave Requests'}</span>
           <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">

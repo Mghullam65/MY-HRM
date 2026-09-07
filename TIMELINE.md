@@ -31,8 +31,6 @@
    └── Connected Vercel Postgres, built api/index.js serverless function & vercel.json.
 [Step 8] Modern Bright Theme & Login Experience Redesign
    └── Redesigned login screen to clean SaaS aesthetic, bright default theme & theme toggle.
-[Step 9] Role-Based Direct Reports Hierarchy & Confidentiality Scoping
-   └── Scoped employee visibility so employees only see their direct reports or personal hierarchy; full 25-employee roster is exclusive to HR and Admin.
 ```
 
 ---
@@ -135,25 +133,6 @@
   - Added a floating light/dark theme switch button on the login screen (`#login-theme-btn`) connected to `App.toggleTheme()`.
   - Added 4 quick demo role access pills (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`) with role icons and subtle hover elevation.
   - Maintained full dark mode compatibility with tailored `[data-theme="dark"]` overrides.
-
----
-
-### Step 9: Role-Based Direct Reports Hierarchy & Confidentiality Scoping
-- **Objective**: Protect corporate confidentiality so that non-HR and non-Admin users (regular employees and department managers) only see employees who report directly to them, while the complete 25-employee company roster and executive headcount are strictly exclusive to HR and Super Admin.
-- **Technologies**: Role-based access control (RBAC), recursive reporting hierarchy (`reportingTo` / `managerId`), scoped SQL & JSON queries.
-- **Key Actions**:
-  - **Dashboard Scoping**:
-    - **HR & Super Admin**: Retains full company-wide "Employee Overview" (25 Total, 25 Active, 2 Inactive, 3 New Joiners).
-    - **Dept Manager / Team Lead**: Replaces the 25-employee overview with "My Team Overview — Direct Reports", showing counts and attendance only for members reporting directly to them.
-    - **Individual Employee**: Completely removes the 25-employee overview, displaying "My Workplace Profile & Hierarchy" (Employee ID, Designation, Department, Assigned Shift, and **Reporting To: Direct Supervisor**).
-  - **Employee Directory Protection (`Employees` Module)**:
-    - Restricted `Employees.getBaseEmployees()` so non-HR users only query and view employees who report to them (`reportingTo === myId || managerId === myId`).
-    - Added an informative restricted state when an individual contributor has no direct reports assigned, highlighting their direct reporting manager.
-    - Blocked unauthorized URL/profile inspection in `renderProfile` and masked sensitive compensation/credentials tabs.
-  - **Dynamic Navigation & Sidebar**:
-    - "Employees" in sidebar is renamed to "My Direct Reports" for managers with reportees, and automatically hidden for individual contributors without reportees.
-  - **Backend Server API & Prisma Protection**:
-    - Restricted `GET /api/employees` and `GET /api/employees/:id` in `server/src/routes/employees.js` to enforce direct-report scoping for all authenticated non-HR/Admin users.
 
 ---
 

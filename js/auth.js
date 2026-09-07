@@ -61,15 +61,6 @@ const Auth = {
   },
 
   canAccessModule(module) {
-    const isHrOrAdmin = this.role === 'superadmin' || this.role === 'hr_manager';
-    const myId = this.employee?.id;
-    const emps = typeof DB !== 'undefined' ? (DB.get('employees') || []) : [];
-    const hasReportees = emps.some(e => e.reportingTo === myId || e.managerId === myId);
-
-    if (module === 'employees') {
-      return isHrOrAdmin || hasReportees;
-    }
-
     const moduleMap = {
       superadmin: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','events','reports','administration','settings','backup'],
       hr_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','events','reports','administration'],
@@ -81,21 +72,10 @@ const Auth = {
   },
 
   getSidebarItems() {
-    const isHrOrAdmin = this.role === 'superadmin' || this.role === 'hr_manager';
-    const myId = this.employee?.id;
-    const emps = typeof DB !== 'undefined' ? (DB.get('employees') || []) : [];
-    const hasReportees = emps.some(e => e.reportingTo === myId || e.managerId === myId);
-
     const all = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', roles: ['onboarding'] },
-      { 
-        id: 'employees', 
-        label: isHrOrAdmin ? 'Employees' : 'My Direct Reports', 
-        icon: isHrOrAdmin ? 'fa-users' : 'fa-users-line', 
-        roles: ['superadmin','hr_manager','dept_manager','employee'],
-        hide: !isHrOrAdmin && !hasReportees
-      },
+      { id: 'employees', label: 'Employees', icon: 'fa-users', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'attendance', label: 'Attendance', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','employee'] },
@@ -106,7 +86,7 @@ const Auth = {
       { id: 'administration', label: 'Administration', icon: 'fa-gear', roles: ['superadmin','hr_manager'] },
       { id: 'settings', label: 'Settings', icon: 'fa-sliders', roles: ['superadmin'] },
     ];
-    return all.filter(item => item.roles.includes(this.role) && !item.hide);
+    return all.filter(item => item.roles.includes(this.role));
   },
 
   getDemoAccounts() {
