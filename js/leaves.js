@@ -10,9 +10,30 @@ const Leaves = {
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
 
+  getScopedEmployees() {
+    let emps = DB.get('employees').filter(e => e.status === 'active');
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    }
+    return emps;
+  },
+
+  getScopedLeaves() {
+    const allLeaves = DB.get('leave_requests') || [];
+    if (Auth.role === 'employee') {
+      return allLeaves.filter(l => l.employeeId === Auth.employee?.id);
+    }
+    if (Auth.role === 'dept_manager') {
+      const teamIds = this.getScopedEmployees().map(e => e.id);
+      return allLeaves.filter(l => teamIds.includes(l.employeeId));
+    }
+    return allLeaves;
+  },
+
   render() {
     const content = document.getElementById('page-content');
-    const leaves = DB.get('leave_requests');
+    const leaves = this.getScopedLeaves();
     const pending = leaves.filter(l => l.status === 'pending').length;
     const approved = leaves.filter(l => l.status === 'approved').length;
     const rejected = leaves.filter(l => l.status === 'rejected').length;
@@ -89,18 +110,18 @@ const Leaves = {
   },
 
   renderRequests(container) {
-    const leaves = DB.get('leave_requests');
+    const leaves = this.getScopedLeaves();
     const emps = DB.get('employees');
     const types = DB.get('leave_types');
 
-    const canApprove = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.role === 'dept_manager';
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const isHRorAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     const isEmployee = Auth.role === 'employee';
-    const myLeaves = isEmployee ? leaves.filter(l => l.employeeId === Auth.employee.id) : leaves;
 
     container.innerHTML = `
       <div class="card" style="padding:0">
         <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : 'All Leave Requests'}</span>
+          <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : isDeptMgr ? 'Team Leave Requests (Direct Reportees)' : 'All Leave Requests'}</span>
           <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
@@ -116,8 +137,8 @@ const Leaves = {
               <th>Actions</th>
             </tr></thead>
             <tbody>
-              ${myLeaves.length === 0 ? '<tr><td colspan="8"><div class="empty-state" style="padding:40px"><i class="fa fa-calendar-xmark"></i><h3>No leave requests</h3></div></td></tr>' :
-              myLeaves.map(leave => {
+              ${leaves.length === 0 ? '<tr><td colspan="8"><div class="empty-state" style="padding:40px"><i class="fa fa-calendar-xmark"></i><h3>No leave requests</h3></div></td></tr>' :
+              leaves.map(leave => {
                 const emp = emps.find(e => e.id === leave.employeeId);
                 const type = types.find(t => t.id === leave.typeId);
                 return `<tr>
@@ -146,9 +167,17 @@ const Leaves = {
                   <td>
                     <div class="tbl-actions">
                       <button class="btn btn-ghost btn-icon btn-sm" onclick="Leaves.viewDetail(${leave.id})" title="View"><i class="fa fa-eye"></i></button>
-                      ${canApprove && (leave.status === 'pending' || leave.status === 'manager_approved') ? `
-                        <button class="btn btn-success btn-sm" onclick="Leaves.approve(${leave.id})" title="Approve">
-                          <i class="fa fa-check"></i>
+                      ${(isDeptMgr && leave.status === 'pending') ? `
+                        <button class="btn btn-primary btn-sm" onclick="Leaves.approve(${leave.id})" title="Manager Endorse / Approve">
+                          <i class="fa fa-check"></i> Manager Approve
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${leave.id})" title="Reject">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      ` : ''}
+                      ${(isHRorAdmin && (leave.status === 'pending' || leave.status === 'manager_approved')) ? `
+                        <button class="btn btn-success btn-sm" onclick="Leaves.approve(${leave.id})" title="Final Corporate Approval">
+                          <i class="fa fa-check-double"></i> Final Approve
                         </button>
                         <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${leave.id})" title="Reject">
                           <i class="fa fa-times"></i>
@@ -207,8 +236,8 @@ const Leaves = {
 
     const isMyMode = this.calMode === 'my';
 
-    // Scoped staff for employee calendar
-    const staffPool = isDeptMgr ? allEmps.filter(e => e.departmentId === myEmp?.departmentId) : allEmps;
+    // Scoped staff for employee calendar: Deputy Manager strictly scoped to direct reportees (4 employees)
+    const staffPool = isDeptMgr ? allEmps.filter(e => e.managerId === myEmp?.id || e.reportingTo === myEmp?.id) : allEmps;
     const filteredStaff = staffPool.filter(e => {
       if (this.calDeptFilter !== 'all' && e.departmentId !== parseInt(this.calDeptFilter)) return false;
       if (this.calEmpSearch) {
@@ -536,7 +565,7 @@ const Leaves = {
     }
 
     // ── HR MANAGER & SUPERADMIN VIEW: MANAGEMENT & ALLOCATION CONSOLE ──
-    const activeEmps = allEmps.filter(e => e.status === 'active');
+    const activeEmps = isDeptMgr ? allEmps.filter(e => (e.managerId === myEmp?.id || e.reportingTo === myEmp?.id) && e.status === 'active') : allEmps.filter(e => e.status === 'active');
     const allApprovedLeaves = DB.get('leave_requests') || [];
 
     container.innerHTML = `
@@ -1308,27 +1337,46 @@ const Leaves = {
   approve(leaveId) {
     const leave = DB.find('leave_requests', leaveId);
     if (!leave) return;
-    const newStatus = leave.status === 'pending' ? 'manager_approved' : 'approved';
-    DB.update('leave_requests', leaveId, { status: newStatus, approvedOn: Utils.today(), comments: 'Approved' });
 
-    // Deduct from leave balance when finally approved using the chosen quota (skip if salary deduction)
-    if (newStatus === 'approved' && !leave.salaryDeduction) {
-      const balances = DB.get('leave_balances') || [];
-      const bal = balances.find(b => b.employeeId === leave.employeeId);
-      const targetQuotaId = leave.quotaTypeId || leave.typeId;
-      if (bal && bal.balances && bal.balances[targetQuotaId] !== undefined) {
-        bal.balances[targetQuotaId] = Math.max(0, bal.balances[targetQuotaId] - leave.days);
-        DB.set('leave_balances', balances);
+    if (Auth.role === 'dept_manager') {
+      // First tier approval: Reporting manager endorses request
+      DB.update('leave_requests', leaveId, {
+        status: 'manager_approved',
+        managerStatus: 'approved',
+        managerApprovedAt: new Date().toISOString(),
+        comments: `Endorsed by ${Auth.user?.username || 'Deputy Manager'}`
+      });
+      DB.log('APPROVE', 'Leaves', `Manager endorsed leave #${leaveId} for employee #${leave.employeeId}`, Auth.user?.id);
+      Toast.show('Leave Endorsed by Manager!', 'info', 'Forwarded to HR & Admin for final approval and quota deduction.');
+    } else {
+      // Final approval: HR Manager or Superadmin has universal authority
+      DB.update('leave_requests', leaveId, {
+        status: 'approved',
+        hrStatus: 'approved',
+        approvedOn: Utils.today(),
+        comments: `Final approval granted by ${Auth.user?.username || 'Admin/HR'}`
+      });
+
+      // Deduct from leave balance when finally approved using the chosen quota (skip if salary deduction)
+      if (!leave.salaryDeduction) {
+        const balances = DB.get('leave_balances') || [];
+        const bal = balances.find(b => b.employeeId === leave.employeeId);
+        const targetQuotaId = leave.quotaTypeId || leave.typeId;
+        if (bal && bal.balances && bal.balances[targetQuotaId] !== undefined) {
+          bal.balances[targetQuotaId] = Math.max(0, bal.balances[targetQuotaId] - leave.days);
+          DB.set('leave_balances', balances);
+        }
+      }
+
+      DB.log('APPROVE', 'Leaves', `Leave #${leaveId} approved (Final)`, Auth.user?.id);
+      if (leave.salaryDeduction) {
+        Toast.show(`Leave approved with Salary Deduction (PKR ${(leave.deductionAmount||0).toLocaleString()}) for payroll!`, 'success');
+      } else {
+        Toast.show('Final leave approval granted! Quota deducted.', 'success');
       }
     }
 
-    DB.log('APPROVE', 'Leaves', `Leave #${leaveId} ${newStatus}`, Auth.user?.id);
-    if (leave.salaryDeduction) {
-      Toast.show(newStatus === 'manager_approved' ? 'Forwarded to HR!' : `Leave approved with Salary Deduction (PKR ${(leave.deductionAmount||0).toLocaleString()}) for payroll!`, 'success');
-    } else {
-      Toast.show(newStatus === 'manager_approved' ? 'Forwarded to HR!' : 'Leave approved! Quota deducted.', 'success');
-    }
-    this.renderView();
+    this.render();
   },
 
   reject(leaveId) {

@@ -5,9 +5,30 @@
 const Performance = {
   currentView: 'reviews',
 
+  getScopedEmployees() {
+    let emps = DB.get('employees').filter(e => e.status === 'active');
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    }
+    return emps;
+  },
+
+  getScopedReviews() {
+    const allReviews = DB.get('performance_reviews') || [];
+    if (Auth.role === 'employee') {
+      return allReviews.filter(r => r.employeeId === Auth.employee?.id);
+    }
+    if (Auth.role === 'dept_manager') {
+      const teamIds = this.getScopedEmployees().map(e => e.id);
+      return allReviews.filter(r => teamIds.includes(r.employeeId));
+    }
+    return allReviews;
+  },
+
   render() {
     const content = document.getElementById('page-content');
-    const reviews = DB.get('performance_reviews');
+    const reviews = this.getScopedReviews();
     const kpis = DB.get('kpis');
 
     content.innerHTML = `
@@ -17,7 +38,7 @@ const Performance = {
             { label:'Total Reviews', val:reviews.length, icon:'fa-clipboard-list', color:'var(--primary)' },
             { label:'Pending Reviews', val:reviews.filter(r=>r.status==='pending').length, icon:'fa-clock', color:'var(--warning)' },
             { label:'Completed', val:reviews.filter(r=>r.status==='completed').length, icon:'fa-circle-check', color:'var(--success)' },
-            { label:'Avg. Rating', val:'★ 4.0', icon:'fa-star', color:'var(--warning)' },
+            { label:'Avg. Rating', val:'★ 4.2', icon:'fa-star', color:'var(--warning)' },
           ].map(s => `
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
               <div style="width:48px;height:48px;border-radius:12px;background:${s.color}22;display:flex;align-items:center;justify-content:center;font-size:20px;color:${s.color}"><i class="fa ${s.icon}"></i></div>
@@ -70,17 +91,29 @@ const Performance = {
   },
 
   renderReviews(container) {
-    const reviews = DB.get('performance_reviews');
-    const canReview = Auth.role !== 'employee';
+    const reviews = this.getScopedReviews();
+    const canInitiate = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const isDeptMgr = Auth.role === 'dept_manager';
 
     container.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        ${canReview ? `<button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()"><i class="fa fa-plus"></i> Initiate Review</button>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:var(--text)">Employee Performance Evaluations</div>
+          <div style="font-size:12px;color:var(--text-3)">Reviews are initiated by HR/Admin and submitted by direct reporting managers</div>
+        </div>
+        ${canInitiate ? `
+          <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
+            <i class="fa fa-plus"></i> Initiate Review (HR / Admin)
+          </button>
+        ` : ''}
       </div>
       <div style="display:flex;flex-direction:column;gap:14px">
-        ${reviews.map(r => {
+        ${reviews.length === 0 ? `
+          <div class="card"><div class="empty-state" style="padding:40px"><i class="fa fa-clipboard-check"></i><h3>No Performance Reviews</h3><p>No active reviews found for this team.</p></div></div>
+        ` : reviews.map(r => {
           const emp = DB.find('employees', r.employeeId);
           const reviewer = DB.find('employees', r.reviewerId);
+          const canSubmitEvaluation = (isDeptMgr && (emp?.managerId === Auth.employee?.id || emp?.reportingTo === Auth.employee?.id)) || Auth.role === 'superadmin' || Auth.role === 'hr_manager';
           return `
             <div class="card">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -89,7 +122,7 @@ const Performance = {
                   <div>
                     <div style="font-size:15px;font-weight:700">${emp?.fullName||'—'}</div>
                     <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(emp?.designationId)} • ${Utils.getDeptName(emp?.departmentId)}</div>
-                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Reviewed by: ${reviewer?.fullName||'—'}</div>
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Reporting Manager / Reviewer: <strong>${reviewer?.fullName||'Usman Baig (Deputy Manager)'}</strong></div>
                   </div>
                 </div>
                 <div style="text-align:right">
@@ -114,11 +147,11 @@ const Performance = {
 
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
                   <div style="background:var(--surface);border-radius:8px;padding:12px">
-                    <div style="font-size:11px;font-weight:600;color:var(--primary);margin-bottom:6px">MANAGER FEEDBACK</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--primary);margin-bottom:6px">MANAGER EVALUATION & FEEDBACK</div>
                     <div style="font-size:13px;color:var(--text-2)">${r.managerFeedback||'—'}</div>
                   </div>
                   <div style="background:var(--surface);border-radius:8px;padding:12px">
-                    <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">SELF ASSESSMENT</div>
+                    <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:6px">EMPLOYEE COMMENTS / GOALS</div>
                     <div style="font-size:13px;color:var(--text-2)">${r.selfFeedback||'—'}</div>
                   </div>
                 </div>
@@ -128,9 +161,13 @@ const Performance = {
                   ${r.promotionRecommended ? '<span class="badge badge-primary"><i class="fa fa-star"></i> Promotion Recommended</span>' : ''}
                 </div>
               ` : `
-                <div style="display:flex;gap:8px">
-                  ${canReview ? `<button class="btn btn-primary btn-sm" onclick="Performance.fillReview(${r.id})"><i class="fa fa-pen"></i> Fill Review</button>` : ''}
-                  <span class="badge badge-warning" style="align-self:center">Awaiting Review</span>
+                <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                  ${canSubmitEvaluation ? `
+                    <button class="btn btn-primary btn-sm" onclick="Performance.fillReview(${r.id})">
+                      <i class="fa fa-clipboard-check"></i> Submit Manager Evaluation (PSE Form)
+                    </button>
+                  ` : ''}
+                  <span class="badge badge-warning" style="align-self:center"><i class="fa fa-clock"></i> Initiated by HR — Awaiting Manager Evaluation</span>
                 </div>
               `}
             </div>
@@ -252,66 +289,187 @@ const Performance = {
     const empId = parseInt(document.getElementById('rv-emp').value);
     const type = document.getElementById('rv-type').value;
     const quarter = document.getElementById('rv-quarter').value;
+    const emp = DB.find('employees', empId);
+    const reviewerId = emp?.managerId || (emp?.reportingTo || 3);
     DB.add('performance_reviews', {
-      id: DB.nextId('performance_reviews'), employeeId: empId, reviewerId: Auth.employee.id,
-      type, quarter, year: new Date().getFullYear(), kpiScore:0, kraScore:0,
-      managerFeedback:'', selfFeedback:'', overallRating:0, status:'pending',
+      id: DB.nextId('performance_reviews'), employeeId: empId, reviewerId: reviewerId,
+      type, quarter, year: new Date().getFullYear(), kpiScore: 85, kraScore: 80,
+      managerFeedback: '', selfFeedback: '', overallRating: 0, status: 'pending',
       reviewDate: null, incrementRecommended: false, promotionRecommended: false
     });
-    DB.log('ADD', 'Performance', `Review initiated for ${Utils.getEmpName(empId)}`, Auth.user?.id);
+    DB.log('ADD', 'Performance', `Review initiated by ${Auth.user?.username || 'HR/Admin'} for ${Utils.getEmpName(empId)} (Assigned to Manager #${reviewerId})`, Auth.user?.id);
     Modal.close('dynamic-modal');
-    Toast.show('Review initiated!', 'success');
-    this.renderView();
+    Toast.show('Review initiated successfully!', 'success', 'Assigned to direct reporting manager for evaluation.');
+    this.render();
   },
 
   fillReview(reviewId) {
-    Modal.show('Complete Performance Review', `
-      <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">KPI Score (%)</label><input type="number" class="form-control" id="rv-kpi" min="0" max="100" value="80"></div>
-        <div class="form-group"><label class="form-label">KRA Score (%)</label><input type="number" class="form-control" id="rv-kra" min="0" max="100" value="75"></div>
-      </div>
-      <div class="form-group"><label class="form-label">Overall Rating (1-5)</label>
-        <div style="display:flex;gap:8px">
-          ${[1,2,3,4,5].map(n=>`<button onclick="document.querySelectorAll('.star-btn').forEach(b=>b.style.color='var(--text-muted)');this.style.color='var(--warning)';document.getElementById('rv-rating').value=${n}" class="star-btn" style="font-size:28px;background:none;border:none;color:var(--text-muted);cursor:pointer;transition:.2s">★</button>`).join('')}
-          <input type="hidden" id="rv-rating" value="4">
+    const rev = DB.find('performance_reviews', reviewId);
+    const emp = DB.find('employees', rev?.employeeId);
+    const pse = emp?.pseEvaluation || {
+      jobKnowledge: 4, workQuality: 4, teamwork: 4, punctuality: 4, leadership: 4,
+      managerComments: '', employeeComments: ''
+    };
+    const targets = emp?.nextYearTargets || [];
+
+    Modal.show(`Manager Evaluation (PSE Form) — ${emp?.fullName || 'Employee'}`, `
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.08));border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:700;font-size:13.5px;color:var(--text)">Performance Standard Evaluation (PSE) Form</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Direct Reporting Manager evaluation according to observed employee performance</div>
+          </div>
+          <span class="badge badge-primary"><i class="fa fa-user-tie" style="margin-right:4px"></i>${Auth.role === 'dept_manager' ? 'Deputy Manager / Tech Lead' : 'Manager'}</span>
         </div>
-      </div>
-      <div class="form-group"><label class="form-label">Manager Feedback</label><textarea class="form-control" id="rv-mgr-fb" rows="3" placeholder="Detailed feedback..."></textarea></div>
-      <div class="form-group"><label class="form-label">Self Assessment</label><textarea class="form-control" id="rv-self-fb" rows="3" placeholder="Employee's self assessment..."></textarea></div>
-      <div class="form-row form-row-2">
-        <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--surface);padding:12px;border-radius:8px">
-          <input type="checkbox" id="rv-increment" style="width:16px;height:16px">
-          <label for="rv-increment" style="font-size:13px;font-weight:500;cursor:pointer">Recommend Increment</label>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+          <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text);display:flex;align-items:center;gap:6px">
+            <i class="fa fa-star" style="color:var(--warning)"></i> Core Performance Dimensions (Rating 1 to 5)
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div class="form-group" style="margin:0">
+              <label class="form-label required" style="font-size:12px">Job Knowledge & Technical Proficiency</label>
+              <select class="form-control" id="rv-dim-knowledge">
+                ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.jobKnowledge==n?'selected':''}>${n} — ${n>=5?'Outstanding':n===4?'Exceeds Expectations':n===3?'Meets Standards':n===2?'Needs Improvement':'Unsatisfactory'}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label required" style="font-size:12px">Quality & Delivery of Work</label>
+              <select class="form-control" id="rv-dim-quality">
+                ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.workQuality==n?'selected':''}>${n} — ${n>=5?'Outstanding':n===4?'Exceeds Expectations':n===3?'Meets Standards':n===2?'Needs Improvement':'Unsatisfactory'}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label required" style="font-size:12px">Teamwork, Collaboration & Support</label>
+              <select class="form-control" id="rv-dim-teamwork">
+                ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.teamwork==n?'selected':''}>${n} — ${n>=5?'Outstanding':n===4?'Exceeds Expectations':n===3?'Meets Standards':n===2?'Needs Improvement':'Unsatisfactory'}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label required" style="font-size:12px">Punctuality, Discipline & Reliability</label>
+              <select class="form-control" id="rv-dim-punctuality">
+                ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.punctuality==n?'selected':''}>${n} — ${n>=5?'Outstanding':n===4?'Exceeds Expectations':n===3?'Meets Standards':n===2?'Needs Improvement':'Unsatisfactory'}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group" style="grid-column:span 2;margin:0">
+              <label class="form-label required" style="font-size:12px">Initiative, Problem Solving & Leadership</label>
+              <select class="form-control" id="rv-dim-leadership">
+                ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.leadership==n?'selected':''}>${n} — ${n>=5?'Outstanding':n===4?'Exceeds Expectations':n===3?'Meets Standards':n===2?'Needs Improvement':'Unsatisfactory'}</option>`).join('')}
+              </select>
+            </div>
+          </div>
         </div>
-        <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--surface);padding:12px;border-radius:8px">
-          <input type="checkbox" id="rv-promotion" style="width:16px;height:16px">
-          <label for="rv-promotion" style="font-size:13px;font-weight:500;cursor:pointer">Recommend Promotion</label>
+
+        <div class="form-row form-row-2">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">KPI Fulfillment (%)</label>
+            <input type="number" class="form-control" id="rv-kpi" min="0" max="100" value="${rev?.kpiScore || 85}">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label">KRA Score (%)</label>
+            <input type="number" class="form-control" id="rv-kra" min="0" max="100" value="${rev?.kraScore || 80}">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin:0">
+          <label class="form-label required"><i class="fa fa-comment-dots" style="color:var(--primary);margin-right:4px"></i> Manager Evaluation Comments</label>
+          <textarea class="form-control" id="rv-mgr-fb" rows="3" placeholder="Provide specific feedback on accomplishments, performance, strengths, and areas for improvement...">${pse.managerComments || rev?.managerFeedback || 'Consistently delivers on sprint commitments with high code quality and positive collaborative energy.'}</textarea>
+        </div>
+
+        <div class="form-group" style="margin:0">
+          <label class="form-label"><i class="fa fa-user-pen" style="color:var(--accent);margin-right:4px"></i> Employee Review Comments / Self Reflection</label>
+          <textarea class="form-control" id="rv-self-fb" rows="2" placeholder="Employee's self feedback or career aspirations...">${pse.employeeComments || rev?.selfFeedback || 'Striving to take on higher technical ownership and mentor newer team members.'}</textarea>
+        </div>
+
+        <div class="form-group" style="margin:0">
+          <label class="form-label"><i class="fa fa-bullseye" style="color:var(--warning);margin-right:4px"></i> Next Year Targets (One target per line)</label>
+          <textarea class="form-control" id="rv-targets" rows="2" placeholder="e.g. Lead module refactoring in Q1&#10;Achieve 99% automated test coverage">${targets.map(t => t.target).join('\n') || 'Achieve 98% on-time sprint task delivery\nComplete advanced certification in core technology\nMentor junior team members and conduct code reviews'}</textarea>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--surface);padding:12px;border-radius:8px;margin:0">
+            <input type="checkbox" id="rv-increment" style="width:16px;height:16px" ${rev?.incrementRecommended?'checked':''}>
+            <label for="rv-increment" style="font-size:13px;font-weight:600;cursor:pointer">Recommend Merit Salary Increment</label>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:10px;background:var(--surface);padding:12px;border-radius:8px;margin:0">
+            <input type="checkbox" id="rv-promotion" style="width:16px;height:16px" ${rev?.promotionRecommended?'checked':''}>
+            <label for="rv-promotion" style="font-size:13px;font-weight:600;cursor:pointer">Recommend Role Promotion</label>
+          </div>
         </div>
       </div>
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Performance.submitReview(${reviewId})"><i class="fa fa-save"></i> Submit Review</button>
+        <button class="btn btn-primary" onclick="Performance.submitReview(${reviewId})">
+          <i class="fa fa-save"></i> Submit Manager Evaluation
+        </button>
       `
     });
   },
 
   submitReview(reviewId) {
+    const kpiScore = parseInt(document.getElementById('rv-kpi')?.value) || 85;
+    const kraScore = parseInt(document.getElementById('rv-kra')?.value) || 80;
+    const knowledge = parseInt(document.getElementById('rv-dim-knowledge')?.value) || 4;
+    const quality = parseInt(document.getElementById('rv-dim-quality')?.value) || 4;
+    const teamwork = parseInt(document.getElementById('rv-dim-teamwork')?.value) || 4;
+    const punctuality = parseInt(document.getElementById('rv-dim-punctuality')?.value) || 4;
+    const leadership = parseInt(document.getElementById('rv-dim-leadership')?.value) || 4;
+
+    const avg = (knowledge + quality + teamwork + punctuality + leadership) / 5;
+    const overallRating = Math.max(1, Math.min(5, Math.round(avg)));
+
+    const managerFeedback = document.getElementById('rv-mgr-fb')?.value.trim() || '';
+    const selfFeedback = document.getElementById('rv-self-fb')?.value.trim() || '';
+    const targetsText = document.getElementById('rv-targets')?.value.trim() || '';
+    const incrementRecommended = document.getElementById('rv-increment')?.checked || false;
+    const promotionRecommended = document.getElementById('rv-promotion')?.checked || false;
+
+    // Update performance_reviews
     DB.update('performance_reviews', reviewId, {
-      kpiScore: parseInt(document.getElementById('rv-kpi').value),
-      kraScore: parseInt(document.getElementById('rv-kra').value),
-      overallRating: parseInt(document.getElementById('rv-rating').value),
-      managerFeedback: document.getElementById('rv-mgr-fb').value,
-      selfFeedback: document.getElementById('rv-self-fb').value,
-      incrementRecommended: document.getElementById('rv-increment').checked,
-      promotionRecommended: document.getElementById('rv-promotion').checked,
+      kpiScore, kraScore, overallRating,
+      managerFeedback, selfFeedback,
+      incrementRecommended, promotionRecommended,
       status: 'completed',
-      reviewDate: Utils.today(),
+      reviewDate: Utils.today()
     });
-    DB.log('COMPLETE', 'Performance', `Review #${reviewId} completed`, Auth.user?.id);
+
+    // Synchronize to Employee Profile (Screenshots 4: PSE evaluation form & Next Year Targets)
+    const rev = DB.find('performance_reviews', reviewId);
+    if (rev) {
+      const emp = DB.find('employees', rev.employeeId);
+      if (emp) {
+        emp.pseEvaluation = {
+          jobKnowledge: knowledge,
+          workQuality: quality,
+          teamwork: teamwork,
+          punctuality: punctuality,
+          leadership: leadership,
+          overallScore: `${avg.toFixed(1)} / 5.0`,
+          managerComments: managerFeedback,
+          employeeComments: selfFeedback,
+          evaluatedBy: `${Auth.user?.fullName || 'Usman Baig'} (${Auth.role === 'dept_manager' ? 'Deputy Manager' : 'Manager'})`,
+          evaluatedDate: Utils.today()
+        };
+
+        if (targetsText) {
+          const lines = targetsText.split('\n').map(l => l.trim()).filter(Boolean);
+          emp.nextYearTargets = lines.map(targetLine => ({
+            target: targetLine,
+            metric: 'Milestone Delivery',
+            weight: `${Math.round(100 / lines.length)}%`,
+            timeline: 'Q1-Q4'
+          }));
+        }
+
+        DB.update('employees', emp.id, emp);
+      }
+    }
+
+    DB.log('COMPLETE', 'Performance', `Reporting Manager submitted evaluation for Review #${reviewId}`, Auth.user?.id);
     Modal.close('dynamic-modal');
-    Toast.show('Review submitted!', 'success');
-    this.renderView();
+    Toast.show('Evaluation Submitted!', 'success', 'Manager review completed and synchronized to employee profile.');
+    this.render();
   },
 
   showAddKPI() {

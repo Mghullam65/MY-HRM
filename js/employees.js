@@ -78,11 +78,16 @@ const Employees = {
 
   getFiltered() {
     let emps = DB.get('employees');
+    // Scoped team visibility: Deputy Manager only sees their direct reportees (4 employees)
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    }
     if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
     if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
     if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');
     if (this.currentView === 'my') {
-      const myId = Auth.employee.id;
+      const myId = Auth.employee?.id;
       emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
     }
     if (this.searchQuery) {
@@ -260,135 +265,1469 @@ const Employees = {
           </div>
         ` : ''}
 
-        <div class="profile-layout">
-          <!-- Left Card -->
+        <div style="display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start">
+          <!-- ═══════════════════════════════════════════════
+               LEFT SIDEBAR: ACCORDION NAVIGATION (Screenshots 1-5)
+          ═══════════════════════════════════════════════ -->
           <div>
-            <div class="profile-card">
-              <div class="profile-cover"></div>
-              <div class="profile-info">
-                <div class="profile-avatar-wrap">
-                  <div class="avatar avatar-xl" style="background:${Utils.avatarColor(emp.id)};margin:0 auto;border:4px solid var(--card)">${Utils.avatarInitials(emp.fullName)}</div>
-                </div>
-                <div class="profile-name">${emp.fullName}</div>
-                <div class="profile-desig">${Utils.getDesigName(emp.designationId)}</div>
-                <div class="profile-dept">${Utils.getDeptName(emp.departmentId)}</div>
-                <div style="margin-top:8px">
-                  ${Employees.getRoleBadge(emp.role || linkedUser?.role || 'employee')}
-                  <span class="chip" style="margin-left:4px">${emp.employmentType}</span>
-                </div>
-                <div class="profile-meta">
-                  <div class="profile-meta-item"><i class="fa fa-id-badge"></i>${emp.empNo}</div>
-                  <div class="profile-meta-item"><i class="fa fa-envelope"></i>${emp.email}</div>
-                  <div class="profile-meta-item"><i class="fa fa-phone"></i>${emp.phone}</div>
-                  <div class="profile-meta-item"><i class="fa fa-building"></i>${Utils.getBranchName(emp.branchId)}</div>
-                  <div class="profile-meta-item"><i class="fa fa-calendar"></i>Joined: ${Utils.formatDate(emp.joiningDate)}</div>
-                  <div class="profile-meta-item"><i class="fa fa-droplet"></i>${emp.bloodGroup || 'Not Specified'}</div>
-                </div>
+            <!-- Header: Photo Thumbnail, Full Name, EMP ID -->
+            <div class="card" style="padding:14px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:14px;border:1px solid var(--border);box-shadow:var(--shadow-sm)">
+              <div style="width:62px;height:72px;border:1px solid #cbd5e1;border-radius:4px;overflow:hidden;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `
+                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:22px;font-weight:700">
+                    ${Utils.avatarInitials(emp.fullName)}
+                  </div>
+                `}
+              </div>
+              <div style="overflow:hidden">
+                <h3 style="font-size:17px;font-weight:700;color:#0284c7;margin:0;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${emp.fullName}</h3>
+                <div style="font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:6px">EMP ID: ${String(emp.empNo||emp.id).replace('EMP-', '')}</div>
+                <div style="font-size:11px;color:var(--text-3);margin-top:3px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${Utils.getDesigName(emp.designationId)}</div>
               </div>
             </div>
 
-            <!-- Profile Sidebar Actions -->
-            <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
-              ${isHR ? `
-                <!-- Dedicated Role & Login Access Card for Admin/HR -->
-                <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-sm)">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                    <div style="font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                      <i class="fa fa-shield-halved" style="color:var(--primary)"></i> Role & Login Access
-                    </div>
-                    ${linkedUser 
-                      ? `<span class="badge ${linkedUser.status==='active'?'badge-success':'badge-danger'}" style="font-size:9.5px">${linkedUser.status.toUpperCase()}</span>` 
-                      : '<span class="badge badge-warning" style="font-size:9.5px">NO LOGIN</span>'}
+            <!-- Accordion Groups matching Screenshots 1-5 -->
+            <div class="profile-acc-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow-sm)">
+              
+              <!-- 1. Personal -->
+              <div class="profile-acc-group">
+                <div class="profile-acc-header" onclick="Employees.toggleAccGroup(this)">
+                  <span class="profile-acc-title">Personal</span>
+                  <span class="profile-acc-icon">-</span>
+                </div>
+                <div class="profile-acc-body open">
+                  <div class="profile-acc-item ${(!this.currentProfileSection || this.currentProfileSection==='personal-details')?'active':''}" data-section="personal-details" onclick="Employees.switchProfileSection('personal-details', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Personal Details
                   </div>
-
-                  <div style="margin-bottom:10px">
-                    <div style="font-size:11px;color:var(--text-3);margin-bottom:4px">Assigned System Role:</div>
-                    <div>${Employees.getRoleBadge(emp.role || linkedUser?.role || 'employee')}</div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='contact-details'?'active':''}" data-section="contact-details" onclick="Employees.switchProfileSection('contact-details', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Contact Details
                   </div>
-
-                  ${linkedUser ? `
-                    <div style="font-size:11.5px;color:var(--text-2);margin-bottom:12px;background:var(--card);padding:8px 10px;border-radius:8px;border:1px solid var(--border)">
-                      <div style="display:flex;align-items:center;justify-content:space-between">
-                        <span style="font-family:monospace;font-weight:700;color:var(--primary)">
-                          <i class="fa fa-user" style="margin-right:5px"></i>${linkedUser.username}
-                        </span>
-                        <button class="btn btn-ghost btn-xs" onclick="Employees.copyCredentials('${linkedUser.username}', '${linkedUser.password}', '${emp.role||linkedUser.role}')" title="Copy Login Credentials">
-                          <i class="fa fa-copy"></i>
-                        </button>
-                      </div>
-                      <div style="font-size:10.5px;color:var(--text-muted);margin-top:4px">
-                        Last Sign-in: ${linkedUser.lastLogin ? Utils.formatDate(linkedUser.lastLogin) : 'Never logged in'}
-                      </div>
-                    </div>
-                  ` : `
-                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;background:var(--card);padding:8px;border-radius:8px;border:1px dashed var(--border)">
-                      <i class="fa fa-triangle-exclamation" style="color:var(--warning);margin-right:4px"></i>No active login user account linked.
-                    </div>
-                  `}
-
-                  <div style="display:flex;flex-direction:column;gap:6px">
-                    <button class="btn btn-primary btn-sm w-full" onclick="Employees.showAssignRoleModal(${emp.id})">
-                      <i class="fa fa-user-shield"></i> Assign / Edit Role
-                    </button>
-                    ${linkedUser ? `
-                      <button class="btn btn-secondary btn-sm w-full" onclick="Employees.showManageLoginModal(${emp.id})">
-                        <i class="fa fa-key"></i> Manage Login & Password
-                      </button>
-                    ` : `
-                      <button class="btn btn-secondary btn-sm w-full" onclick="Employees.createLoginForEmployee(${emp.id})">
-                        <i class="fa fa-user-plus"></i> Generate Login Account
-                      </button>
-                    `}
+                  <div class="profile-acc-item ${this.currentProfileSection==='emergency-contacts'?'active':''}" data-section="emergency-contacts" onclick="Employees.switchProfileSection('emergency-contacts', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Emergency Contacts
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='dependants'?'active':''}" data-section="dependants" onclick="Employees.switchProfileSection('dependants', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Dependants
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='photograph'?'active':''}" data-section="photograph" onclick="Employees.switchProfileSection('photograph', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Photograph
                   </div>
                 </div>
-              ` : ''}
+              </div>
 
-              ${isOnboardingSelf ? `
-                <button class="btn btn-primary w-full" onclick="Employees.showSelfServiceEditForm(${emp.id})"><i class="fa fa-pen-to-square"></i> Fill / Edit My Info</button>
-                <button class="btn btn-secondary w-full" onclick="Employees.showUploadDocumentModal(${emp.id})"><i class="fa fa-upload"></i> Upload Joining Docs</button>
-                ${emp.onboardingStatus !== 'submitted_for_review' ? `
-                  <button class="btn btn-success w-full" onclick="Employees.submitOnboardingForReview(${emp.id})"><i class="fa fa-paper-plane"></i> Submit to HR for Review</button>
-                ` : `
-                  <div style="padding:8px 12px;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.3);border-radius:8px;text-align:center;font-size:11.5px;color:#16a34a;font-weight:600">
-                    <i class="fa fa-circle-check"></i> Submitted for HR Verification
-                  </div>
-                `}
-              ` : ''}
-
-              ${isHR ? `
-                <button class="btn btn-secondary w-full" onclick="Employees.showEditForm(${emp.id})"><i class="fa fa-pen"></i> Edit Personal Details</button>
-                <button class="btn btn-ghost w-full" onclick="Employees.printProfile(${emp.id})"><i class="fa fa-print"></i> Print Profile</button>
-              ` : ''}
-
-              ${(!isHR && !isOnboardingSelf) ? `
-                <div style="padding:12px 14px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);border-radius:12px;text-align:center">
-                  <div style="font-size:12.5px;font-weight:700;color:#ec4899"><i class="fa fa-lock" style="margin-right:6px"></i>View-Only Profile</div>
-                  <div style="font-size:11px;color:var(--text-3);margin-top:3px">Employee records are protected and managed by HR Administration.</div>
+              <!-- 2. Employment -->
+              <div class="profile-acc-group">
+                <div class="profile-acc-header" onclick="Employees.toggleAccGroup(this)">
+                  <span class="profile-acc-title">Employment</span>
+                  <span class="profile-acc-icon">+</span>
                 </div>
+                <div class="profile-acc-body">
+                  <div class="profile-acc-item ${this.currentProfileSection==='joining-info'?'active':''}" data-section="joining-info" onclick="Employees.switchProfileSection('joining-info', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Joining Info
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='ending-info'?'active':''}" data-section="ending-info" onclick="Employees.switchProfileSection('ending-info', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Ending Info
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='lunch-subscription'?'active':''}" data-section="lunch-subscription" onclick="Employees.switchProfileSection('lunch-subscription', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Lunch Subscription
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='employment-status'?'active':''}" data-section="employment-status" onclick="Employees.switchProfileSection('employment-status', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Employment Status
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='official-contacts'?'active':''}" data-section="official-contacts" onclick="Employees.switchProfileSection('official-contacts', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Official Contacts
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='office-timings'?'active':''}" data-section="office-timings" onclick="Employees.switchProfileSection('office-timings', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Office Timings
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='report-to'?'active':''}" data-section="report-to" onclick="Employees.switchProfileSection('report-to', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Report-to
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='mis-info'?'active':''}" data-section="mis-info" onclick="Employees.switchProfileSection('mis-info', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> MIS Info
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='login-info'?'active':''}" data-section="login-info" onclick="Employees.switchProfileSection('login-info', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Login Info
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='bank-accounts'?'active':''}" data-section="bank-accounts" onclick="Employees.switchProfileSection('bank-accounts', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Bank Accounts
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='tax-info'?'active':''}" data-section="tax-info" onclick="Employees.switchProfileSection('tax-info', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Tax Info
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='insurance-details'?'active':''}" data-section="insurance-details" onclick="Employees.switchProfileSection('insurance-details', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Insurance Details
+                  </div>
+                </div>
+              </div>
+
+              <!-- 3. Qualification -->
+              <div class="profile-acc-group">
+                <div class="profile-acc-header" onclick="Employees.toggleAccGroup(this)">
+                  <span class="profile-acc-title">Qualification</span>
+                  <span class="profile-acc-icon">+</span>
+                </div>
+                <div class="profile-acc-body">
+                  <div class="profile-acc-item ${this.currentProfileSection==='personal-documents'?'active':''}" data-section="personal-documents" onclick="Employees.switchProfileSection('personal-documents', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Personal Documents
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='work-experience'?'active':''}" data-section="work-experience" onclick="Employees.switchProfileSection('work-experience', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Work Experience
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='education'?'active':''}" data-section="education" onclick="Employees.switchProfileSection('education', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Education
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='skills'?'active':''}" data-section="skills" onclick="Employees.switchProfileSection('skills', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Skills
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='working-technologies'?'active':''}" data-section="working-technologies" onclick="Employees.switchProfileSection('working-technologies', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Working Technologies
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='languages'?'active':''}" data-section="languages" onclick="Employees.switchProfileSection('languages', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Languages
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4. Performance Review -->
+              <div class="profile-acc-group">
+                <div class="profile-acc-header" onclick="Employees.toggleAccGroup(this)">
+                  <span class="profile-acc-title">Performance Review</span>
+                  <span class="profile-acc-icon">+</span>
+                </div>
+                <div class="profile-acc-body">
+                  <div class="profile-acc-item ${this.currentProfileSection==='performance-review'?'active':''}" data-section="performance-review" onclick="Employees.switchProfileSection('performance-review', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Performance Review
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='employee-review-comments'?'active':''}" data-section="employee-review-comments" onclick="Employees.switchProfileSection('employee-review-comments', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Employee Review Comments
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='pse-evaluation-form'?'active':''}" data-section="pse-evaluation-form" onclick="Employees.switchProfileSection('pse-evaluation-form', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> PSE evaluation form
+                  </div>
+                  <div class="profile-acc-item ${this.currentProfileSection==='next-year-targets'?'active':''}" data-section="next-year-targets" onclick="Employees.switchProfileSection('next-year-targets', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Next Year Targets
+                  </div>
+                </div>
+              </div>
+
+              <!-- 5. Attendance -->
+              <div class="profile-acc-group">
+                <div class="profile-acc-header" onclick="Employees.toggleAccGroup(this)">
+                  <span class="profile-acc-title">Attendance</span>
+                  <span class="profile-acc-icon">+</span>
+                </div>
+                <div class="profile-acc-body">
+                  <div class="profile-acc-item ${this.currentProfileSection==='attendance-correction'?'active':''}" data-section="attendance-correction" onclick="Employees.switchProfileSection('attendance-correction', this, ${emp.id})">
+                    <span class="acc-bullet">▸</span> Attendance Correction / Work From Home
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Profile Sidebar Management Actions -->
+            <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px">
+              ${isHR ? `
+                <button class="btn btn-primary btn-sm w-full" onclick="Employees.showAssignRoleModal(${emp.id})">
+                  <i class="fa fa-user-shield"></i> Assign / Edit Role
+                </button>
+                <button class="btn btn-secondary btn-sm w-full" onclick="Employees.showEditForm(${emp.id})">
+                  <i class="fa fa-pen"></i> Edit Personal Details
+                </button>
               ` : ''}
+              <button class="btn btn-ghost btn-sm w-full" onclick="Employees.printProfile(${emp.id})">
+                <i class="fa fa-print"></i> Print Profile
+              </button>
             </div>
           </div>
 
-          <!-- Right Tabs -->
-          <div class="card" style="padding:0">
-            <div class="tabs" style="padding:0 20px;margin-bottom:0;flex-wrap:wrap">
-              ${tabs.map((t,i) => `<button class="tab-btn ${i===0?'active':''}" data-tab="prof-${t.replace(/\s/g,'-').toLowerCase()}" onclick="Employees.switchProfileTab(this)">${t}</button>`).join('')}
-            </div>
-            <div style="padding:20px">
-              ${tabs.map((t,i) => `<div id="prof-${t.replace(/\s/g,'-').toLowerCase()}" class="tab-content ${i===0?'active':''}">${this.renderProfileTab(t, emp)}</div>`).join('')}
-            </div>
+          <!-- ═══════════════════════════════════════════════
+               RIGHT MAIN CONTENT PANEL
+          ═══════════════════════════════════════════════ -->
+          <div class="card" id="profile-main-content" style="padding:22px 24px;border-radius:10px;min-height:580px;border:1px solid var(--border);box-shadow:var(--shadow-sm)">
+            ${this.renderProfileSection(this.currentProfileSection || 'personal-details', emp)}
           </div>
         </div>
       </div>
+
+      <style>
+        .profile-acc-card { border: 1px solid var(--border); }
+        .profile-acc-group { border-bottom: 1px solid var(--border); }
+        .profile-acc-group:last-child { border-bottom: none; }
+        .profile-acc-header {
+          background: #f8fafc;
+          padding: 10px 14px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          font-size: 13.5px;
+          font-weight: 700;
+          color: #1e293b;
+          cursor: pointer;
+          user-select: none;
+          transition: background 0.15s ease;
+          border-top: 1px solid var(--border);
+        }
+        .profile-acc-group:first-child .profile-acc-header { border-top: none; }
+        .profile-acc-header:hover { background: #f1f5f9; }
+        .profile-acc-icon { font-size: 18px; font-weight: 800; color: #334155; line-height: 1; }
+        .profile-acc-body { display: none; background: #ffffff; }
+        .profile-acc-body.open { display: block; }
+        .profile-acc-item {
+          padding: 8px 16px;
+          font-size: 12.5px;
+          color: #0284c7;
+          border-bottom: 1px solid #f1f5f9;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: all 0.15s ease;
+        }
+        .profile-acc-item:last-child { border-bottom: none; }
+        .profile-acc-item:hover { background: rgba(2, 132, 199, 0.08); font-weight: 600; }
+        .profile-acc-item.active { background: rgba(2, 132, 199, 0.14); font-weight: 700; color: #0369a1; border-left: 3px solid #0284c7; }
+        .acc-bullet { color: #0284c7; font-size: 13px; font-family: monospace; }
+        
+        [data-theme="dark"] .profile-acc-header { background: #1e293b; color: #f8fafc; }
+        [data-theme="dark"] .profile-acc-header:hover { background: #334155; }
+        [data-theme="dark"] .profile-acc-body { background: #0f172a; }
+        [data-theme="dark"] .profile-acc-icon { color: #cbd5e1; }
+        [data-theme="dark"] .profile-acc-item { border-bottom-color: #1e293b; color: #38bdf8; }
+        [data-theme="dark"] .profile-acc-item:hover { background: rgba(56, 189, 248, 0.12); }
+        [data-theme="dark"] .profile-acc-item.active { background: rgba(56, 189, 248, 0.2); color: #38bdf8; border-left-color: #38bdf8; }
+      </style>
     `;
   },
 
-  switchProfileTab(btn) {
-    const tabId = btn.dataset.tab;
-    btn.closest('.card').querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    btn.closest('.card').querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.getElementById(tabId)?.classList.add('active');
+  currentProfileSection: 'personal-details',
+  activeProfileEmpId: null,
+
+  toggleAccGroup(headerEl) {
+    const body = headerEl.nextElementSibling;
+    const icon = headerEl.querySelector('.profile-acc-icon');
+    if (!body) return;
+    const isOpen = body.classList.contains('open');
+    if (isOpen) {
+      body.classList.remove('open');
+      if (icon) icon.textContent = '+';
+    } else {
+      body.classList.add('open');
+      if (icon) icon.textContent = '-';
+    }
+  },
+
+  switchProfileSection(sectionKey, itemEl, empId) {
+    this.currentProfileSection = sectionKey;
+    document.querySelectorAll('.profile-acc-item').forEach(el => el.classList.remove('active'));
+    if (itemEl) itemEl.classList.add('active');
+    const container = document.getElementById('profile-main-content');
+    const emp = DB.find('employees', empId || this.activeProfileEmpId);
+    if (container && emp) {
+      container.innerHTML = this.renderProfileSection(sectionKey, emp);
+    }
+  },
+
+  renderProfileSection(sectionKey, emp) {
+    const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const isMgr = Auth.role === 'dept_manager';
+    const isSelf = Auth.employee?.id === emp.id;
+    const myId = Auth.employee?.id;
+
+    const row = (label, val, icon = '') => `
+      <div style="display:flex;padding:11px 0;border-bottom:1px solid var(--border);align-items:center">
+        <div style="width:210px;font-size:12.5px;color:var(--text-3);font-weight:600;flex-shrink:0;display:flex;align-items:center;gap:8px">
+          ${icon ? `<i class="fa ${icon}" style="color:var(--primary);width:16px;text-align:center"></i>` : ''}
+          ${label}
+        </div>
+        <div style="font-size:13.5px;color:var(--text);font-weight:500;flex:1">${val || '—'}</div>
+      </div>
+    `;
+
+    const sectionHeader = (title, subtitle, actionBtn = '') => `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:10px">
+        <div>
+          <h3 style="font-size:17.5px;font-weight:700;color:var(--text);margin:0">${title}</h3>
+          ${subtitle ? `<div style="font-size:12px;color:var(--text-3);margin-top:2px">${subtitle}</div>` : ''}
+        </div>
+        ${actionBtn ? `<div>${actionBtn}</div>` : ''}
+      </div>
+    `;
+
+    switch(sectionKey) {
+      // ═════════════════════════════════════════════════════
+      // 1. PERSONAL (5 Sub-buttons)
+      // ═════════════════════════════════════════════════════
+      case 'personal-details': {
+        const editBtn = isHR ? `<button class="btn btn-secondary btn-sm" onclick="Employees.showEditForm(${emp.id})"><i class="fa fa-pen"></i> Edit Personal Details</button>` : '';
+        return `
+          ${sectionHeader('Personal Details', 'Basic identity, demographic and citizenship credentials', editBtn)}
+          <div>
+            ${row('Full Name', emp.fullName, 'fa-user')}
+            ${row('Date of Birth', Utils.formatDate(emp.dob), 'fa-calendar')}
+            ${row('Age', Utils.getAge(emp.dob) + ' Years', 'fa-hourglass-half')}
+            ${row('Gender', emp.gender, 'fa-venus-mars')}
+            ${row('Marital Status', emp.maritalStatus, 'fa-ring')}
+            ${row('CNIC / National ID', emp.cnic, 'fa-id-card')}
+            ${row('Blood Group', emp.bloodGroup, 'fa-droplet')}
+            ${row('Nationality', emp.nationality, 'fa-flag')}
+            ${row('Religion', emp.religion, 'fa-mosque')}
+            ${row('Residential Address', emp.address, 'fa-location-dot')}
+          </div>
+        `;
+      }
+
+      case 'contact-details': {
+        const editBtn = isHR ? `<button class="btn btn-secondary btn-sm" onclick="Employees.showEditForm(${emp.id})"><i class="fa fa-pen"></i> Edit Contacts</button>` : '';
+        return `
+          ${sectionHeader('Contact Details', 'Direct communications, residences and coordinates', editBtn)}
+          <div>
+            ${row('Official Email', emp.email, 'fa-envelope')}
+            ${row('Personal Phone / Mobile', emp.phone, 'fa-mobile-screen')}
+            ${row('Alternate Emergency Phone', emp.emergencyContact?.phone || 'Not Registered', 'fa-phone')}
+            ${row('Current Residence', emp.address, 'fa-house-user')}
+            ${row('Permanent Address', emp.address, 'fa-building')}
+            ${row('City', Utils.getBranchName(emp.branchId) || 'Karachi', 'fa-city')}
+            ${row('Country', emp.nationality || 'Pakistan', 'fa-earth-asia')}
+          </div>
+        `;
+      }
+
+      case 'emergency-contacts': {
+        const ec = emp.emergencyContact || {};
+        return `
+          ${sectionHeader('Emergency Contacts', 'Immediate relatives and next-of-kin for critical notifications', '')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+              <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.5px">
+                <i class="fa fa-user-shield" style="margin-right:6px"></i> Primary Emergency Contact
+              </div>
+              ${row('Contact Name', ec.name || 'Not Provided')}
+              ${row('Relationship', ec.relation || '—')}
+              ${row('Emergency Phone', ec.phone || '—')}
+              ${row('Residence', emp.address || '—')}
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+              <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.5px">
+                <i class="fa fa-hospital" style="margin-right:6px"></i> Corporate SOS & Medical Desk
+              </div>
+              ${row('Company Helpline', '021-111-HRM-PRO (Ext 911)')}
+              ${row('Head of Medical', 'Dr. Tariq Siddiqui')}
+              ${row('Emergency Panel Ambulance', '1122 (Aman / Edhi Link)')}
+              ${row('Designated Hospital', 'South City / Aga Khan University')}
+            </div>
+          </div>
+        `;
+      }
+
+      case 'dependants': {
+        const deps = (DB.get('dependents') || []).filter(d => d.employeeId === emp.id);
+        const addBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showAddDependent(${emp.id})"><i class="fa fa-plus"></i> Add Dependant</button>`;
+        return `
+          ${sectionHeader('Registered Dependants', 'Family members eligible for medical coverage and dependent benefits', addBtn)}
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Dependant Name</th>
+                  <th>Relationship</th>
+                  <th>Date of Birth</th>
+                  <th>CNIC / B-Form</th>
+                  <th>Medical Coverage</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${deps.length === 0 ? `
+                  <tr><td colspan="6"><div class="empty-state" style="padding:30px"><i class="fa fa-users"></i><h3>No Dependants Registered</h3><p>Click "Add Dependant" to register family members.</p></div></td></tr>
+                ` : deps.map(d => `
+                  <tr>
+                    <td style="font-weight:600">${d.name}</td>
+                    <td><span class="chip">${d.relation}</span></td>
+                    <td>${Utils.formatDate(d.dob)}</td>
+                    <td>${d.cnic || '—'}</td>
+                    <td><span class="badge badge-success"><i class="fa fa-shield-halved"></i> Active Insured</span></td>
+                    <td>
+                      <button class="btn btn-danger btn-xs" onclick="Employees.deleteDependent(${d.id}, ${emp.id})"><i class="fa fa-trash"></i></button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      case 'photograph': {
+        const changeBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showUploadPhotoModal(${emp.id})"><i class="fa fa-upload"></i> Change / Upload Photograph</button>`;
+        return `
+          ${sectionHeader('Official Photograph', 'Biometric portrait for identification cards and access gates', changeBtn)}
+          <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;background:var(--surface);padding:24px;border-radius:12px;border:1px solid var(--border)">
+            <div style="width:160px;height:190px;border:2px solid var(--primary);border-radius:8px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)">
+              ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `
+                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:52px;font-weight:800">
+                  ${Utils.avatarInitials(emp.fullName)}
+                </div>
+              `}
+            </div>
+            <div style="flex:1;min-width:240px">
+              <h4 style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">${emp.fullName}</h4>
+              <div style="font-size:13px;color:var(--text-3);margin-bottom:12px">EMP ID: <strong>${emp.empNo}</strong> • ${Utils.getDesigName(emp.designationId)}</div>
+              <div style="background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);line-height:1.6">
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> White or light blue background standard.</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> Passport size portrait framing (300x350px).</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> Synchronized with main Biometric turnstile system.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // ═════════════════════════════════════════════════════
+      // 2. EMPLOYMENT (12 Sub-buttons)
+      // ═════════════════════════════════════════════════════
+      case 'joining-info': {
+        return `
+          ${sectionHeader('Joining Information', 'Terms of appointment, induction milestones and tenure', '')}
+          <div>
+            ${row('Date of Joining', Utils.formatDate(emp.joiningDate), 'fa-calendar-plus')}
+            ${row('Confirmation Date', Utils.formatDate(emp.confirmationDate), 'fa-calendar-check')}
+            ${row('Probationary Duration', '3 Months (Standard)', 'fa-clock')}
+            ${row('Designation at Joining', Utils.getDesigName(emp.designationId), 'fa-briefcase')}
+            ${row('Department', Utils.getDeptName(emp.departmentId), 'fa-sitemap')}
+            ${row('Assigned Branch', Utils.getBranchName(emp.branchId), 'fa-building')}
+            ${row('Employment Category', emp.employmentType, 'fa-file-contract')}
+            ${row('Offer & Appointment Letter', '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Formally Executed & Signed</span>', 'fa-file-signature')}
+          </div>
+        `;
+      }
+
+      case 'ending-info': {
+        return `
+          ${sectionHeader('Ending & Separation Details', 'Notice periods, resignation status and exit clearance records', '')}
+          <div>
+            ${row('Employment Lifecycle Status', Utils.statusBadge(emp.status), 'fa-user-clock')}
+            ${row('Resignation / Exit Date', emp.exitDate ? Utils.formatDate(emp.exitDate) : 'Not Applicable (Currently Active in Service)', 'fa-calendar-xmark')}
+            ${row('Last Working Day', emp.exitDate ? Utils.formatDate(emp.exitDate) : 'Currently In Service', 'fa-calendar-day')}
+            ${row('Notice Period Requirement', '30 Days Standard Written Notice', 'fa-hourglass-start')}
+            ${row('Exit Interview Clearance', emp.status === 'inactive' ? '<span class="badge badge-success">Completed</span>' : '<span class="badge badge-secondary">Not Required (Active)</span>', 'fa-clipboard-check')}
+            ${row('Final Settlement & Gratuity', emp.status === 'inactive' ? 'Processed & Disbursed' : 'Accruing with service years', 'fa-receipt')}
+          </div>
+        `;
+      }
+
+      case 'lunch-subscription': {
+        const ls = emp.lunchSubscription || { subscribed: true, plan: 'Standard Corporate Buffet', diet: 'Regular / Halal', cafeteriaPass: `CAF-${String(emp.id).padStart(4,'0')}` };
+        const toggleBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.toggleLunchSubscription(${emp.id})"><i class="fa fa-utensils"></i> ${ls.subscribed ? 'Opt-Out from Lunch' : 'Subscribe to Lunch'}</button>`;
+        return `
+          ${sectionHeader('Lunch Subscription & Cafeteria Plan', 'Daily corporate lunch subscription, cafeteria RFID pass, and dietary preferences', toggleBtn)}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;margin-bottom:16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+              <div>
+                <div style="font-size:12px;color:var(--text-3)">Current Meal Subscription Status:</div>
+                <div style="font-size:18px;font-weight:700;color:var(--text);margin-top:2px">
+                  ${ls.subscribed 
+                    ? '<span class="badge badge-success" style="font-size:13px;padding:5px 12px"><i class="fa fa-circle-check"></i> Subscribed & Active</span>' 
+                    : '<span class="badge badge-secondary" style="font-size:13px;padding:5px 12px"><i class="fa fa-circle-xmark"></i> Inactive (Opted Out)</span>'}
+                </div>
+              </div>
+              <div style="font-size:32px;color:var(--primary);opacity:0.8"><i class="fa fa-bowl-food"></i></div>
+            </div>
+            ${row('Cafeteria RFID Access Pass', ls.cafeteriaPass || `CAF-${String(emp.id).padStart(4,'0')}`, 'fa-id-card-clip')}
+            ${row('Meal Plan', ls.plan || 'Standard Corporate Buffet (Mon-Fri)', 'fa-plate-wheat')}
+            ${row('Dietary Preferences', ls.diet || 'Regular / Halal', 'fa-leaf')}
+            ${row('Cafeteria Dining Hours', '01:00 PM – 02:00 PM (Executive Dining Hall)', 'fa-clock')}
+            ${row('Company Subsidy Coverage', '70% Subsidized by Employer (30% nominal payroll deduction)', 'fa-hand-holding-dollar')}
+          </div>
+        `;
+      }
+
+      case 'employment-status': {
+        return `
+          ${sectionHeader('Employment Status & Tenancy', 'Official contractual classification, department and rank', '')}
+          <div>
+            ${row('Current Standing', Utils.statusBadge(emp.status), 'fa-signal')}
+            ${row('Employment Classification', emp.employmentType || 'Permanent', 'fa-briefcase')}
+            ${row('Department', Utils.getDeptName(emp.departmentId), 'fa-sitemap')}
+            ${row('Designation', Utils.getDesigName(emp.designationId), 'fa-id-badge')}
+            ${row('System Authorization Role', Employees.getRoleBadge(emp.role || 'employee'), 'fa-user-shield')}
+            ${row('Service Tenure', `Joined on ${Utils.formatDate(emp.joiningDate)}`, 'fa-clock')}
+            ${row('Official Work Station', Utils.getBranchName(emp.branchId), 'fa-building')}
+          </div>
+        `;
+      }
+
+      case 'official-contacts': {
+        return `
+          ${sectionHeader('Official Workplace Contacts', 'Corporate communication lines, desk numbers and extension routing', '')}
+          <div>
+            ${row('Corporate Email', emp.email, 'fa-envelope')}
+            ${row('Internal Phone Extension', `Ext. 10${emp.id}`, 'fa-phone-volume')}
+            ${row('Workstation Desk Location', `Desk-${emp.departmentId}-0${emp.id} (Floor 2, Wing B)`, 'fa-desktop')}
+            ${row('Corporate SIM / Mobile', `+92 300 000${String(emp.id).padStart(4,'0')}`, 'fa-mobile-screen')}
+            ${row('Slack / Teams Handle', `@${emp.email.split('@')[0]}`, 'fa-comments')}
+          </div>
+        `;
+      }
+
+      case 'office-timings': {
+        return `
+          ${sectionHeader('Office Timings & Shift Schedule', 'Official working hours, morning cutoffs and grace policies', '')}
+          <div>
+            ${row('Assigned Shift', 'General Morning Shift (Shift #1)', 'fa-clock')}
+            ${row('Standard In-Time', '09:00 AM', 'fa-arrow-right-to-bracket')}
+            ${row('Standard Out-Time', '06:00 PM', 'fa-arrow-right-from-bracket')}
+            ${row('Grace Period Allowance', '15 Minutes (Grace check-in permitted until 09:15 AM)', 'fa-stopwatch')}
+            ${row('Time-In Window Rule', '10:00 AM – 11:00 AM Cutoff (Punches after 11:00 AM marked Late)', 'fa-triangle-exclamation')}
+            ${row('Working Days', 'Monday through Friday (5 Days/week, 40 hours)', 'fa-calendar-week')}
+            ${row('Weekly Off Days', 'Saturday & Sunday', 'fa-couch')}
+          </div>
+        `;
+      }
+
+      case 'report-to': {
+        const reportingManager = DB.find('employees', emp.managerId) || { fullName: 'Usman Baig', email: 'usman.baig@company.com', phone: '0333-3456789' };
+        const hrManager = DB.find('employees', 2) || { fullName: 'Sara Malik', email: 'sara.malik@company.com', phone: '0321-2345678' };
+        const adminManager = DB.find('employees', 1) || { fullName: 'Ahmed Khan', email: 'ahmed.khan@company.com', phone: '0300-1234567' };
+
+        // Subordinates (e.g. if this employee is Usman Baig, show his 4 team members)
+        const myTeam = (DB.get('employees') || []).filter(e => e.managerId === emp.id || e.reportingTo === emp.id);
+        const reassignBtn = isHR ? `<button class="btn btn-secondary btn-sm" onclick="Employees.showReassignManagerModal(${emp.id})"><i class="fa fa-user-pen"></i> Change Reporting Manager</button>` : '';
+
+        return `
+          ${sectionHeader('Reporting Hierarchy ("Report-to")', 'Multi-tier supervisory chain: Direct Manager, HR and Executive Admin', reassignBtn)}
+          
+          <!-- Hierarchical Reporting Chain -->
+          <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
+            
+            <!-- Tier 1: Reporting Manager (Deputy Manager) -->
+            <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid var(--primary);border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(reportingManager.id)}">${Utils.avatarInitials(reportingManager.fullName)}</div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-primary" style="font-size:10.5px"><i class="fa fa-user-tie"></i> Direct Reporting Manager (Tier 1)</span>
+                    ${reportingManager.id === 3 ? `<span class="badge badge-info" style="font-size:10px">Deputy Manager</span>` : ''}
+                  </div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${reportingManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(reportingManager.designationId)} • ${reportingManager.email} • ${reportingManager.phone}</div>
+                </div>
+              </div>
+              <div style="text-align:right;max-width:280px">
+                <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase">Approval Authority</div>
+                <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">First-level review and sign-off for Leaves, Attendance Corrections, WFH, and Performance Appraisals.</div>
+              </div>
+            </div>
+
+            <!-- Tier 2: HR Manager -->
+            <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #6366f1;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10.5px"><i class="fa fa-users-gear"></i> Human Resources (Tier 2)</span>
+                  </div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${hrManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">Head of Human Resources • ${hrManager.email} • ${hrManager.phone}</div>
+                </div>
+              </div>
+              <div style="text-align:right;max-width:280px">
+                <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase">Corporate HR Oversight</div>
+                <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Direct final approval power across all company personnel, leave quotas, and performance cycles.</div>
+              </div>
+            </div>
+
+            <!-- Tier 3: Executive Administrator (Admin) -->
+            <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Executive Administrator (Tier 3)</span>
+                  </div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                </div>
+              </div>
+              <div style="text-align:right;max-width:280px">
+                <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase">Universal Authority</div>
+                <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Complete company-wide authorization to initiate or approve any leave, correction, or appraisal.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Direct Subordinates / Team Members (Shown for Managers) -->
+          ${myTeam.length > 0 ? `
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+                  <i class="fa fa-users-viewfinder" style="color:var(--primary)"></i> Direct Subordinates / Team (${myTeam.length} Employees)
+                </div>
+                <span class="badge badge-primary">${myTeam.length} Assigned Reportees</span>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:12px">
+                ${myTeam.map(t => `
+                  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)}">${Utils.avatarInitials(t.fullName)}</div>
+                    <div style="flex:1;overflow:hidden">
+                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${t.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(t.designationId)}</div>
+                    </div>
+                    <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${t.id})" title="View Profile">
+                      <i class="fa fa-chevron-right"></i>
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        `;
+      }
+
+      case 'mis-info': {
+        return `
+          ${sectionHeader('Management Information System (MIS) Details', 'Hardware biometric mapping, ERP cost centers and accounting codes', '')}
+          <div>
+            ${row('Biometric User ID', `BIO-${1000 + emp.id}`, 'fa-fingerprint')}
+            ${row('ERP Cost Center Code', `CC-ENG-0${emp.departmentId || 1}`, 'fa-money-check')}
+            ${row('Operating Division', 'Engineering & Enterprise Solutions', 'fa-diagram-project')}
+            ${row('Internal Cost Code', `ERP-PK-${String(emp.id).padStart(3,'0')}`, 'fa-barcode')}
+            ${row('Main Turnstile Machine', 'Station #01 (Main Head Office Turnstile Gate)', 'fa-door-open')}
+          </div>
+        `;
+      }
+
+      case 'login-info': {
+        const users = DB.get('users') || [];
+        const user = users.find(u => u.employeeId === emp.id);
+        const currentRole = emp.role || user?.role || 'employee';
+
+        return `
+          ${sectionHeader('Login Credentials & Role Authorization', 'System credentials, role governance and security access policies', '')}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+              <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-shield-halved" style="color:var(--primary)"></i> User Account Credentials
+              </div>
+              ${row('Username', user ? `<span style="font-family:monospace;font-weight:700">${user.username}</span>` : 'No Login Linked', 'fa-user')}
+              ${row('Assigned Role', Employees.getRoleBadge(currentRole), 'fa-user-shield')}
+              ${row('Account Status', user ? `<span class="badge ${user.status==='active'?'badge-success':'badge-danger'}">${user.status.toUpperCase()}</span>` : '—', 'fa-toggle-on')}
+              ${row('Last Sign-In', user?.lastLogin ? Utils.formatDate(user.lastLogin) : 'Never Logged In', 'fa-clock')}
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;justify-content:space-between">
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px">
+                  <i class="fa fa-key" style="color:var(--primary);margin-right:6px"></i> Security & Role Operations
+                </div>
+                <div style="font-size:12px;color:var(--text-3);line-height:1.5">
+                  Administrative controls allow resetting credentials, rotating passwords, or upgrading permissions.
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+                ${isHR ? `
+                  <button class="btn btn-primary btn-sm w-full" onclick="Employees.showAssignRoleModal(${emp.id})">
+                    <i class="fa fa-user-shield"></i> Assign / Change Role
+                  </button>
+                  ${user ? `
+                    <button class="btn btn-secondary btn-sm w-full" onclick="Employees.showManageLoginModal(${emp.id})">
+                      <i class="fa fa-key"></i> Manage Password & Credentials
+                    </button>
+                  ` : `
+                    <button class="btn btn-secondary btn-sm w-full" onclick="Employees.createLoginForEmployee(${emp.id})">
+                      <i class="fa fa-user-plus"></i> Generate Login Credentials
+                    </button>
+                  `}
+                ` : `
+                  <div style="font-size:11.5px;color:var(--text-muted);background:var(--card);padding:10px;border-radius:6px;border:1px dashed var(--border)">
+                    <i class="fa fa-lock" style="margin-right:4px"></i> Managed centrally by HR Administration.
+                  </div>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      case 'bank-accounts': {
+        return `
+          ${sectionHeader('Bank Accounts & Salary Disbursement', 'Direct bank deposit information and international IBAN', '')}
+          <div>
+            ${row('Bank Name', emp.bankName || 'Habib Bank Limited (HBL)', 'fa-building-columns')}
+            ${row('Account Title', emp.fullName, 'fa-user')}
+            ${row('Account Number', emp.accountNo || '1234567890123', 'fa-money-bill-transfer')}
+            ${row('IBAN', emp.iban || 'PK36HABB0000001123456702', 'fa-hashtag')}
+            ${row('Branch Name & Code', 'Corporate Main Branch (0421)', 'fa-location-dot')}
+            ${row('Disbursement Mode', 'Direct Electronic Funds Transfer via 1-Link', 'fa-bolt')}
+          </div>
+        `;
+      }
+
+      case 'tax-info': {
+        const annualSal = (emp.salary || 65000) * 12;
+        const estTax = Math.round(annualSal * 0.05);
+        return `
+          ${sectionHeader('Taxation & FBR Details', 'National Tax identification, active filer status and deduction bracket', '')}
+          <div>
+            ${row('National Tax Number (NTN)', `${4000000 + emp.id * 137}-7`, 'fa-receipt')}
+            ${row('FBR Filer Status', '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Active Tax Filer</span>', 'fa-check')}
+            ${row('Income Tax Slab', 'FBR Salaried Slab 2 (5% after basic threshold)', 'fa-scale-balanced')}
+            ${row('Standard Allowances', 'Medical Allowance (10%) & Conveyance Allowance (Exempt)', 'fa-shield-halved')}
+            ${row('Estimated Annual Tax Deducted', Utils.formatCurrency(estTax), 'fa-money-bill-wave')}
+          </div>
+        `;
+      }
+
+      case 'insurance-details': {
+        const isExec = emp.role === 'superadmin' || emp.role === 'dept_manager' || emp.role === 'hr_manager';
+        return `
+          ${sectionHeader('Corporate Health & Life Insurance', 'Hospitalization coverage, health policy limits and insured family members', '')}
+          <div>
+            ${row('Insurance Policy Number', `JUB-CORP-${String(88000 + emp.id)}`, 'fa-file-shield')}
+            ${row('Insurance Provider', 'Jubilee Life & Health Insurance Co.', 'fa-hospital')}
+            ${row('Policy Tier', isExec ? '<span class="badge badge-warning">Executive Platinum Tier</span>' : '<span class="badge badge-primary">Corporate Gold Tier</span>', 'fa-award')}
+            ${row('In-Patient Hospitalization Limit', 'PKR 1,500,000 / annum', 'fa-bed-pulse')}
+            ${row('Out-Patient (OPD) Benefit Limit', 'PKR 50,000 / annum', 'fa-stethoscope')}
+            ${row('Dependants Insured', emp.maritalStatus === 'Married' ? 'Spouse + 2 Children (Full Coverage)' : 'Self Only (Single)', 'fa-users')}
+            ${row('Panel Hospital Network Access', 'Access to 400+ cashless panel hospitals nationwide', 'fa-network-wired')}
+          </div>
+        `;
+      }
+
+      // ═════════════════════════════════════════════════════
+      // 3. QUALIFICATION (6 Sub-buttons)
+      // ═════════════════════════════════════════════════════
+      case 'personal-documents': {
+        return this.renderProfileTab('Documents', emp);
+      }
+
+      case 'work-experience': {
+        return this.renderProfileTab('Experience', emp);
+      }
+
+      case 'education': {
+        return this.renderProfileTab('Qualification', emp);
+      }
+
+      case 'skills': {
+        const skillsList = emp.skillsList || [
+          { name: 'Technical Architecture & Coding', pct: 90, cat: 'Technical' },
+          { name: 'Problem Solving & Debugging', pct: 85, cat: 'Technical' },
+          { name: 'Agile Team Collaboration', pct: 80, cat: 'Management' },
+          { name: 'Quality Assurance & Delivery', pct: 85, cat: 'Technical' }
+        ];
+        return `
+          ${sectionHeader('Skills & Core Competencies', 'Technical proficiencies, operational capabilities and soft skills', '')}
+          <div style="display:flex;flex-direction:column;gap:14px">
+            ${skillsList.map(s => `
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                  <span style="font-weight:600;font-size:13.5px">${s.name} <span class="chip" style="margin-left:6px">${s.cat}</span></span>
+                  <span style="font-weight:700;color:var(--primary);font-size:13px">${s.pct}%</span>
+                </div>
+                <div class="progress" style="height:7px"><div class="progress-bar" style="width:${s.pct}%;background:var(--primary)"></div></div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      case 'working-technologies': {
+        const techs = emp.technologies || ['React', 'Node.js', 'PostgreSQL', 'Git', 'Docker', 'REST APIs'];
+        const addBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showAddTechnologyModal(${emp.id})"><i class="fa fa-plus"></i> Add Technology</button>`;
+        return `
+          ${sectionHeader('Working Technologies & Stacks', 'Development frameworks, tools, libraries and databases utilized', addBtn)}
+          <div style="display:flex;flex-wrap:wrap;gap:10px">
+            ${techs.map(t => `
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px">
+                <i class="fa fa-layer-group" style="color:var(--primary)"></i>
+                <span>${t}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      case 'languages': {
+        const langs = emp.languages || [
+          { language: 'English', proficiency: 'Professional / Fluent' },
+          { language: 'Urdu', proficiency: 'Native / Mother Tongue' }
+        ];
+        const addBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showAddLanguageModal(${emp.id})"><i class="fa fa-plus"></i> Add Language</button>`;
+        return `
+          ${sectionHeader('Language Proficiencies', 'Spoken and written languages for corporate communications', addBtn)}
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            ${langs.map(l => `
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-weight:700;font-size:14px"><i class="fa fa-language" style="color:var(--primary);margin-right:6px"></i>${l.language}</div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:2px">${l.proficiency}</div>
+                </div>
+                <span class="badge badge-primary">Verified</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // ═════════════════════════════════════════════════════
+      // 4. PERFORMANCE REVIEW (4 Sub-buttons)
+      // ═════════════════════════════════════════════════════
+      case 'performance-review': {
+        const initBtn = isHR ? `<button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()"><i class="fa fa-plus"></i> Initiate Performance Review</button>` : '';
+        return `
+          ${sectionHeader('Performance Review Summary', 'Historical evaluation cycles, overall ratings and appraisal history', initBtn)}
+          <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:12px;padding:20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase">Annual Evaluation Score 2026</div>
+              <div style="font-size:28px;font-weight:800;color:var(--text);margin-top:4px">
+                ★ 4.2 <span style="font-size:14px;color:var(--text-3);font-weight:500">/ 5.0 (Exceeds Expectations)</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">Evaluated by Direct Reporting Manager & Approved by Corporate HR</div>
+            </div>
+            <div style="display:flex;gap:10px">
+              <span class="badge badge-success" style="font-size:12px;padding:6px 14px"><i class="fa fa-circle-check"></i> Eligible for Annual Increment</span>
+            </div>
+          </div>
+          ${this.renderProfileTab('Performance', emp)}
+        `;
+      }
+
+      case 'employee-review-comments': {
+        const pse = emp.pseEvaluation || {};
+        return `
+          ${sectionHeader('Employee Review Comments', 'Employee self-assessment commentary, accomplishments, challenges and growth aspirations', '')}
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+              <div style="font-weight:700;font-size:13.5px;color:var(--text);margin-bottom:6px">
+                <i class="fa fa-quote-left" style="color:var(--primary);margin-right:6px"></i> Key Accomplishments & Deliverables
+              </div>
+              <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin:0">
+                ${pse.employeeComments || 'Successfully delivered all major sprint milestones on schedule, spearheaded component modularization, and actively resolved production incidents.'}
+              </p>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+              <div style="font-weight:700;font-size:13.5px;color:var(--text);margin-bottom:6px">
+                <i class="fa fa-compass" style="color:var(--primary);margin-right:6px"></i> Career Development & Growth Aspirations
+              </div>
+              <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin:0">
+                Seeking to expand leadership responsibilities in architecture and system scalability while mentoring incoming junior engineers.
+              </p>
+            </div>
+          </div>
+        `;
+      }
+
+      case 'pse-evaluation-form': {
+        const pse = emp.pseEvaluation || {
+          jobKnowledge: 4, workQuality: 5, teamwork: 4, punctuality: 4, leadership: 4,
+          overallScore: '4.2 / 5.0',
+          managerComments: 'Consistent high performer with strong initiative and collaborative team mindset.',
+          evaluatedBy: 'Usman Baig (Deputy Manager)',
+          evaluatedDate: '2026-08-30'
+        };
+        const canSubmit = isHR || isMgr || (Auth.employee?.id === emp.managerId);
+        const evalBtn = canSubmit ? `<button class="btn btn-primary btn-sm" onclick="Employees.showEditPSEModal(${emp.id})"><i class="fa fa-pen-to-square"></i> Evaluate & Submit PSE Review</button>` : '';
+
+        return `
+          ${sectionHeader('Performance & Skills Evaluation (PSE) Form', '5 Core Competencies evaluated by Direct Reporting Manager', evalBtn)}
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+            ${[
+              { label: '1. Job Knowledge & Technical Competence', score: pse.jobKnowledge || 4, desc: 'Mastery of technical tools, system design and domain knowledge.' },
+              { label: '2. Quality of Work & Delivery Accuracy', score: pse.workQuality || 5, desc: 'Thoroughness, minimal defects, adherence to specifications.' },
+              { label: '3. Teamwork, Collaboration & Communication', score: pse.teamwork || 4, desc: 'Cross-functional cooperation, timely updates and helpfulness.' },
+              { label: '4. Punctuality, Discipline & Dependability', score: pse.punctuality || 4, desc: 'Regular attendance, schedule adherence and reliability under pressure.' },
+              { label: '5. Leadership, Initiative & Problem Solving', score: pse.leadership || 4, desc: 'Proactive ownership, mentoring and creative problem resolution.' },
+            ].map(c => `
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                  <div style="font-weight:700;font-size:13px">${c.label}</div>
+                  <div style="font-weight:800;color:var(--primary);font-size:14px">${c.score} / 5</div>
+                </div>
+                <div style="font-size:11.5px;color:var(--text-3);margin-bottom:8px">${c.desc}</div>
+                <div class="progress" style="height:7px"><div class="progress-bar" style="width:${(c.score/5)*100}%;background:var(--primary)"></div></div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Manager's Narrative Feedback -->
+          <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:10px;padding:16px">
+            <div style="font-weight:700;font-size:13.5px;color:var(--text);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+              <i class="fa fa-comment-dots" style="color:var(--primary)"></i> Reporting Manager Evaluation Remarks
+            </div>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin:0;margin-bottom:10px">
+              ${pse.managerComments || 'Demonstrates solid initiative and reliable execution throughout the review period.'}
+            </p>
+            <div style="font-size:11.5px;color:var(--text-3);border-top:1px dashed var(--border);padding-top:8px">
+              Evaluated by: <strong>${pse.evaluatedBy || 'Usman Baig (Deputy Manager)'}</strong> • Evaluation Date: ${pse.evaluatedDate || Utils.today()}
+            </div>
+          </div>
+        `;
+      }
+
+      case 'next-year-targets': {
+        const targets = emp.nextYearTargets || [
+          { target: 'Achieve 98% on-time sprint task delivery', metric: 'Sprint Velocity', weight: '40%', timeline: 'Q1-Q4' },
+          { target: 'Complete advanced certification in core technology', metric: 'Certification', weight: '30%', timeline: 'Q3' },
+          { target: 'Mentor junior team members and conduct code reviews', metric: 'Code Quality', weight: '30%', timeline: 'Ongoing' }
+        ];
+        const addBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showAddTargetModal(${emp.id})"><i class="fa fa-plus"></i> Add Target / Goal</button>`;
+        return `
+          ${sectionHeader('Next Year Targets & Objectives (OKRs)', 'Strategic goals, KPI metrics and measurable deliverables agreed with manager', addBtn)}
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Target Objective</th>
+                  <th>Key Performance Metric</th>
+                  <th>Weight</th>
+                  <th>Timeline</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${targets.map(t => `
+                  <tr>
+                    <td style="font-weight:600">${t.target}</td>
+                    <td><span class="chip">${t.metric}</span></td>
+                    <td><strong>${t.weight}</strong></td>
+                    <td>${t.timeline}</td>
+                    <td><span class="badge badge-info"><i class="fa fa-spinner"></i> In Progress</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      // ═════════════════════════════════════════════════════
+      // 5. ATTENDANCE (1 Sub-button: Correction & WFH)
+      // ═════════════════════════════════════════════════════
+      case 'attendance-correction': {
+        const allCorr = DB.get('attendance_corrections') || [];
+        const myCorr = allCorr.filter(c => c.employeeId === emp.id);
+        const addBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showApplyCorrectionModal(${emp.id})"><i class="fa fa-plus"></i> Apply for Correction / WFH</button>`;
+
+        const pendingCount = myCorr.filter(c => c.status === 'pending' || c.status === 'manager_approved').length;
+        const approvedCount = myCorr.filter(c => c.status === 'approved').length;
+
+        return `
+          ${sectionHeader('Attendance Correction / Work From Home', 'Submit punch corrections, biometric resolution or remote working requests', addBtn)}
+          
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;margin-bottom:20px">
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--text)">${myCorr.length}</div>
+              <div style="font-size:11.5px;color:var(--text-3);font-weight:600">Total Requests</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3);font-weight:600">Pending Review</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+              <div style="font-size:22px;font-weight:800;color:var(--success)">${approvedCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3);font-weight:600">Approved & Synced</div>
+            </div>
+          </div>
+
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Request Type</th>
+                  <th>Requested Times</th>
+                  <th>Reason / Justification</th>
+                  <th>Approval Status</th>
+                  <th>Review Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${myCorr.length === 0 ? `
+                  <tr><td colspan="6"><div class="empty-state" style="padding:30px"><i class="fa fa-clock-rotate-left"></i><h3>No Correction or WFH Requests</h3><p>Click "Apply for Correction / WFH" to submit a new request.</p></div></td></tr>
+                ` : myCorr.map(c => {
+                  const isPendingManager = c.status === 'pending';
+                  const isManagerApproved = c.status === 'manager_approved';
+                  const isApproved = c.status === 'approved';
+                  const isRejected = c.status === 'rejected';
+
+                  let statusBadge = '';
+                  if (isPendingManager) statusBadge = `<span class="badge badge-warning" style="font-size:11px"><i class="fa fa-clock"></i> Pending Manager</span>`;
+                  else if (isManagerApproved) statusBadge = `<span class="badge badge-info" style="font-size:11px"><i class="fa fa-user-check"></i> Manager Approved (Awaiting HR)</span>`;
+                  else if (isApproved) statusBadge = `<span class="badge badge-success" style="font-size:11px"><i class="fa fa-check-double"></i> Approved & Synced</span>`;
+                  else if (isRejected) statusBadge = `<span class="badge badge-danger" style="font-size:11px"><i class="fa fa-times"></i> Rejected</span>`;
+
+                  // Actions: Deputy Manager approves tier 1; HR/Admin approves universal
+                  const canManagerApprove = (Auth.role === 'dept_manager' && isPendingManager);
+                  const canHRApprove = (isHR && (isPendingManager || isManagerApproved));
+
+                  return `
+                    <tr>
+                      <td style="font-weight:600">${Utils.formatDate(c.date)}</td>
+                      <td>
+                        <span class="badge" style="background:${c.type==='work_from_home'?'rgba(139,92,246,0.15)':'rgba(2,132,199,0.15)'};color:${c.type==='work_from_home'?'#8b5cf6':'#0284c7'}">
+                          <i class="fa ${c.type==='work_from_home'?'fa-house-laptop':'fa-clock'}"></i> ${c.type==='work_from_home'?'Work From Home':'Attendance Correction'}
+                        </span>
+                      </td>
+                      <td><strong>${c.timeIn || '09:00'} – ${c.timeOut || '18:00'}</strong></td>
+                      <td style="max-width:200px;font-size:12px">${c.reason}</td>
+                      <td>${statusBadge}</td>
+                      <td>
+                        <div style="display:flex;gap:4px">
+                          ${canManagerApprove ? `
+                            <button class="btn btn-success btn-xs" onclick="Employees.approveCorrection(${c.id}, 'manager', ${emp.id})" title="Manager 1st Level Approval">
+                              <i class="fa fa-check"></i> Approve
+                            </button>
+                            <button class="btn btn-danger btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
+                              <i class="fa fa-times"></i>
+                            </button>
+                          ` : ''}
+                          ${canHRApprove ? `
+                            <button class="btn btn-success btn-xs" onclick="Employees.approveCorrection(${c.id}, 'final', ${emp.id})" title="HR/Admin Final Approval">
+                              <i class="fa fa-check-double"></i> Final Approve
+                            </button>
+                            <button class="btn btn-danger btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
+                              <i class="fa fa-times"></i>
+                            </button>
+                          ` : ''}
+                          ${(!canManagerApprove && !canHRApprove) ? `<span style="font-size:11px;color:var(--text-3)"><i class="fa fa-shield"></i> Recorded</span>` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      default: {
+        return `<div class="empty-state" style="padding:40px"><i class="fa fa-file-circle-question"></i><h3>Section View</h3><p>Details for this view.</p></div>`;
+      }
+    }
+  },
+
+  // ═════════════════════════════════════════════════════════
+  // MODAL HANDLERS & PROFILE ACTIONS
+  // ═════════════════════════════════════════════════════════
+  toggleLunchSubscription(empId) {
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (!emp) return;
+    if (!emp.lunchSubscription) emp.lunchSubscription = {};
+    emp.lunchSubscription.subscribed = !emp.lunchSubscription.subscribed;
+    DB.set('employees', emps);
+    Toast.show(`Lunch subscription ${emp.lunchSubscription.subscribed ? 'activated' : 'deactivated'}!`, 'success');
+    this.switchProfileSection('lunch-subscription', null, empId);
+  },
+
+  showAddTechnologyModal(empId) {
+    Modal.show('Add Working Technology', `
+      <div class="form-group">
+        <label class="form-label required">Technology / Framework Name</label>
+        <input class="form-control" id="tech-input" placeholder="e.g. Next.js, Python, Flutter, Kubernetes">
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveTechnology(${empId})">Add Technology</button>
+      `
+    });
+  },
+  saveTechnology(empId) {
+    const val = document.getElementById('tech-input')?.value.trim();
+    if (!val) { Toast.show('Technology name is required', 'error'); return; }
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) {
+      if (!emp.technologies) emp.technologies = [];
+      if (!emp.technologies.includes(val)) emp.technologies.push(val);
+      DB.set('employees', emps);
+    }
+    Modal.close('dynamic-modal');
+    Toast.show('Technology added!', 'success');
+    this.switchProfileSection('working-technologies', null, empId);
+  },
+
+  showAddLanguageModal(empId) {
+    Modal.show('Add Language Proficiency', `
+      <div class="form-group">
+        <label class="form-label required">Language</label>
+        <input class="form-control" id="lang-input" placeholder="e.g. Arabic, French, German">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Proficiency Level</label>
+        <select class="form-control" id="lang-prof">
+          <option>Native / Mother Tongue</option>
+          <option>Professional / Fluent</option>
+          <option>Intermediate Working</option>
+          <option>Elementary</option>
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveLanguage(${empId})">Save Language</button>
+      `
+    });
+  },
+  saveLanguage(empId) {
+    const lang = document.getElementById('lang-input')?.value.trim();
+    const prof = document.getElementById('lang-prof')?.value;
+    if (!lang) { Toast.show('Language is required', 'error'); return; }
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) {
+      if (!emp.languages) emp.languages = [];
+      emp.languages.push({ language: lang, proficiency: prof });
+      DB.set('employees', emps);
+    }
+    Modal.close('dynamic-modal');
+    Toast.show('Language added!', 'success');
+    this.switchProfileSection('languages', null, empId);
+  },
+
+  showAddTargetModal(empId) {
+    Modal.show('Add Next Year Target / Goal', `
+      <div class="form-group">
+        <label class="form-label required">Target Objective</label>
+        <textarea class="form-control" id="target-desc" rows="2" placeholder="e.g. Deploy zero-downtime CI/CD pipeline"></textarea>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Metric</label>
+          <input class="form-control" id="target-metric" placeholder="e.g. Deployment Frequency">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Weight (%)</label>
+          <input class="form-control" id="target-weight" placeholder="e.g. 25%">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Timeline</label>
+        <input class="form-control" id="target-timeline" placeholder="e.g. Q3 2026">
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveTarget(${empId})">Save Target</button>
+      `
+    });
+  },
+  saveTarget(empId) {
+    const desc = document.getElementById('target-desc')?.value.trim();
+    const metric = document.getElementById('target-metric')?.value.trim();
+    const weight = document.getElementById('target-weight')?.value.trim() || '20%';
+    const timeline = document.getElementById('target-timeline')?.value.trim() || 'Q4';
+    if (!desc || !metric) { Toast.show('Please fill required target fields', 'error'); return; }
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) {
+      if (!emp.nextYearTargets) emp.nextYearTargets = [];
+      emp.nextYearTargets.push({ target: desc, metric, weight, timeline });
+      DB.set('employees', emps);
+    }
+    Modal.close('dynamic-modal');
+    Toast.show('Target added to review targets!', 'success');
+    this.switchProfileSection('next-year-targets', null, empId);
+  },
+
+  showEditPSEModal(empId) {
+    const emp = DB.find('employees', empId);
+    const pse = emp?.pseEvaluation || {};
+    Modal.show('Evaluate Performance & Skills (PSE Form)', `
+      <div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">
+        Reporting Manager appraisal for <strong>${emp?.fullName}</strong>. Rate competencies from 1 to 5.
+      </div>
+      <div class="form-group">
+        <label class="form-label required">1. Job Knowledge & Technical Competence (1-5)</label>
+        <select class="form-control" id="pse-k1">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.jobKnowledge==n?'selected':''}>${n} Star${n>1?'s':''} - ${n===5?'Outstanding':(n===4?'Exceeds Expectations':(n===3?'Meets Requirements':'Needs Improvement'))}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">2. Quality of Work & Delivery Accuracy (1-5)</label>
+        <select class="form-control" id="pse-k2">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.workQuality==n?'selected':''}>${n} Star${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">3. Teamwork & Communication (1-5)</label>
+        <select class="form-control" id="pse-k3">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.teamwork==n?'selected':''}>${n} Star${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">4. Punctuality & Discipline (1-5)</label>
+        <select class="form-control" id="pse-k4">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.punctuality==n?'selected':''}>${n} Star${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">5. Leadership & Initiative (1-5)</label>
+        <select class="form-control" id="pse-k5">
+          ${[5,4,3,2,1].map(n => `<option value="${n}" ${pse.leadership==n?'selected':''}>${n} Star${n>1?'s':''}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Manager Review Comments & Recommendation</label>
+        <textarea class="form-control" id="pse-comments" rows="3">${pse.managerComments || ''}</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.savePSE(${empId})">Submit Performance Review</button>
+      `
+    });
+  },
+  savePSE(empId) {
+    const k1 = parseInt(document.getElementById('pse-k1')?.value || 4);
+    const k2 = parseInt(document.getElementById('pse-k2')?.value || 4);
+    const k3 = parseInt(document.getElementById('pse-k3')?.value || 4);
+    const k4 = parseInt(document.getElementById('pse-k4')?.value || 4);
+    const k5 = parseInt(document.getElementById('pse-k5')?.value || 4);
+    const comments = document.getElementById('pse-comments')?.value.trim() || 'Performance reviewed by manager.';
+
+    const avg = ((k1+k2+k3+k4+k5)/5).toFixed(1);
+
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) {
+      emp.pseEvaluation = {
+        jobKnowledge: k1,
+        workQuality: k2,
+        teamwork: k3,
+        punctuality: k4,
+        leadership: k5,
+        overallScore: `${avg} / 5.0`,
+        managerComments: comments,
+        evaluatedBy: `${Auth.employee?.fullName || 'Usman Baig'} (${Auth.role === 'dept_manager' ? 'Deputy Manager' : 'HR/Admin'})`,
+        evaluatedDate: Utils.today()
+      };
+      DB.set('employees', emps);
+    }
+    Modal.close('dynamic-modal');
+    Toast.show('Performance Review submitted by manager!', 'success');
+    this.switchProfileSection('pse-evaluation-form', null, empId);
+  },
+
+  showUploadPhotoModal(empId) {
+    Modal.show('Upload Photograph', `
+      <div class="form-group">
+        <label class="form-label">Photo Image URL or Base64 Data</label>
+        <input class="form-control" id="photo-url-input" placeholder="https://example.com/photo.jpg or paste data:image/...">
+      </div>
+      <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">
+        Or select a picture from your computer:
+      </div>
+      <input type="file" id="photo-file-input" accept="image/*" class="form-control" onchange="Employees.onPhotoFilePicked(event)">
+      <div id="photo-file-preview" style="margin-top:14px;text-align:center"></div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.savePhoto(${empId})">Save Photograph</button>
+      `
+    });
+  },
+  onPhotoFilePicked(event) {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        window._tempPhotoData = e.target.result;
+        const prev = document.getElementById('photo-file-preview');
+        if (prev) prev.innerHTML = `<img src="${e.target.result}" style="width:100px;height:120px;object-fit:cover;border:2px solid var(--primary);border-radius:6px">`;
+      };
+      reader.readAsDataURL(file);
+    }
+  },
+  savePhoto(empId) {
+    const url = document.getElementById('photo-url-input')?.value.trim();
+    const photo = window._tempPhotoData || url;
+    if (!photo) { Toast.show('Please select or enter a photo', 'error'); return; }
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) {
+      emp.photo = photo;
+      DB.set('employees', emps);
+    }
+    window._tempPhotoData = null;
+    Modal.close('dynamic-modal');
+    Toast.show('Photograph updated successfully!', 'success');
+    this.renderProfile(empId);
+  },
+
+  showReassignManagerModal(empId) {
+    const emps = DB.get('employees') || [];
+    const targetEmp = emps.find(e => e.id === empId);
+    const candidateManagers = emps.filter(e => e.id !== empId && e.status === 'active');
+
+    Modal.show('Reassign Reporting Manager', `
+      <div class="form-group">
+        <label class="form-label required">Select Reporting Manager for ${targetEmp?.fullName}</label>
+        <select class="form-control" id="reassign-mgr-select">
+          ${candidateManagers.map(m => `
+            <option value="${m.id}" ${targetEmp?.managerId === m.id ? 'selected' : ''}>
+              ${m.fullName} (${Utils.getDesigName(m.designationId)} • ${m.role})
+            </option>
+          `).join('')}
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveReassignedManager(${empId})">Save Manager</button>
+      `
+    });
+  },
+  saveReassignedManager(empId) {
+    const newMgrId = parseInt(document.getElementById('reassign-mgr-select')?.value);
+    const emps = DB.get('employees') || [];
+    const targetEmp = emps.find(e => e.id === empId);
+    if (targetEmp && newMgrId) {
+      targetEmp.managerId = newMgrId;
+      targetEmp.reportingTo = newMgrId;
+      DB.set('employees', emps);
+      Toast.show('Reporting line updated!', 'success');
+    }
+    Modal.close('dynamic-modal');
+    this.switchProfileSection('report-to', null, empId);
+  },
+
+  showApplyCorrectionModal(empId) {
+    Modal.show('Apply for Attendance Correction / Work From Home', `
+      <div class="form-group">
+        <label class="form-label required">Request Type</label>
+        <select class="form-control" id="ac-type">
+          <option value="attendance_correction">Attendance Correction (Punch-In/Out Adjustment)</option>
+          <option value="work_from_home">Work From Home (Remote Working Day)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Date</label>
+        <input class="form-control" id="ac-date" type="date" value="${Utils.today()}">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Requested Time In</label>
+          <input class="form-control" id="ac-in" type="time" value="09:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Requested Time Out</label>
+          <input class="form-control" id="ac-out" type="time" value="18:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Reason / Justification</label>
+        <textarea class="form-control" id="ac-reason" rows="3" placeholder="Explain the reason (e.g., biometric fingerprint failure, urgent remote day, off-site client work)..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveAttendanceCorrection(${empId})">Submit Request</button>
+      `
+    });
+  },
+  saveAttendanceCorrection(empId) {
+    const type = document.getElementById('ac-type')?.value;
+    const date = document.getElementById('ac-date')?.value;
+    const timeIn = document.getElementById('ac-in')?.value;
+    const timeOut = document.getElementById('ac-out')?.value;
+    const reason = document.getElementById('ac-reason')?.value.trim();
+
+    if (!date || !timeIn || !timeOut || !reason) {
+      Toast.show('Please fill in all required fields', 'error');
+      return;
+    }
+
+    const emp = DB.find('employees', empId);
+    const corrections = DB.get('attendance_corrections') || [];
+    const newId = DB.nextId('attendance_corrections');
+
+    corrections.unshift({
+      id: newId,
+      employeeId: empId,
+      date,
+      type,
+      timeIn,
+      timeOut,
+      reason,
+      status: 'pending',
+      managerId: emp?.managerId || 3,
+      managerStatus: 'pending',
+      managerApprovedAt: null,
+      managerRemarks: '',
+      hrStatus: 'pending',
+      hrApprovedAt: null,
+      hrRemarks: '',
+      createdAt: Utils.today()
+    });
+
+    DB.set('attendance_corrections', corrections);
+    Modal.close('dynamic-modal');
+    Toast.show('Request submitted successfully!', 'success', 'Forwarded to Reporting Manager for 1st-level approval.');
+    this.switchProfileSection('attendance-correction', null, empId);
+  },
+
+  approveCorrection(corrId, tier, empId) {
+    const corrections = DB.get('attendance_corrections') || [];
+    const req = corrections.find(c => c.id === corrId);
+    if (!req) return;
+
+    if (tier === 'manager') {
+      req.status = 'manager_approved';
+      req.managerStatus = 'approved';
+      req.managerApprovedAt = new Date().toISOString();
+      req.managerRemarks = `Approved by Deputy Manager (${Auth.employee?.fullName || 'Usman Baig'})`;
+      DB.set('attendance_corrections', corrections);
+      Toast.show('1st-Level Manager Approval recorded!', 'success', 'Forwarded to HR/Admin for final sign-off.');
+    } else {
+      // Final / HR / Admin approval
+      req.status = 'approved';
+      req.hrStatus = 'approved';
+      req.hrApprovedAt = new Date().toISOString();
+      req.hrRemarks = `Approved by Corporate Admin/HR (${Auth.employee?.fullName || 'Admin'})`;
+      DB.set('attendance_corrections', corrections);
+
+      // Automatically sync/update actual attendance ledger!
+      const att = DB.get('attendance') || [];
+      let attRecord = att.find(a => a.employeeId === req.employeeId && a.date === req.date);
+      if (attRecord) {
+        attRecord.timeIn = req.timeIn;
+        attRecord.timeOut = req.timeOut;
+        attRecord.status = 'present';
+        attRecord.remarks = `Corrected via Request #${req.id} (${req.type==='work_from_home'?'WFH':'Correction'})`;
+      } else {
+        att.push({
+          id: DB.nextId('attendance'),
+          employeeId: req.employeeId,
+          date: req.date,
+          timeIn: req.timeIn,
+          timeOut: req.timeOut,
+          status: 'present',
+          overtime: 0,
+          remarks: `Approved ${req.type==='work_from_home'?'WFH':'Correction'} #${req.id}`
+        });
+      }
+      DB.set('attendance', att);
+      Toast.show('Request fully approved and synced to attendance ledger!', 'success');
+    }
+
+    this.switchProfileSection('attendance-correction', null, empId || req.employeeId);
+  },
+
+  rejectCorrection(corrId, empId) {
+    Modal.confirm('Reject Request', 'Are you sure you want to reject this correction/WFH request?', () => {
+      const corrections = DB.get('attendance_corrections') || [];
+      const req = corrections.find(c => c.id === corrId);
+      if (req) {
+        req.status = 'rejected';
+        DB.set('attendance_corrections', corrections);
+        Toast.show('Request rejected.', 'warning');
+      }
+      Employees.switchProfileSection('attendance-correction', null, empId || req?.employeeId);
+    });
   },
 
   renderProfileTab(tab, emp) {

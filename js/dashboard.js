@@ -15,30 +15,41 @@ const Dashboard = {
     const holidays = DB.get('holidays');
     const today = Utils.today();
 
-    const totalEmps = emps.filter(e => e.status === 'active').length;
-    const inactiveEmps = emps.filter(e => e.status === 'inactive').length;
-    const newJoiners = emps.filter(e => e.joiningDate >= '2026-08-01' && e.status === 'active').length;
+    let scopedEmps = emps;
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      scopedEmps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    }
+    const scopedIds = scopedEmps.map(e => e.id);
 
-    const todayAtt = att.filter(a => a.date === today);
+    const totalEmps = scopedEmps.filter(e => e.status === 'active').length;
+    const inactiveEmps = scopedEmps.filter(e => e.status === 'inactive').length;
+    const newJoiners = scopedEmps.filter(e => e.joiningDate >= '2026-08-01' && e.status === 'active').length;
+
+    const todayAtt = att.filter(a => a.date === today && (Auth.role === 'dept_manager' ? scopedIds.includes(a.employeeId) : true));
     const present  = todayAtt.filter(a => a.status === 'present').length;
     const absent   = todayAtt.filter(a => a.status === 'absent').length;
     const late     = todayAtt.filter(a => a.status === 'late').length;
     const halfDay  = todayAtt.filter(a => a.status === 'half_day').length;
-    const onLeave  = leaves.filter(l => l.status === 'approved' && l.from <= today && l.to >= today).length;
 
-    const pendingLeaves  = leaves.filter(l => l.status === 'pending').length;
-    const approvedLeaves = leaves.filter(l => l.status === 'approved').length;
-    const rejectedLeaves = leaves.filter(l => l.status === 'rejected').length;
+    const scopedLeaves = Auth.role === 'dept_manager' ? leaves.filter(l => scopedIds.includes(l.employeeId)) : leaves;
+    const onLeave  = scopedLeaves.filter(l => l.status === 'approved' && l.from <= today && l.to >= today).length;
 
-    const pendingSalary  = salary.filter(s => s.status === 'pending').length;
-    const processedSalary= salary.filter(s => s.status === 'processed').length;
-    const pendingReviews = reviews.filter(r => r.status === 'pending').length;
-    const doneReviews    = reviews.filter(r => r.status === 'completed').length;
+    const pendingLeaves  = scopedLeaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').length;
+    const approvedLeaves = scopedLeaves.filter(l => l.status === 'approved').length;
+    const rejectedLeaves = scopedLeaves.filter(l => l.status === 'rejected').length;
+
+    const pendingSalary  = salary.filter(s => s.status === 'pending' && (Auth.role === 'dept_manager' ? scopedIds.includes(s.employeeId) : true)).length;
+    const processedSalary= salary.filter(s => s.status === 'processed' && (Auth.role === 'dept_manager' ? scopedIds.includes(s.employeeId) : true)).length;
+    
+    const scopedReviews = Auth.role === 'dept_manager' ? reviews.filter(r => scopedIds.includes(r.employeeId)) : reviews;
+    const pendingReviews = scopedReviews.filter(r => r.status === 'pending').length;
+    const doneReviews    = scopedReviews.filter(r => r.status === 'completed').length;
 
     // Birthdays, Holidays, Announcements, Anniversaries for Headlines Ticker
     const todayMMDD = today.slice(5);
-    const todayBdays = emps.filter(e => e.dob?.slice(5) === todayMMDD && e.status === 'active');
-    const upcomingBdays = emps.filter(e => {
+    const todayBdays = scopedEmps.filter(e => e.dob?.slice(5) === todayMMDD && e.status === 'active');
+    const upcomingBdays = scopedEmps.filter(e => {
       if (!e.dob || e.status !== 'active') return false;
       const bYear = new Date().getFullYear();
       let bd = new Date(bYear + '-' + e.dob.slice(5));
@@ -246,7 +257,7 @@ const Dashboard = {
         </div>
         <div class="grid-4 mb-20">
           ${this.statCard('Total Employees', totalEmps, 'fa-users', 'blue', `Active: ${totalEmps} | Inactive: ${inactiveEmps}`, '+2 this month', 'up')}
-          ${this.statCard('Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${emps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
+          ${this.statCard('Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${scopedEmps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
           ${this.statCard('Inactive Employees', inactiveEmps, 'fa-user-xmark', 'red', 'Ex-employees', '', '')}
           ${this.statCard('New Joiners', newJoiners, 'fa-user-plus', 'purple', 'This month', '+' + newJoiners + ' this month', 'up')}
         </div>

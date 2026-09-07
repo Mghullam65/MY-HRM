@@ -11,6 +11,7 @@ const DB = {
       this.ensureOfferLetters();
       this.ensureOnboardingData();
       this.ensureAttendanceLeaveAuditData();
+      this.ensureHierarchyAndCorrections();
       return;
     }
     this.seed();
@@ -18,6 +19,7 @@ const DB = {
     this.ensureOfferLetters();
     this.ensureOnboardingData();
     this.ensureAttendanceLeaveAuditData();
+    this.ensureHierarchyAndCorrections();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -174,6 +176,215 @@ const DB = {
     }
   },
 
+  ensureHierarchyAndCorrections() {
+    // 1. Ensure attendance_corrections table exists
+    let corrections = this.get('attendance_corrections');
+    if (!corrections || !corrections.length) {
+      corrections = [
+        {
+          id: 1,
+          employeeId: 4, // Fatima Raza
+          date: '2026-09-02',
+          type: 'attendance_correction',
+          timeIn: '09:05',
+          timeOut: '18:15',
+          reason: 'Biometric fingerprint scanner glitch at main entrance',
+          status: 'pending',
+          managerId: 3,
+          managerStatus: 'pending',
+          managerApprovedAt: null,
+          managerRemarks: '',
+          hrStatus: 'pending',
+          hrApprovedAt: null,
+          hrRemarks: '',
+          createdAt: '2026-09-02'
+        },
+        {
+          id: 2,
+          employeeId: 9, // Tariq Hussain
+          date: '2026-09-03',
+          type: 'work_from_home',
+          timeIn: '09:00',
+          timeOut: '18:00',
+          reason: 'Severe rain and urban road blockage in Karachi',
+          status: 'manager_approved',
+          managerId: 3,
+          managerStatus: 'approved',
+          managerApprovedAt: '2026-09-03T10:30:00Z',
+          managerRemarks: 'Approved for remote working day.',
+          hrStatus: 'pending',
+          hrApprovedAt: null,
+          hrRemarks: '',
+          createdAt: '2026-09-03'
+        },
+        {
+          id: 3,
+          employeeId: 4, // Fatima Raza
+          date: '2026-08-25',
+          type: 'attendance_correction',
+          timeIn: '09:10',
+          timeOut: '18:30',
+          reason: 'Official off-site client deployment meeting',
+          status: 'approved',
+          managerId: 3,
+          managerStatus: 'approved',
+          managerApprovedAt: '2026-08-25T19:00:00Z',
+          managerRemarks: 'Verified offsite meeting with client.',
+          hrStatus: 'approved',
+          hrApprovedAt: '2026-08-26T09:15:00Z',
+          hrRemarks: 'Approved and logged in payroll.',
+          createdAt: '2026-08-25'
+        }
+      ];
+      this.set('attendance_corrections', corrections);
+    }
+
+    // 2. Ensure reporting hierarchy and Deputy Manager's 4 team members
+    const emps = this.get('employees') || [];
+    let empUpdated = false;
+
+    // A. HR Manager (Sara Malik, ID: 2) reports to Admin (ID: 1)
+    const sara = emps.find(e => e.id === 2);
+    if (sara) {
+      sara.managerId = 1;
+      sara.reportingTo = 1;
+      sara.adminId = 1;
+      sara.reportingChain = [
+        { role: 'Executive Administrator', id: 1, name: 'Ahmed Khan', title: 'Super Admin / CEO', level: 1, power: 'Universal Oversight & Executive Authority' }
+      ];
+      empUpdated = true;
+    }
+
+    // B. Deputy Manager (Usman Baig, ID: 3) reports to Admin (ID: 1) AND HR (ID: 2)
+    const usman = emps.find(e => e.id === 3);
+    if (usman) {
+      usman.managerId = 1; // Primary Admin
+      usman.hrManagerId = 2; // HR Manager
+      usman.reportingTo = 1;
+      usman.reportingChain = [
+        { role: 'Executive Administrator', id: 1, name: 'Ahmed Khan', title: 'Super Admin / CEO', level: 1, power: 'Executive Oversight & Final Authority' },
+        { role: 'Human Resources Manager', id: 2, name: 'Sara Malik', title: 'Head of Human Resources', level: 2, power: 'Corporate HR Authority' }
+      ];
+      empUpdated = true;
+    }
+
+    // C. Exactly 4 employees report to Usman Baig (Deputy Manager)
+    const usmanTeamIds = [4, 9, 25, 13]; // Fatima Raza, Tariq Hussain, Sehar Nawaz, Omar Farhan
+    emps.forEach(e => {
+      if (usmanTeamIds.includes(e.id)) {
+        e.managerId = 3; // Deputy Manager
+        e.hrManagerId = 2; // HR Manager
+        e.adminId = 1; // Super Admin
+        e.reportingTo = 3;
+        e.reportingChain = [
+          { role: 'Direct Reporting Manager', id: 3, name: 'Usman Baig', title: 'Deputy Manager / Tech Lead', level: 1, power: 'First Level Approval (Leaves, Corrections, WFH, Reviews)' },
+          { role: 'Human Resources Manager', id: 2, name: 'Sara Malik', title: 'Head of Human Resources', level: 2, power: 'Corporate HR & Final Approval Authority' },
+          { role: 'Executive Administrator', id: 1, name: 'Ahmed Khan', title: 'Super Admin / CEO', level: 3, power: 'Universal Oversight & Executive Authority' }
+        ];
+        empUpdated = true;
+      } else if (e.id !== 3 && (e.managerId === 3 || e.reportingTo === 3)) {
+        // Any other employee that accidentally had manager 3, assign to manager 1 or 2
+        e.managerId = 1;
+        e.reportingTo = 1;
+        empUpdated = true;
+      }
+
+      // Ensure rich profile fields are populated
+      if (!e.lunchSubscription) {
+        e.lunchSubscription = {
+          subscribed: true,
+          plan: 'Standard Lunch (Mon-Fri)',
+          cafeteriaPass: `CAF-${String(e.id).padStart(4, '0')}`,
+          diet: 'Regular / Halal',
+          registeredDate: e.joiningDate || '2023-01-01'
+        };
+        empUpdated = true;
+      }
+      if (!e.officeTimings) {
+        e.officeTimings = {
+          shift: 'General Morning Shift',
+          timeIn: '09:00 AM',
+          timeOut: '06:00 PM',
+          graceTime: '15 Mins',
+          workingDays: 'Monday - Friday (5 Days)'
+        };
+        empUpdated = true;
+      }
+      if (!e.misInfo) {
+        e.misInfo = {
+          biometricId: `BIO-${String(1000 + e.id)}`,
+          costCenter: `CC-ENG-0${(e.departmentId || 1)}`,
+          division: 'Engineering & Operations',
+          costCode: `ERP-PK-${String(e.id).padStart(3, '0')}`
+        };
+        empUpdated = true;
+      }
+      if (!e.taxInfo) {
+        e.taxInfo = {
+          ntn: `${4000000 + e.id * 137}-7`,
+          taxSlab: 'Slab 2 (5% after basic threshold)',
+          filerStatus: 'Active Tax Filer',
+          taxExemptions: 'Standard Medical & Conveyance Allowance'
+        };
+        empUpdated = true;
+      }
+      if (!e.insuranceDetails) {
+        e.insuranceDetails = {
+          policyNo: `JUB-CORP-${String(88000 + e.id)}`,
+          provider: 'Jubilee Life & Health Insurance',
+          tier: (e.role === 'superadmin' || e.role === 'dept_manager' || e.role === 'hr_manager') ? 'Executive Platinum' : 'Corporate Gold',
+          coverageLimit: 'PKR 1,500,000 / annum',
+          dependentsCovered: e.maritalStatus === 'Married' ? 2 : 0
+        };
+        empUpdated = true;
+      }
+      if (!e.dependants || !e.dependants.length) {
+        e.dependants = e.maritalStatus === 'Married' ? [
+          { name: `${e.lastName || 'Family'} Dependant`, relation: e.gender === 'Male' ? 'Spouse' : 'Spouse', dob: '1992-05-14', cnic: '42201-9988776-1', insured: true }
+        ] : [];
+        empUpdated = true;
+      }
+      if (!e.languages || !e.languages.length) {
+        e.languages = [
+          { language: 'English', proficiency: 'Professional / Fluent' },
+          { language: 'Urdu', proficiency: 'Native / Mother Tongue' }
+        ];
+        empUpdated = true;
+      }
+      if (!e.technologies || !e.technologies.length) {
+        e.technologies = ['JavaScript / TypeScript', 'React', 'Node.js', 'REST APIs', 'SQL Database', 'Git Version Control'];
+        empUpdated = true;
+      }
+      if (!e.nextYearTargets || !e.nextYearTargets.length) {
+        e.nextYearTargets = [
+          { target: 'Achieve 98% on-time sprint task delivery', metric: 'Sprint Velocity', weight: '40%', timeline: 'Q1-Q4' },
+          { target: 'Complete advanced certification in core technology', metric: 'Certification', weight: '30%', timeline: 'Q3' },
+          { target: 'Mentor junior team members and conduct code reviews', metric: 'Code Quality', weight: '30%', timeline: 'Ongoing' }
+        ];
+        empUpdated = true;
+      }
+      if (!e.pseEvaluation) {
+        e.pseEvaluation = {
+          jobKnowledge: 4,
+          workQuality: 5,
+          teamwork: 4,
+          punctuality: 4,
+          leadership: 4,
+          overallScore: '4.2 / 5.0',
+          managerComments: 'Consistent high performer with strong initiative and collaborative team mindset.',
+          employeeComments: 'Striving to take on higher architectural responsibility and streamline build pipelines.',
+          evaluatedBy: 'Usman Baig (Deputy Manager)',
+          evaluatedDate: '2026-08-30'
+        };
+        empUpdated = true;
+      }
+    });
+
+    if (empUpdated) {
+      this.set('employees', emps);
+    }
+  },
+
   reset() {
     Object.keys(localStorage).filter(k => k.startsWith('hrm_')).forEach(k => localStorage.removeItem(k));
     this.seed();
@@ -223,6 +434,7 @@ const DB = {
     this.set('exit_records', exitRecords);
     this.set('goals', goals);
     this.set('offer_letters', offerLetters);
+    this.set('attendance_corrections', attendanceCorrections);
   },
 
   get(key) {
@@ -307,7 +519,7 @@ const designations = [
   { id: 1, name: 'CEO', departmentId: 6, level: 'C-Level', status: 'active' },
   { id: 2, name: 'HR Manager', departmentId: 1, level: 'Manager', status: 'active' },
   { id: 3, name: 'Software Engineer', departmentId: 2, level: 'Mid', status: 'active' },
-  { id: 4, name: 'Senior Developer', departmentId: 2, level: 'Senior', status: 'active' },
+  { id: 4, name: 'Deputy Manager / Tech Lead', departmentId: 2, level: 'Manager', status: 'active' },
   { id: 5, name: 'Finance Manager', departmentId: 3, level: 'Manager', status: 'active' },
   { id: 6, name: 'Accountant', departmentId: 3, level: 'Mid', status: 'active' },
   { id: 7, name: 'Sales Executive', departmentId: 4, level: 'Junior', status: 'active' },
@@ -1133,6 +1345,63 @@ const goals = [
   { id: 2, employeeId: 6, title: 'Reduce employee turnover by 10%', targetDate: '2026-12-31', progress: 40, status: 'in_progress', departmentId: 1 },
   { id: 3, employeeId: 3, title: 'Onboard 3 new developers', targetDate: '2026-09-30', progress: 100, status: 'completed', departmentId: 2 },
   { id: 4, employeeId: 9, title: 'Design new company website', targetDate: '2026-10-31', progress: 25, status: 'in_progress', departmentId: 2 },
+];
+
+const attendanceCorrections = [
+  {
+    id: 1,
+    employeeId: 4, // Fatima Raza
+    date: '2026-09-02',
+    type: 'attendance_correction',
+    timeIn: '09:05',
+    timeOut: '18:15',
+    reason: 'Biometric fingerprint scanner glitch at main entrance',
+    status: 'pending',
+    managerId: 3,
+    managerStatus: 'pending',
+    managerApprovedAt: null,
+    managerRemarks: '',
+    hrStatus: 'pending',
+    hrApprovedAt: null,
+    hrRemarks: '',
+    createdAt: '2026-09-02'
+  },
+  {
+    id: 2,
+    employeeId: 9, // Tariq Hussain
+    date: '2026-09-03',
+    type: 'work_from_home',
+    timeIn: '09:00',
+    timeOut: '18:00',
+    reason: 'Severe rain and urban road blockage in Karachi',
+    status: 'manager_approved',
+    managerId: 3,
+    managerStatus: 'approved',
+    managerApprovedAt: '2026-09-03T10:30:00Z',
+    managerRemarks: 'Approved for remote working day.',
+    hrStatus: 'pending',
+    hrApprovedAt: null,
+    hrRemarks: '',
+    createdAt: '2026-09-03'
+  },
+  {
+    id: 3,
+    employeeId: 4, // Fatima Raza
+    date: '2026-08-25',
+    type: 'attendance_correction',
+    timeIn: '09:10',
+    timeOut: '18:30',
+    reason: 'Official off-site client deployment meeting',
+    status: 'approved',
+    managerId: 3,
+    managerStatus: 'approved',
+    managerApprovedAt: '2026-08-25T19:00:00Z',
+    managerRemarks: 'Verified offsite meeting with client.',
+    hrStatus: 'approved',
+    hrApprovedAt: '2026-08-26T09:15:00Z',
+    hrRemarks: 'Approved and logged in payroll.',
+    createdAt: '2026-08-25'
+  }
 ];
 
 // Utility functions

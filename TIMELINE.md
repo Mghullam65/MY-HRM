@@ -31,6 +31,8 @@
    └── Connected Vercel Postgres, built api/index.js serverless function & vercel.json.
 [Step 8] Modern Bright Theme & Login Experience Redesign
    └── Redesigned login screen to clean SaaS aesthetic, bright default theme & theme toggle.
+[Step 9] Profile Sidebar Accordion, Reporting Hierarchy, Multi-Tier Approvals & Scoping
+   └── Exact 5-section / 28-button profile accordion, 3-tier hierarchy, 4-member manager scoping & PSE appraisals.
 ```
 
 ---
@@ -133,6 +135,42 @@
   - Added a floating light/dark theme switch button on the login screen (`#login-theme-btn`) connected to `App.toggleTheme()`.
   - Added 4 quick demo role access pills (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`) with role icons and subtle hover elevation.
   - Maintained full dark mode compatibility with tailored `[data-theme="dark"]` overrides.
+
+---
+
+### Step 9: Employee Profile Sidebar Accordion, 3-Tier Hierarchy, Multi-Tier Approvals & Scoping
+- **Objective**: Match all 5 accordion sections and 28 sub-buttons shown across user screenshots, enforce a strict 3-tier reporting hierarchy, scope the Deputy Manager's login strictly to their 4 direct team members, and implement multi-tier leave/attendance approvals and manager-driven performance evaluations.
+- **Technologies**: Vanilla HTML5, Vanilla CSS3 (Accordion UI, active indicator borders, badge counters), Vanilla JavaScript ES6+, LocalStorage data sync.
+- **Key Actions**:
+  - **Employee Profile Left Sidebar Accordion (Screenshots 1–5)**:
+    - Designed exact replica of reference design: Square photo avatar thumbnail with border, employee full name in vibrant cyan/blue (`#0284c7`), and `EMP ID: <number>` underneath.
+    - Implemented all 5 collapsible accordions with toggle indicators (`[+]` / `[-]`) and all **28 sub-buttons** with blue chevron bullets (`▸`):
+      1. **Personal**: `Personal Details`, `Contact Details`, `Emergency Contacts`, `Dependants`, `Photograph`.
+      2. **Employment**: `Joining Info`, `Ending Info`, `Lunch Subscription`, `Employment Status`, `Official Contacts`, `Office Timings`, `Report-to`, `MIS Info`, `Login Info`, `Bank Accounts`, `Tax Info`, `Insurance Details`.
+      3. **Qualification**: `Personal Documents`, `Work Experience`, `Education`, `Skills`, `Working Technologies`, `Languages`.
+      4. **Performance Review**: `Performance Review`, `Employee Review Comments`, `PSE evaluation form`, `Next Year Targets`.
+      5. **Attendance**: `Attendance Correction / Work From Home`.
+    - Fully implemented interactive management modals and cards for all 28 sub-buttons (e.g. toggle lunch subscription, add technologies, add languages, edit PSE form, apply for attendance corrections, and reassign managers).
+  - **Strict 3-Tier Reporting Line ("Report-to")**:
+    - **HR Manager (Sara Malik)** reports directly to **Super Admin / CEO (Ahmed Khan)**.
+    - **Deputy Manager (Usman Baig)** reports to both **Admin** and **HR**.
+    - **Employees** report directly to **Deputy Manager** (Level 1 Direct Supervisor), with escalation to **HR** (Level 2) and **Admin** (Level 3).
+  - **Deputy Manager Scoped Team Visibility (4 Employees Only)**:
+    - Deputy Manager Usman Baig (`dept_manager`) is assigned exactly 4 team members: **Fatima Raza (EMP-004)**, **Tariq Hussain (EMP-009)**, **Sehar Nawaz (EMP-025)**, and **Omar Farhan (EMP-013)**.
+    - When Usman Baig logs in, all modules strictly scope to these 4 employees:
+      - **Employees Module**: Directory, active employees, and search only display his 4 team members.
+      - **Attendance Module**: Daily, monthly matrix, employee-wise, department-wise, and machine logs only display his 4 team members.
+      - **Leaves Module**: Summary stats, leave request tables, calendar staff pool, and quota balances only show his 4 team members.
+      - **Performance Module**: Only displays reviews for his 4 team members.
+      - **Dashboard Module**: Headcount, active employee cards, present/absent counters, and leave/review summaries scope to 4 team members.
+      - **Admin & HR**: Retain unrestricted universal access across all employees company-wide.
+  - **Multi-Tier Hierarchical Approvals**:
+    - **Tier 1 (Reporting Manager Approval)**: When an employee submits a Leave request or Attendance Correction / WFH request, their Direct Reporting Manager (Deputy Manager) reviews and endorses it (`status: 'manager_approved'`).
+    - **Tier 2 (Final Executive Approval)**: HR and Admin possess universal authority to grant final corporate approval (`status: 'approved'`), which automatically synchronizes to attendance timesheets and deducts paid leave quotas.
+  - **Performance Review Appraisal Workflow**:
+    - Performance reviews are initiated by **Admin** or **HR Manager** (`status: 'pending'`), designating the employee's direct reporting manager as the evaluator.
+    - The direct reporting manager (Deputy Manager) evaluates their reportees using the **PSE (Performance Standard Evaluation) Form**, grading across 5 core dimensions (Job Knowledge, Work Quality, Teamwork, Punctuality, Leadership), submitting qualitative comments and next year targets.
+    - Upon submission (`status: 'completed'`), the ratings, feedback, and targets automatically synchronize live to the employee's profile sidebar accordion.
 
 ---
 

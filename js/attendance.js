@@ -7,18 +7,38 @@ const Attendance = {
   currentDate: Utils.today(),
   currentMonth: Utils.thisMonth(),
 
+  getScopedEmployees() {
+    let emps = DB.get('employees').filter(e => e.status === 'active');
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    }
+    return emps;
+  },
+
   render() {
     const content = document.getElementById('page-content');
-    const att = DB.get('attendance');
+    const scopedEmps = this.getScopedEmployees();
+    const scopedIds = scopedEmps.map(e => e.id);
+    const totalEmps = scopedEmps.length;
+    const allAtt = DB.get('attendance');
+    const att = Auth.role === 'dept_manager' ? allAtt.filter(a => scopedIds.includes(a.employeeId)) : allAtt;
     const today = Utils.today();
     const todayAtt = att.filter(a => a.date === today);
-    const totalEmps = DB.get('employees').filter(e => e.status === 'active').length;
 
     const present = todayAtt.filter(a => a.status === 'present').length;
     const absent  = todayAtt.filter(a => a.status === 'absent').length;
     const late    = todayAtt.filter(a => a.status === 'late').length;
     const half    = todayAtt.filter(a => a.status === 'half_day').length;
     const ot      = todayAtt.filter(a => a.overtime > 0).length;
+
+    const allCorrections = DB.get('attendance_corrections') || [];
+    const pendingCorrections = allCorrections.filter(c => {
+      if (Auth.role === 'dept_manager') {
+        return scopedIds.includes(c.employeeId) && (c.status === 'pending' || c.status === 'manager_approved');
+      }
+      return c.status === 'pending' || c.status === 'manager_approved';
+    }).length;
 
     content.innerHTML = `
       <div class="animate-fade-in">
@@ -30,7 +50,7 @@ const Attendance = {
             { label:'Late',     val: late,    total: totalEmps, icon:'fa-clock',               color:'#f59e0b' },
             { label:'Half Day', val: half,    total: totalEmps, icon:'fa-circle-half-stroke',  color:'#8b5cf6' },
             { label:'Overtime', val: ot,      total: totalEmps, icon:'fa-business-time',       color:'#6366f1' },
-            { label:'Not Mark', val: totalEmps - todayAtt.length, total: totalEmps, icon:'fa-circle-question', color:'#64748b' },
+            { label:'Not Mark', val: Math.max(0, totalEmps - todayAtt.length), total: totalEmps, icon:'fa-circle-question', color:'#64748b' },
           ].map(s => `
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;border-top:3px solid ${s.color}">
               <div style="font-size:24px;margin-bottom:4px;color:${s.color}"><i class="fa ${s.icon}"></i></div>
@@ -56,18 +76,19 @@ const Attendance = {
 
         <!-- View Tabs + Actions -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:gap">
-          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px">
+          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;flex-wrap:wrap">
             ${[
               { id:'daily', label:'Daily' }, { id:'monthly', label:'Monthly' },
               { id:'employee', label:'Employee Wise' }, { id:'dept', label:'Department Wise' },
               { id:'machine', label:'Machine Log' }, { id:'manual', label:'Manual Entry' },
+              { id:'corrections', label:'Corrections & WFH', badge: pendingCorrections },
             ].map(t => `
               <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Attendance.switchView('${t.id}')">
-                ${t.label}
+                ${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
               </button>
             `).join('')}
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="Attendance.showTimeInWindowConfig()"><i class="fa fa-clock"></i> Time-In Windows</button>
             <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
             <button class="btn btn-secondary btn-sm" onclick="Attendance.showBulkAttendance()"><i class="fa fa-users-line"></i> Bulk Mark</button>
@@ -105,18 +126,20 @@ const Attendance = {
     const container = document.getElementById('att-content');
     if (!container) return;
     switch(this.currentView) {
-      case 'daily':    this.renderDaily(container); break;
-      case 'monthly':  this.renderMonthly(container); break;
-      case 'employee': this.renderEmployeeWise(container); break;
-      case 'dept':     this.renderDeptWise(container); break;
-      case 'machine':  this.renderMachineLog(container); break;
-      case 'manual':   this.renderManualEntry(container); break;
+      case 'daily':       this.renderDaily(container); break;
+      case 'monthly':     this.renderMonthly(container); break;
+      case 'employee':    this.renderEmployeeWise(container); break;
+      case 'dept':        this.renderDeptWise(container); break;
+      case 'machine':     this.renderMachineLog(container); break;
+      case 'manual':      this.renderManualEntry(container); break;
+      case 'corrections': this.renderCorrections(container); break;
     }
   },
 
   renderDaily(container) {
-    const att = DB.get('attendance').filter(a => a.date === this.currentDate);
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    const att = DB.get('attendance').filter(a => a.date === this.currentDate && scopedIds.includes(a.employeeId));
 
     container.innerHTML = `
       <div class="card" style="padding:0">
@@ -159,8 +182,9 @@ const Attendance = {
   renderMonthly(container) {
     const [year, month] = this.currentMonth.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
-    const emps = DB.get('employees').filter(e => e.status === 'active');
-    const att = DB.get('attendance').filter(a => a.date.startsWith(this.currentMonth));
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    const att = DB.get('attendance').filter(a => a.date.startsWith(this.currentMonth) && scopedIds.includes(a.employeeId));
 
     const days = [];
     for (let d = 1; d <= daysInMonth; d++) {
@@ -257,8 +281,9 @@ const Attendance = {
   },
 
   renderEmployeeWise(container) {
-    const emps = DB.get('employees').filter(e => e.status === 'active');
-    const att = DB.get('attendance');
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    const att = DB.get('attendance').filter(a => scopedIds.includes(a.employeeId));
     container.innerHTML = `
       <div class="card" style="padding:0">
         <div class="table-wrapper" style="border:none;border-radius:0">
@@ -296,9 +321,14 @@ const Attendance = {
   },
 
   renderDeptWise(container) {
-    const depts = DB.get('departments');
-    const emps = DB.get('employees');
-    const att = DB.get('attendance').filter(a => a.date === this.currentDate);
+    const emps = this.getScopedEmployees();
+    let depts = DB.get('departments');
+    if (Auth.role === 'dept_manager') {
+      const deptIds = [...new Set(emps.map(e => e.departmentId))];
+      depts = depts.filter(d => deptIds.includes(d.id));
+    }
+    const scopedIds = emps.map(e => e.id);
+    const att = DB.get('attendance').filter(a => a.date === this.currentDate && scopedIds.includes(a.employeeId));
     container.innerHTML = `
       <div class="grid-3">
         ${depts.map(dept => {
@@ -331,8 +361,12 @@ const Attendance = {
   },
 
   renderMachineLog(container) {
-    const logs = DB.get('attendance_logs');
-    const emps = DB.get('employees');
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    let logs = DB.get('attendance_logs') || [];
+    if (Auth.role === 'dept_manager') {
+      logs = logs.filter(l => scopedIds.includes(l.employeeId));
+    }
     container.innerHTML = `
       <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 18px;display:flex;align-items:center;gap:12px">
@@ -387,7 +421,7 @@ const Attendance = {
   },
 
   renderManualEntry(container) {
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = this.getScopedEmployees();
     container.innerHTML = `
       <div class="card" style="max-width:600px">
         <div class="card-header"><div class="card-title">Manual Attendance Entry</div></div>
@@ -570,7 +604,7 @@ const Attendance = {
   },
 
   showBulkAttendance() {
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = this.getScopedEmployees();
     const depts = DB.get('departments');
 
     Modal.show('Bulk Mark Attendance', `
@@ -768,8 +802,12 @@ const Attendance = {
   },
 
   exportAttendance() {
-    const att = DB.get('attendance');
-    const emps = DB.get('employees');
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    let att = DB.get('attendance');
+    if (Auth.role === 'dept_manager') {
+      att = att.filter(a => scopedIds.includes(a.employeeId));
+    }
     const filtered = this.currentView === 'daily'
       ? att.filter(a => a.date === this.currentDate)
       : att.filter(a => a.date.startsWith(this.currentMonth));
@@ -803,6 +841,284 @@ const Attendance = {
     const filename = `attendance_${this.currentView === 'daily' ? this.currentDate : this.currentMonth}.csv`;
     Utils.downloadCSV(csv, filename);
     Toast.show(`Exported ${filtered.length} records to ${filename}`, 'success');
+  },
+
+  renderCorrections(container) {
+    const scopedEmps = this.getScopedEmployees();
+    const scopedIds = scopedEmps.map(e => e.id);
+    let corrections = DB.get('attendance_corrections') || [];
+    if (Auth.role === 'dept_manager') {
+      corrections = corrections.filter(c => scopedIds.includes(c.employeeId));
+    }
+
+    const canManagerApprove = Auth.role === 'dept_manager' || Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const canFinalApprove = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    container.innerHTML = `
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-weight:700;font-size:14px;color:var(--text)">
+              <i class="fa fa-clock-rotate-left" style="color:var(--primary);margin-right:6px"></i>
+              Attendance Correction & Work From Home Requests
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              ${Auth.role === 'dept_manager' ? 'Showing requests from your assigned team members (First-tier approval)' : 'Universal corporate requests (Direct manager review & HR/Admin final approval)'}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary btn-sm" onclick="Attendance.showApplyCorrectionModal()">
+              <i class="fa fa-plus"></i> Apply Correction / WFH
+            </button>
+          </div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Request Type</th>
+                <th>Target Date</th>
+                <th>Requested Hours</th>
+                <th>Reason & Notes</th>
+                <th>Reporting Line & Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${corrections.length === 0 ? `
+                <tr><td colspan="7"><div class="empty-state" style="padding:40px"><i class="fa fa-circle-check"></i><h3>No Pending Attendance Requests</h3><p>All attendance corrections and WFH requests are up to date.</p></div></td></tr>
+              ` : corrections.map(c => {
+                const emp = DB.find('employees', c.employeeId);
+                const isWFH = c.type === 'work_from_home';
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(c.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
+                        <div>
+                          <div style="font-weight:600;font-size:13px">${emp?.fullName || 'Unknown'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || ''} • ${Utils.getDeptName(emp?.departmentId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge ${isWFH ? 'badge-primary' : 'badge-warning'}" style="display:inline-flex;align-items:center;gap:5px">
+                        <i class="fa ${isWFH ? 'fa-house-laptop' : 'fa-wrench'}"></i>
+                        ${isWFH ? 'Work From Home' : 'Attendance Correction'}
+                      </span>
+                    </td>
+                    <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(c.date)}</td>
+                    <td style="font-size:12px">
+                      <span style="color:var(--success);font-weight:600">${c.timeIn || '09:00'}</span> – 
+                      <span style="color:var(--danger);font-weight:600">${c.timeOut || '18:00'}</span>
+                    </td>
+                    <td style="max-width:240px;font-size:12px">
+                      <div style="font-weight:500;color:var(--text)">${c.reason || '—'}</div>
+                      ${c.managerRemarks ? `<div style="font-size:10.5px;color:var(--primary);margin-top:2px"><i class="fa fa-comment"></i> Mgr: ${c.managerRemarks}</div>` : ''}
+                      ${c.hrRemarks ? `<div style="font-size:10.5px;color:var(--success);margin-top:2px"><i class="fa fa-comment-check"></i> HR: ${c.hrRemarks}</div>` : ''}
+                    </td>
+                    <td>
+                      <div style="display:flex;flex-direction:column;gap:3px">
+                        ${c.status === 'pending' ? `
+                          <span class="badge badge-warning" style="font-size:11px"><i class="fa fa-clock"></i> Pending Direct Manager</span>
+                        ` : c.status === 'manager_approved' ? `
+                          <span class="badge badge-info" style="font-size:11px"><i class="fa fa-user-check"></i> Mgr Approved (Awaiting HR/Admin)</span>
+                        ` : c.status === 'approved' ? `
+                          <span class="badge badge-success" style="font-size:11px"><i class="fa fa-check-double"></i> Approved & Synced</span>
+                        ` : `
+                          <span class="badge badge-danger" style="font-size:11px"><i class="fa fa-ban"></i> Rejected</span>
+                        `}
+                        <span style="font-size:10px;color:var(--text-muted)">Chain: Manager ➔ HR ➔ Admin</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        ${(c.status === 'pending' && canManagerApprove) ? `
+                          <button class="btn btn-sm btn-primary" onclick="Attendance.approveCorrection(${c.id}, 'manager')" title="Approve as Reporting Manager">
+                            <i class="fa fa-check"></i> Manager Approve
+                          </button>
+                        ` : ''}
+                        ${(canFinalApprove && (c.status === 'pending' || c.status === 'manager_approved')) ? `
+                          <button class="btn btn-sm btn-success" onclick="Attendance.approveCorrection(${c.id}, 'final')" title="Final Approval & Sync to Attendance">
+                            <i class="fa fa-check-double"></i> Final Approve
+                          </button>
+                        ` : ''}
+                        ${(c.status === 'pending' || c.status === 'manager_approved') ? `
+                          <button class="btn btn-sm btn-danger" onclick="Attendance.rejectCorrection(${c.id})" title="Reject Request">
+                            <i class="fa fa-times"></i>
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  approveCorrection(corrId, tier) {
+    let corrections = DB.get('attendance_corrections') || [];
+    const item = corrections.find(c => c.id === corrId);
+    if (!item) return;
+
+    if (tier === 'manager') {
+      item.managerStatus = 'approved';
+      item.managerApprovedAt = new Date().toISOString();
+      item.status = 'manager_approved';
+      item.managerRemarks = `Endorsed by ${Auth.user?.username || 'Deputy Manager'}`;
+      DB.set('attendance_corrections', corrections);
+      DB.log('APPROVE', 'Attendance', `Manager endorsed attendance correction #${corrId} for employee #${item.employeeId}`, Auth.user?.id);
+      Toast.show('Manager Approval Granted!', 'info', 'Forwarded to HR & Admin for final confirmation.');
+    } else {
+      // Final approval by HR or Admin
+      item.hrStatus = 'approved';
+      item.hrApprovedAt = new Date().toISOString();
+      item.status = 'approved';
+      item.hrRemarks = `Final approval granted by ${Auth.user?.username || 'Admin/HR'}`;
+      DB.set('attendance_corrections', corrections);
+
+      // Synchronize directly with attendance table!
+      const allAtt = DB.get('attendance') || [];
+      const existing = allAtt.find(a => a.employeeId === item.employeeId && a.date === item.date);
+      const isWFH = item.type === 'work_from_home';
+      const deviceName = isWFH ? 'Work From Home' : 'Biometric Correction';
+      const note = `${isWFH ? 'WFH Approved' : 'Correction Approved'}: ${item.reason}`;
+
+      if (existing) {
+        existing.status = 'present';
+        existing.timeIn = item.timeIn || '09:00';
+        existing.timeOut = item.timeOut || '18:00';
+        existing.device = deviceName;
+        existing.remarks = note;
+      } else {
+        allAtt.push({
+          id: DB.nextId('attendance'),
+          employeeId: item.employeeId,
+          date: item.date,
+          status: 'present',
+          timeIn: item.timeIn || '09:00',
+          timeOut: item.timeOut || '18:00',
+          overtime: 0,
+          device: deviceName,
+          remarks: note
+        });
+      }
+      DB.set('attendance', allAtt);
+      DB.log('APPROVE', 'Attendance', `Final approval granted for attendance correction #${corrId} (Synced to attendance)`, Auth.user?.id);
+      Toast.show('Final Approval Granted!', 'success', 'Attendance record synchronized for this date.');
+    }
+
+    this.render();
+  },
+
+  rejectCorrection(corrId) {
+    Modal.confirm('Reject Attendance Correction', 'Are you sure you want to reject this request?', () => {
+      let corrections = DB.get('attendance_corrections') || [];
+      const item = corrections.find(c => c.id === corrId);
+      if (item) {
+        item.status = 'rejected';
+        item.hrRemarks = `Rejected by ${Auth.user?.username || 'Management'}`;
+        DB.set('attendance_corrections', corrections);
+        DB.log('REJECT', 'Attendance', `Rejected attendance correction #${corrId}`, Auth.user?.id);
+        Toast.show('Request rejected.', 'warning');
+        this.render();
+      }
+    });
+  },
+
+  showApplyCorrectionModal() {
+    const emps = this.getScopedEmployees();
+    Modal.show('Apply Attendance Correction / Work From Home', `
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Employee</label>
+          <select class="form-control" id="ac-emp">
+            ${emps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Request Type</label>
+          <select class="form-control" id="ac-type">
+            <option value="attendance_correction">Attendance Correction</option>
+            <option value="work_from_home">Work From Home (WFH)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label required">Date</label>
+          <input type="date" class="form-control" id="ac-date" value="${Utils.today()}">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Time In</label>
+          <input type="time" class="form-control" id="ac-in" value="09:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Time Out</label>
+          <input type="time" class="form-control" id="ac-out" value="18:00">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Reason / Justification</label>
+        <textarea class="form-control" id="ac-reason" rows="3" placeholder="Explain the cause of missing punch or reason for working remotely..."></textarea>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-3)">
+        <i class="fa fa-info-circle" style="color:var(--primary);margin-right:6px"></i>
+        Requests are routed first to the Direct Reporting Manager (Deputy Manager), then forwarded to HR / Admin for final synchronized approval.
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Attendance.saveCorrection()"><i class="fa fa-paper-plane"></i> Submit Request</button>
+      `
+    });
+  },
+
+  saveCorrection() {
+    const empId = parseInt(document.getElementById('ac-emp').value);
+    const type = document.getElementById('ac-type').value;
+    const date = document.getElementById('ac-date').value;
+    const timeIn = document.getElementById('ac-in').value;
+    const timeOut = document.getElementById('ac-out').value;
+    const reason = document.getElementById('ac-reason').value.trim();
+
+    if (!date || !reason) {
+      Toast.show('Please provide a date and reason', 'error');
+      return;
+    }
+
+    const emp = DB.find('employees', empId);
+    let corrections = DB.get('attendance_corrections') || [];
+    const newCorr = {
+      id: DB.nextId('attendance_corrections'),
+      employeeId: empId,
+      date,
+      type,
+      timeIn,
+      timeOut,
+      reason,
+      status: 'pending',
+      managerId: emp?.managerId || 3,
+      managerStatus: 'pending',
+      managerApprovedAt: null,
+      managerRemarks: '',
+      hrStatus: 'pending',
+      hrApprovedAt: null,
+      hrRemarks: '',
+      createdAt: Utils.today()
+    };
+
+    corrections.push(newCorr);
+    DB.set('attendance_corrections', corrections);
+    DB.log('APPLY', 'Attendance', `Submitted ${type} request for ${emp?.fullName} on ${date}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Request submitted successfully!', 'success', 'Sent to direct reporting manager for first approval.');
+    this.render();
   },
 
   calcHours(timeIn, timeOut) {
