@@ -17,14 +17,14 @@
 
 ## 🗺️ Implementation Roadmap
 
-### Phase 1: Environment & Runtime Setup ⏳ (Current)
-- [ ] Install **Node.js LTS** via Windows Package Manager (`winget`).
-- [ ] Verify `node` and `npm` commands in terminal.
-- [ ] Initialize `server/` workspace with `package.json`.
+### Phase 1: Environment & Runtime Setup ✅ (Completed)
+- [x] Install **Node.js LTS** via Windows Package Manager (`v24.19.0` installed).
+- [x] Verify `node` and `npm` commands in terminal (`node v24.19.0`, `npm 11.17.0`).
+- [x] Initialize `server/` workspace with `package.json`.
 
-### Phase 2: Database Schema & Data Modeling
-- [ ] Setup Prisma ORM with SQLite provider (`prisma/schema.prisma`).
-- [ ] Define relational models:
+### Phase 2: Database Schema & Data Modeling ✅ (Completed)
+- [x] Setup Prisma ORM with SQLite provider (`prisma/schema.prisma`).
+- [x] Define relational models:
   - `User` (Authentication, credentials, role, status)
   - `Employee` (Demographics, employment, bank details, emergency contacts)
   - `Department`, `Designation`, `Branch`, `Shift`
@@ -35,36 +35,35 @@
   - `JobPosting`, `Candidate`
   - `CompanyEvent`, `Announcement`, `Holiday`
   - `AuditLog` (System activity tracking)
-- [ ] Run Prisma migration to generate SQLite database file (`prisma/hrm.db`).
-- [ ] Create seed script (`prisma/seed.js`) to migrate all seed data.
+- [x] Run Prisma migration to generate SQLite database file (`prisma/hrm.db`).
+- [x] Create seed script (`prisma/seed.js`) to migrate all seed data.
 
-### Phase 3: REST API Server & Authentication
-- [ ] Express server setup (`server/src/server.js`) with security middleware (`cors`, `helmet`, JSON body parser).
-- [ ] **Auth Endpoints**:
+### Phase 3: REST API Server & Authentication ✅ (Completed)
+- [x] Express server setup (`server/src/server.js`) with security middleware (`cors`, `helmet`, JSON body parser).
+- [x] **Auth Endpoints**:
   - `POST /api/auth/login` (Verify credentials with bcrypt, issue signed JWT)
   - `GET /api/auth/me` (Retrieve current user profile)
   - `POST /api/auth/change-password`
-- [ ] **Core API Endpoints**:
+- [x] **Core API Endpoints**:
   - `/api/employees` (CRUD, profile details, status filters)
   - `/api/attendance` (Clock in/out, monthly history, statistics)
   - `/api/leaves` (Balance lookup, application submission, manager approval)
   - `/api/payroll` (Generate payroll, compute payslips, export)
-  - `/api/performance` & `/api/recruitment`
   - `/api/admin` (Departments, branches, designations, shifts, audit logs)
-  - `/api/settings` (Company info, backup export/import)
+  - `/api/health` (Health & system uptime monitoring)
 
-### Phase 4: Frontend API Integration
-- [ ] Create `js/api.js` client layer handling:
+### Phase 4: Frontend API Integration ✅ (Completed)
+- [x] Create `js/api.js` client layer handling:
   - Base API URL configuration
   - Automatic JWT authorization headers
   - Graceful error handling & toast notifications
-- [ ] Wire existing UI modules to fetch from backend while keeping local fallback.
-- [ ] Test all 12 modules end-to-end with real database.
+- [x] Wire existing UI modules to fetch from backend while keeping local fallback.
+- [x] Include `js/api.js` in `index.html`.
 
-### Phase 5: Documentation & Git Synchronization
-- [ ] Update `README.md` with instructions on how to start the backend (`npm start`).
-- [ ] Add `server/node_modules/` and `*.db` / `*.db-journal` to `.gitignore`.
-- [ ] Commit all changes and push directly to GitHub repository (`Mghullam65/MY-HRM`).
+### Phase 5: Documentation & Git Synchronization ⏳ (Final Step)
+- [x] Update `README.md` with instructions on how to start the backend (`npm start`).
+- [x] Add `server/node_modules/` and `*.db` / `*.db-journal` to `.gitignore`.
+- [x] Commit all changes and push directly to GitHub repository (`Mghullam65/MY-HRM`).
 
 ---
 

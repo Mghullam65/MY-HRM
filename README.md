@@ -70,14 +70,29 @@ A modern, responsive, full-featured Human Resource Management System built with 
 
 ## 🚀 Getting Started
 
-No external servers, databases, or runtime installations are required. Everything runs directly in any modern web browser.
+You can run HRM Pro either as a **Full-Stack Application with SQLite Database & REST API** (recommended for production/company use) or as a **Standalone Client-Side App**.
 
-1. Clone or download this repository:
+### Option A: Full-Stack with Database Server (Recommended)
+1. Navigate to the `server` directory and install dependencies:
    ```bash
-   git clone https://github.com/Mghullam65/MY-HRM.git
+   cd server
+   npm install
    ```
-2. Open `index.html` in your favorite web browser (Chrome, Edge, Firefox, Safari).
-3. Select any demo account on the login page to explore the system!
+2. Initialize and seed the SQLite database:
+   ```bash
+   npm run seed
+   ```
+3. Start the Express server:
+   ```bash
+   npm start
+   ```
+4. Open your browser and go to: **`http://localhost:5000`**
+
+---
+
+### Option B: Standalone Client Mode
+1. Simply double-click and open `index.html` in any modern web browser (Chrome, Edge, Firefox, Safari).
+2. The app will run smoothly using browser `localStorage`.
 
 ---
 

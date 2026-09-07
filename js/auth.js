@@ -18,6 +18,15 @@ const Auth = {
   },
 
   login(username, password) {
+    // Attempt background API login to synchronize JWT session
+    if (typeof API !== 'undefined') {
+      API.login(username, password)
+        .then(res => {
+          if (res.token) API.setToken(res.token);
+        })
+        .catch(err => console.log('[Auth] API login sync notice:', err.message));
+    }
+
     const users = DB.get('users');
     const user = users.find(u => u.username === username && u.password === password && u.status === 'active');
     if (!user) return { success: false, message: 'Invalid username or password.' };
@@ -32,6 +41,7 @@ const Auth = {
   },
 
   logout() {
+    if (typeof API !== 'undefined') API.logout();
     DB.log('LOGOUT', 'Auth', `${this._employee?.fullName} logged out`, this._user?.id);
     this._user = null;
     this._employee = null;

@@ -1,9 +1,24 @@
 # Dependencies & OS
+node_modules/
+server/node_modules/
 .DS_Store
 Thumbs.db
 *.log
 npm-debug.log*
 yarn-debug.log*
+
+# Database
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+server/prisma/*.db
+server/prisma/*.db-journal
+
+# Environment variables
+.env
+server/.env
+server/.env.local
 
 # IDE & Editors
 .vscode/
