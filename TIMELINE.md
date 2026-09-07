@@ -155,6 +155,10 @@
     - **HR Manager (Sara Malik)** reports directly to **Super Admin / CEO (Ahmed Khan)**.
     - **Deputy Manager (Usman Baig)** reports to both **Admin** and **HR**.
     - **Employees** report directly to **Deputy Manager** (Level 1 Direct Supervisor), with escalation to **HR** (Level 2) and **Admin** (Level 3).
+    - **Super Admin (Ahmed Khan)** displays Apex Leadership, reporting directly to the Board of Directors with direct links to his key executive reports.
+    - **Role-Tailored Hierarchy Cards**: The profile `Report-to` view dynamically adapts depending on who is viewed (Admin apex overview, HR direct report to Admin, Deputy Manager dual superiors + 4 team members grid, and Employees 3-tier chain).
+    - **Add & Edit Form Integration**: Added explicit `Report-to (Reporting Manager)` dropdown selector to the Add Employee and Edit Employee modals, allowing dynamic assignment of reporting managers.
+    - **Directory & Table Visibility**: Each employee's row in the table explicitly shows a `Report-to: <name>` tag for quick organization-wide clarity.
   - **Deputy Manager Scoped Team Visibility (4 Employees Only)**:
     - Deputy Manager Usman Baig (`dept_manager`) is assigned exactly 4 team members: **Fatima Raza (EMP-004)**, **Tariq Hussain (EMP-009)**, **Sehar Nawaz (EMP-025)**, and **Omar Farhan (EMP-013)**.
     - When Usman Baig logs in, all modules strictly scope to these 4 employees:

@@ -152,6 +152,9 @@ const Employees = {
                       <div>
                         <div style="font-weight:600;font-size:13px">${e.fullName}</div>
                         <div style="font-size:11px;color:var(--text-3)">${e.email}</div>
+                        <div style="font-size:10.5px;color:var(--text-2);margin-top:2px">
+                          <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -751,6 +754,7 @@ const Employees = {
             ${row('Department', Utils.getDeptName(emp.departmentId), 'fa-sitemap')}
             ${row('Designation', Utils.getDesigName(emp.designationId), 'fa-id-badge')}
             ${row('System Authorization Role', Employees.getRoleBadge(emp.role || 'employee'), 'fa-user-shield')}
+            ${row('Reports To (Manager)', emp.id === 1 ? 'Board of Directors / CEO' : emp.id === 2 ? 'Ahmed Khan (Super Admin)' : emp.id === 3 ? 'Admin (Ahmed Khan) & HR (Sara Malik)' : `${Utils.getEmpName(emp.managerId || 3)} (Direct Supervisor)`, 'fa-user-tie')}
             ${row('Service Tenure', `Joined on ${Utils.formatDate(emp.joiningDate)}`, 'fa-clock')}
             ${row('Official Work Station', Utils.getBranchName(emp.branchId), 'fa-building')}
           </div>
@@ -786,16 +790,200 @@ const Employees = {
       }
 
       case 'report-to': {
-        const reportingManager = DB.find('employees', emp.managerId) || { fullName: 'Usman Baig', email: 'usman.baig@company.com', phone: '0333-3456789' };
-        const hrManager = DB.find('employees', 2) || { fullName: 'Sara Malik', email: 'sara.malik@company.com', phone: '0321-2345678' };
-        const adminManager = DB.find('employees', 1) || { fullName: 'Ahmed Khan', email: 'ahmed.khan@company.com', phone: '0300-1234567' };
+        const adminManager = DB.find('employees', 1) || { id: 1, fullName: 'Ahmed Khan', email: 'ahmed.khan@company.com', phone: '0300-1234567' };
+        const hrManager = DB.find('employees', 2) || { id: 2, fullName: 'Sara Malik', email: 'sara.malik@company.com', phone: '0321-2345678' };
+        const deptManager = DB.find('employees', 3) || { id: 3, fullName: 'Usman Baig', email: 'usman.baig@company.com', phone: '0333-3456789' };
+
+        const myDirectManagerId = emp.managerId || (emp.id === 2 || emp.id === 3 ? 1 : 3);
+        const directManager = DB.find('employees', myDirectManagerId) || deptManager;
 
         // Subordinates (e.g. if this employee is Usman Baig, show his 4 team members)
         const myTeam = (DB.get('employees') || []).filter(e => e.managerId === emp.id || e.reportingTo === emp.id);
-        const reassignBtn = isHR ? `<button class="btn btn-secondary btn-sm" onclick="Employees.showReassignManagerModal(${emp.id})"><i class="fa fa-user-pen"></i> Change Reporting Manager</button>` : '';
+        const reassignBtn = isHR && emp.id !== 1 ? `<button class="btn btn-secondary btn-sm" onclick="Employees.showReassignManagerModal(${emp.id})"><i class="fa fa-user-pen"></i> Change Reporting Manager</button>` : '';
 
+        // 1. If viewing Super Admin (Ahmed Khan, ID: 1)
+        if (emp.id === 1 || emp.role === 'superadmin') {
+          return `
+            ${sectionHeader('Executive Leadership & Reporting Structure', 'Chief Executive & Super Administrator (Apex of Organizational Hierarchy)', '')}
+            
+            <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:18px;margin-bottom:20px">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Apex Executive Leadership</span>
+                      <span class="badge badge-success" style="font-size:10px">Universal Authority</span>
+                    </div>
+                    <div style="font-size:17px;font-weight:700;color:var(--text);margin-top:3px">${emp.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">Super Administrator / Chief Executive • ${emp.email} • ${emp.phone}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;max-width:320px">
+                  <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase">Reports Directly To:</div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text);margin-top:2px">Board of Directors & Corporate Ownership</div>
+                  <div style="font-size:11px;color:var(--text-3);margin-top:2px">Holds universal override & approval authority across all HR, attendance, payroll, and appraisals.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Direct Reports under Super Admin -->
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px">
+              <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-sitemap" style="color:var(--primary)"></i> Key Corporate Direct Reports
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px">
+                <!-- HR Manager -->
+                <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid #6366f1;border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                  <div style="flex:1">
+                    <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10px">Head of Human Resources</span>
+                    <div style="font-weight:700;font-size:13.5px;margin-top:2px">${hrManager.fullName}</div>
+                    <div style="font-size:11px;color:var(--text-3)">Reports to: Super Admin (Ahmed Khan)</div>
+                  </div>
+                  <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${hrManager.id})" title="View Profile"><i class="fa fa-chevron-right"></i></button>
+                </div>
+                <!-- Deputy Manager -->
+                <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(deptManager.id)}">${Utils.avatarInitials(deptManager.fullName)}</div>
+                  <div style="flex:1">
+                    <span class="badge badge-primary" style="font-size:10px">Deputy Manager</span>
+                    <div style="font-weight:700;font-size:13.5px;margin-top:2px">${deptManager.fullName}</div>
+                    <div style="font-size:11px;color:var(--text-3)">Reports to: Admin & HR both</div>
+                  </div>
+                  <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${deptManager.id})" title="View Profile"><i class="fa fa-chevron-right"></i></button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // 2. If viewing HR Manager (Sara Malik, ID: 2)
+        if (emp.id === 2 || emp.role === 'hr_manager') {
+          return `
+            ${sectionHeader('Reporting Hierarchy ("Report-to")', 'Corporate Human Resources Reporting Structure (Reports to Admin)', reassignBtn)}
+            
+            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">
+              <!-- Direct Report to Admin -->
+              <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Reports Directly To: Super Admin</span>
+                    </div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;max-width:300px">
+                  <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase">Hierarchical Mandate</div>
+                  <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">HR Manager reports directly to Super Admin for corporate governance, executive approvals, and organizational strategy.</div>
+                </div>
+              </div>
+
+              <!-- HR Scope & Authority Info -->
+              <div style="background:var(--surface);border:1px solid var(--border);border-left:4px solid #6366f1;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+                <div style="font-size:24px;color:#6366f1"><i class="fa fa-shield-halved"></i></div>
+                <div style="font-size:12px;color:var(--text-2);line-height:1.5">
+                  <strong style="color:var(--text)">Corporate HR Authority:</strong> Sara Malik holds 2nd-level final sign-off power for all employee leave requests, attendance corrections, and initiates annual performance appraisal cycles across all departments.
+                </div>
+              </div>
+            </div>
+
+            <!-- Key Departmental Reporting Lines under HR -->
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px">
+              <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-users" style="color:var(--primary)"></i> Key Departmental Reporting Lines
+              </div>
+              <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:8px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:var(--text)">Deputy Manager (Usman Baig)</div>
+                  <div style="font-size:11px;color:var(--text-3)">Reports to both Admin and HR Manager (Sara Malik)</div>
+                </div>
+                <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(3)" title="View Profile"><i class="fa fa-chevron-right"></i></button>
+              </div>
+            </div>
+          `;
+        }
+
+        // 3. If viewing Deputy Manager (Usman Baig, ID: 3)
+        if (emp.id === 3 || emp.role === 'dept_manager') {
+          return `
+            ${sectionHeader('Reporting Hierarchy ("Report-to")', 'Dual Reporting Line: Reports to Super Admin & HR Manager both', reassignBtn)}
+            
+            <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
+              <!-- Superior 1: Super Admin -->
+              <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Superior 1: Super Admin (Executive)</span>
+                    </div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;max-width:280px">
+                  <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase">Executive Superior</div>
+                  <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Universal sign-off, departmental budget approvals, and executive decisions.</div>
+                </div>
+              </div>
+
+              <!-- Superior 2: HR Manager -->
+              <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #6366f1;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10.5px"><i class="fa fa-users-gear"></i> Superior 2: HR Manager (Corporate HR)</span>
+                    </div>
+                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${hrManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">Head of Human Resources • ${hrManager.email} • ${hrManager.phone}</div>
+                  </div>
+                </div>
+                <div style="text-align:right;max-width:280px">
+                  <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase">HR Superior</div>
+                  <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Leave quotas, attendance regularization, and appraisal review initiation.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Direct Subordinates / 4 Team Members -->
+            <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                <div style="font-size:14px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+                  <i class="fa fa-users-viewfinder" style="color:var(--primary)"></i> Direct Subordinates / Team (${myTeam.length} Employees)
+                </div>
+                <span class="badge badge-primary">${myTeam.length} Assigned Team Members</span>
+              </div>
+              <div style="background:rgba(37,99,235,0.05);border:1px dashed var(--primary);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text-2)">
+                <i class="fa fa-circle-info" style="color:var(--primary);margin-right:4px"></i>
+                Usman Baig conducts 1st-level approval of Leaves & Attendance Corrections/WFH for these 4 team members, and evaluates their Performance & Skills (PSE) forms.
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:12px">
+                ${myTeam.map(t => `
+                  <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)}">${Utils.avatarInitials(t.fullName)}</div>
+                    <div style="flex:1;overflow:hidden">
+                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${t.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(t.designationId)}</div>
+                      <div style="font-size:10.5px;color:var(--primary);font-family:monospace">${t.empNo}</div>
+                    </div>
+                    <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${t.id})" title="View Profile">
+                      <i class="fa fa-chevron-right"></i>
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+
+        // 4. Standard Employees (Fatima, Tariq, Sehar, Omar, etc.)
         return `
-          ${sectionHeader('Reporting Hierarchy ("Report-to")', 'Multi-tier supervisory chain: Direct Manager, HR and Executive Admin', reassignBtn)}
+          ${sectionHeader('Reporting Hierarchy ("Report-to")', '3-Tier Supervisory Chain: Direct Manager ➔ HR Manager ➔ Super Admin', reassignBtn)}
           
           <!-- Hierarchical Reporting Chain -->
           <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
@@ -803,14 +991,14 @@ const Employees = {
             <!-- Tier 1: Reporting Manager (Deputy Manager) -->
             <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid var(--primary);border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
               <div style="display:flex;align-items:center;gap:14px">
-                <div class="avatar avatar-md" style="background:${Utils.avatarColor(reportingManager.id)}">${Utils.avatarInitials(reportingManager.fullName)}</div>
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(directManager.id)}">${Utils.avatarInitials(directManager.fullName)}</div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px">
                     <span class="badge badge-primary" style="font-size:10.5px"><i class="fa fa-user-tie"></i> Direct Reporting Manager (Tier 1)</span>
-                    ${reportingManager.id === 3 ? `<span class="badge badge-info" style="font-size:10px">Deputy Manager</span>` : ''}
+                    ${directManager.id === 3 ? `<span class="badge badge-info" style="font-size:10px">Deputy Manager</span>` : ''}
                   </div>
-                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${reportingManager.fullName}</div>
-                  <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(reportingManager.designationId)} • ${reportingManager.email} • ${reportingManager.phone}</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${directManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(directManager.designationId)} • ${directManager.email} • ${directManager.phone}</div>
                 </div>
               </div>
               <div style="text-align:right;max-width:280px">
@@ -856,7 +1044,7 @@ const Employees = {
             </div>
           </div>
 
-          <!-- Direct Subordinates / Team Members (Shown for Managers) -->
+          <!-- Direct Subordinates / Team Members (Shown if employee has reportees) -->
           ${myTeam.length > 0 ? `
             <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:18px">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -2547,6 +2735,23 @@ const Employees = {
             <option value="Contract" ${prefill.empType==='Contract'?'selected':''}>Contract</option>
           </select></div>
       </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required"><i class="fa fa-user-tie" style="color:var(--primary);margin-right:4px"></i>Report-to (Reporting Manager)</label>
+          <select class="form-control" id="ef-manager">
+            <option value="3" selected>Usman Baig (Deputy Manager / Tech Lead)</option>
+            <option value="2">Sara Malik (Head of HR)</option>
+            <option value="1">Ahmed Khan (Super Admin / CEO)</option>
+            ${(DB.get('employees')||[]).filter(m => ![1,2,3].includes(m.id) && m.status === 'active').map(m => `<option value="${m.id}">${m.fullName} (${Utils.getDesigName(m.designationId)})</option>`).join('')}
+          </select>
+          <div style="font-size:11px;color:var(--text-3);margin-top:3px">Direct supervisor for 1st-level approval workflows.</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Secondary Escalation Authority</label>
+          <input class="form-control" value="Sara Malik (Corporate HR) & Ahmed Khan (Admin)" readonly style="background:var(--surface);color:var(--text-3);font-size:12px">
+          <div style="font-size:11px;color:var(--text-3);margin-top:3px">Automatic 2nd and 3rd tier escalation chain.</div>
+        </div>
+      </div>
 
       <!-- Dedicated System Role & Login Credentials Setup -->
       <div style="margin-top:10px;margin-bottom:12px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
@@ -2631,6 +2836,7 @@ const Employees = {
     const role = document.getElementById('ef-role')?.value || 'onboarding';
     const usernameInput = (document.getElementById('ef-username')?.value.trim() || email.split('@')[0] || `emp`).toLowerCase().replace(/[^a-z0-9._-]/g, '');
     const passwordInput = document.getElementById('ef-password')?.value.trim() || 'emp123';
+    const chosenManagerId = parseInt(document.getElementById('ef-manager')?.value) || 3;
 
     if (!fname || !lname || !email || !phone) {
       Toast.show('Please fill all required fields.', 'error');
@@ -2649,7 +2855,7 @@ const Employees = {
       joiningDate: joinDate, confirmationDate: role !== 'onboarding' ? joinDate : null,
       employmentType: empType, status: 'active', role,
       onboardingStatus: role === 'onboarding' ? 'in_progress' : 'completed',
-      salary, photo: null, managerId: null, reportingTo: null,
+      salary, photo: null, managerId: chosenManagerId, reportingTo: chosenManagerId, hrManagerId: 2, adminId: 1,
       dob: '', maritalStatus: '', address: '',
       bloodGroup: '', nationality: 'Pakistani', religion: '',
       bankName: '', accountNo: '', iban: '',
@@ -2765,6 +2971,20 @@ const Employees = {
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
+          <label class="form-label"><i class="fa fa-user-tie" style="color:var(--primary);margin-right:4px"></i>Report-to (Reporting Manager)</label>
+          <select class="form-control" id="ef-manager">
+            <option value="3" ${emp.managerId === 3 ? 'selected' : ''}>Usman Baig (Deputy Manager / Tech Lead)</option>
+            <option value="2" ${emp.managerId === 2 ? 'selected' : ''}>Sara Malik (Head of HR)</option>
+            <option value="1" ${emp.managerId === 1 ? 'selected' : ''}>Ahmed Khan (Super Admin / CEO)</option>
+            ${(DB.get('employees')||[]).filter(m => ![1,2,3].includes(m.id) && m.id !== emp.id && m.status === 'active').map(m => `<option value="${m.id}" ${emp.managerId === m.id ? 'selected' : ''}>${m.fullName} (${Utils.getDesigName(m.designationId)})</option>`).join('')}
+          </select>
+          <div style="font-size:11px;color:var(--text-3);margin-top:3px">Direct supervisor for 1st-level approval workflows.</div>
+        </div>
+        <div class="form-group"><label class="form-label">Branch</label>
+          <select class="form-control" id="ef-branch">${branches.map(b=>`<option value="${b.id}"${b.id===emp.branchId?' selected':''}>${b.name}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
           <label class="form-label required"><i class="fa fa-shield-halved" style="margin-right:5px;color:var(--primary)"></i>Assigned System Role</label>
           <select class="form-control" id="ef-role">
             <option value="onboarding" ${currentRole==='onboarding'?'selected':''}>New Joiner / Onboarding (Can Fill Info & Upload Documents)</option>
@@ -2778,10 +2998,8 @@ const Employees = {
             <strong>Workflow:</strong> Assign <em>New Joiner / Onboarding</em> during induction so employee can fill info & upload documents. Once verified by HR, change to <em>Simple Employee</em> (locks profile to view-only) or <em>Dept Manager</em>.
           </div>
         </div>
-        <div class="form-group"><label class="form-label">Branch</label>
-          <select class="form-control" id="ef-branch">${branches.map(b=>`<option value="${b.id}"${b.id===emp.branchId?' selected':''}>${b.name}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Address</label><textarea class="form-control" id="ef-address" style="min-height:38px">${emp.address||''}</textarea></div>
       </div>
-      <div class="form-group"><label class="form-label">Address</label><textarea class="form-control" id="ef-address">${emp.address||''}</textarea></div>
     `, {
       size: 'modal-lg',
       footer: `
@@ -2801,6 +3019,7 @@ const Employees = {
       return;
     }
     const assignedRole = document.getElementById('ef-role')?.value || 'employee';
+    const chosenMgr = parseInt(document.getElementById('ef-manager')?.value);
     const updates = {
       firstName:      document.getElementById('ef-fname').value.trim(),
       lastName:       document.getElementById('ef-lname').value.trim(),
@@ -2813,6 +3032,10 @@ const Employees = {
       role:           assignedRole,
       address:        document.getElementById('ef-address').value.trim(),
     };
+    if (chosenMgr) {
+      updates.managerId = chosenMgr;
+      updates.reportingTo = chosenMgr;
+    }
     if (document.getElementById('ef-branch')) {
       updates.branchId = parseInt(document.getElementById('ef-branch').value);
     }
