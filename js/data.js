@@ -289,6 +289,21 @@ const DB = {
         empUpdated = true;
       }
 
+      // Default profile photos
+      const defaultPhotos = {
+        1: 'assets/avatars/ahmed_khan.jpg',
+        2: 'assets/avatars/sara_malik.jpg',
+        3: 'assets/avatars/usman_baig.jpg',
+        4: 'assets/avatars/fatima_raza.jpg',
+        9: 'assets/avatars/tariq_hussain.jpg',
+        13: 'assets/avatars/omar_farhan.jpg',
+        25: 'assets/avatars/sehar_nawaz.jpg'
+      };
+      if (!e.photo && defaultPhotos[e.id]) {
+        e.photo = defaultPhotos[e.id];
+        empUpdated = true;
+      }
+
       // Ensure rich profile fields are populated
       if (!e.lunchSubscription) {
         e.lunchSubscription = {
@@ -559,7 +574,7 @@ const employees = [
     departmentId: 6, designationId: 1, branchId: 1, shiftId: 1,
     joiningDate: '2015-01-01', confirmationDate: '2015-04-01',
     employmentType: 'Permanent', status: 'active', role: 'superadmin',
-    salary: 350000, photo: null, managerId: null, reportingTo: null,
+    salary: 350000, photo: 'assets/avatars/ahmed_khan.jpg', managerId: null, reportingTo: null,
     bloodGroup: 'O+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'HBL', accountNo: '1234567890123', iban: 'PK36HABB0000001123456702',
     emergencyContact: { name: 'Fatima Khan', relation: 'Wife', phone: '0300-9876543' },
@@ -574,7 +589,7 @@ const employees = [
     departmentId: 1, designationId: 2, branchId: 1, shiftId: 1,
     joiningDate: '2018-03-01', confirmationDate: '2018-06-01',
     employmentType: 'Permanent', status: 'active', role: 'hr_manager',
-    salary: 120000, photo: null, managerId: 1, reportingTo: 1,
+    salary: 120000, photo: 'assets/avatars/sara_malik.jpg', managerId: 1, reportingTo: 1,
     bloodGroup: 'A+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'MCB', accountNo: '9876543210123', iban: 'PK36MUCB0000001123456702',
     emergencyContact: { name: 'Ali Malik', relation: 'Brother', phone: '0321-7654321' },
@@ -589,7 +604,7 @@ const employees = [
     departmentId: 2, designationId: 4, branchId: 1, shiftId: 1,
     joiningDate: '2019-06-15', confirmationDate: '2019-09-15',
     employmentType: 'Permanent', status: 'active', role: 'dept_manager',
-    salary: 150000, photo: null, managerId: 1, reportingTo: 2,
+    salary: 150000, photo: 'assets/avatars/usman_baig.jpg', managerId: 1, reportingTo: 2,
     bloodGroup: 'B+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'UBL', accountNo: '1122334455667', iban: 'PK36UNIL0000001123456702',
     emergencyContact: { name: 'Asma Baig', relation: 'Wife', phone: '0333-5678901' },
@@ -604,7 +619,7 @@ const employees = [
     departmentId: 2, designationId: 3, branchId: 1, shiftId: 1,
     joiningDate: '2021-02-01', confirmationDate: '2021-05-01',
     employmentType: 'Permanent', status: 'active', role: 'employee',
-    salary: 85000, photo: null, managerId: 3, reportingTo: 3,
+    salary: 85000, photo: 'assets/avatars/fatima_raza.jpg', managerId: 3, reportingTo: 3,
     bloodGroup: 'AB+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'HBL', accountNo: '5566778899001', iban: 'PK36HABB0000005566778899',
     emergencyContact: { name: 'Raza Ali', relation: 'Father', phone: '0345-1234567' },
@@ -679,7 +694,7 @@ const employees = [
     departmentId: 2, designationId: 11, branchId: 1, shiftId: 1,
     joiningDate: '2021-09-01', confirmationDate: '2021-12-01',
     employmentType: 'Permanent', status: 'active', role: 'employee',
-    salary: 90000, photo: null, managerId: 3, reportingTo: 3,
+    salary: 90000, photo: 'assets/avatars/tariq_hussain.jpg', managerId: 3, reportingTo: 3,
     bloodGroup: 'AB-', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'UBL', accountNo: '6677889900112', iban: 'PK36UNIL0000006677889900',
     emergencyContact: { name: 'Imran Hussain', relation: 'Father', phone: '0341-4567890' },
@@ -702,20 +717,6 @@ const employees = [
     experience: [],
   },
   // Ex-employees
-  {
-    id: 11, empNo: 'EMP-011', firstName: 'Kamran', lastName: 'Ali', fullName: 'Kamran Ali',
-    email: 'kamran.ali@company.com', phone: '0308-1122334', cnic: '42201-1122334-1',
-    dob: '1984-10-20', gender: 'Male', maritalStatus: 'Married',
-    address: 'House 34, Johar Town, Lahore',
-    departmentId: 2, designationId: 3, branchId: 2, shiftId: 1,
-    joiningDate: '2018-06-01', confirmationDate: '2018-09-01', exitDate: '2024-03-31',
-    employmentType: 'Permanent', status: 'inactive', role: 'employee',
-    salary: 80000, photo: null, managerId: 3, reportingTo: 3,
-    bloodGroup: 'B+', nationality: 'Pakistani', religion: 'Islam',
-    bankName: 'HBL', accountNo: '1234567890124', iban: 'PK36HABB0000001234567890',
-    emergencyContact: { name: 'Rukhsana Ali', relation: 'Wife', phone: '0308-4455667' },
-    qualifications: [], experience: [],
-  },
   {
     id: 11, empNo: 'EMP-011', firstName: 'Kamran', lastName: 'Ali', fullName: 'Kamran Ali',
     email: 'kamran.ali@company.com', phone: '0308-1122334', cnic: '42201-1122334-1',
@@ -889,7 +890,7 @@ const employees = [
     departmentId: 2, designationId: 3, branchId: 1, shiftId: 1,
     joiningDate: '2026-07-01', confirmationDate: null,
     employmentType: 'Probation', status: 'active', role: 'employee',
-    salary: 65000, photo: null, managerId: 3, reportingTo: 3,
+    salary: 65000, photo: 'assets/avatars/sehar_nawaz.jpg', managerId: 3, reportingTo: 3,
     bloodGroup: 'A+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'MCB', accountNo: '0000111122223', iban: 'PK36MUCB0000000000111122',
     emergencyContact: { name: 'Nawaz Hussain', relation: 'Father', phone: '0335-8899012' },
@@ -904,7 +905,7 @@ const employees = [
     departmentId: 2, designationId: 3, branchId: 3, shiftId: 1,
     joiningDate: '2026-08-15', confirmationDate: null,
     employmentType: 'Probation', status: 'active', role: 'employee',
-    salary: 70000, photo: null, managerId: 3, reportingTo: 3,
+    salary: 70000, photo: 'assets/avatars/omar_farhan.jpg', managerId: 3, reportingTo: 3,
     bloodGroup: 'A-', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'UBL', accountNo: '4455667788990', iban: 'PK36UNIL0000004455667788',
     emergencyContact: { name: 'Farhan Ahmad', relation: 'Father', phone: '0335-5566778' },
