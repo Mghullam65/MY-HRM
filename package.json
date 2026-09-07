@@ -4,8 +4,8 @@
   "private": true,
   "description": "HRM Pro — Cloud Human Resource Management System",
   "scripts": {
-    "build": "prisma generate --schema=server/prisma/schema.prisma && prisma db push --schema=server/prisma/schema.prisma --accept-data-loss",
-    "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
+    "build": "node scripts/build.js",
+    "prisma:generate": "prisma generate --schema=server/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=server/prisma/schema.prisma --accept-data-loss",
     "seed": "node server/prisma/seed.js"
   },
@@ -16,9 +16,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {
+    "jsonwebtoken": "^9.0.2",
     "prisma": "^6.4.1"
   }
 }
