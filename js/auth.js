@@ -91,10 +91,10 @@ const Auth = {
 
   getDemoAccounts() {
     return [
-      { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Ahmed Khan', icon: 'fa-crown', color: '#f59e0b' },
-      { username: 'sara.malik', password: 'hr123', role: 'HR Manager', name: 'Sara Malik', icon: 'fa-user-tie', color: '#6366f1' },
-      { username: 'usman.baig', password: 'mgr123', role: 'Dept Manager', name: 'Usman Baig', icon: 'fa-users-gear', color: '#14b8a6' },
-      { username: 'fatima.raza', password: 'emp123', role: 'Employee', name: 'Fatima Raza', icon: 'fa-user', color: '#ec4899' },
+      { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Ahmed Khan', icon: 'fa-shield-halved', color: '#0170b9' },
+      { username: 'sara.malik', password: 'hr123', role: 'HR Manager', name: 'Sara Malik', icon: 'fa-user-tie', color: '#0284c7' },
+      { username: 'usman.baig', password: 'mgr123', role: 'Dept Manager', name: 'Usman Baig', icon: 'fa-users-gear', color: '#0d9488' },
+      { username: 'fatima.raza', password: 'emp123', role: 'Employee Portal', name: 'Fatima Raza', icon: 'fa-id-badge', color: '#10b981' },
     ];
   }
 };

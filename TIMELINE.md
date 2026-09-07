@@ -155,10 +155,22 @@
 
 ---
 
+### Step 8: UI/UX & Dashboard Enhancements (2026-09-07)
+- **Objective**: Overhaul the application styling, improve dashboard widgets, and polish responsive components.
+- **Key Actions**:
+  - Enhanced design tokens and CSS rules in `css/main.css` (+678 lines).
+  - Modernized shell layout, sidebar transitions, and header navigation in `js/app.js`.
+  - Refined dashboard KPI widgets and quick action buttons in `js/dashboard.js`.
+  - Updated authentication styling in `js/auth.js` and layout in `index.html`.
+  - Added `ui.html` mockup preview.
+
+---
+
 ## 🔮 Future Roadmap & Changelog
 
-*This section will automatically track upcoming features, company customizations, and improvements:*
+*This section automatically tracks upcoming features, company customizations, and improvements:*
 
+- [x] **UI/UX & Dashboard Polish**: Completed responsive design enhancements across shell and dashboard.
 - [ ] **Custom Company Branding**: Configure official company name, logo, contact information, and primary brand colors.
 - [ ] **Real Employee Data Import**: CSV/Excel bulk import tool to onboard company staff in one click.
 - [ ] **Email Notifications (SMTP)**: Automated email alerts for leave requests, approvals, and monthly salary disbursement.
