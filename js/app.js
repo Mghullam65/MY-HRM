@@ -84,7 +84,7 @@ const App = {
       </div>
 
       <div class="sidebar-user">
-        <div class="user-avatar-sm avatar" style="background:${avatarColor}">${initials}</div>
+        <div class="user-avatar-sm avatar" style="background:${avatarColor};overflow:hidden">${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : initials}</div>
         <div class="user-info">
           <div class="name">${emp.fullName}</div>
           <div class="role-badge">${Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
@@ -171,8 +171,8 @@ const App = {
           </div>
         </div>
         <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile">
-          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(Auth.employee.id)};width:28px;height:28px;font-size:11px;border-radius:50%">
-            ${Utils.avatarInitials(Auth.employee.fullName)}
+          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(Auth.employee.id)};width:28px;height:28px;font-size:11px;border-radius:50%;overflow:hidden">
+            ${Auth.employee.photo ? `<img src="${Auth.employee.photo}" style="width:100%;height:100%;object-fit:cover" alt="${Auth.employee.fullName}">` : Utils.avatarInitials(Auth.employee.fullName)}
           </div>
         </button>
       </div>
@@ -256,6 +256,12 @@ const App = {
   },
 
   navigate(module) {
+    // Role-based module access guard
+    if (module === 'employees' && Auth.role === 'employee') {
+      // Regular employees don't have the employees list, redirect to their own profile
+      setTimeout(() => Employees.renderProfile(Auth.employee.id, true), 50);
+      module = 'profile';
+    }
     // Update active nav item
     document.querySelectorAll('.nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.module === module);
@@ -355,7 +361,16 @@ const App = {
       return;
     }
     const q = val.toLowerCase();
-    const emps = DB.get('employees').filter(e =>
+    // Scope search results by role
+    let allEmps = DB.get('employees');
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      allEmps = allEmps.filter(e => e.managerId === myId || e.reportingTo === myId || e.id === myId);
+    } else if (Auth.role === 'employee') {
+      const myId = Auth.employee?.id;
+      allEmps = allEmps.filter(e => e.id === myId);
+    }
+    const emps = allEmps.filter(e =>
       e.fullName.toLowerCase().includes(q) ||
       e.empNo.toLowerCase().includes(q) ||
       e.email.toLowerCase().includes(q) ||
@@ -370,10 +385,10 @@ const App = {
         <div class="search-result-section">Employees (${emps.length})</div>
         ${emps.map(e => `
           <div class="search-result-item" onclick="App.searchNavigate(${e.id})">
-            <div class="sri-avatar" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+            <div class="sri-avatar" style="background:${Utils.avatarColor(e.id)};overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
             <div>
               <div class="sri-name">${e.fullName}</div>
-              <div class="sri-meta">${e.empNo} • ${Utils.getDeptName(e.departmentId)} • ${Utils.statusBadge(e.status)}</div>
+              <div class="sri-meta">${e.empNo} • ${Utils.getDesigName(e.designationId)} • ${Utils.statusBadge(e.status)}</div>
             </div>
           </div>
         `).join('')}

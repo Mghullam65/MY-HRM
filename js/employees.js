@@ -83,6 +83,11 @@ const Employees = {
       const myId = Auth.employee?.id;
       emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
     }
+    // Regular employees only see themselves in the employee list
+    if (Auth.role === 'employee') {
+      const myEmpId = Auth.employee?.id;
+      emps = emps.filter(e => e.id === myEmpId);
+    }
     if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
     if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
     if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');
@@ -114,10 +119,11 @@ const Employees = {
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
           ${emps.map(e => `
             <div class="emp-card" onclick="Employees.renderProfile(${e.id})">
-              <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto">${Utils.avatarInitials(e.fullName)}</div>
+              <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto;overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
               <div class="name">${e.fullName}</div>
               <div class="desig">${Utils.getDesigName(e.designationId)}</div>
               <div class="dept">${Utils.getDeptName(e.departmentId)}</div>
+              <div style="font-size:10px;color:var(--text-3);margin-top:2px;font-family:monospace">${e.empNo}</div>
               ${Utils.statusBadge(e.status)}
             </div>
           `).join('')}
@@ -148,12 +154,12 @@ const Employees = {
                 <tr>
                   <td>
                     <div style="display:flex;align-items:center;gap:10px">
-                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${e.id})">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
                       <div>
-                        <div style="font-weight:600;font-size:13px">${e.fullName}</div>
-                        <div style="font-size:11px;color:var(--text-3)">${e.email}</div>
+                        <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${e.id})">${e.fullName}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${e.email}</div>
                         <div style="font-size:10.5px;color:var(--text-2);margin-top:2px">
-                          <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
+                          <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin (CEO)' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
                         </div>
                       </div>
                     </div>
@@ -197,6 +203,22 @@ const Employees = {
     if (!emp) return;
     const content = document.getElementById('page-content');
     const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    // Access guard: Deputy Manager can only view profiles of their direct team
+    if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      if (emp.id !== myId && emp.managerId !== myId && emp.reportingTo !== myId) {
+        if (content) content.innerHTML = `<div class="animate-fade-in" style="text-align:center;padding:60px 20px"><i class="fa fa-lock" style="font-size:48px;color:var(--danger);margin-bottom:20px;display:block"></i><h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3><p style="color:var(--text-3);margin-bottom:24px;font-size:14px">You can only view profiles of your direct team members.</p><button class="btn btn-primary" onclick="App.navigate('employees')"><i class="fa fa-arrow-left"></i> Back to My Team</button></div>`;
+        return;
+      }
+    }
+    // Regular employees can only view their own profile
+    if (Auth.role === 'employee') {
+      const myEmpId = Auth.employee?.id;
+      if (emp.id !== myEmpId) {
+        if (content) content.innerHTML = `<div class="animate-fade-in" style="text-align:center;padding:60px 20px"><i class="fa fa-lock" style="font-size:48px;color:var(--danger);margin-bottom:20px;display:block"></i><h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3><p style="color:var(--text-3);margin-bottom:24px;font-size:14px">You can only view your own profile.</p><button class="btn btn-primary" onclick="Employees.renderProfile(${myEmpId}, true)"><i class="fa fa-user"></i> View My Profile</button></div>`;
+        return;
+      }
+    }
     const isOnboardingSelf = Auth.role === 'onboarding' && Auth.employee?.id === emp.id;
 
     const users = DB.get('users') || [];
@@ -835,21 +857,21 @@ const Employees = {
               <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px">
                 <!-- HR Manager -->
                 <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid #6366f1;border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px">
-                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)};overflow:hidden">${hrManager.photo ? `<img src="${hrManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${hrManager.fullName}">` : Utils.avatarInitials(hrManager.fullName)}</div>
                   <div style="flex:1">
                     <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10px">Head of Human Resources</span>
-                    <div style="font-weight:700;font-size:13.5px;margin-top:2px">${hrManager.fullName}</div>
-                    <div style="font-size:11px;color:var(--text-3)">Reports to: Super Admin (Ahmed Khan)</div>
+                    <div style="font-weight:700;font-size:13.5px;margin-top:2px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${hrManager.id})">${hrManager.fullName}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(hrManager.designationId)} • Reports to: Super Admin</div>
                   </div>
                   <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${hrManager.id})" title="View Profile"><i class="fa fa-chevron-right"></i></button>
                 </div>
                 <!-- Deputy Manager -->
                 <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid var(--primary);border-radius:8px;padding:14px;display:flex;align-items:center;gap:12px">
-                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(deptManager.id)}">${Utils.avatarInitials(deptManager.fullName)}</div>
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(deptManager.id)};overflow:hidden">${deptManager.photo ? `<img src="${deptManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${deptManager.fullName}">` : Utils.avatarInitials(deptManager.fullName)}</div>
                   <div style="flex:1">
                     <span class="badge badge-primary" style="font-size:10px">Deputy Manager</span>
-                    <div style="font-weight:700;font-size:13.5px;margin-top:2px">${deptManager.fullName}</div>
-                    <div style="font-size:11px;color:var(--text-3)">Reports to: Admin & HR both</div>
+                    <div style="font-weight:700;font-size:13.5px;margin-top:2px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${deptManager.id})">${deptManager.fullName}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(deptManager.designationId)} • Reports to: Admin & HR both</div>
                   </div>
                   <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${deptManager.id})" title="View Profile"><i class="fa fa-chevron-right"></i></button>
                 </div>
@@ -867,13 +889,13 @@ const Employees = {
               <!-- Direct Report to Admin -->
               <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
                 <div style="display:flex;align-items:center;gap:14px">
-                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.photo ? `<img src="${adminManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${adminManager.fullName}">` : Utils.avatarInitials(adminManager.fullName)}</div>
                   <div>
                     <div style="display:flex;align-items:center;gap:8px">
-                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Reports Directly To: Super Admin</span>
+                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Reports Directly To: Super Admin (CEO)</span>
                     </div>
-                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
-                    <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(adminManager.designationId)} • ${adminManager.email} • ${adminManager.phone}</div>
                   </div>
                 </div>
                 <div style="text-align:right;max-width:300px">
@@ -913,16 +935,16 @@ const Employees = {
             ${sectionHeader('Reporting Hierarchy ("Report-to")', 'Dual Reporting Line: Reports to Super Admin & HR Manager both', reassignBtn)}
             
             <div style="display:flex;flex-direction:column;gap:14px;margin-bottom:24px">
-              <!-- Superior 1: Super Admin -->
+              <!-- Superior 1: Super Admin (CEO) -->
               <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
                 <div style="display:flex;align-items:center;gap:14px">
-                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.photo ? `<img src="${adminManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${adminManager.fullName}">` : Utils.avatarInitials(adminManager.fullName)}</div>
                   <div>
                     <div style="display:flex;align-items:center;gap:8px">
-                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Superior 1: Super Admin (Executive)</span>
+                      <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Superior 1: CEO / Super Admin</span>
                     </div>
-                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
-                    <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(adminManager.designationId)} • ${adminManager.email} • ${adminManager.phone}</div>
                   </div>
                 </div>
                 <div style="text-align:right;max-width:280px">
@@ -934,13 +956,13 @@ const Employees = {
               <!-- Superior 2: HR Manager -->
               <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #6366f1;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
                 <div style="display:flex;align-items:center;gap:14px">
-                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                  <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${hrManager.id})">${hrManager.photo ? `<img src="${hrManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${hrManager.fullName}">` : Utils.avatarInitials(hrManager.fullName)}</div>
                   <div>
                     <div style="display:flex;align-items:center;gap:8px">
-                      <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10.5px"><i class="fa fa-users-gear"></i> Superior 2: HR Manager (Corporate HR)</span>
+                      <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10.5px"><i class="fa fa-users-gear"></i> Superior 2: HR Manager</span>
                     </div>
-                    <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${hrManager.fullName}</div>
-                    <div style="font-size:12px;color:var(--text-3)">Head of Human Resources • ${hrManager.email} • ${hrManager.phone}</div>
+                    <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${hrManager.id})">${hrManager.fullName}</div>
+                    <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(hrManager.designationId)} • ${hrManager.email} • ${hrManager.phone}</div>
                   </div>
                 </div>
                 <div style="text-align:right;max-width:280px">
@@ -965,11 +987,11 @@ const Employees = {
               <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));gap:12px">
                 ${myTeam.map(t => `
                   <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
-                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)}">${Utils.avatarInitials(t.fullName)}</div>
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${t.id})">${t.photo ? `<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover" alt="${t.fullName}">` : Utils.avatarInitials(t.fullName)}</div>
                     <div style="flex:1;overflow:hidden">
-                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${t.fullName}</div>
+                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${t.id})">${t.fullName}</div>
                       <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(t.designationId)}</div>
-                      <div style="font-size:10.5px;color:var(--primary);font-family:monospace">${t.empNo}</div>
+                      <div style="font-size:10.5px;color:var(--text-2);font-family:monospace">${t.empNo} • ${Utils.statusBadge(t.status)}</div>
                     </div>
                     <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${t.id})" title="View Profile">
                       <i class="fa fa-chevron-right"></i>
@@ -991,13 +1013,13 @@ const Employees = {
             <!-- Tier 1: Reporting Manager (Deputy Manager) -->
             <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid var(--primary);border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
               <div style="display:flex;align-items:center;gap:14px">
-                <div class="avatar avatar-md" style="background:${Utils.avatarColor(directManager.id)}">${Utils.avatarInitials(directManager.fullName)}</div>
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(directManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${directManager.id})">${directManager.photo ? `<img src="${directManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${directManager.fullName}">` : Utils.avatarInitials(directManager.fullName)}</div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px">
                     <span class="badge badge-primary" style="font-size:10.5px"><i class="fa fa-user-tie"></i> Direct Reporting Manager (Tier 1)</span>
                     ${directManager.id === 3 ? `<span class="badge badge-info" style="font-size:10px">Deputy Manager</span>` : ''}
                   </div>
-                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${directManager.fullName}</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${directManager.id})">${directManager.fullName}</div>
                   <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(directManager.designationId)} • ${directManager.email} • ${directManager.phone}</div>
                 </div>
               </div>
@@ -1010,13 +1032,13 @@ const Employees = {
             <!-- Tier 2: HR Manager -->
             <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #6366f1;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
               <div style="display:flex;align-items:center;gap:14px">
-                <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)}">${Utils.avatarInitials(hrManager.fullName)}</div>
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(hrManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${hrManager.id})">${hrManager.photo ? `<img src="${hrManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${hrManager.fullName}">` : Utils.avatarInitials(hrManager.fullName)}</div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px">
                     <span class="badge" style="background:rgba(99,102,241,0.15);color:#6366f1;font-size:10.5px"><i class="fa fa-users-gear"></i> Human Resources (Tier 2)</span>
                   </div>
-                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${hrManager.fullName}</div>
-                  <div style="font-size:12px;color:var(--text-3)">Head of Human Resources • ${hrManager.email} • ${hrManager.phone}</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${hrManager.id})">${hrManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(hrManager.designationId)} • ${hrManager.email} • ${hrManager.phone}</div>
                 </div>
               </div>
               <div style="text-align:right;max-width:280px">
@@ -1025,16 +1047,16 @@ const Employees = {
               </div>
             </div>
 
-            <!-- Tier 3: Executive Administrator (Admin) -->
+            <!-- Tier 3: CEO / Executive Administrator (Admin) -->
             <div style="background:var(--surface);border:1.5px solid var(--border);border-left:4px solid #f59e0b;border-radius:10px;padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
               <div style="display:flex;align-items:center;gap:14px">
-                <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)}">${Utils.avatarInitials(adminManager.fullName)}</div>
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(adminManager.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.photo ? `<img src="${adminManager.photo}" style="width:100%;height:100%;object-fit:cover" alt="${adminManager.fullName}">` : Utils.avatarInitials(adminManager.fullName)}</div>
                 <div>
                   <div style="display:flex;align-items:center;gap:8px">
-                    <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> Executive Administrator (Tier 3)</span>
+                    <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-crown"></i> CEO / Executive Administrator (Tier 3)</span>
                   </div>
-                  <div style="font-size:16px;font-weight:700;color:var(--text);margin-top:3px">${adminManager.fullName}</div>
-                  <div style="font-size:12px;color:var(--text-3)">Super Admin / Chief Executive • ${adminManager.email} • ${adminManager.phone}</div>
+                  <div style="font-size:16px;font-weight:700;color:var(--primary);margin-top:3px;cursor:pointer" onclick="Employees.renderProfile(${adminManager.id})">${adminManager.fullName}</div>
+                  <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(adminManager.designationId)} • ${adminManager.email} • ${adminManager.phone}</div>
                 </div>
               </div>
               <div style="text-align:right;max-width:280px">
@@ -1056,10 +1078,11 @@ const Employees = {
               <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:12px">
                 ${myTeam.map(t => `
                   <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
-                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)}">${Utils.avatarInitials(t.fullName)}</div>
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${t.id})">${t.photo ? `<img src="${t.photo}" style="width:100%;height:100%;object-fit:cover" alt="${t.fullName}">` : Utils.avatarInitials(t.fullName)}</div>
                     <div style="flex:1;overflow:hidden">
-                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${t.fullName}</div>
+                      <div style="font-weight:700;font-size:13px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${t.id})">${t.fullName}</div>
                       <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(t.designationId)}</div>
+                      <div style="font-size:10.5px;color:var(--text-2)">${Utils.statusBadge(t.status)}</div>
                     </div>
                     <button class="btn btn-ghost btn-xs" onclick="Employees.renderProfile(${t.id})" title="View Profile">
                       <i class="fa fa-chevron-right"></i>
