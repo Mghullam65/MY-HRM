@@ -21,16 +21,12 @@ const App = {
   showLogin() {
     document.getElementById('login-page').style.display = 'flex';
     document.getElementById('app').style.display = 'none';
-    const aiBtn = document.getElementById('flow-ai-floating-btn');
-    if (aiBtn) aiBtn.style.display = 'none';
     Login.render();
   },
 
   showApp() {
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
-    const aiBtn = document.getElementById('flow-ai-floating-btn');
-    if (aiBtn) aiBtn.style.display = 'flex';
     this.renderSidebar();
     this.renderTopbar();
     this.setupKeyboardShortcuts();
@@ -56,12 +52,10 @@ const App = {
 
     sidebar.innerHTML = `
       <div class="sidebar-logo">
-        <div class="logo-icon" style="background:linear-gradient(135deg,#0170b9,#00b4d8);border-radius:10px;box-shadow:0 4px 14px rgba(1,112,185,0.4)">
-          <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="white" fill-opacity="0.18"/><path d="M7 11C7 9.34 8.34 8 10 8H22C23.66 8 25 9.34 25 11V13H13V17H23V21H13V25H7V11Z" fill="white"/><circle cx="21" cy="23" r="2.2" fill="#00e5ff"/></svg>
-        </div>
+        <div class="logo-icon">HR</div>
         <div class="logo-text">
-          <h1 id="company-sidebar-name">${DB.getObj('settings')?.companyName || 'FlowHCM Pro'}</h1>
-          <span style="color:#38bdf8;font-weight:600;font-size:10.5px;letter-spacing:0.3px">Enterprise HR & Payroll</span>
+          <h1 id="company-sidebar-name">${DB.getObj('settings')?.companyName || 'HRM Pro'}</h1>
+          <span>HR Management System</span>
         </div>
         <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
           <i class="fa fa-chevron-left"></i>
@@ -139,10 +133,6 @@ const App = {
         <div class="search-dropdown" id="search-dropdown"></div>
       </div>
       <div class="topbar-actions">
-        <button class="topbar-btn" onclick="App.openFlowAiAssistant()" title="FlowHCM Voice & AI HRMS Assistant" style="background:rgba(1,112,185,0.12);border:1px solid rgba(1,112,185,0.3);color:#0170b9;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;height:auto">
-          <i class="fa fa-wand-magic-sparkles" style="color:#0170b9;font-size:12px"></i>
-          <span style="font-size:11.5px;font-weight:700">FlowAI</span>
-        </button>
         <button class="theme-toggle-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
           <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
@@ -741,163 +731,6 @@ const App = {
     });
 
     container.innerHTML = html;
-  },
-
-  /* ── FLOWHCM AI ASSISTANT (Voice-Driven HRMS) ── */
-  openFlowAiAssistant() {
-    const emps = DB.get('employees') || [];
-    const activeEmps = emps.filter(e => e.status === 'active').length;
-    const att = DB.get('attendance') || [];
-    const today = Utils.today();
-    const todayAtt = att.filter(a => a.date === today);
-    const present = todayAtt.filter(a => a.status === 'present').length;
-    const leaves = DB.get('leave_requests') || [];
-    const activeLeaves = leaves.filter(l => l.status === 'approved' && l.from <= today && l.to >= today).length;
-    const pendingLeaves = leaves.filter(l => l.status === 'pending').length;
-
-    const modalBody = `
-      <div style="text-align:center;margin-bottom:20px">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,#0170b9,#00b4d8);border-radius:16px;box-shadow:0 8px 24px rgba(1,112,185,0.4);margin-bottom:12px">
-          <i class="fa fa-wand-magic-sparkles" style="font-size:24px;color:#ffffff"></i>
-        </div>
-        <h3 style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:4px;font-family:var(--font-heading)">FlowHCM Voice &amp; AI HRMS Assistant</h3>
-        <p style="font-size:12.5px;color:var(--text-3);margin:0">Pakistan’s First AI-Based Voice-Driven HRMS intelligence for instant workforce insights</p>
-      </div>
-
-      <!-- Live Voice Soundwave Visualizer -->
-      <div style="display:flex;align-items:center;justify-content:center;gap:6px;height:40px;margin-bottom:20px;background:rgba(1,112,185,0.08);border:1px solid rgba(1,112,185,0.2);border-radius:12px;padding:8px">
-        <span style="font-size:11.5px;font-weight:700;color:#0170b9;margin-right:10px;display:flex;align-items:center;gap:6px"><i class="fa fa-microphone"></i> AI Voice Listening</span>
-        <div style="width:4px;height:12px;background:#0170b9;border-radius:2px;"></div>
-        <div style="width:4px;height:24px;background:#00b4d8;border-radius:2px;"></div>
-        <div style="width:4px;height:16px;background:#0170b9;border-radius:2px;"></div>
-        <div style="width:4px;height:28px;background:#38bdf8;border-radius:2px;"></div>
-        <div style="width:4px;height:14px;background:#0170b9;border-radius:2px;"></div>
-      </div>
-
-      <!-- Quick prompts -->
-      <div style="margin-bottom:16px">
-        <div style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px">Suggested Inquiries:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="App.runFlowAiPrompt('attendance')" style="font-size:12px;border:1px solid var(--border);border-radius:20px"><i class="fa fa-clock" style="color:#0170b9;margin-right:4px"></i> Today's Attendance Rate</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="App.runFlowAiPrompt('leaves')" style="font-size:12px;border:1px solid var(--border);border-radius:20px"><i class="fa fa-calendar-xmark" style="color:#059669;margin-right:4px"></i> Active &amp; Pending Leaves</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="App.runFlowAiPrompt('payroll')" style="font-size:12px;border:1px solid var(--border);border-radius:20px"><i class="fa fa-money-bill-wave" style="color:#0284c7;margin-right:4px"></i> Payroll Processing Status</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="App.runFlowAiPrompt('workforce')" style="font-size:12px;border:1px solid var(--border);border-radius:20px"><i class="fa fa-users" style="color:#7c3aed;margin-right:4px"></i> Total Active Workforce</button>
-        </div>
-      </div>
-
-      <!-- Conversation display -->
-      <div id="flow-ai-chat-history" style="min-height:140px;max-height:220px;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:16px;font-size:13px;line-height:1.6">
-        <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
-          <div style="width:28px;height:28px;border-radius:8px;background:#0170b9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fa fa-robot"></i></div>
-          <div style="flex:1">
-            <strong>FlowAI Assistant:</strong>
-            <p style="margin:4px 0 0;color:var(--text-2)">Hello! I am your FlowHCM intelligent assistant. Currently, you have <strong>${activeEmps} active employees</strong>, <strong>${present} checked in today</strong>, and <strong>${pendingLeaves} pending leave requests</strong>. How can I help you optimize your workforce today?</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Input box -->
-      <div style="display:flex;gap:10px">
-        <input type="text" id="flow-ai-input" class="form-control" placeholder="Ask FlowAI anything or type a prompt..." onkeydown="if(event.key==='Enter')App.submitFlowAiInput()">
-        <button type="button" class="btn btn-primary" onclick="App.submitFlowAiInput()" style="background:linear-gradient(135deg,#0170b9,#00b4d8);border:none;padding:0 20px"><i class="fa fa-paper-plane"></i></button>
-      </div>
-    `;
-
-    Modal.create('modal-flow-ai', 'FlowHCM AI Assistant', modalBody, {
-      size: 'modal-lg',
-      footer: `<button class="btn btn-secondary" onclick="Modal.close('modal-flow-ai')">Close</button>`
-    });
-  },
-
-  runFlowAiPrompt(type) {
-    const today = Utils.today();
-    const emps = DB.get('employees') || [];
-    const att = DB.get('attendance') || [];
-    const leaves = DB.get('leave_requests') || [];
-    const salary = DB.get('salary') || [];
-
-    let question = '';
-    let answer = '';
-
-    if (type === 'attendance') {
-      question = "What is today's attendance summary?";
-      const todayAtt = att.filter(a => a.date === today);
-      const present = todayAtt.filter(a => a.status === 'present').length;
-      const late = todayAtt.filter(a => a.status === 'late').length;
-      const absent = todayAtt.filter(a => a.status === 'absent').length;
-      const activeTotal = emps.filter(e => e.status === 'active').length;
-      const rate = activeTotal > 0 ? Math.round((present / activeTotal) * 100) : 0;
-      answer = `Today's attendance rate is <strong>${rate}%</strong>. Active present employees: <strong>${present}</strong>, late check-ins: <strong>${late}</strong>, and absent: <strong>${absent}</strong>.`;
-    } else if (type === 'leaves') {
-      question = "What are the active and pending leave requests?";
-      const onLeave = leaves.filter(l => l.status === 'approved' && l.from <= today && l.to >= today);
-      const pending = leaves.filter(l => l.status === 'pending');
-      answer = `Currently, <strong>${onLeave.length} employee(s)</strong> are on approved leave today. There are <strong>${pending.length} pending request(s)</strong> awaiting managerial/HR review.`;
-    } else if (type === 'payroll') {
-      question = "What is the payroll processing status?";
-      const pendingSal = salary.filter(s => s.status === 'pending').length;
-      const doneSal = salary.filter(s => s.status === 'processed').length;
-      answer = `Payroll status: <strong>${doneSal} salary record(s)</strong> have been processed, and <strong>${pendingSal} record(s)</strong> are queued for processing.`;
-    } else if (type === 'workforce') {
-      question = "What is the total active workforce breakdown?";
-      const activeTotal = emps.filter(e => e.status === 'active').length;
-      const depts = DB.get('departments') || [];
-      answer = `Total active workforce is <strong>${activeTotal} employees</strong> across <strong>${depts.length} departments</strong>. All modules (Attendance, Payroll, Appraisal) are in sync.`;
-    }
-
-    this.appendFlowAiMessage(question, answer);
-  },
-
-  submitFlowAiInput() {
-    const input = document.getElementById('flow-ai-input');
-    if (!input || !input.value.trim()) return;
-    const query = input.value.trim();
-    input.value = '';
-
-    const lower = query.toLowerCase();
-    let answer = `Based on FlowHCM enterprise intelligence: `;
-
-    if (lower.includes('attendance') || lower.includes('present') || lower.includes('clock')) {
-      const today = Utils.today();
-      const att = DB.get('attendance') || [];
-      const todayAtt = att.filter(a => a.date === today);
-      const present = todayAtt.filter(a => a.status === 'present').length;
-      answer += `There are currently <strong>${present} employees marked present</strong> today. Quick clock-in records are synchronized with Biometric/ESS hardware.`;
-    } else if (lower.includes('leave') || lower.includes('absent') || lower.includes('vacation')) {
-      const leaves = DB.get('leave_requests') || [];
-      const pending = leaves.filter(l => l.status === 'pending').length;
-      answer += `You have <strong>${pending} pending leave approval(s)</strong> in the queue. You can review them immediately in the Leave Management module.`;
-    } else if (lower.includes('payroll') || lower.includes('salary') || lower.includes('pay')) {
-      const salary = DB.get('salary') || [];
-      answer += `Monthly payroll records are active. There are <strong>${salary.length} employee salary profiles</strong> configured with automated tax deductions and allowances.`;
-    } else if (lower.includes('employee') || lower.includes('staff') || lower.includes('workforce') || lower.includes('people')) {
-      const emps = DB.get('employees') || [];
-      const active = emps.filter(e => e.status === 'active').length;
-      answer += `The organization employs <strong>${active} active team members</strong>. All profiles have verified records, emergency contacts, and designation assignments.`;
-    } else {
-      answer += `I have analyzed your query for "${query}". Your FlowHCM database is healthy, all HR workflows are active, and you can navigate to any module from the left menu or execute automated tasks from the dashboard.`;
-    }
-
-    this.appendFlowAiMessage(query, answer);
-  },
-
-  appendFlowAiMessage(question, answer) {
-    const chat = document.getElementById('flow-ai-chat-history');
-    if (!chat) return;
-    chat.innerHTML += `
-      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;justify-content:flex-end">
-        <div style="background:rgba(1,112,185,0.15);border:1px solid rgba(1,112,185,0.3);padding:8px 12px;border-radius:12px 12px 0 12px;max-width:80%;color:var(--text)">
-          ${question}
-        </div>
-      </div>
-      <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:12px">
-        <div style="width:28px;height:28px;border-radius:8px;background:#0170b9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fa fa-robot"></i></div>
-        <div style="flex:1;background:var(--card);border:1px solid var(--border);padding:10px 14px;border-radius:0 12px 12px 12px;color:var(--text-2)">
-          ${answer}
-        </div>
-      </div>
-    `;
-    chat.scrollTop = chat.scrollHeight;
   }
 };
 
@@ -1043,115 +876,66 @@ const Login = {
     const container = document.getElementById('login-page');
     const demos = Auth.getDemoAccounts();
     container.innerHTML = `
-      <div class="login-split-container animate-slide-up">
-        <!-- Left Showcase Panel -->
-        <div class="login-hero-showcase">
-          <div>
-            <div class="flowhcm-badge">
-              <i class="fa fa-sparkles"></i> FlowHCM Cloud Platform
-            </div>
-            <div class="hero-brand-top">
-              <div class="logo-icon" style="background:linear-gradient(135deg,#0170b9,#00b4d8);width:44px;height:44px;border-radius:12px;box-shadow:0 6px 20px rgba(1,112,185,0.4)">
-                <svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="white" fill-opacity="0.18"/><path d="M7 11C7 9.34 8.34 8 10 8H22C23.66 8 25 9.34 25 11V13H13V17H23V21H13V25H7V11Z" fill="white"/><circle cx="21" cy="23" r="2.2" fill="#00e5ff"/></svg>
-              </div>
-              <div>
-                <h3 style="font-size:20px;font-weight:800;margin:0;color:#ffffff;font-family:var(--font-heading)">FlowHCM Pro</h3>
-                <span style="font-size:11.5px;color:#38bdf8;font-weight:600">Enterprise HRMS & Payroll Solutions</span>
-              </div>
-            </div>
-            <h2 class="hero-main-title">
-              Smart HRMS & Payroll<br><span>Management</span> Platform
-            </h2>
-            <p class="hero-main-desc">
-              Streamline workforce operations from attendance tracking and automated payroll to 360° performance appraisals and voice-driven HR intelligence.
-            </p>
-
-            <div class="hero-feature-list">
-              <div class="hero-feature-item"><i class="fa fa-users"></i> Core Employee Directory</div>
-              <div class="hero-feature-item"><i class="fa fa-clock"></i> Time & Attendance AI</div>
-              <div class="hero-feature-item"><i class="fa fa-money-bill-wave"></i> Automated Payroll Run</div>
-              <div class="hero-feature-item"><i class="fa fa-chart-line"></i> Appraisal & Reviews</div>
-              <div class="hero-feature-item"><i class="fa fa-calendar-check"></i> Leave & Shift Management</div>
-              <div class="hero-feature-item"><i class="fa fa-microphone"></i> Voice-Driven HRMS</div>
+      <div class="login-centered-card animate-slide-up">
+        <div class="login-header-center">
+          <div class="login-badge-pill">
+            <i class="fa fa-shield-check"></i> Enterprise HR Suite
+          </div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">
+            <div class="logo-icon" style="width:48px;height:48px;font-size:22px;border-radius:14px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
+            <div style="text-align:left">
+              <h2 class="login-brand-title" style="margin:0;font-size:24px">HRM Pro</h2>
+              <span style="font-size:12px;color:var(--text-3);font-weight:500">Human Resource Management</span>
             </div>
           </div>
+          <p class="login-brand-sub" style="margin-top:6px">Sign in with your corporate credentials to access your portal</p>
+        </div>
 
-          <div class="hero-stats-row">
-            <div class="hero-stat-box">
-              <h4>1,400+</h4>
-              <p>Organizations Rely On FlowHCM</p>
-            </div>
-            <div class="hero-stat-box">
-              <h4>800,000+</h4>
-              <p>Active Workforces Managed</p>
-            </div>
-            <div class="hero-stat-box">
-              <h4>99.98%</h4>
-              <p>System Availability & SLA</p>
-            </div>
+        <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:18px;border-radius:12px">
+          <i class="fa fa-circle-xmark"></i>
+          <span id="login-error-msg"></span>
+        </div>
+
+        <div class="login-input-wrap">
+          <i class="fa fa-user login-input-icon"></i>
+          <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
+        </div>
+
+        <div class="login-input-wrap">
+          <i class="fa fa-lock login-input-icon"></i>
+          <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
+          <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
+            <i class="fa fa-eye" id="pw-eye"></i>
+          </button>
+        </div>
+
+        <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
+          <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
+        </button>
+
+        <div style="margin-top:28px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+            <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
+            <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+          </div>
+          <div class="demo-role-grid">
+            ${demos.map(d => `
+              <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
+                <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
+                  <i class="fa ${d.icon}"></i>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div class="demo-role-name truncate">${d.role}</div>
+                  <div class="demo-role-user">${d.username}</div>
+                </div>
+              </div>
+            `).join('')}
           </div>
         </div>
 
-        <!-- Right Login Card Panel -->
-        <div class="login-card-panel">
-          <div class="login-header-center">
-            <div style="display:inline-flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px">
-              <div class="logo-icon" style="background:linear-gradient(135deg,#0170b9,#00b4d8);width:40px;height:40px;border-radius:10px;box-shadow:0 6px 16px rgba(1,112,185,0.3)">
-                <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="white" fill-opacity="0.18"/><path d="M7 11C7 9.34 8.34 8 10 8H22C23.66 8 25 9.34 25 11V13H13V17H23V21H13V25H7V11Z" fill="white"/><circle cx="21" cy="23" r="2.2" fill="#00e5ff"/></svg>
-              </div>
-              <div style="text-align:left">
-                <h2 class="login-brand-title" style="margin:0;font-size:22px">FlowHCM Workspace</h2>
-                <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Sign in to your corporate account</span>
-              </div>
-            </div>
-          </div>
-
-          <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:12px">
-            <i class="fa fa-circle-xmark"></i>
-            <span id="login-error-msg"></span>
-          </div>
-
-          <div class="login-input-wrap">
-            <i class="fa fa-user login-input-icon"></i>
-            <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
-          </div>
-
-          <div class="login-input-wrap">
-            <i class="fa fa-lock login-input-icon"></i>
-            <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
-            <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
-              <i class="fa fa-eye" id="pw-eye"></i>
-            </button>
-          </div>
-
-          <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
-            <i class="fa fa-arrow-right-to-bracket"></i> Sign In to FlowHCM
-          </button>
-
-          <div style="margin-top:24px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-              <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-              <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">1-Click Demo Accounts</span>
-              <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-            </div>
-            <div class="demo-role-grid">
-              ${demos.map(d => `
-                <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
-                  <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
-                    <i class="fa ${d.icon}"></i>
-                  </div>
-                  <div style="flex:1;min-width:0">
-                    <div class="demo-role-name truncate">${d.role}</div>
-                    <div class="demo-role-user">${d.username}</div>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-
-          <div style="margin-top:20px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
-            <i class="fa fa-shield-check" style="font-size:11px;color:#10b981"></i> 256-bit SSL Encrypted • ISO 27001 Certified Platform
-          </div>
+        <div style="margin-top:24px;text-align:center;font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
+          <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
         </div>
       </div>
     `;
