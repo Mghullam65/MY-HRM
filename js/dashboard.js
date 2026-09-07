@@ -15,6 +15,12 @@ const Dashboard = {
     const holidays = DB.get('holidays');
     const today = Utils.today();
 
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const myEmp = Auth.employee || {};
+    const myReportees = emps.filter(e => e.reportingTo === myEmp.id || e.managerId === myEmp.id);
+    const hasReportees = myReportees.length > 0;
+    const myManager = emps.find(e => e.id === myEmp.reportingTo || e.id === myEmp.managerId);
+
     const totalEmps = emps.filter(e => e.status === 'active').length;
     const inactiveEmps = emps.filter(e => e.status === 'inactive').length;
     const newJoiners = emps.filter(e => e.joiningDate >= '2026-08-01' && e.status === 'active').length;
@@ -240,30 +246,156 @@ const Dashboard = {
           </div>
         ` : ''}
 
-        <!-- KPI Row 1: Employees -->
-        <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Employee Overview</h3>
-        </div>
-        <div class="grid-4 mb-20">
-          ${this.statCard('Total Employees', totalEmps, 'fa-users', 'blue', `Active: ${totalEmps} | Inactive: ${inactiveEmps}`, '+2 this month', 'up')}
-          ${this.statCard('Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${emps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
-          ${this.statCard('Inactive Employees', inactiveEmps, 'fa-user-xmark', 'red', 'Ex-employees', '', '')}
-          ${this.statCard('New Joiners', newJoiners, 'fa-user-plus', 'purple', 'This month', '+' + newJoiners + ' this month', 'up')}
-        </div>
+        <!-- KPI Row 1: Role-Scoped Employee Overview -->
+        ${isHrOrAdmin ? `
+          <!-- HR & Super Admin Executive Scope: Full Company Overview -->
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Employee Overview</h3>
+              <span class="badge badge-primary" style="font-size:10px"><i class="fa fa-shield-halved"></i> HR & Admin Scope</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('employees')"><i class="fa fa-arrow-right"></i> All Directory (${totalEmps})</button>
+          </div>
+          <div class="grid-4 mb-20">
+            ${this.statCard('Total Employees', totalEmps, 'fa-users', 'blue', `Active: ${totalEmps} | Inactive: ${inactiveEmps}`, '+2 this month', 'up')}
+            ${this.statCard('Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${emps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
+            ${this.statCard('Inactive Employees', inactiveEmps, 'fa-user-xmark', 'red', 'Ex-employees', '', '')}
+            ${this.statCard('New Joiners', newJoiners, 'fa-user-plus', 'purple', 'This month', '+' + newJoiners + ' this month', 'up')}
+          </div>
+        ` : (hasReportees ? `
+          <!-- Manager Scope: Direct Reports Only -->
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">My Team Overview — Direct Reports</h3>
+              <span class="badge badge-success" style="font-size:10.5px"><i class="fa fa-users-line"></i> Reporting To You (${myReportees.length})</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('employees')"><i class="fa fa-arrow-right"></i> View Team (${myReportees.length})</button>
+          </div>
+          <div class="grid-4 mb-20">
+            ${this.statCard('Direct Reports', myReportees.length, 'fa-users-line', 'blue', `Assigned to your supervision`, '', '')}
+            ${this.statCard('Active in Team', myReportees.filter(e=>e.status==='active').length, 'fa-user-check', 'green', `Team members on roster`, '', '')}
+            ${this.statCard('Team Present Today', todayAtt.filter(a => myReportees.some(r => r.id === a.employeeId && a.status === 'present')).length, 'fa-circle-check', 'purple', `Out of ${myReportees.length} members`, '', '')}
+            ${this.statCard('Team On Leave', leaves.filter(l => myReportees.some(r => r.id === l.employeeId) && l.status === 'approved' && l.from <= today && l.to >= today).length, 'fa-calendar-minus', 'amber', `Approved leave today`, '', '')}
+          </div>
+        ` : `
+          <!-- Individual Employee Scope: Personal Hierarchy & Supervisor Info -->
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">My Workplace Profile & Hierarchy</h3>
+              <span class="badge badge-info" style="font-size:10.5px"><i class="fa fa-user"></i> Personal Portal</span>
+            </div>
+          </div>
+          <div class="grid-4 mb-20">
+            <div class="stat-card blue">
+              <div class="stat-header">
+                <div class="stat-icon blue"><i class="fa fa-id-badge"></i></div>
+                <span class="badge badge-success" style="font-size:10px"><i class="fa fa-circle-check"></i> ${myEmp.employmentType || 'Permanent'}</span>
+              </div>
+              <div class="stat-value" style="font-size:20px">${myEmp.empNo || 'EMP-004'}</div>
+              <div class="stat-label">Employee ID</div>
+              <div class="stat-sub">${myEmp.fullName || 'Employee'}</div>
+            </div>
+
+            <div class="stat-card green">
+              <div class="stat-header">
+                <div class="stat-icon green"><i class="fa fa-briefcase"></i></div>
+              </div>
+              <div class="stat-value truncate" style="font-size:18px" title="${Utils.getDesigName(myEmp.designationId)}">${Utils.getDesigName(myEmp.designationId)}</div>
+              <div class="stat-label">Designation</div>
+              <div class="stat-sub">${Utils.getDeptName(myEmp.departmentId)}</div>
+            </div>
+
+            <div class="stat-card purple" style="border:1.5px solid rgba(99,102,241,0.3)">
+              <div class="stat-header">
+                <div class="stat-icon purple"><i class="fa fa-user-tie"></i></div>
+                <span class="badge badge-primary" style="font-size:9.5px"><i class="fa fa-arrow-turn-up"></i> Supervisor</span>
+              </div>
+              <div class="stat-value truncate" style="font-size:17px" title="${myManager?.fullName || 'Usman Baig'}">${myManager?.fullName || 'Usman Baig (Dept Manager)'}</div>
+              <div class="stat-label">Reporting Manager</div>
+              <div class="stat-sub">${myManager?.email || 'Reports to Department Head'}</div>
+            </div>
+
+            <div class="stat-card red">
+              <div class="stat-header">
+                <div class="stat-icon red"><i class="fa fa-clock"></i></div>
+              </div>
+              <div class="stat-value" style="font-size:18px">${Utils.getShiftName(myEmp.shiftId)}</div>
+              <div class="stat-label">Assigned Shift</div>
+              <div class="stat-sub">Official working window</div>
+            </div>
+          </div>
+        `)}
 
         <!-- KPI Row 2: Attendance Today -->
-        <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Today's Attendance — ${Utils.formatDate(today)}</h3>
-          <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')"><i class="fa fa-arrow-right"></i> View Full</button>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px">
-          ${this.miniStatCard('Present',  present,  'fa-circle-check',    '#10b981')}
-          ${this.miniStatCard('Absent',   absent,   'fa-circle-xmark',    '#ef4444')}
-          ${this.miniStatCard('Late',     late,     'fa-clock',           '#f59e0b')}
-          ${this.miniStatCard('Half Day', halfDay,  'fa-circle-half-stroke','#8b5cf6')}
-          ${this.miniStatCard('On Leave', onLeave,  'fa-calendar-minus',  '#14b8a6')}
-          ${this.miniStatCard('Overtime', att.filter(a=>a.date===today&&a.overtime>0).length,'fa-business-time','#6366f1')}
-        </div>
+        ${isHrOrAdmin ? `
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Today's Attendance — ${Utils.formatDate(today)}</h3>
+              <span class="badge badge-primary" style="font-size:10px">Company-Wide</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')"><i class="fa fa-arrow-right"></i> View Full</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px">
+            ${this.miniStatCard('Present',  present,  'fa-circle-check',    '#10b981')}
+            ${this.miniStatCard('Absent',   absent,   'fa-circle-xmark',    '#ef4444')}
+            ${this.miniStatCard('Late',     late,     'fa-clock',           '#f59e0b')}
+            ${this.miniStatCard('Half Day', halfDay,  'fa-circle-half-stroke','#8b5cf6')}
+            ${this.miniStatCard('On Leave', onLeave,  'fa-calendar-minus',  '#14b8a6')}
+            ${this.miniStatCard('Overtime', att.filter(a=>a.date===today&&a.overtime>0).length,'fa-business-time','#6366f1')}
+          </div>
+        ` : (hasReportees ? `
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Team Attendance Today — ${Utils.formatDate(today)}</h3>
+              <span class="badge badge-success" style="font-size:10px">Direct Reports Scope</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')"><i class="fa fa-arrow-right"></i> View Attendance</button>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+            ${this.miniStatCard('Present',  todayAtt.filter(a => myReportees.some(r => r.id === a.employeeId && a.status === 'present')).length,  'fa-circle-check',    '#10b981')}
+            ${this.miniStatCard('Absent',   todayAtt.filter(a => myReportees.some(r => r.id === a.employeeId && a.status === 'absent')).length,   'fa-circle-xmark',    '#ef4444')}
+            ${this.miniStatCard('Late',     todayAtt.filter(a => myReportees.some(r => r.id === a.employeeId && a.status === 'late')).length,     'fa-clock',           '#f59e0b')}
+            ${this.miniStatCard('On Leave', leaves.filter(l => myReportees.some(r => r.id === l.employeeId) && l.status === 'approved' && l.from <= today && l.to >= today).length,  'fa-calendar-minus',  '#14b8a6')}
+          </div>
+        ` : `
+          <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">My Attendance Today — ${Utils.formatDate(today)}</h3>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')"><i class="fa fa-arrow-right"></i> My Timesheet</button>
+          </div>
+          ${(() => {
+            const myAttToday = todayAtt.find(a => a.employeeId === myEmp.id);
+            return `
+              <div class="card mb-24" style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 22px">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+                  <div style="display:flex;align-items:center;gap:16px">
+                    <div style="width:48px;height:48px;border-radius:12px;background:${myAttToday?.timeIn ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)'};color:${myAttToday?.timeIn ? '#10b981' : '#f59e0b'};display:flex;align-items:center;justify-content:center;font-size:22px">
+                      <i class="fa fa-fingerprint"></i>
+                    </div>
+                    <div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span class="badge ${myAttToday?.timeIn ? 'badge-success' : 'badge-warning'}">
+                          ${myAttToday?.status ? myAttToday.status.toUpperCase() : 'NOT MARKED YET'}
+                        </span>
+                        <span style="font-size:12px;color:var(--text-3)">Date: ${today}</span>
+                      </div>
+                      <div style="font-size:15px;font-weight:700;color:var(--text);margin-top:4px">
+                        Time In: <strong style="color:var(--primary)">${myAttToday?.timeIn || '— : —'}</strong> &nbsp;|&nbsp; 
+                        Time Out: <strong style="color:var(--primary)">${myAttToday?.timeOut || '— : —'}</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <button class="btn btn-primary" onclick="App.navigate('attendance')">
+                      <i class="fa fa-clock"></i> Open Attendance & Punch
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          })()}
+        `)}
 
         <!-- Charts Row -->
         <div class="grid-2 mb-20">
@@ -340,10 +472,17 @@ const Dashboard = {
                   <span style="font-size:16px;font-weight:700;color:${l.color}">${l.val}</span>
                 </div>
               `).join('')}
-              <div style="padding:10px 12px;background:var(--primary-glow);border-radius:8px;border:1px solid var(--primary-glow)">
-                <div style="font-size:11px;color:var(--text-3)">Total Net Paid</div>
-                <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(DB.get('salary').filter(s=>s.status==='processed').reduce((a,s)=>a+s.netSalary,0))}</div>
-              </div>
+              ${isHrOrAdmin ? `
+                <div style="padding:10px 12px;background:var(--primary-glow);border-radius:8px;border:1px solid var(--primary-glow)">
+                  <div style="font-size:11px;color:var(--text-3)">Total Net Paid</div>
+                  <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(DB.get('salary').filter(s=>s.status==='processed').reduce((a,s)=>a+s.netSalary,0))}</div>
+                </div>
+              ` : `
+                <div style="padding:10px 12px;background:var(--primary-glow);border-radius:8px;border:1px solid var(--primary-glow)">
+                  <div style="font-size:11px;color:var(--text-3)">My Net Base Salary</div>
+                  <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(myEmp.salary || 0)}</div>
+                </div>
+              `}
             </div>
           </div>
 
@@ -374,14 +513,15 @@ const Dashboard = {
         <!-- Quick Actions -->
         <div style="margin-bottom:20px">
           <h3 style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Quick Actions</h3>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px">
             ${[
-              { label:'Add Employee', icon:'fa-user-plus', color:'#6366f1', action:"App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" },
+              ...(isHrOrAdmin ? [{ label:'Add Employee', icon:'fa-user-plus', color:'#6366f1', action:"App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" }] : []),
+              ...(hasReportees ? [{ label:'My Direct Reports', icon:'fa-users-line', color:'#6366f1', action:"App.navigate('employees')" }] : []),
               { label:'Apply Leave', icon:'fa-calendar-plus', color:'#14b8a6', action:"App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" },
               { label:'Mark Attendance', icon:'fa-fingerprint', color:'#f59e0b', action:"App.navigate('attendance')" },
-              { label:'Process Payroll', icon:'fa-money-check-dollar', color:'#10b981', action:"App.navigate('payroll')" },
+              ...(isHrOrAdmin ? [{ label:'Process Payroll', icon:'fa-money-check-dollar', color:'#10b981', action:"App.navigate('payroll')" }] : [{ label:'My Payslips', icon:'fa-money-bill-wave', color:'#10b981', action:"App.navigate('payroll')" }]),
               { label:'Performance', icon:'fa-chart-line', color:'#8b5cf6', action:"App.navigate('performance')" },
-              { label:'View Reports', icon:'fa-file-chart-line', color:'#ec4899', action:"App.navigate('reports')" },
+              { label:'View Notices', icon:'fa-bullhorn', color:'#ec4899', action:"App.navigate('events')" },
             ].map(a => `
               <button class="quick-action-btn" onclick="${a.action}">
                 <div class="qa-icon" style="background:${a.color}22;color:${a.color}"><i class="fa ${a.icon}"></i></div>
@@ -396,14 +536,25 @@ const Dashboard = {
           <!-- Pending Approvals -->
           <div class="card">
             <div class="card-header">
-              <div><div class="card-title"><i class="fa fa-clock" style="color:var(--warning);margin-right:8px"></i>Pending Approvals</div></div>
+              <div><div class="card-title"><i class="fa fa-clock" style="color:var(--warning);margin-right:8px"></i>${isHrOrAdmin ? 'Pending Approvals' : (hasReportees ? 'Team Leave Approvals' : 'My Leave Requests')}</div></div>
               <button class="btn btn-ghost btn-sm" onclick="App.navigate('leaves')">View All</button>
             </div>
             ${(() => {
-              const pendingLeaveList = leaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').slice(0, 5);
+              let pendingLeaveList = leaves;
+              if (isHrOrAdmin) {
+                pendingLeaveList = leaves.filter(l => l.status === 'pending' || l.status === 'manager_approved');
+              } else if (hasReportees) {
+                // Team manager: only direct reportees' leaves
+                pendingLeaveList = leaves.filter(l => myReportees.some(r => r.id === l.employeeId) && (l.status === 'pending' || l.status === 'manager_approved'));
+              } else {
+                // Individual employee: only personal leaves
+                pendingLeaveList = leaves.filter(l => l.employeeId === myEmp.id && l.status === 'pending');
+              }
+              pendingLeaveList = pendingLeaveList.slice(0, 5);
               if (pendingLeaveList.length === 0) return '<div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa fa-check-circle" style="font-size:28px;margin-bottom:8px;display:block;color:var(--success)"></i>All caught up!</div>';
               return pendingLeaveList.map(l => {
                 const emp = emps.find(e => e.id === l.employeeId);
+                const canApproveAction = isHrOrAdmin || hasReportees;
                 return `
                   <div class="pending-item">
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(l.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
@@ -411,10 +562,14 @@ const Dashboard = {
                       <div class="pi-name">${emp?.fullName||'—'}</div>
                       <div class="pi-detail">${l.days} day${l.days!==1?'s':''} leave • ${Utils.formatDate(l.from)} ${l.status==='manager_approved'?'<span class="badge badge-info">Mgr Approved</span>':''}</div>
                     </div>
-                    <div style="display:flex;gap:4px">
-                      <button class="btn btn-success btn-sm" onclick="Leaves.approve(${l.id});setTimeout(()=>App.navigate('dashboard'),200)"><i class="fa fa-check"></i></button>
-                      <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${l.id});setTimeout(()=>App.navigate('dashboard'),200)"><i class="fa fa-times"></i></button>
-                    </div>
+                    ${canApproveAction ? `
+                      <div style="display:flex;gap:4px">
+                        <button class="btn btn-success btn-sm" onclick="Leaves.approve(${l.id});setTimeout(()=>App.navigate('dashboard'),200)" title="Approve"><i class="fa fa-check"></i></button>
+                        <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${l.id});setTimeout(()=>App.navigate('dashboard'),200)" title="Reject"><i class="fa fa-times"></i></button>
+                      </div>
+                    ` : `
+                      <span class="badge badge-warning" style="font-size:10px">Pending</span>
+                    `}
                   </div>
                 `;
               }).join('');

@@ -7,12 +7,25 @@ const Attendance = {
   currentDate: Utils.today(),
   currentMonth: Utils.thisMonth(),
 
+  getScopedEmployees() {
+    const all = DB.get('employees') || [];
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    if (isHrOrAdmin) return all.filter(e => e.status === 'active');
+
+    const myId = Auth.employee?.id;
+    // Show direct reportees PLUS logged-in employee
+    return all.filter(e => e.status === 'active' && (e.id === myId || e.reportingTo === myId || e.managerId === myId));
+  },
+
   render() {
     const content = document.getElementById('page-content');
     const att = DB.get('attendance');
     const today = Utils.today();
-    const todayAtt = att.filter(a => a.date === today);
-    const totalEmps = DB.get('employees').filter(e => e.status === 'active').length;
+    const emps = this.getScopedEmployees();
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    const todayAtt = att.filter(a => a.date === today && emps.some(e => e.id === a.employeeId));
+    const totalEmps = emps.length;
 
     const present = todayAtt.filter(a => a.status === 'present').length;
     const absent  = todayAtt.filter(a => a.status === 'absent').length;
@@ -115,8 +128,8 @@ const Attendance = {
   },
 
   renderDaily(container) {
-    const att = DB.get('attendance').filter(a => a.date === this.currentDate);
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = this.getScopedEmployees();
+    const att = DB.get('attendance').filter(a => a.date === this.currentDate && emps.some(e => e.id === a.employeeId));
 
     container.innerHTML = `
       <div class="card" style="padding:0">

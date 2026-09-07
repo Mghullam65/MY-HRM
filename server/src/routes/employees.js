@@ -9,19 +9,34 @@ const router = express.Router();
 router.get('/', authenticate, async (req, res) => {
   try {
     const { departmentId, branchId, status, role, search } = req.query;
+    const isHrOrAdmin = req.user.role === 'superadmin' || req.user.role === 'hr_manager';
 
     const where = {};
+    if (!isHrOrAdmin) {
+      // Scoped: Only employees reporting directly to this user, or self
+      where.OR = [
+        { managerId: req.user.employeeId },
+        { id: req.user.employeeId }
+      ];
+    }
+
     if (departmentId) where.departmentId = parseInt(departmentId);
     if (branchId) where.branchId = parseInt(branchId);
     if (status) where.status = status;
     if (role) where.role = role;
     if (search) {
-      where.OR = [
+      const searchCondition = [
         { fullName: { contains: search } },
         { empNo: { contains: search } },
         { email: { contains: search } },
         { phone: { contains: search } }
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: searchCondition }];
+        delete where.OR;
+      } else {
+        where.OR = searchCondition;
+      }
     }
 
     const employees = await prisma.employee.findMany({
@@ -46,6 +61,8 @@ router.get('/', authenticate, async (req, res) => {
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const isHrOrAdmin = req.user.role === 'superadmin' || req.user.role === 'hr_manager';
+
     const employee = await prisma.employee.findUnique({
       where: { id },
       include: {
@@ -61,7 +78,14 @@ router.get('/:id', authenticate, async (req, res) => {
       }
     });
 
-    if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found.' });
+    }
+
+    // Role check: non-HR/Admin can only access own profile or direct reportee
+    if (!isHrOrAdmin && employee.id !== req.user.employeeId && employee.managerId !== req.user.employeeId) {
+      return res.status(403).json({ success: false, message: 'Access denied: You can only view direct reports.' });
+    }
     res.json({ success: true, data: employee });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Failed to retrieve employee.' });

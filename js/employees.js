@@ -8,21 +8,96 @@ const Employees = {
   filterDept: '',
   filterStatus: '',
 
+  getBaseEmployees() {
+    const all = DB.get('employees') || [];
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    if (isHrOrAdmin) return all;
+
+    const myId = Auth.employee?.id;
+    // For non-HR/Admin: ONLY employees reporting directly to this user
+    return all.filter(e => e.reportingTo === myId || e.managerId === myId);
+  },
+
   render() {
     const content = document.getElementById('page-content');
-    const depts = DB.get('departments');
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const baseEmps = this.getBaseEmployees();
+    const myEmp = Auth.employee || {};
+    const allEmps = DB.get('employees') || [];
+    const myManager = allEmps.find(e => e.id === myEmp.reportingTo || e.id === myEmp.managerId);
+    const depts = DB.get('departments') || [];
+
+    // If individual employee with NO direct reportees:
+    if (!isHrOrAdmin && baseEmps.length === 0) {
+      content.innerHTML = `
+        <div class="animate-fade-in" style="max-width:680px;margin:36px auto">
+          <div class="card" style="text-align:center;padding:48px 32px;border:1px solid var(--border);border-radius:18px">
+            <div style="width:72px;height:72px;border-radius:20px;background:rgba(99,102,241,0.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 20px">
+              <i class="fa fa-users-slash"></i>
+            </div>
+            <span class="badge badge-warning" style="margin-bottom:12px;font-size:11px"><i class="fa fa-lock"></i> Restricted Directory Scope</span>
+            <h2 style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">No Direct Reports Assigned</h2>
+            <p style="font-size:13.5px;color:var(--text-2);line-height:1.6;margin-bottom:28px">
+              The complete corporate employee directory and organizational records are strictly restricted to <strong>HR Managers</strong> and <strong>Super Administrators</strong>. As an employee, you can only view team members who report directly to you.
+            </p>
+
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;text-align:left;display:flex;align-items:center;gap:16px;max-width:440px;margin:0 auto">
+              <div class="avatar avatar-lg" style="background:${Utils.avatarColor(myManager?.id || 1)}">
+                ${Utils.avatarInitials(myManager?.fullName || 'Supervisor')}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:0.5px">Your Reporting Manager</div>
+                <div style="font-size:15px;font-weight:700;color:var(--text);margin:2px 0" class="truncate">${myManager?.fullName || 'Sara Malik (HR Manager)'}</div>
+                <div style="font-size:12px;color:var(--text-3)" class="truncate">${myManager?.email || 'sara.malik@company.com'}</div>
+              </div>
+            </div>
+
+            <div style="margin-top:24px">
+              <button class="btn btn-secondary btn-sm" onclick="App.navigate('dashboard')">
+                <i class="fa fa-arrow-left"></i> Return to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const tabs = isHrOrAdmin ? [
+      { id:'current', label:'Active Employees', icon:'fa-users' },
+      { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
+      { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
+      { id:'all', label:'All Employees', icon:'fa-list' },
+      { id:'directory', label:'Directory', icon:'fa-id-card' },
+    ] : [
+      { id:'current', label:`Direct Reports (${baseEmps.length})`, icon:'fa-users-line' },
+      { id:'directory', label:'Team Directory Cards', icon:'fa-id-card' },
+    ];
 
     content.innerHTML = `
       <div class="animate-fade-in">
+        <!-- Header Scope Banner -->
+        <div style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--text)">
+              ${isHrOrAdmin ? 'Employee Management' : 'My Direct Reports'}
+            </h2>
+            <p style="font-size:12.5px;color:var(--text-3);margin-top:2px">
+              ${isHrOrAdmin 
+                ? 'Full organizational workforce directory & profile records' 
+                : `Showing ${baseEmps.length} team member${baseEmps.length>1?'s':''} reporting directly to you`}
+            </p>
+          </div>
+          ${!isHrOrAdmin ? `
+            <span class="badge badge-success" style="font-size:11.5px">
+              <i class="fa fa-sitemap"></i> Direct Reports Scope
+            </span>
+          ` : ''}
+        </div>
+
         <!-- Sub-tabs -->
         <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content">
-          ${[
-            { id:'current', label:'Active Employees', icon:'fa-users' },
-            { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
-            { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
-            { id:'all', label:'All Employees', icon:'fa-list' },
-            { id:'directory', label:'Directory', icon:'fa-id-card' },
-          ].map(t => `
+          ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
               ${t.badge ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
@@ -34,7 +109,7 @@ const Employees = {
         <div class="filter-bar">
           <div class="search-box">
             <i class="fa fa-search"></i>
-            <input type="text" placeholder="Search by name, ID, email, CNIC..." id="emp-search" value="${this.searchQuery}"
+            <input type="text" placeholder="${isHrOrAdmin ? 'Search by name, ID, email, CNIC...' : 'Search direct reports...'}" id="emp-search" value="${this.searchQuery}"
               oninput="Employees.searchQuery=this.value;Employees.renderTable()">
           </div>
           <select class="filter-select" id="dept-filter" onchange="Employees.filterDept=this.value;Employees.renderTable()">
@@ -47,7 +122,7 @@ const Employees = {
             <option value="Probation">Probation</option>
             <option value="Contract">Contract</option>
           </select>
-          ${Auth.can('employees.add') || Auth.role === 'superadmin' ? `
+          ${isHrOrAdmin ? `
             <button class="btn btn-primary" onclick="Employees.showAddForm()">
               <i class="fa fa-plus"></i> Add Employee
             </button>
@@ -77,14 +152,22 @@ const Employees = {
   },
 
   getFiltered() {
-    let emps = DB.get('employees');
-    if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
-    if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
-    if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');
-    if (this.currentView === 'my') {
-      const myId = Auth.employee.id;
-      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+    let emps = this.getBaseEmployees();
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    if (isHrOrAdmin) {
+      if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
+      if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
+      if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');
+      if (this.currentView === 'my') {
+        const myId = Auth.employee?.id;
+        emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
+      }
+    } else {
+      // Direct reports scope:
+      if (this.currentView === 'current') emps = emps.filter(e => e.status === 'active');
     }
+
     if (this.searchQuery) {
       const q = this.searchQuery.toLowerCase();
       emps = emps.filter(e =>
@@ -189,22 +272,36 @@ const Employees = {
     if (!emp) return;
     const content = document.getElementById('page-content');
     const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-    const isOnboardingSelf = Auth.role === 'onboarding' && Auth.employee?.id === emp.id;
+    const isSelf = Auth.employee?.id === emp.id;
+    const isReportee = emp.reportingTo === Auth.employee?.id || emp.managerId === Auth.employee?.id;
 
+    if (!isHR && !isMyProfile && !isSelf && !isReportee) {
+      Toast.show('Access Denied', 'error', 'You can only view profiles of employees who report directly to you.');
+      App.navigate('dashboard');
+      return;
+    }
+
+    const isOnboardingSelf = Auth.role === 'onboarding' && isSelf;
     const users = DB.get('users') || [];
     const linkedUser = users.find(u => u.employeeId === emp.id);
 
-    const tabs = [
+    const allTabs = [
       'Personal','Contact','Emergency Contact','Dependents','Employment','Role & Access',
       'Qualification','Experience','Attendance','Leaves','Salary',
       'Performance','Training','Promotion','Transfer','Assets','Documents','Notes','Exit'
     ];
 
+    const tabs = isHR 
+      ? allTabs 
+      : (isSelf || isMyProfile
+        ? allTabs.filter(t => t !== 'Role & Access' && t !== 'Exit') 
+        : allTabs.filter(t => t !== 'Role & Access' && t !== 'Salary' && t !== 'Exit'));
+
     content.innerHTML = `
       <div class="animate-fade-in">
         ${!isMyProfile ? `
           <div class="breadcrumb">
-            <a onclick="App.navigate('employees')" style="cursor:pointer">Employees</a>
+            <a onclick="App.navigate('employees')" style="cursor:pointer">${isHR ? 'Employees' : 'My Direct Reports'}</a>
             <i class="fa fa-chevron-right"></i>
             <span>${emp.fullName}</span>
           </div>
