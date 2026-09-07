@@ -29,6 +29,8 @@
    └── Created js/api.js with JWT auth and verified endpoints on http://localhost:5000.
 [Step 7] Vercel Serverless & Cloud Postgres Integration
    └── Connected Vercel Postgres, built api/index.js serverless function & vercel.json.
+[Step 8] Panoramic Login Visual Feature Showcase
+   └── Added 4 interactive feature preview cards around login card highlighting system capabilities.
 ```
 
 ---
@@ -119,6 +121,23 @@
   - Authored `scripts/build.js` for safe cross-platform Prisma generation and database schema synchronization.
   - Configured `vercel.json` with `"outputDirectory": "."` to serve static root assets alongside serverless functions.
   - Added auto-seed trigger so freshly provisioned cloud databases populate on first launch.
+
+---
+
+### Step 8: Panoramic Login Visual Feature Showcase
+- **Objective**: Enhance the login screen into a modern 3-column panoramic layout displaying interactive feature previews flanking the login card (filling left and right empty spaces).
+- **Technologies**: Vanilla CSS3 Grid/Flexbox, Glassmorphism backdrop-filters, CSS micro-animations.
+- **Key Actions**:
+  - Designed responsive 3-column layout matching executive enterprise software (Workday / Rippling inspired).
+  - **Left Showcase Column**:
+    1. *Live Attendance & Shift Engine*: Real-time punch-in statuses, shift tags (Morning 09:00 - 18:00), biometric device sync tags, and live presence counters (94% On Time).
+    2. *Automated Payroll & Leave Tracking*: Visual net pay breakdown ($84,200), tax/allowance compliance chips, and multi-tier leave balance indicators (Annual, Sick, Casual).
+  - **Center Column**:
+    - Retained central SSL-encrypted credentials form with quick one-click role demo switcher (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`).
+  - **Right Showcase Column**:
+    3. *Executive Analytics & OKRs*: Headcount distribution by department (Engineering 42%, Sales 28%, Operations 30%) and Q3 Performance Appraisal Review completion milestone (94%).
+    4. *Talent ATS & Recruitment*: Dynamic hiring pipeline funnel stages (24 Applied → 11 Screening → 5 Interview → 2 Offered) with live Vercel Cloud Postgres status indicator.
+  - Added responsive rules: desktop showcases on wide screens, progressive collapsible behavior on tablets and mobile screens.
 
 ---
 

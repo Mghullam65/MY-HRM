@@ -876,66 +876,265 @@ const Login = {
     const container = document.getElementById('login-page');
     const demos = Auth.getDemoAccounts();
     container.innerHTML = `
-      <div class="login-centered-card animate-slide-up">
-        <div class="login-header-center">
-          <div class="login-badge-pill">
-            <i class="fa fa-shield-check"></i> Enterprise HR Suite
-          </div>
-          <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">
-            <div class="logo-icon" style="width:48px;height:48px;font-size:22px;border-radius:14px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
+      <div class="login-page-wrapper">
+        <!-- Top Branding Header -->
+        <div class="login-brand-topbar animate-fade-in">
+          <div class="login-brand-logo-wrap">
+            <div class="logo-icon" style="width:36px;height:36px;font-size:16px;border-radius:10px">HR</div>
             <div style="text-align:left">
-              <h2 class="login-brand-title" style="margin:0;font-size:24px">HRM Pro</h2>
-              <span style="font-size:12px;color:var(--text-3);font-weight:500">Human Resource Management</span>
+              <span style="font-weight:800;font-size:17px;color:#fff;letter-spacing:-0.3px">HRM <span style="color:var(--primary-light)">Pro</span></span>
+              <span style="display:block;font-size:10px;color:var(--text-3);line-height:1">Enterprise Suite</span>
             </div>
+            <span class="system-status-pill"><span class="status-dot-pulse"></span> Cloud System Ready</span>
           </div>
-          <p class="login-brand-sub" style="margin-top:6px">Sign in with your corporate credentials to access your portal</p>
-        </div>
-
-        <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:18px;border-radius:12px">
-          <i class="fa fa-circle-xmark"></i>
-          <span id="login-error-msg"></span>
-        </div>
-
-        <div class="login-input-wrap">
-          <i class="fa fa-user login-input-icon"></i>
-          <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
-        </div>
-
-        <div class="login-input-wrap">
-          <i class="fa fa-lock login-input-icon"></i>
-          <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
-          <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
-            <i class="fa fa-eye" id="pw-eye"></i>
-          </button>
-        </div>
-
-        <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
-          <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
-        </button>
-
-        <div style="margin-top:28px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-            <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-            <span style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
-            <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+          <div class="login-topbar-meta">
+            <span><i class="fa fa-server" style="color:#38bdf8"></i> PostgreSQL Connected</span>
+            <span><i class="fa fa-shield-check" style="color:#a855f7"></i> 5-Tier RBAC</span>
+            <span><i class="fa fa-circle-check" style="color:#10b981"></i> 99.9% Uptime</span>
           </div>
-          <div class="demo-role-grid">
-            ${demos.map(d => `
-              <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
-                <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
-                  <i class="fa ${d.icon}"></i>
+        </div>
+
+        <!-- 3-Column Showcase Container -->
+        <div class="login-showcase-container">
+
+          <!-- ════ LEFT COLUMN: FEATURE CARDS 1 & 2 ════ -->
+          <div class="login-showcase-col left-col">
+            <!-- Feature Card 1: Attendance & Shift Tracking -->
+            <div class="showcase-card showcase-card-glow animate-slide-up">
+              <div class="showcase-card-header">
+                <div class="showcase-icon-badge" style="background:rgba(99,102,241,0.15);color:#818cf8;border-color:rgba(99,102,241,0.3)">
+                  <i class="fa fa-clock"></i>
                 </div>
-                <div style="flex:1;min-width:0">
-                  <div class="demo-role-name truncate">${d.role}</div>
-                  <div class="demo-role-user">${d.username}</div>
+                <div>
+                  <h4 class="showcase-card-title">Live Attendance & Shift Engine</h4>
+                  <p class="showcase-card-sub">Automated Clock-in, Shifts & Overtime</p>
                 </div>
               </div>
-            `).join('')}
-          </div>
-        </div>
 
-        <div style="margin-top:24px;text-align:center;font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
-          <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
+              <div class="showcase-stat-row">
+                <div class="showcase-mini-stat">
+                  <span class="stat-num" style="color:#34d399">98.4%</span>
+                  <span class="stat-lbl">On-Time Rate</span>
+                </div>
+                <div class="showcase-mini-stat">
+                  <span class="stat-num" style="color:#818cf8">24/7</span>
+                  <span class="stat-lbl">Punch Tracker</span>
+                </div>
+                <div class="showcase-mini-stat">
+                  <span class="stat-num" style="color:#fbbf24">4 Shifts</span>
+                  <span class="stat-lbl">Grace Window</span>
+                </div>
+              </div>
+
+              <div class="showcase-preview-box">
+                <div class="preview-log-item">
+                  <div><span class="avatar-dot" style="background:#10b981"></span><span class="log-name">Ahmed Khan (CEO)</span></div>
+                  <span class="log-badge badge-present">In: 08:58 AM</span>
+                </div>
+                <div class="preview-log-item">
+                  <div><span class="avatar-dot" style="background:#6366f1"></span><span class="log-name">Sara Malik (HR)</span></div>
+                  <span class="log-badge badge-present">In: 09:02 AM</span>
+                </div>
+                <div class="preview-log-item">
+                  <div><span class="avatar-dot" style="background:#f59e0b"></span><span class="log-name">Usman Baig (Lead)</span></div>
+                  <span class="log-badge badge-late">Grace Window (14m)</span>
+                </div>
+              </div>
+
+              <div class="showcase-tags">
+                <span class="tag-pill"><i class="fa fa-check"></i> Biometric Simulator</span>
+                <span class="tag-pill"><i class="fa fa-check"></i> Overtime Calculation</span>
+                <span class="tag-pill"><i class="fa fa-check"></i> Monthly Timesheets</span>
+              </div>
+            </div>
+
+            <!-- Feature Card 2: Payroll Engine & Leave Workflow -->
+            <div class="showcase-card animate-slide-up" style="animation-delay:0.1s">
+              <div class="showcase-card-header">
+                <div class="showcase-icon-badge" style="background:rgba(16,185,129,0.15);color:#34d399;border-color:rgba(16,185,129,0.3)">
+                  <i class="fa fa-money-bill-wave"></i>
+                </div>
+                <div>
+                  <h4 class="showcase-card-title">Automated Payroll & Leaves</h4>
+                  <p class="showcase-card-sub">1-Click Salary Runs & Multi-Tier Approvals</p>
+                </div>
+              </div>
+
+              <div class="showcase-payroll-preview">
+                <div class="payroll-item-row">
+                  <span>Base Salary & Housing</span>
+                  <span class="text-emerald">+ Allowances (15%)</span>
+                </div>
+                <div class="payroll-item-row">
+                  <span>Tax Withholding & PF</span>
+                  <span class="text-rose">- Tax Deductions</span>
+                </div>
+                <div class="payroll-total-bar">
+                  <span>Net Salary Disbursement</span>
+                  <span class="payroll-chip">100% Tax Compliant</span>
+                </div>
+              </div>
+
+              <div class="showcase-leave-badges">
+                <div class="leave-chip"><span class="dot" style="background:#3b82f6"></span> Annual: 14d</div>
+                <div class="leave-chip"><span class="dot" style="background:#10b981"></span> Medical: 10d</div>
+                <div class="leave-chip"><span class="dot" style="background:#ec4899"></span> Casual: 10d</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ════ CENTER COLUMN: LOGIN CARD ════ -->
+          <div class="login-centered-card animate-slide-up">
+            <div class="login-header-center">
+              <div class="login-badge-pill">
+                <i class="fa fa-shield-check"></i> Enterprise HR Suite
+              </div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
+                <div class="logo-icon" style="width:46px;height:46px;font-size:20px;border-radius:12px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
+                <div style="text-align:left">
+                  <h2 class="login-brand-title" style="margin:0;font-size:23px">HRM Pro</h2>
+                  <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Corporate Portal Access</span>
+                </div>
+              </div>
+              <p class="login-brand-sub" style="margin-top:4px">Sign in with your corporate credentials to continue</p>
+            </div>
+
+            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:12px">
+              <i class="fa fa-circle-xmark"></i>
+              <span id="login-error-msg"></span>
+            </div>
+
+            <div class="login-input-wrap">
+              <i class="fa fa-user login-input-icon"></i>
+              <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
+            </div>
+
+            <div class="login-input-wrap">
+              <i class="fa fa-lock login-input-icon"></i>
+              <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
+              <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
+                <i class="fa fa-eye" id="pw-eye"></i>
+              </button>
+            </div>
+
+            <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
+              <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
+            </button>
+
+            <div style="margin-top:24px">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+                <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+              </div>
+              <div class="demo-role-grid">
+                ${demos.map(d => `
+                  <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
+                    <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
+                      <i class="fa ${d.icon}"></i>
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div class="demo-role-name truncate">${d.role}</div>
+                      <div class="demo-role-user">${d.username}</div>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+
+            <div style="margin-top:20px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
+              <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
+            </div>
+          </div>
+
+          <!-- ════ RIGHT COLUMN: FEATURE CARDS 3 & 4 ════ -->
+          <div class="login-showcase-col right-col">
+            <!-- Feature Card 3: Analytics & Performance OKRs -->
+            <div class="showcase-card showcase-card-glow animate-slide-up">
+              <div class="showcase-card-header">
+                <div class="showcase-icon-badge" style="background:rgba(236,72,153,0.15);color:#f472b6;border-color:rgba(236,72,153,0.3)">
+                  <i class="fa fa-chart-pie"></i>
+                </div>
+                <div>
+                  <h4 class="showcase-card-title">Executive Analytics & OKRs</h4>
+                  <p class="showcase-card-sub">Headcount Distribution & Review Tracking</p>
+                </div>
+              </div>
+
+              <div class="dept-progress-wrap">
+                <div class="dept-prog-header">
+                  <span>Engineering & IT</span>
+                  <span style="color:#818cf8">42%</span>
+                </div>
+                <div class="prog-track"><div class="prog-fill" style="width:42%;background:linear-gradient(90deg, #6366f1, #818cf8)"></div></div>
+
+                <div class="dept-prog-header" style="margin-top:8px">
+                  <span>Sales & Marketing</span>
+                  <span style="color:#f472b6">28%</span>
+                </div>
+                <div class="prog-track"><div class="prog-fill" style="width:28%;background:linear-gradient(90deg, #ec4899, #f472b6)"></div></div>
+
+                <div class="dept-prog-header" style="margin-top:8px">
+                  <span>HR, Operations & Finance</span>
+                  <span style="color:#34d399">30%</span>
+                </div>
+                <div class="prog-track"><div class="prog-fill" style="width:30%;background:linear-gradient(90deg, #10b981, #34d399)"></div></div>
+              </div>
+
+              <div class="okr-milestone-box">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:11px;font-weight:700;color:#f1f5f9"><i class="fa fa-bullseye" style="color:#f59e0b"></i> Q3 Review Cycle</span>
+                  <span style="font-size:10.5px;font-weight:700;color:#10b981">94% Completed</span>
+                </div>
+                <div style="font-size:10.5px;color:var(--text-3)">Manager appraisals, self-reviews & 360 feedback logged.</div>
+              </div>
+            </div>
+
+            <!-- Feature Card 4: Recruitment ATS & Cloud Integration -->
+            <div class="showcase-card animate-slide-up" style="animation-delay:0.1s">
+              <div class="showcase-card-header">
+                <div class="showcase-icon-badge" style="background:rgba(245,158,11,0.15);color:#fbbf24;border-color:rgba(245,158,11,0.3)">
+                  <i class="fa fa-briefcase"></i>
+                </div>
+                <div>
+                  <h4 class="showcase-card-title">Talent ATS & Recruitment</h4>
+                  <p class="showcase-card-sub">Applicant Funnel & Candidate Tracking</p>
+                </div>
+              </div>
+
+              <!-- Pipeline Funnel -->
+              <div class="ats-pipeline-steps">
+                <div class="ats-step">
+                  <span class="ats-count">24</span>
+                  <span class="ats-label">Applied</span>
+                </div>
+                <div class="ats-arrow"><i class="fa fa-angle-right"></i></div>
+                <div class="ats-step">
+                  <span class="ats-count">11</span>
+                  <span class="ats-label">Screening</span>
+                </div>
+                <div class="ats-arrow"><i class="fa fa-angle-right"></i></div>
+                <div class="ats-step">
+                  <span class="ats-count">5</span>
+                  <span class="ats-label">Interview</span>
+                </div>
+                <div class="ats-arrow"><i class="fa fa-angle-right"></i></div>
+                <div class="ats-step highlight">
+                  <span class="ats-count">2</span>
+                  <span class="ats-label">Offered</span>
+                </div>
+              </div>
+
+              <div class="cloud-status-footer">
+                <div style="display:flex;align-items:center;gap:7px">
+                  <span class="live-pulse-green"></span>
+                  <span style="font-size:11px;font-weight:600;color:#f8fafc">Vercel Postgres Connected</span>
+                </div>
+                <span style="font-size:10.5px;color:var(--text-3);font-family:monospace">100% Free Stack</span>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     `;
