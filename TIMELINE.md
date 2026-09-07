@@ -183,16 +183,26 @@
 - **Visual Design & Aesthetics**:
   - **Centered Centerpiece**: The corporate sign-in card (`max-width: 440px`) sits proudly in the horizontal and vertical center with smooth glassmorphic blur (`backdrop-filter: blur(28px);`) and ambient indigo glow.
   - **Deep Obsidian Theme**: Replaced harsh cyan-blue styling with midnight obsidian radial canvas (`#070b14`), sleek frosted glass surfaces (`rgba(17, 24, 39, 0.55)`), and delicate 1px border glows.
-  - **Soft Accent Icon Badges**: Replaced heavy white circles with translucent colored squircle badges (`background: rgba(color, 0.12)`) for a refined enterprise feel.
-- **Enterprise Features & Category Filter Tabs**:
-  - Positioned cleanly beneath the centered hero with quick category filters:
-    - `All Modules (18)`
-    - `Core Workforce` (Employee, Manpower, Onboarding, Separation)
-    - `Time & Payroll` (Attendance, Leave, Payroll, Piece Work)
-    - `Talent & Performance` (Recruitment ATS, Performance OKRs, Training)
-    - `Operations & Admin` (Help Desk, Expense, HR Letters, Travel, Scheduled Alerts, Scheduled Reports, Assets)
-  - Interactive modal retained: Clicking any module presents full capability specifications and immediate one-click demo access with that module's recommended role.
-  - Strictly branded as **HRM Pro**.
+  - **Soft Accent Icon Badges**: Translucent colored squircle badges (`background: rgba(color, 0.12)`) for a refined enterprise feel.
+
+---
+
+### Step 11: Panoramic Symmetrical 3-Column Feature Layout (Left & Right Sides of Sign-In)
+- **Objective**: Flank the central sign-in workspace card symmetrically with enterprise feature cards on both the **Left** and **Right** sides, providing immediate high-level visibility of system capabilities without scrolling.
+- **Architecture & Layout**:
+  - **Panoramic 3-Column Desktop Grid (`.login-panoramic-layout`)**:
+    - **Left Column (`login-side-column`)**: 6 Core Workforce & Time modules (Employee Management, Manpower Management, Onboarding Management, Separation Management, Attendance Management, Leave Management) with crisp translucent accent icons and category tags.
+    - **Center Column (`login-center-column`)**: Centered HRM Pro Sign-In card with credential inputs, quick demo role one-click access (`admin`, `sara.malik`, `usman.baig`, `fatima.raza`), security badge, and an interactive *"View All 18 Enterprise Modules"* popup trigger.
+    - **Right Column (`login-side-column right-side`)**: 6 Strategic & Operational modules (Payroll Management, Piece Work Management, Recruitment & ATS, Performance & OKRs, Training & Development, Help Desk Management).
+  - **Comprehensive 18-Module Modal (`Login.showAllModulesModal`)**:
+    - Provides a full-screen glassmorphic dialog with real-time category filtering (`All`, `Core Workforce`, `Time & Payroll`, `Talent & Performance`, `Operations & Admin`).
+    - Allows direct click-to-preview specifications for all 18 modules and 1-click launch with the module's recommended demo role.
+  - **Responsive Adaptability**:
+    - Seamlessly transforms into a single-column layout on medium screens (`<= 1260px`) keeping the sign-in card prioritized at the top.
+    - Automatically condenses for mobile viewports (`<= 640px`) for optimal speed and tap targets.
+- **Branding & Integrity**:
+  - 100% strictly branded as **HRM Pro**.
+  - Retains zero external proprietary branding.
 
 ---
 

@@ -1103,6 +1103,8 @@ const Login = {
   render() {
     const container = document.getElementById('login-page');
     const demos = Auth.getDemoAccounts();
+    const leftModules = this.modules.slice(0, 6);
+    const rightModules = this.modules.slice(6, 12);
 
     container.innerHTML = `
       <div class="login-page-wrapper">
@@ -1123,115 +1125,97 @@ const Login = {
           </div>
         </div>
 
-        <!-- ── CENTER HERO: SIGN-IN CARD IN CENTER ── -->
-        <div class="login-center-hero animate-slide-up">
-          <div class="login-centered-card">
-            <div class="login-header-center">
-              <div class="login-badge-pill">
-                <i class="fa fa-shield-halved"></i> Corporate Workspace
-              </div>
-              <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
-                <div class="logo-icon" style="width:42px;height:42px;font-size:18px;border-radius:12px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
-                <div style="text-align:left">
-                  <h2 class="login-brand-title" style="margin:0;font-size:22px">HRM Pro</h2>
-                  <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Sign in to access your workspace</span>
+        <!-- ── PANORAMIC 3-COLUMN LAYOUT: LEFT FEATURES + CENTER SIGN-IN + RIGHT FEATURES ── -->
+        <div class="login-panoramic-layout animate-slide-up">
+          
+          <!-- ── Left Side Feature Cards ── -->
+          <div class="login-side-column left-side">
+            <div class="login-side-header">
+              <span><i class="fa fa-layer-group" style="margin-right:6px"></i> Workforce & Payroll</span>
+              <span style="color:var(--text-muted);font-weight:600;font-size:10px">CORE MODULES</span>
+            </div>
+            ${this.renderModuleCards(leftModules)}
+          </div>
+
+          <!-- ── Center Sign-In Workspace Card ── -->
+          <div class="login-center-column">
+            <div class="login-centered-card">
+              <div class="login-header-center">
+                <div class="login-badge-pill">
+                  <i class="fa fa-shield-halved"></i> Corporate Workspace
+                </div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
+                  <div class="logo-icon" style="width:42px;height:42px;font-size:18px;border-radius:12px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
+                  <div style="text-align:left">
+                    <h2 class="login-brand-title" style="margin:0;font-size:22px">HRM Pro</h2>
+                    <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Sign in to access your workspace</span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:14px;border-radius:12px">
-              <i class="fa fa-circle-xmark"></i>
-              <span id="login-error-msg"></span>
-            </div>
+              <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:14px;border-radius:12px">
+                <i class="fa fa-circle-xmark"></i>
+                <span id="login-error-msg"></span>
+              </div>
 
-            <div class="login-input-wrap">
-              <i class="fa fa-user login-input-icon"></i>
-              <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
-            </div>
+              <div class="login-input-wrap">
+                <i class="fa fa-user login-input-icon"></i>
+                <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
+              </div>
 
-            <div class="login-input-wrap">
-              <i class="fa fa-lock login-input-icon"></i>
-              <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
-              <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
-                <i class="fa fa-eye" id="pw-eye"></i>
+              <div class="login-input-wrap">
+                <i class="fa fa-lock login-input-icon"></i>
+                <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
+                <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
+                  <i class="fa fa-eye" id="pw-eye"></i>
+                </button>
+              </div>
+
+              <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
+                <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
               </button>
+
+              <div style="margin-top:20px">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                  <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
+                  <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
+                  <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
+                </div>
+                <div class="demo-role-grid">
+                  ${demos.map(d => `
+                    <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
+                      <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
+                        <i class="fa ${d.icon}"></i>
+                      </div>
+                      <div style="flex:1;min-width:0">
+                        <div class="demo-role-name truncate">${d.role}</div>
+                        <div class="demo-role-user">${d.username}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
+                <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
+              </div>
             </div>
 
-            <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
-              <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
+            <!-- Trigger All 18 Modules Modal -->
+            <button class="all-modules-trigger-btn" onclick="Login.showAllModulesModal()">
+              <i class="fa fa-grid-2"></i> View All 18 Enterprise Modules
             </button>
-
-            <div style="margin-top:20px">
-              <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
-                <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
-              </div>
-              <div class="demo-role-grid">
-                ${demos.map(d => `
-                  <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
-                    <div class="demo-role-icon" style="background:${d.color}25;border:1px solid ${d.color}45;color:${d.color}">
-                      <i class="fa ${d.icon}"></i>
-                    </div>
-                    <div style="flex:1;min-width:0">
-                      <div class="demo-role-name truncate">${d.role}</div>
-                      <div class="demo-role-user">${d.username}</div>
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-
-            <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
-              <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
-            </div>
           </div>
 
-          <!-- Explore Features Anchor Prompt -->
-          <a href="#hrm-showcase-section" class="login-explore-prompt">
-            <i class="fa fa-sparkles" style="color:#818cf8"></i>
-            Explore All 18 HRM Pro Modules & Capabilities
-            <i class="fa fa-arrow-down" style="font-size:11px"></i>
-          </a>
-        </div>
-
-        <!-- ── SOPHISTICATED DARK-GLASS ENTERPRISE MODULES SHOWCASE ── -->
-        <div class="hrm-showcase-section animate-slide-up" id="hrm-showcase-section">
-          <div class="hrm-showcase-header">
-            <div class="hrm-showcase-badge">
-              <i class="fa fa-cubes-stacked"></i> Enterprise HR Capabilities
+          <!-- ── Right Side Feature Cards ── -->
+          <div class="login-side-column right-side">
+            <div class="login-side-header">
+              <span><i class="fa fa-chart-pie" style="margin-right:6px"></i> Talent & Operations</span>
+              <span style="color:var(--text-muted);font-weight:600;font-size:10px">STRATEGIC MODULES</span>
             </div>
-            <h2 class="hrm-showcase-title">
-              Complete Human Resource Management (HRMS) Suite
-            </h2>
-            <p class="hrm-showcase-sub">
-              A complete Human Resource Management System strictly compliant with local and global HR best practices, covering the entire scope of employee lifecycle management.
-            </p>
-
-            <!-- Category Filter Tabs -->
-            <div class="hrm-filter-tabs">
-              <button class="hrm-filter-tab active" onclick="Login.filterCategory('all', this)">
-                <i class="fa fa-grid-2"></i> All Modules (18)
-              </button>
-              <button class="hrm-filter-tab" onclick="Login.filterCategory('core', this)">
-                <i class="fa fa-users"></i> Core Workforce
-              </button>
-              <button class="hrm-filter-tab" onclick="Login.filterCategory('payroll', this)">
-                <i class="fa fa-money-bill-wave"></i> Time & Payroll
-              </button>
-              <button class="hrm-filter-tab" onclick="Login.filterCategory('talent', this)">
-                <i class="fa fa-chart-line"></i> Talent & Performance
-              </button>
-              <button class="hrm-filter-tab" onclick="Login.filterCategory('ops', this)">
-                <i class="fa fa-sliders"></i> Operations & Admin
-              </button>
-            </div>
+            ${this.renderModuleCards(rightModules)}
           </div>
 
-          <!-- Module Cards Grid -->
-          <div class="hrm-modules-grid" id="hrm-modules-container">
-            ${this.renderModuleCards(this.modules)}
-          </div>
         </div>
 
         <!-- ── Footer ── -->
@@ -1260,6 +1244,65 @@ const Login = {
         </div>
       </div>
     `).join('');
+  },
+
+  showAllModulesModal() {
+    const container = document.getElementById('module-modal-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="module-modal-backdrop" onclick="if(event.target===this)Login.closeModal()">
+        <div class="module-modal-box" style="max-width:980px;width:95vw;max-height:90vh;overflow-y:auto;padding:28px">
+          <button class="module-modal-close" onclick="Login.closeModal()"><i class="fa fa-xmark"></i></button>
+
+          <div style="text-align:center;margin-bottom:24px">
+            <div class="hrm-showcase-badge" style="display:inline-flex;margin-bottom:8px">
+              <i class="fa fa-cubes-stacked"></i> Enterprise HR Suite
+            </div>
+            <h2 style="font-size:24px;font-weight:800;color:#fff;margin:0 0 8px 0">All 18 HRM Pro Enterprise Modules</h2>
+            <p style="font-size:13px;color:#94a3b8;max-width:650px;margin:0 auto">
+              Comprehensive capabilities spanning Core Workforce, Payroll, Talent, and Operations. Click any module to view specifications or sign in with the recommended demo profile.
+            </p>
+            
+            <div class="hrm-filter-tabs" style="margin-top:18px">
+              <button class="hrm-filter-tab active" onclick="Login.filterModalCategory('all', this)">
+                <i class="fa fa-grid-2"></i> All Modules (18)
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterModalCategory('core', this)">
+                <i class="fa fa-users"></i> Core Workforce
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterModalCategory('payroll', this)">
+                <i class="fa fa-money-bill-wave"></i> Time & Payroll
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterModalCategory('talent', this)">
+                <i class="fa fa-chart-line"></i> Talent & Performance
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterModalCategory('ops', this)">
+                <i class="fa fa-sliders"></i> Operations & Admin
+              </button>
+            </div>
+          </div>
+
+          <div class="hrm-modules-grid" id="modal-modules-grid">
+            ${this.renderModuleCards(this.modules)}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  filterModalCategory(cat, btnEl) {
+    document.querySelectorAll('.hrm-filter-tab').forEach(el => el.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    const filtered = cat === 'all'
+      ? this.modules
+      : this.modules.filter(m => m.category === cat);
+
+    const container = document.getElementById('modal-modules-grid');
+    if (container) {
+      container.innerHTML = this.renderModuleCards(filtered);
+    }
   },
 
   filterCategory(cat, btnEl) {
