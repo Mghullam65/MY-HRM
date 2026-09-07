@@ -4,6 +4,7 @@
   "private": true,
   "description": "HRM Pro — Cloud Human Resource Management System",
   "scripts": {
+    "start": "node server/src/server.js",
     "build": "node scripts/build.js",
     "prisma:generate": "prisma generate --schema=server/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=server/prisma/schema.prisma --accept-data-loss",

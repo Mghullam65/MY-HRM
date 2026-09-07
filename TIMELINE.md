@@ -29,12 +29,8 @@
    └── Created js/api.js with JWT auth and verified endpoints on http://localhost:5000.
 [Step 7] Vercel Serverless & Cloud Postgres Integration
    └── Connected Vercel Postgres, built api/index.js serverless function & vercel.json.
-[Step 8] Panoramic Login Visual Feature Showcase
-   └── Added 4 interactive feature preview cards around login card highlighting system capabilities.
-[Step 9] 18-Module Enterprise Capabilities Showcase on Login
-   └── Implemented exact 4-column blue module cards with circular badges and expandable View All Modules suite.
-[Step 10] Centered Sign-In & Obsidian Glassmorphism Design Overhaul
-   └── Re-centered sign-in card in main viewport, replaced harsh blue boxes with luxury obsidian frosted-glass cards and category filter tabs.
+[Step 8] Modern Bright Theme & Login Experience Redesign
+   └── Redesigned login screen to clean SaaS aesthetic, bright default theme & theme toggle.
 ```
 
 ---
@@ -128,81 +124,15 @@
 
 ---
 
-### Step 8: Panoramic Login Visual Feature Showcase
-- **Objective**: Enhance the login screen into a modern 3-column panoramic layout displaying interactive feature previews flanking the login card (filling left and right empty spaces).
-- **Technologies**: Vanilla CSS3 Grid/Flexbox, Glassmorphism backdrop-filters, CSS micro-animations.
+### Step 8: Modern Bright Theme & Login Screen Redesign
+- **Objective**: Improve the login interface aesthetics, eliminate dark empty void spaces, set a modern bright theme by default, and provide seamless one-click theme switching.
+- **Technologies**: Vanilla CSS3 (ambient radial gradients, micro-dot grid pattern, soft shadows, responsive cards), ES6+ DOM logic.
 - **Key Actions**:
-  - Designed responsive 3-column layout matching executive enterprise software (Workday / Rippling inspired).
-  - **Left Showcase Column**:
-    1. *Live Attendance & Shift Engine*: Real-time punch-in statuses, shift tags (Morning 09:00 - 18:00), biometric device sync tags, and live presence counters (94% On Time).
-    2. *Automated Payroll & Leave Tracking*: Visual net pay breakdown ($84,200), tax/allowance compliance chips, and multi-tier leave balance indicators (Annual, Sick, Casual).
-  - **Center Column**:
-    - Retained central SSL-encrypted credentials form with quick one-click role demo switcher (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`).
-  - **Right Showcase Column**:
-    3. *Executive Analytics & OKRs*: Headcount distribution by department (Engineering 42%, Sales 28%, Operations 30%) and Q3 Performance Appraisal Review completion milestone (94%).
-    4. *Talent ATS & Recruitment*: Dynamic hiring pipeline funnel stages (24 Applied → 11 Screening → 5 Interview → 2 Offered) with live Vercel Cloud Postgres status indicator.
-  - Added responsive rules: desktop showcases on wide screens, progressive collapsible behavior on tablets and mobile screens.
-
----
-
-### Step 9: 18-Module Enterprise Capabilities Showcase on Login
-- **Objective**: Re-architect login screen to prominently showcase HRM Pro's complete 18-module enterprise scope matching the exact visual card layout provided in user specifications.
-- **Visual Design & Aesthetics**:
-  - **4-Column Royal Blue Grid**: Custom `#0073b7` gradient cards with rounded corners (`border-radius: 16px;`) matching the user's reference mockup.
-  - **Circular White Icon Badges**: Centered 48px white round badges housing colorful icon indicators for quick visual recognition.
-  - **Typography**: Clean, crisp white titles with high-legibility light blue descriptions (`#e0f2fe`).
-  - **Branding**: Dedicated strictly to **HRM Pro** with zero external brand references.
-- **Key Modules Displayed**:
-  1. *Employee Management*: Streamline Workforce Data and Operations.
-  2. *Attendance Management*: Efficiently Track Employee Attendance.
-  3. *Leave Management*: Simplify Leave Tracking and Approvals.
-  4. *Payroll Management*: Effortless Payroll Processing & Reporting.
-  5. *Separation Management*: Smooth Employee Departures with complete formalities.
-  6. *Recruitment Management*: Elevate Your Hiring Process with advanced ATS.
-  7. *Performance Management*: Quick & Easy Appraisal Management.
-  8. *Help Desk Management*: Simplify & Track Internal Support Processes.
-  9. *Expense Management*: Control and Track Employee Expenses.
-  10. *HR Letters Management*: Effortless HR Communication and Documentation.
-  11. *Training Management*: Streamline Employee Skill Development.
-  12. *Manpower Management*: Efficient Workforce Planning and Budgeting.
-  - **Expandable Suite (via `View All Modules` button)**:
-    13. *Onboarding Management*: Welcome New Hires Confidently.
-    14. *Travel Management*: Streamline Business Trips & Logistics.
-    15. *Scheduled Alerts*: Automated Reminders & Event Triggers.
-    16. *Scheduled Reports*: Automate Daily, Weekly & Monthly Insights.
-    17. *Assets Management*: Track Company Equipment & Visibility.
-    18. *Piece Work Management*: Automated Production-Based Compensation.
-- **Interactive Capabilities**:
-  - Clicking any module opens an interactive detail modal with complete specifications and a one-click button to launch demo login with the corresponding recommended system role (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`).
-  - Centered `View All Modules` toggle smoothly reveals/hides the complete 18-module suite.
-
----
-
-### Step 10: Centered Sign-In & Obsidian Glassmorphism Design Overhaul
-- **Objective**: Redesign the login experience to position the **Sign In card directly in the center** of the viewport and replace loud opaque blue boxes with an ultra-clean, executive dark obsidian glassmorphic design system.
-- **Visual Design & Aesthetics**:
-  - **Centered Centerpiece**: The corporate sign-in card (`max-width: 440px`) sits proudly in the horizontal and vertical center with smooth glassmorphic blur (`backdrop-filter: blur(28px);`) and ambient indigo glow.
-  - **Deep Obsidian Theme**: Replaced harsh cyan-blue styling with midnight obsidian radial canvas (`#070b14`), sleek frosted glass surfaces (`rgba(17, 24, 39, 0.55)`), and delicate 1px border glows.
-  - **Soft Accent Icon Badges**: Translucent colored squircle badges (`background: rgba(color, 0.12)`) for a refined enterprise feel.
-
----
-
-### Step 11: Panoramic Symmetrical 3-Column Feature Layout (Left & Right Sides of Sign-In)
-- **Objective**: Flank the central sign-in workspace card symmetrically with enterprise feature cards on both the **Left** and **Right** sides, providing immediate high-level visibility of system capabilities without scrolling.
-- **Architecture & Layout**:
-  - **Panoramic 3-Column Desktop Grid (`.login-panoramic-layout`)**:
-    - **Left Column (`login-side-column`)**: 6 Core Workforce & Time modules (Employee Management, Manpower Management, Onboarding Management, Separation Management, Attendance Management, Leave Management) with crisp translucent accent icons and category tags.
-    - **Center Column (`login-center-column`)**: Centered HRM Pro Sign-In card with credential inputs, quick demo role one-click access (`admin`, `sara.malik`, `usman.baig`, `fatima.raza`), security badge, and an interactive *"View All 18 Enterprise Modules"* popup trigger.
-    - **Right Column (`login-side-column right-side`)**: 6 Strategic & Operational modules (Payroll Management, Piece Work Management, Recruitment & ATS, Performance & OKRs, Training & Development, Help Desk Management).
-  - **Comprehensive 18-Module Modal (`Login.showAllModulesModal`)**:
-    - Provides a full-screen glassmorphic dialog with real-time category filtering (`All`, `Core Workforce`, `Time & Payroll`, `Talent & Performance`, `Operations & Admin`).
-    - Allows direct click-to-preview specifications for all 18 modules and 1-click launch with the module's recommended demo role.
-  - **Responsive Adaptability**:
-    - Seamlessly transforms into a single-column layout on medium screens (`<= 1260px`) keeping the sign-in card prioritized at the top.
-    - Automatically condenses for mobile viewports (`<= 640px`) for optimal speed and tap targets.
-- **Branding & Integrity**:
-  - 100% strictly branded as **HRM Pro**.
-  - Retains zero external proprietary branding.
+  - Replaced the dark background on `#login-page` with a clean, ambient workspace background featuring subtle gradients and a micro-dot matrix.
+  - Rebuilt the login card into a modern SaaS card with clean borders (`#e2e8f0`), soft shadows, and light inputs.
+  - Added a floating light/dark theme switch button on the login screen (`#login-theme-btn`) connected to `App.toggleTheme()`.
+  - Added 4 quick demo role access pills (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`) with role icons and subtle hover elevation.
+  - Maintained full dark mode compatibility with tailored `[data-theme="dark"]` overrides.
 
 ---
 
