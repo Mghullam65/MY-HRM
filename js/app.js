@@ -872,14 +872,15 @@ const FormValidator = {
 
 // ── LOGIN MODULE ──
 const Login = {
-  showAllModules: false,
+  currentCategory: 'all',
 
   modules: [
-    // Primary 12 modules matching exact order of user screenshot
+    // Core Workforce
     {
       id: 'employee',
-      name: 'Employee',
-      fullName: 'Employee Management',
+      name: 'Employee Management',
+      category: 'core',
+      categoryLabel: 'Core HR',
       subtitle: 'Streamline Workforce Data and Operations',
       desc: 'Effortlessly maintain and access complete employee profiles, records, and data, empowering HR teams for smarter decisions.',
       icon: 'fa-users',
@@ -888,10 +889,49 @@ const Login = {
       demoUser: 'sara.malik'
     },
     {
+      id: 'manpower',
+      name: 'Manpower Management',
+      category: 'core',
+      categoryLabel: 'Core HR',
+      subtitle: 'Efficient Workforce Planning and Budgeting',
+      desc: 'Plan staffing needs accurately with the Manpower Planning tool, allocate resources efficiently, and strategically support business growth.',
+      icon: 'fa-sitemap',
+      color: '#3b82f6',
+      role: 'Super Admin',
+      demoUser: 'admin'
+    },
+    {
+      id: 'onboarding',
+      name: 'Onboarding Management',
+      category: 'core',
+      categoryLabel: 'Core HR',
+      subtitle: 'Welcome New Hires Confidently',
+      desc: 'Welcome new hires confidently, completing documentation, training, and integration before their first day for seamless workforce entry.',
+      icon: 'fa-user-check',
+      color: '#14b8a6',
+      role: 'HR Manager',
+      demoUser: 'sara.malik'
+    },
+    {
+      id: 'separation',
+      name: 'Separation Management',
+      category: 'core',
+      categoryLabel: 'Core HR',
+      subtitle: 'Smooth Employee Departures with complete formalities',
+      desc: 'From clearances and interviews to settlements, it simplifies the employee exit journey with professionalism at every step.',
+      icon: 'fa-door-open',
+      color: '#6366f1',
+      role: 'HR Manager',
+      demoUser: 'sara.malik'
+    },
+
+    // Time & Payroll
+    {
       id: 'attendance',
-      name: 'Attendance',
-      fullName: 'Attendance Management',
-      subtitle: 'Efficiently Track Employee Attendance',
+      name: 'Attendance Management',
+      category: 'payroll',
+      categoryLabel: 'Time & Payroll',
+      subtitle: 'Track Employee Time & Shift Schedules',
       desc: 'Track employee time, attendance, and shifts automatically, boosting productivity while saving HR teams valuable time efficiently.',
       icon: 'fa-clock',
       color: '#0284c7',
@@ -900,8 +940,9 @@ const Login = {
     },
     {
       id: 'leave',
-      name: 'Leave',
-      fullName: 'Leave Management',
+      name: 'Leave Management',
+      category: 'payroll',
+      categoryLabel: 'Time & Payroll',
       subtitle: 'Simplify Leave Tracking and Approvals',
       desc: 'Automate leave requests, approvals, and balances seamlessly, ensuring smooth workforce scheduling without paperwork or delays.',
       icon: 'fa-pen-to-square',
@@ -911,9 +952,10 @@ const Login = {
     },
     {
       id: 'payroll',
-      name: 'Payroll',
-      fullName: 'Payroll Management',
-      subtitle: 'Effortless Payroll Processing & Reporting',
+      name: 'Payroll Management',
+      category: 'payroll',
+      categoryLabel: 'Time & Payroll',
+      subtitle: 'Effortless Payroll Processing & Tax Compliance',
       desc: 'Process salaries accurately, comply with taxes, policies, and statutory requirements, all instantly with one simple click.',
       icon: 'fa-money-bill-wave',
       color: '#ef4444',
@@ -921,20 +963,24 @@ const Login = {
       demoUser: 'admin'
     },
     {
-      id: 'separation',
-      name: 'Separation',
-      fullName: 'Separation Management',
-      subtitle: 'Smooth Employee Departures with complete formalities',
-      desc: 'From clearances and interviews to settlements, it simplifies the employee exit journey with professionalism at every step.',
-      icon: 'fa-door-open',
-      color: '#6366f1',
-      role: 'HR Manager',
-      demoUser: 'sara.malik'
+      id: 'piece-work',
+      name: 'Piece Work Management',
+      category: 'payroll',
+      categoryLabel: 'Time & Payroll',
+      subtitle: 'Automated Production-Based Compensation',
+      desc: 'Manage production-based compensation with automated piece work tracking, streamlined approvals, and efficient payroll processing.',
+      icon: 'fa-cubes',
+      color: '#10b981',
+      role: 'Super Admin',
+      demoUser: 'admin'
     },
+
+    // Talent & Performance
     {
       id: 'recruitment',
-      name: 'Recruitment',
-      fullName: 'Recruitment Management',
+      name: 'Recruitment & ATS',
+      category: 'talent',
+      categoryLabel: 'Talent & ATS',
       subtitle: 'Elevate Your Hiring Process with advanced ATS',
       desc: 'Hire top talent faster, with automated job posting, candidate screening, and structured evaluations with real-time tracking.',
       icon: 'fa-magnifying-glass-chart',
@@ -944,9 +990,10 @@ const Login = {
     },
     {
       id: 'performance',
-      name: 'Performance',
-      fullName: 'Performance Management',
-      subtitle: 'Quick & Easy Appraisal Management',
+      name: 'Performance & OKRs',
+      category: 'talent',
+      categoryLabel: 'Talent & ATS',
+      subtitle: 'Quick & Easy Appraisal & KPI Management',
       desc: 'Manage employee appraisals within a single dashboard, set KPIs, track performance, and evaluate accordingly.',
       icon: 'fa-arrow-trend-up',
       color: '#f43f5e',
@@ -954,21 +1001,37 @@ const Login = {
       demoUser: 'usman.baig'
     },
     {
+      id: 'training',
+      name: 'Training & Development',
+      category: 'talent',
+      categoryLabel: 'Talent & ATS',
+      subtitle: 'Streamline Employee Skill Development',
+      desc: 'Plan, track, and manage learning initiatives, empowering employees and organizations to grow continuously and achieve goals.',
+      icon: 'fa-chalkboard-user',
+      color: '#d97706',
+      role: 'HR Manager',
+      demoUser: 'sara.malik'
+    },
+
+    // Operations & Administration
+    {
       id: 'help-desk',
-      name: 'Help Desk',
-      fullName: 'Help Desk Management',
+      name: 'Help Desk Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
       subtitle: 'Simplify & Track Internal Support Processes',
       desc: 'Centralize administrative and IT requests, tracking and resolving employee issues quickly, improving efficiency and satisfaction.',
       icon: 'fa-headset',
-      color: '#64748b',
+      color: '#94a3b8',
       role: 'Employee',
       demoUser: 'fatima.raza'
     },
     {
       id: 'expense',
-      name: 'Expense',
-      fullName: 'Expense Management',
-      subtitle: 'Control and Track Employee Expenses',
+      name: 'Expense Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
+      subtitle: 'Control and Track Employee Reimbursements',
       desc: 'Digitize employee claims for travel, food, medical, and other expenses, ensuring fast, accurate approvals every time.',
       icon: 'fa-receipt',
       color: '#ea580c',
@@ -977,9 +1040,10 @@ const Login = {
     },
     {
       id: 'hr-letters',
-      name: 'HR Letters',
-      fullName: 'HR Letters Management',
-      subtitle: 'Effortless HR Communication and Documentation',
+      name: 'HR Letters & Noticeboard',
+      category: 'ops',
+      categoryLabel: 'Operations',
+      subtitle: 'Effortless HR Communication & Documentation',
       desc: 'Create HR letters instantly, including offers, increments, and customized templates, eliminating delays and administrative hassles effectively.',
       icon: 'fa-envelope-open-text',
       color: '#ec4899',
@@ -987,43 +1051,10 @@ const Login = {
       demoUser: 'sara.malik'
     },
     {
-      id: 'training',
-      name: 'Training',
-      fullName: 'Training Management',
-      subtitle: 'Streamline Employee Skill Development',
-      desc: 'Plan, track, and manage learning initiatives, empowering employees and organizations to grow continuously and achieve goals.',
-      icon: 'fa-chalkboard-user',
-      color: '#d97706',
-      role: 'HR Manager',
-      demoUser: 'sara.malik'
-    },
-    {
-      id: 'manpower',
-      name: 'Manpower',
-      fullName: 'Manpower Management',
-      subtitle: 'Efficient Workforce Planning and Budgeting',
-      desc: 'Plan staffing needs accurately with the Manpower Planning tool, allocate resources efficiently, and strategically support business growth.',
-      icon: 'fa-sitemap',
-      color: '#3b82f6',
-      role: 'Super Admin',
-      demoUser: 'admin'
-    },
-    // Expandable Enterprise Modules (revealed with "View All Modules")
-    {
-      id: 'onboarding',
-      name: 'Onboarding',
-      fullName: 'Onboarding Management',
-      subtitle: 'Welcome New Hires Confidently',
-      desc: 'Welcome new hires confidently, completing documentation, training, and integration before their first day for seamless workforce entry.',
-      icon: 'fa-user-check',
-      color: '#14b8a6',
-      role: 'HR Manager',
-      demoUser: 'sara.malik'
-    },
-    {
       id: 'travel',
-      name: 'Travel',
-      fullName: 'Travel Management',
+      name: 'Travel Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
       subtitle: 'Streamline Business Trips & Logistics',
       desc: 'Streamline business trips from requests and approvals to planning and arrangements, ensuring smooth, hassle-free travel experiences.',
       icon: 'fa-plane-departure',
@@ -1034,7 +1065,8 @@ const Login = {
     {
       id: 'scheduled-alerts',
       name: 'Scheduled Alerts',
-      fullName: 'Scheduled Alerts Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
       subtitle: 'Automated Reminders & Event Triggers',
       desc: 'Send automated reminders for celebrations, absences, or deadlines, keeping employees engaged, informed, and proactive.',
       icon: 'fa-bell',
@@ -1045,7 +1077,8 @@ const Login = {
     {
       id: 'scheduled-reports',
       name: 'Scheduled Reports',
-      fullName: 'Scheduled Reports Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
       subtitle: 'Automate Daily, Weekly & Monthly Insights',
       desc: 'Automate HR reporting daily, weekly, or monthly, delivering timely insights for strategic, proactive, and better decision-making.',
       icon: 'fa-file-lines',
@@ -1055,23 +1088,13 @@ const Login = {
     },
     {
       id: 'assets',
-      name: 'Assets',
-      fullName: 'Assets Management',
+      name: 'Assets Management',
+      category: 'ops',
+      categoryLabel: 'Operations',
       subtitle: 'Track Company Equipment & Visibility',
       desc: 'Track company assets from allocation to return with organized records and complete visibility for better accountability.',
       icon: 'fa-laptop',
       color: '#6366f1',
-      role: 'Super Admin',
-      demoUser: 'admin'
-    },
-    {
-      id: 'piece-work',
-      name: 'Piece Work',
-      fullName: 'Piece Work Management',
-      subtitle: 'Automated Production-Based Compensation',
-      desc: 'Manage production-based compensation with automated piece work tracking, streamlined approvals, and efficient payroll processing.',
-      icon: 'fa-cubes',
-      color: '#10b981',
       role: 'Super Admin',
       demoUser: 'admin'
     }
@@ -1080,78 +1103,43 @@ const Login = {
   render() {
     const container = document.getElementById('login-page');
     const demos = Auth.getDemoAccounts();
-    const primaryModules = this.modules.slice(0, 12);
-    const extraModules = this.modules.slice(12);
 
     container.innerHTML = `
       <div class="login-page-wrapper">
-        <!-- ── Top Branding Header ── -->
+        <!-- ── Slim Executive Topbar ── -->
         <div class="login-brand-topbar animate-fade-in">
           <div class="login-brand-logo-wrap">
-            <div class="logo-icon" style="width:36px;height:36px;font-size:16px;border-radius:10px">HR</div>
+            <div class="logo-icon" style="width:34px;height:34px;font-size:15px;border-radius:10px">HR</div>
             <div style="text-align:left">
-              <span style="font-weight:800;font-size:17px;color:#fff;letter-spacing:-0.3px">HRM <span style="color:var(--primary-light)">Pro</span></span>
-              <span style="display:block;font-size:10px;color:var(--text-3);line-height:1">Enterprise HRMS • HRIS • HCM</span>
+              <span style="font-weight:800;font-size:16px;color:#fff;letter-spacing:-0.3px">HRM <span style="color:var(--primary-light)">Pro</span></span>
+              <span style="display:block;font-size:10px;color:var(--text-3);line-height:1">Enterprise Suite</span>
             </div>
-            <span class="system-status-pill"><span class="status-dot-pulse"></span> Cloud System Ready</span>
+            <span class="system-status-pill"><span class="status-dot-pulse"></span> Cloud Ready</span>
           </div>
           <div class="login-topbar-meta">
-            <span><i class="fa fa-server" style="color:#38bdf8"></i> PostgreSQL Connected</span>
+            <span><i class="fa fa-database" style="color:#38bdf8"></i> PostgreSQL Connected</span>
             <span><i class="fa fa-shield-check" style="color:#a855f7"></i> 5-Tier RBAC</span>
             <span><i class="fa fa-circle-check" style="color:#10b981"></i> 99.9% Uptime</span>
           </div>
         </div>
 
-        <!-- ── Hero Section: Value Proposition & Login Form ── -->
-        <div class="login-hero-section">
-          <!-- Hero Left Column -->
-          <div class="login-hero-content animate-slide-up">
-            <div class="login-hero-badge">
-              <i class="fa fa-award"></i> Best HR Software • HRMS • HRIS • HCM
-            </div>
-            <h1 class="login-hero-title">
-              Manage Your <span>Employees, People, Workforce</span> & Manpower
-            </h1>
-            <p class="login-hero-desc">
-              A complete Human Resource Management System (HRMS) and highly regarded on-cloud and on-premise HR Software covering nearly the entire scope of human resource management while being strictly compliant with both local and global HR best practices.
-            </p>
-
-            <div class="login-hero-highlights">
-              <div class="login-highlight-item">
-                <i class="fa fa-circle-check"></i>
-                <span>18 Integrated HR Modules</span>
-              </div>
-              <div class="login-highlight-item">
-                <i class="fa fa-circle-check"></i>
-                <span>100% Free & Open-Source Stack</span>
-              </div>
-              <div class="login-highlight-item">
-                <i class="fa fa-circle-check"></i>
-                <span>Cloud PostgreSQL & Local SQLite</span>
-              </div>
-              <div class="login-highlight-item">
-                <i class="fa fa-circle-check"></i>
-                <span>Multi-Tier Role-Based Security</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Hero Right Column: Login Card -->
-          <div class="login-centered-card animate-slide-up" style="margin:0 auto">
+        <!-- ── CENTER HERO: SIGN-IN CARD IN CENTER ── -->
+        <div class="login-center-hero animate-slide-up">
+          <div class="login-centered-card">
             <div class="login-header-center">
               <div class="login-badge-pill">
-                <i class="fa fa-shield-halved"></i> Corporate Workspace Access
+                <i class="fa fa-shield-halved"></i> Corporate Workspace
               </div>
-              <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
-                <div class="logo-icon" style="width:44px;height:44px;font-size:19px;border-radius:12px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px">
+                <div class="logo-icon" style="width:42px;height:42px;font-size:18px;border-radius:12px;box-shadow:0 8px 20px rgba(79,70,229,0.4)">HR</div>
                 <div style="text-align:left">
                   <h2 class="login-brand-title" style="margin:0;font-size:22px">HRM Pro</h2>
-                  <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Sign in with corporate credentials</span>
+                  <span style="font-size:11.5px;color:var(--text-3);font-weight:500">Sign in to access your workspace</span>
                 </div>
               </div>
             </div>
 
-            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:12px">
+            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:14px;border-radius:12px">
               <i class="fa fa-circle-xmark"></i>
               <span id="login-error-msg"></span>
             </div>
@@ -1175,9 +1163,9 @@ const Login = {
 
             <div style="margin-top:20px">
               <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
                 <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px">Quick Demo Access</span>
-                <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+                <div style="flex:1;height:1px;background:rgba(255,255,255,0.08)"></div>
               </div>
               <div class="demo-role-grid">
                 ${demos.map(d => `
@@ -1194,61 +1182,55 @@ const Login = {
               </div>
             </div>
 
-            <div style="margin-top:18px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
+            <div style="margin-top:16px;text-align:center;font-size:11px;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:6px">
               <i class="fa fa-lock" style="font-size:10px"></i> 256-bit SSL Encrypted • Role-Based Access Control
             </div>
           </div>
+
+          <!-- Explore Features Anchor Prompt -->
+          <a href="#hrm-showcase-section" class="login-explore-prompt">
+            <i class="fa fa-sparkles" style="color:#818cf8"></i>
+            Explore All 18 HRM Pro Modules & Capabilities
+            <i class="fa fa-arrow-down" style="font-size:11px"></i>
+          </a>
         </div>
 
-        <!-- ── EXACT BLUE MODULES SHOWCASE (MATCHING USER SCREENSHOT) ── -->
-        <div class="hrm-showcase-section animate-slide-up">
+        <!-- ── SOPHISTICATED DARK-GLASS ENTERPRISE MODULES SHOWCASE ── -->
+        <div class="hrm-showcase-section animate-slide-up" id="hrm-showcase-section">
           <div class="hrm-showcase-header">
             <div class="hrm-showcase-badge">
-              <i class="fa fa-cubes-stacked"></i> Enterprise HR Suite Modules
+              <i class="fa fa-cubes-stacked"></i> Enterprise HR Capabilities
             </div>
             <h2 class="hrm-showcase-title">
-              Complete Human Resource Management (HRMS) Capabilities
+              Complete Human Resource Management (HRMS) Suite
             </h2>
             <p class="hrm-showcase-sub">
-              Streamline the full employee lifecycle with automated HR processes, real-time analytics, and strictly compliant workflows in <strong>HRM Pro</strong>.
+              A complete Human Resource Management System strictly compliant with local and global HR best practices, covering the entire scope of employee lifecycle management.
             </p>
+
+            <!-- Category Filter Tabs -->
+            <div class="hrm-filter-tabs">
+              <button class="hrm-filter-tab active" onclick="Login.filterCategory('all', this)">
+                <i class="fa fa-grid-2"></i> All Modules (18)
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterCategory('core', this)">
+                <i class="fa fa-users"></i> Core Workforce
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterCategory('payroll', this)">
+                <i class="fa fa-money-bill-wave"></i> Time & Payroll
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterCategory('talent', this)">
+                <i class="fa fa-chart-line"></i> Talent & Performance
+              </button>
+              <button class="hrm-filter-tab" onclick="Login.filterCategory('ops', this)">
+                <i class="fa fa-sliders"></i> Operations & Admin
+              </button>
+            </div>
           </div>
 
-          <!-- Primary 12 Modules (Exact order and blue styling from user screenshot) -->
-          <div class="hrm-modules-grid" id="hrm-primary-modules">
-            ${primaryModules.map(m => `
-              <div class="hrm-module-card" onclick="Login.showModuleModal('${m.id}')" title="Click to view ${m.fullName} details">
-                <div class="hrm-module-icon-circle">
-                  <i class="fa ${m.icon}" style="color:${m.color}"></i>
-                </div>
-                <div class="hrm-module-content">
-                  <div class="hrm-module-name">${m.name}</div>
-                  <div class="hrm-module-desc">${m.subtitle}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- Expandable Extra Modules Container -->
-          <div class="hrm-modules-grid" id="hrm-extra-modules" style="display:none;margin-top:16px">
-            ${extraModules.map(m => `
-              <div class="hrm-module-card" onclick="Login.showModuleModal('${m.id}')" title="Click to view ${m.fullName} details">
-                <div class="hrm-module-icon-circle">
-                  <i class="fa ${m.icon}" style="color:${m.color}"></i>
-                </div>
-                <div class="hrm-module-content">
-                  <div class="hrm-module-name">${m.name}</div>
-                  <div class="hrm-module-desc">${m.subtitle}</div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-
-          <!-- View All Modules Button -->
-          <div class="hrm-view-all-wrap">
-            <button class="hrm-view-all-btn" id="view-all-modules-btn" onclick="Login.toggleAllModules()">
-              <i class="fa fa-table-cells-large"></i> View All Modules
-            </button>
+          <!-- Module Cards Grid -->
+          <div class="hrm-modules-grid" id="hrm-modules-container">
+            ${this.renderModuleCards(this.modules)}
           </div>
         </div>
 
@@ -1263,18 +1245,35 @@ const Login = {
     `;
   },
 
-  toggleAllModules() {
-    const extra = document.getElementById('hrm-extra-modules');
-    const btn = document.getElementById('view-all-modules-btn');
-    if (!extra || !btn) return;
+  renderModuleCards(list) {
+    return list.map(m => `
+      <div class="hrm-module-card" onclick="Login.showModuleModal('${m.id}')" title="Click to view ${m.name} specifications">
+        <div class="hrm-module-icon-box" style="background:${m.color}18;color:${m.color};border-color:${m.color}35">
+          <i class="fa ${m.icon}"></i>
+        </div>
+        <div class="hrm-module-content">
+          <div class="hrm-module-name-wrap">
+            <span class="hrm-module-name">${m.name}</span>
+            <span class="hrm-module-tag">${m.categoryLabel}</span>
+          </div>
+          <div class="hrm-module-desc">${m.subtitle}</div>
+        </div>
+      </div>
+    `).join('');
+  },
 
-    this.showAllModules = !this.showAllModules;
-    if (this.showAllModules) {
-      extra.style.display = 'grid';
-      btn.innerHTML = '<i class="fa fa-angle-up"></i> Show Fewer Modules';
-    } else {
-      extra.style.display = 'none';
-      btn.innerHTML = '<i class="fa fa-table-cells-large"></i> View All Modules';
+  filterCategory(cat, btnEl) {
+    this.currentCategory = cat;
+    document.querySelectorAll('.hrm-filter-tab').forEach(el => el.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+
+    const filtered = cat === 'all'
+      ? this.modules
+      : this.modules.filter(m => m.category === cat);
+
+    const container = document.getElementById('hrm-modules-container');
+    if (container) {
+      container.innerHTML = this.renderModuleCards(filtered);
     }
   },
 
@@ -1290,25 +1289,25 @@ const Login = {
           <button class="module-modal-close" onclick="Login.closeModal()"><i class="fa fa-xmark"></i></button>
           
           <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
-            <div class="hrm-module-icon-circle" style="width:54px;height:54px;font-size:24px">
-              <i class="fa ${m.icon}" style="color:${m.color}"></i>
+            <div class="hrm-module-icon-box" style="width:52px;height:52px;font-size:22px;background:${m.color}20;color:${m.color};border-color:${m.color}40">
+              <i class="fa ${m.icon}"></i>
             </div>
             <div>
-              <div style="font-size:11px;font-weight:700;color:${m.color};text-transform:uppercase;letter-spacing:0.5px">HRM Pro Module</div>
-              <h3 style="font-size:20px;font-weight:800;color:#fff;margin:2px 0 0 0">${m.fullName}</h3>
+              <div style="font-size:11px;font-weight:700;color:${m.color};text-transform:uppercase;letter-spacing:0.5px">HRM Pro Enterprise Module</div>
+              <h3 style="font-size:20px;font-weight:800;color:#fff;margin:2px 0 0 0">${m.name}</h3>
             </div>
           </div>
 
-          <p style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:20px;background:rgba(255,255,255,0.04);padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.08)">
+          <p style="font-size:13.5px;color:#cbd5e1;line-height:1.6;margin-bottom:20px;background:rgba(255,255,255,0.03);padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,0.07)">
             ${m.desc}
           </p>
 
-          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid rgba(255,255,255,0.1)">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid rgba(255,255,255,0.08)">
             <div style="font-size:12px;color:var(--text-3)">
               Recommended demo role: <strong style="color:#fff">${m.role}</strong>
             </div>
             <button class="btn btn-primary btn-sm" onclick="Login.quickLogin('${m.demoUser}','password123');Login.closeModal()">
-              <i class="fa fa-arrow-right-to-bracket"></i> Try as ${m.role}
+              <i class="fa fa-arrow-right-to-bracket"></i> Sign In as ${m.role}
             </button>
           </div>
         </div>

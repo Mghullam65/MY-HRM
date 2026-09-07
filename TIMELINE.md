@@ -33,6 +33,8 @@
    └── Added 4 interactive feature preview cards around login card highlighting system capabilities.
 [Step 9] 18-Module Enterprise Capabilities Showcase on Login
    └── Implemented exact 4-column blue module cards with circular badges and expandable View All Modules suite.
+[Step 10] Centered Sign-In & Obsidian Glassmorphism Design Overhaul
+   └── Re-centered sign-in card in main viewport, replaced harsh blue boxes with luxury obsidian frosted-glass cards and category filter tabs.
 ```
 
 ---
@@ -173,6 +175,24 @@
 - **Interactive Capabilities**:
   - Clicking any module opens an interactive detail modal with complete specifications and a one-click button to launch demo login with the corresponding recommended system role (`Super Admin`, `HR Manager`, `Dept Manager`, `Employee`).
   - Centered `View All Modules` toggle smoothly reveals/hides the complete 18-module suite.
+
+---
+
+### Step 10: Centered Sign-In & Obsidian Glassmorphism Design Overhaul
+- **Objective**: Redesign the login experience to position the **Sign In card directly in the center** of the viewport and replace loud opaque blue boxes with an ultra-clean, executive dark obsidian glassmorphic design system.
+- **Visual Design & Aesthetics**:
+  - **Centered Centerpiece**: The corporate sign-in card (`max-width: 440px`) sits proudly in the horizontal and vertical center with smooth glassmorphic blur (`backdrop-filter: blur(28px);`) and ambient indigo glow.
+  - **Deep Obsidian Theme**: Replaced harsh cyan-blue styling with midnight obsidian radial canvas (`#070b14`), sleek frosted glass surfaces (`rgba(17, 24, 39, 0.55)`), and delicate 1px border glows.
+  - **Soft Accent Icon Badges**: Replaced heavy white circles with translucent colored squircle badges (`background: rgba(color, 0.12)`) for a refined enterprise feel.
+- **Enterprise Features & Category Filter Tabs**:
+  - Positioned cleanly beneath the centered hero with quick category filters:
+    - `All Modules (18)`
+    - `Core Workforce` (Employee, Manpower, Onboarding, Separation)
+    - `Time & Payroll` (Attendance, Leave, Payroll, Piece Work)
+    - `Talent & Performance` (Recruitment ATS, Performance OKRs, Training)
+    - `Operations & Admin` (Help Desk, Expense, HR Letters, Travel, Scheduled Alerts, Scheduled Reports, Assets)
+  - Interactive modal retained: Clicking any module presents full capability specifications and immediate one-click demo access with that module's recommended role.
+  - Strictly branded as **HRM Pro**.
 
 ---
 
