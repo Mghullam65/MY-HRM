@@ -297,19 +297,40 @@ const Employees = {
           <div>
             <!-- Header: Photo Thumbnail, Full Name, EMP ID -->
             <div class="card" style="padding:14px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:14px;border:1px solid var(--border);box-shadow:var(--shadow-sm)">
-              <div style="width:62px;height:72px;border:1px solid #cbd5e1;border-radius:4px;overflow:hidden;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `
-                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:22px;font-weight:700">
-                    ${Utils.avatarInitials(emp.fullName)}
+              <!-- Clickable photo thumbnail -->
+              <div style="position:relative;width:62px;height:72px;flex-shrink:0;cursor:${(isHR || Auth.employee?.id === emp.id) ? 'pointer' : 'default'};"
+                ${(isHR || Auth.employee?.id === emp.id) ? `onclick="Employees.showUploadPhotoModal(${emp.id})" title="Click to upload / change photo" ` : ''}>
+                <div style="width:62px;height:72px;border:1.5px solid ${(isHR || Auth.employee?.id === emp.id) ? 'var(--primary)' : '#cbd5e1'};border-radius:6px;overflow:hidden;background:#f8fafc;display:flex;align-items:center;justify-content:center">
+                  ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}" id="profile-photo-thumb">` : `
+                    <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:22px;font-weight:700">
+                      ${Utils.avatarInitials(emp.fullName)}
+                    </div>
+                  `}
+                </div>
+                ${(isHR || Auth.employee?.id === emp.id) ? `
+                  <!-- Camera hover overlay -->
+                  <div class="photo-upload-overlay" style="position:absolute;inset:0;background:rgba(2,132,199,0.72);border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;pointer-events:none">
+                    <i class="fa fa-camera" style="font-size:16px;color:#fff"></i>
+                    <span style="font-size:9px;color:#fff;font-weight:700;margin-top:3px">EDIT</span>
                   </div>
-                `}
+                ` : ''}
               </div>
               <div style="overflow:hidden">
                 <h3 style="font-size:17px;font-weight:700;color:#0284c7;margin:0;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${emp.fullName}</h3>
                 <div style="font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:6px">EMP ID: ${String(emp.empNo||emp.id).replace('EMP-', '')}</div>
                 <div style="font-size:11px;color:var(--text-3);margin-top:3px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${Utils.getDesigName(emp.designationId)}</div>
+                ${(isHR || Auth.employee?.id === emp.id) ? `
+                  <button class="btn btn-ghost btn-xs" onclick="Employees.showUploadPhotoModal(${emp.id})" style="margin-top:5px;font-size:10px;padding:2px 7px;color:var(--primary)">
+                    <i class="fa fa-camera" style="font-size:9px"></i> Edit Photo
+                  </button>
+                ` : ''}
               </div>
             </div>
+
+            <style>
+              .photo-upload-overlay { pointer-events: none; }
+              [style*="cursor:pointer"]:hover .photo-upload-overlay { opacity: 1 !important; }
+            </style>
 
             <!-- Accordion Groups matching Screenshots 1-5 -->
             <div class="profile-acc-card" style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:var(--shadow-sm)">
@@ -684,24 +705,41 @@ const Employees = {
       }
 
       case 'photograph': {
-        const changeBtn = `<button class="btn btn-primary btn-sm" onclick="Employees.showUploadPhotoModal(${emp.id})"><i class="fa fa-upload"></i> Change / Upload Photograph</button>`;
+        const canEditPhoto = isHR || isSelf;
+        const changeBtn = canEditPhoto ? `<button class="btn btn-primary btn-sm" onclick="Employees.showUploadPhotoModal(${emp.id})"><i class="fa fa-camera"></i> Change / Upload Photo</button>` : '';
         return `
           ${sectionHeader('Official Photograph', 'Biometric portrait for identification cards and access gates', changeBtn)}
-          <div style="display:flex;align-items:center;gap:28px;flex-wrap:wrap;background:var(--surface);padding:24px;border-radius:12px;border:1px solid var(--border)">
-            <div style="width:160px;height:190px;border:2px solid var(--primary);border-radius:8px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)">
-              ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `
-                <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:52px;font-weight:800">
-                  ${Utils.avatarInitials(emp.fullName)}
+          <div style="display:flex;align-items:flex-start;gap:28px;flex-wrap:wrap;background:var(--surface);padding:24px;border-radius:12px;border:1px solid var(--border)">
+            <!-- Large Photo with click-to-change overlay -->
+            <div style="position:relative;width:160px;height:190px;flex-shrink:0" ${canEditPhoto ? `onclick="Employees.showUploadPhotoModal(${emp.id})" title="Click to change photo"` : ''}>
+              <div style="width:160px;height:190px;border:2px solid var(--primary);border-radius:8px;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)">
+                ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `
+                  <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:52px;font-weight:800">
+                    ${Utils.avatarInitials(emp.fullName)}
+                  </div>
+                `}
+              </div>
+              ${canEditPhoto ? `
+                <div style="position:absolute;inset:0;background:rgba(2,132,199,0.7);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;cursor:pointer" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                  <i class="fa fa-camera" style="font-size:28px;color:#fff;margin-bottom:6px"></i>
+                  <span style="font-size:12px;color:#fff;font-weight:700">Click to Edit</span>
                 </div>
-              `}
+              ` : ''}
             </div>
             <div style="flex:1;min-width:240px">
               <h4 style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">${emp.fullName}</h4>
               <div style="font-size:13px;color:var(--text-3);margin-bottom:12px">EMP ID: <strong>${emp.empNo}</strong> • ${Utils.getDesigName(emp.designationId)}</div>
+              ${canEditPhoto ? `
+                <button class="btn btn-primary btn-sm" onclick="Employees.showUploadPhotoModal(${emp.id})" style="margin-bottom:14px;width:100%">
+                  <i class="fa fa-upload"></i> Upload / Change Photograph
+                </button>
+                ${emp.photo ? `<button class="btn btn-danger btn-sm" onclick="Employees.removePhoto(${emp.id})" style="margin-bottom:14px;width:100%"><i class="fa fa-trash"></i> Remove Current Photo</button>` : ''}
+              ` : ''}
               <div style="background:var(--card);border:1px dashed var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);line-height:1.6">
-                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> White or light blue background standard.</div>
-                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> Passport size portrait framing (300x350px).</div>
-                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i> Synchronized with main Biometric turnstile system.</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i>White or light blue background standard.</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i>Passport size portrait framing (300x350px).</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i>Max file size: 5 MB (JPG, PNG supported).</div>
+                <div><i class="fa fa-circle-check" style="color:var(--success);margin-right:6px"></i>Synchronized with main Biometric turnstile system.</div>
               </div>
             </div>
           </div>
@@ -1724,35 +1762,95 @@ const Employees = {
   },
 
   showUploadPhotoModal(empId) {
-    Modal.show('Upload Photograph', `
-      <div class="form-group">
-        <label class="form-label">Photo Image URL or Base64 Data</label>
-        <input class="form-control" id="photo-url-input" placeholder="https://example.com/photo.jpg or paste data:image/...">
+    const emp = DB.find('employees', empId);
+    window._tempPhotoData = null;
+    Modal.show('Upload / Change Profile Photo', `
+      <div style="text-align:center;margin-bottom:16px">
+        <!-- Current / Preview Photo -->
+        <div id="photo-preview-wrap" style="width:120px;height:142px;border:2.5px solid var(--primary);border-radius:8px;overflow:hidden;margin:0 auto 10px;background:var(--surface);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md)">
+          ${emp?.photo
+            ? `<img id="photo-preview-img" src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="photo">`
+            : `<div id="photo-preview-init" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(empId)};color:#fff;font-size:40px;font-weight:800">${Utils.avatarInitials(emp?.fullName||'')}</div>`
+          }
+        </div>
+        <div style="font-size:12px;color:var(--text-3)">${emp?.photo ? '<span style="color:var(--success)"><i class="fa fa-circle-check"></i> Current photo</span>' : 'No photo uploaded yet'}</div>
       </div>
-      <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">
-        Or select a picture from your computer:
+
+      <!-- Drag & Drop / Click to pick -->
+      <div id="photo-drop-zone"
+        style="border:2px dashed var(--primary);border-radius:10px;padding:22px 16px;text-align:center;cursor:pointer;transition:background .2s;background:var(--surface)"
+        onclick="document.getElementById('photo-file-input').click()"
+        ondragover="event.preventDefault();this.style.background='rgba(2,132,199,0.08)'"
+        ondragleave="this.style.background='var(--surface)'"
+        ondrop="Employees.onPhotoFileDrop(event)">
+        <i class="fa fa-cloud-arrow-up" style="font-size:28px;color:var(--primary);display:block;margin-bottom:8px"></i>
+        <div style="font-size:13.5px;font-weight:600;color:var(--text)">Click to select or drag &amp; drop</div>
+        <div style="font-size:11.5px;color:var(--text-3);margin-top:4px">JPG, PNG, WEBP • Max 5 MB</div>
       </div>
-      <input type="file" id="photo-file-input" accept="image/*" class="form-control" onchange="Employees.onPhotoFilePicked(event)">
-      <div id="photo-file-preview" style="margin-top:14px;text-align:center"></div>
+      <input type="file" id="photo-file-input" accept="image/*" style="display:none" onchange="Employees.onPhotoFilePicked(event)">
+
+      <div style="margin-top:12px">
+        <label class="form-label" style="font-size:12px">Or paste an image URL</label>
+        <input class="form-control" id="photo-url-input" placeholder="https://example.com/photo.jpg" style="font-size:13px">
+      </div>
+
+      ${emp?.photo ? `
+        <div style="margin-top:10px;text-align:center">
+          <button class="btn btn-ghost btn-sm" style="color:var(--danger);font-size:12px" onclick="Employees.removePhoto(${empId});Modal.close('dynamic-modal')">
+            <i class="fa fa-trash"></i> Remove Current Photo
+          </button>
+        </div>
+      ` : ''}
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Employees.savePhoto(${empId})">Save Photograph</button>
+        <button class="btn btn-primary" onclick="Employees.savePhoto(${empId})"><i class="fa fa-save"></i> Save Photo</button>
       `
     });
   },
-  onPhotoFilePicked(event) {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        window._tempPhotoData = e.target.result;
-        const prev = document.getElementById('photo-file-preview');
-        if (prev) prev.innerHTML = `<img src="${e.target.result}" style="width:100px;height:120px;object-fit:cover;border:2px solid var(--primary);border-radius:6px">`;
-      };
-      reader.readAsDataURL(file);
+
+  onPhotoFileDrop(event) {
+    event.preventDefault();
+    document.getElementById('photo-drop-zone').style.background = 'var(--surface)';
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      Employees._readPhotoFile(file);
+    } else {
+      Toast.show('Please drop a valid image file', 'error');
     }
   },
+
+  onPhotoFilePicked(event) {
+    const file = event.target.files[0];
+    if (file) Employees._readPhotoFile(file);
+  },
+
+  _readPhotoFile(file) {
+    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      window._tempPhotoData = e.target.result;
+      // Update the live preview inside the modal
+      const wrap = document.getElementById('photo-preview-wrap');
+      if (wrap) wrap.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover">`;
+      // clear the URL input since a file was picked
+      const urlInput = document.getElementById('photo-url-input');
+      if (urlInput) urlInput.value = '';
+      Toast.show('Photo ready — click Save to apply', 'info');
+    };
+    reader.readAsDataURL(file);
+  },
+
+  removePhoto(empId) {
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    if (emp) { emp.photo = null; DB.set('employees', emps); }
+    Toast.show('Photo removed', 'success');
+    this.renderProfile(empId);
+    // Refresh topbar/sidebar if it's the logged-in user
+    if (Auth.employee?.id === empId) { App.renderSidebar(); App.renderTopbar(); }
+  },
+
   savePhoto(empId) {
     const url = document.getElementById('photo-url-input')?.value.trim();
     const photo = window._tempPhotoData || url;
@@ -1767,6 +1865,19 @@ const Employees = {
     Modal.close('dynamic-modal');
     Toast.show('Photograph updated successfully!', 'success');
     this.renderProfile(empId);
+    // Refresh topbar/sidebar if it's the logged-in user
+    if (Auth.employee?.id === empId) {
+      // Re-read updated employee into Auth session
+      const updated = DB.find('employees', empId);
+      if (updated) {
+        const session = JSON.parse(sessionStorage.getItem('hrm_session') || '{}');
+        session.employee = updated;
+        sessionStorage.setItem('hrm_session', JSON.stringify(session));
+        Auth._employee = updated;
+      }
+      App.renderSidebar();
+      App.renderTopbar();
+    }
   },
 
   showReassignManagerModal(empId) {
