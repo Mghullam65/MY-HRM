@@ -1,6 +1,5 @@
-// Prisma Schema for HRM Pro
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

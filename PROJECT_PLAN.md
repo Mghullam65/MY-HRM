@@ -9,9 +9,9 @@
 | Date | Topic | Decision | Rationale | Cost |
 | :--- | :--- | :--- | :--- | :--- |
 | **2026-09-07** | Backend Framework | **Node.js + Express.js** | Fast, modern, matches frontend JavaScript language, huge ecosystem. | **$0 (Free)** |
-| **2026-09-07** | Database Engine | **SQLite (Dev/Self-hosted) + Prisma ORM** | Zero configuration, single-file storage (`hrm.db`), no separate database server needed. Can upgrade to free PostgreSQL anytime with 1 line. | **$0 (Free)** |
+| **2026-09-07** | Cloud Database | **Vercel Postgres (Neon) + Prisma** | 100% free serverless PostgreSQL connected directly to Vercel project. | **$0 (Free)** |
+| **2026-09-07** | Cloud Deployment | **Vercel Serverless Functions (`api/`)** | Zero configuration serverless deployment with automated CI/CD from GitHub. | **$0 (Free)** |
 | **2026-09-07** | Authentication | **JWT (JSON Web Tokens) + Bcrypt** | Industry standard stateless token auth with salted password hashing. | **$0 (Free)** |
-| **2026-09-07** | Hosting / Deployment | **Local Intranet / Free Cloud Tier** | Runs on any company PC/server or free cloud platforms (Render, Railway, Supabase). | **$0 (Free)** |
 
 ---
 
