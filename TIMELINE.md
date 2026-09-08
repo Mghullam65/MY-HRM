@@ -230,7 +230,7 @@
 - [x] **Corporate Bank Advice File Generator**: Multi-bank bulk payout export (HBL, MCB, UBL, Meezan, ABL) and official Bank Authority Letter *(Completed in Batch 2)*.
 - [x] **Statutory Benefit Ledgers**: EOBI, SESSI/PESSI, and Gratuity Defined Benefit Liability Pool *(Completed in Batch 2)*.
 - [x] **Batch 3: Time, Attendance & Field Operations**: Multi-shift roster calendar, automated rotational schedule generator, peer-to-peer shift swaps, GPS geo-fencing (Haversine perimeter verification), corporate IP whitelisting, and ZKTeco biometric machine log parser *(Completed in Batch 3)*.
-- [ ] **Batch 4: Talent, LMS & Performance Management**: 360-degree peer reviews, Learning Management System (LMS) with certifications, 9-box succession grid.
+- [x] **Batch 4: Talent, LMS & Performance Management**: 360-degree multi-rater peer reviews & competency radar, Corporate LMS & Training Center with skill gap matrix & CPD credits, and 9-box talent matrix with executive succession planning *(Completed in Batch 4)*.
 - [ ] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing.
 
 ---

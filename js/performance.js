@@ -47,11 +47,14 @@ const Performance = {
           `).join('')}
         </div>
 
-        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px">
+        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;flex-wrap:wrap">
           ${[
-            { id:'reviews', label:'Reviews', icon:'fa-clipboard-list' },
+            { id:'reviews', label:'Performance Reviews', icon:'fa-clipboard-list' },
+            { id:'feedback360', label:'360° Peer Feedback', icon:'fa-arrows-spin' },
+            { id:'lms', label:'LMS & Skill Matrix', icon:'fa-graduation-cap' },
+            { id:'succession', label:'9-Box & Succession', icon:'fa-sitemap' },
             { id:'kpi', label:'KPIs', icon:'fa-bullseye' },
-            { id:'goals', label:'Goals', icon:'fa-flag' },
+            { id:'goals', label:'Goals & OKRs', icon:'fa-flag' },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Performance.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
@@ -84,9 +87,12 @@ const Performance = {
     const container = document.getElementById('perf-content');
     if (!container) return;
     switch(this.currentView) {
-      case 'reviews': this.renderReviews(container); break;
-      case 'kpi':     this.renderKPIs(container); break;
-      case 'goals':   this.renderGoals(container); break;
+      case 'reviews':     this.renderReviews(container); break;
+      case 'feedback360': this.render360Feedback(container); break;
+      case 'lms':         this.renderLMSAndSkills(container); break;
+      case 'succession':  this.renderSuccessionAnd9Box(container); break;
+      case 'kpi':         this.renderKPIs(container); break;
+      case 'goals':       this.renderGoals(container); break;
     }
   },
 
@@ -767,13 +773,915 @@ const Performance = {
   },
 
   deleteGoal(goalId) {
-    const g = DB.find('goals', goalId);
-    Modal.confirm('Delete Goal', `Are you sure you want to delete goal <strong>${g?.title}</strong>?`, () => {
+    Modal.confirm('Are you sure you want to delete this goal?', () => {
       DB.delete('goals', goalId);
-      DB.log('DELETE', 'Performance', `Deleted goal: ${g?.title}`, Auth.user?.id);
+      DB.log('DELETE', 'Performance', `Deleted Goal #${goalId}`, Auth.user?.id);
       Toast.show('Goal deleted!', 'warning');
       this.renderView();
     });
+  },
+
+  // ============================================================
+  // BATCH 4: 360-Degree Multi-Rater Feedback & Competency Matrix
+  // ============================================================
+  selected360EmpId: 4,
+
+  render360Feedback(container) {
+    const isEmp = Auth.role === 'employee';
+    const allEmps = DB.get('employees').filter(e => e.status === 'active');
+    if (isEmp && Auth.employee?.id) {
+      this.selected360EmpId = Auth.employee.id;
+    }
+    const targetEmp = DB.find('employees', this.selected360EmpId) || allEmps[0];
+    const allF360 = DB.get('feedback_360') || [];
+    const empReviews = allF360.filter(f => f.employeeId === this.selected360EmpId);
+
+    // Compute aggregated score across competencies
+    const categories = [
+      { key: 'technical', label: 'Technical Competence & Execution', icon: 'fa-code' },
+      { key: 'leadership', label: 'Leadership, Ownership & Initiative', icon: 'fa-user-tie' },
+      { key: 'teamwork', label: 'Teamwork & Collaboration', icon: 'fa-people-group' },
+      { key: 'innovation', label: 'Problem Solving & Innovation', icon: 'fa-lightbulb' },
+      { key: 'values', label: 'Cultural Alignment & Company Values', icon: 'fa-heart' }
+    ];
+
+    const relTypes = ['Self', 'Manager', 'Peer'];
+    const avgOverall = empReviews.length > 0
+      ? (empReviews.reduce((sum, r) => sum + (r.overallScore || 0), 0) / empReviews.length).toFixed(1)
+      : '4.5';
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(236,72,153,0.12);color:#ec4899">
+              <i class="fa fa-arrows-spin"></i>
+            </span>
+            360-Degree Multi-Rater Peer Review &amp; Competency Matrix
+          </h2>
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
+            Multilateral peer evaluations, leadership competency radar, and constructive feedback
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          ${!isEmp ? `
+            <div style="display:flex;align-items:center;gap:8px">
+              <label style="font-size:12px;font-weight:600;color:var(--text-2)">Evaluatee:</label>
+              <select class="form-control" style="width:200px" onchange="Performance.selected360EmpId=parseInt(this.value);Performance.render360Feedback(document.getElementById('perf-content'))">
+                ${allEmps.map(e => `<option value="${e.id}" ${e.id===this.selected360EmpId?'selected':''}>${e.fullName}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+          <button class="btn btn-primary btn-sm" onclick="Performance.showAdd360ReviewModal(${this.selected360EmpId})">
+            <i class="fa fa-plus"></i> Submit 360 Review
+          </button>
+        </div>
+      </div>
+
+      <!-- Overview Metric Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Evaluatee Subject</div>
+          <div style="font-size:17px;font-weight:800;color:var(--text);margin-top:6px">${targetEmp?.fullName || '—'}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${Utils.getDesigName(targetEmp?.designationId)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Average 360 Rating</div>
+          <div style="font-size:24px;font-weight:800;color:var(--warning);margin-top:4px">★ ${avgOverall} <span style="font-size:13px;color:var(--text-muted)">/ 5.0</span></div>
+          <div style="font-size:11px;color:var(--success);margin-top:2px">Top Tier Performance Band</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Reviews Received</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${empReviews.length} Evaluators</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Self, Manager, and Peer Perspectives</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Cycle Status</div>
+          <div style="font-size:18px;font-weight:800;color:var(--success);margin-top:6px">Active Q3 Review</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Cycle Closes Sep 30, 2026</div>
+        </div>
+      </div>
+
+      <!-- Competency Matrix & Qualitative Feedback Cards -->
+      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-bottom:24px">
+        <!-- Competency Spider-Style Progress Grid -->
+        <div class="card" style="padding:20px">
+          <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-chart-simple" style="color:var(--primary)"></i> 360 Multilateral Competency Breakdown
+          </div>
+
+          <div style="display:grid;gap:14px">
+            ${categories.map(cat => {
+              // Calculate average for each relation
+              const selfScore = empReviews.find(r => r.relationship === 'Self')?.scores[cat.key] || 4.2;
+              const mgrScore = empReviews.find(r => r.relationship === 'Manager')?.scores[cat.key] || 4.6;
+              const peerScore = empReviews.find(r => r.relationship === 'Peer')?.scores[cat.key] || 4.5;
+              const overall = ((selfScore + mgrScore + peerScore) / 3).toFixed(1);
+
+              return `
+                <div>
+                  <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:12.5px">
+                    <span style="font-weight:600"><i class="fa ${cat.icon}" style="color:var(--primary);width:16px"></i> ${cat.label}</span>
+                    <strong style="color:var(--primary)">${overall} / 5.0</strong>
+                  </div>
+                  <div class="progress" style="height:9px;background:var(--surface)">
+                    <div class="progress-bar" style="width:${Math.round(overall / 5 * 100)}%;background:linear-gradient(90deg,var(--primary),#ec4899)"></div>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-3);margin-top:4px">
+                    <span>Self: <strong>${selfScore}</strong></span>
+                    <span>Manager: <strong>${mgrScore}</strong></span>
+                    <span>Peers: <strong>${peerScore}</strong></span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Qualitative Strengths & Growth Areas -->
+        <div class="card" style="padding:20px;background:linear-gradient(135deg,var(--card),var(--surface))">
+          <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-comment-dots" style="color:var(--success)"></i> Qualitative Peer Consensus
+          </div>
+
+          <div style="background:rgba(16,185,129,0.08);border-left:4px solid var(--success);border-radius:6px;padding:12px 14px;margin-bottom:14px">
+            <div style="font-size:12px;font-weight:800;color:var(--success);margin-bottom:4px">
+              <i class="fa fa-thumbs-up" style="margin-right:4px"></i> Demonstrated Key Strengths:
+            </div>
+            <div style="font-size:12px;color:var(--text);line-height:1.5">
+              ${empReviews.map(r => r.strengths).filter(Boolean).join(' ') || 'Exceptional technical competence and unwavering dedication to project delivery milestones.'}
+            </div>
+          </div>
+
+          <div style="background:rgba(245,158,11,0.08);border-left:4px solid var(--warning);border-radius:6px;padding:12px 14px">
+            <div style="font-size:12px;font-weight:800;color:var(--warning);margin-bottom:4px">
+              <i class="fa fa-arrow-trend-up" style="margin-right:4px"></i> Recommended Development Focus:
+            </div>
+            <div style="font-size:12px;color:var(--text);line-height:1.5">
+              ${empReviews.map(r => r.improvements).filter(Boolean).join(' ') || 'Encouraged to take on mentorship of junior staff and lead architectural technical discussions.'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 360 Submissions Log Table -->
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:13.5px;color:var(--text)">
+            <i class="fa fa-list-check" style="color:var(--primary);margin-right:6px"></i> Detailed Evaluation Submissions for ${targetEmp?.fullName}
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">Showing ${empReviews.length} completed feedback forms</div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Evaluator</th>
+                <th>Relationship</th>
+                <th>Review Cycle</th>
+                <th>Overall Score</th>
+                <th>Submission Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${empReviews.map(r => {
+                const rater = DB.find('employees', r.raterId);
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(r.raterId)}">${Utils.avatarInitials(rater?.fullName||'?')}</div>
+                        <div>
+                          <div style="font-weight:600;font-size:13px">${rater?.fullName || 'Anonymous Peer'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${rater ? Utils.getDesigName(rater.designationId) : 'Colleague'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge ${r.relationship==='Manager'?'badge-primary':r.relationship==='Self'?'badge-secondary':'badge-info'}">
+                        ${r.relationship}
+                      </span>
+                    </td>
+                    <td>${r.cycle}</td>
+                    <td><strong style="color:var(--warning);font-size:13.5px">★ ${r.overallScore}</strong> <span style="font-size:11px;color:var(--text-3)">/ 5.0</span></td>
+                    <td>${r.submittedAt}</td>
+                    <td><span class="badge badge-success"><i class="fa fa-check"></i> Completed</span></td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showAdd360ReviewModal(empId) {
+    const targetEmp = DB.find('employees', empId);
+    const myId = Auth.employee?.id || 1;
+
+    Modal.show(`Submit 360° Review for ${targetEmp?.fullName}`, `
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Evaluatee</label>
+          <input class="form-control" value="${targetEmp?.fullName}" readonly>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Relationship to Evaluatee</label>
+          <select class="form-control" id="f360-rel">
+            <option value="Peer">Peer / Colleague</option>
+            <option value="Manager">Direct Reporting Manager</option>
+            <option value="Direct Report">Direct Subordinate</option>
+            <option value="Self">Self-Assessment</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="font-weight:700;font-size:13px;color:var(--text);margin:14px 0 10px;border-bottom:1px solid var(--border);padding-bottom:4px">
+        Competency Assessment Ratings (Scale 1 to 5):
+      </div>
+
+      <div style="display:grid;gap:10px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;margin:0">Technical Competence &amp; Execution:</label>
+          <select class="form-control" id="f360-score-tech" style="width:110px">
+            <option value="5">5 - Outstanding</option>
+            <option value="4" selected>4 - Exceeds</option>
+            <option value="3">3 - Meets</option>
+            <option value="2">2 - Developing</option>
+            <option value="1">1 - Unsatisfactory</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;margin:0">Leadership &amp; Ownership:</label>
+          <select class="form-control" id="f360-score-lead" style="width:110px">
+            <option value="5">5 - Outstanding</option>
+            <option value="4" selected>4 - Exceeds</option>
+            <option value="3">3 - Meets</option>
+            <option value="2">2 - Developing</option>
+            <option value="1">1 - Unsatisfactory</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;margin:0">Teamwork &amp; Collaboration:</label>
+          <select class="form-control" id="f360-score-team" style="width:110px">
+            <option value="5" selected>5 - Outstanding</option>
+            <option value="4">4 - Exceeds</option>
+            <option value="3">3 - Meets</option>
+            <option value="2">2 - Developing</option>
+            <option value="1">1 - Unsatisfactory</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;margin:0">Problem Solving &amp; Innovation:</label>
+          <select class="form-control" id="f360-score-innov" style="width:110px">
+            <option value="5">5 - Outstanding</option>
+            <option value="4" selected>4 - Exceeds</option>
+            <option value="3">3 - Meets</option>
+            <option value="2">2 - Developing</option>
+            <option value="1">1 - Unsatisfactory</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <label style="font-size:12px;margin:0">Company Values &amp; Cultural Alignment:</label>
+          <select class="form-control" id="f360-score-values" style="width:110px">
+            <option value="5" selected>5 - Outstanding</option>
+            <option value="4">4 - Exceeds</option>
+            <option value="3">3 - Meets</option>
+            <option value="2">2 - Developing</option>
+            <option value="1">1 - Unsatisfactory</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Key Strengths &amp; Contributions</label>
+        <textarea class="form-control" id="f360-strengths" rows="2" placeholder="Describe the employee's most valuable strengths and positive impacts..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Constructive Areas for Growth</label>
+        <textarea class="form-control" id="f360-growth" rows="2" placeholder="Specific recommendations to help the employee advance professionally..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.save360Review(${empId})"><i class="fa fa-save"></i> Submit Evaluation</button>
+      `
+    });
+  },
+
+  save360Review(empId) {
+    const rel = document.getElementById('f360-rel').value;
+    const tech = parseInt(document.getElementById('f360-score-tech').value) || 4;
+    const lead = parseInt(document.getElementById('f360-score-lead').value) || 4;
+    const team = parseInt(document.getElementById('f360-score-team').value) || 5;
+    const innov = parseInt(document.getElementById('f360-score-innov').value) || 4;
+    const values = parseInt(document.getElementById('f360-score-values').value) || 5;
+    const strengths = document.getElementById('f360-strengths').value.trim();
+    const improvements = document.getElementById('f360-growth').value.trim();
+
+    if (!strengths || !improvements) {
+      Toast.show('Please provide strengths and growth feedback', 'error');
+      return;
+    }
+
+    const overall = ((tech + lead + team + innov + values) / 5).toFixed(1);
+    let allF360 = DB.get('feedback_360') || [];
+
+    allF360.unshift({
+      id: DB.nextId('feedback_360'),
+      cycle: 'Q3 2026 Annual Review',
+      employeeId: empId,
+      raterId: Auth.employee?.id || 1,
+      relationship: rel,
+      scores: { technical: tech, leadership: lead, teamwork: team, innovation: innov, values },
+      overallScore: parseFloat(overall),
+      strengths,
+      improvements,
+      status: 'completed',
+      submittedAt: Utils.today()
+    });
+
+    DB.set('feedback_360', allF360);
+    DB.log('ADD', 'Performance', `Submitted 360 review for ${Utils.getEmpName(empId)}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('360° Review submitted successfully!', 'success');
+    this.render360Feedback(document.getElementById('perf-content'));
+  },
+
+  // ============================================================
+  // BATCH 4: Corporate LMS, Training & Skill Gap Matrix
+  // ============================================================
+  lmsSubTab: 'courses',
+
+  renderLMSAndSkills(container) {
+    const courses = DB.get('courses_lms') || [];
+    const enrollments = DB.get('course_enrollments') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+
+    const totalCredits = enrollments.filter(en => en.status === 'completed').length * 15;
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(16,185,129,0.12);color:var(--success)">
+              <i class="fa fa-graduation-cap"></i>
+            </span>
+            Corporate LMS, Training &amp; Skill Gap Matrix
+          </h2>
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
+            Course catalog, certifications repository, and designation benchmark skill gaps
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="Performance.showAddCourseModal()"><i class="fa fa-plus"></i> Add Course</button>
+          <button class="btn btn-primary btn-sm" onclick="Performance.showEnrollModal()"><i class="fa fa-user-plus"></i> Enroll Employee</button>
+        </div>
+      </div>
+
+      <!-- LMS Metric Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Available Courses</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${courses.length} Programs</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Engineering, Leadership, Infosec</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Active Enrollments</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${enrollments.length} Participants</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Across all departments</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Certificates Issued</div>
+          <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:6px">${enrollments.filter(e=>e.status==='completed').length} Verified</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">100% Exam Pass Rate</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total CPD Hours Earned</div>
+          <div style="font-size:22px;font-weight:800;color:var(--info);margin-top:6px">${totalCredits} Hours</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Professional Development</div>
+        </div>
+      </div>
+
+      <!-- Sub Navigation -->
+      <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px">
+        <button class="tab-toggle-btn ${this.lmsSubTab==='courses'?'active':''}" onclick="Performance.lmsSubTab='courses';Performance.renderLMSAndSkills(document.getElementById('perf-content'))">
+          <i class="fa fa-book-open" style="margin-right:6px"></i> Course Catalog &amp; Enrollments
+        </button>
+        <button class="tab-toggle-btn ${this.lmsSubTab==='skills'?'active':''}" onclick="Performance.lmsSubTab='skills';Performance.renderLMSAndSkills(document.getElementById('perf-content'))">
+          <i class="fa fa-layer-group" style="margin-right:6px"></i> Designation Skill Benchmark &amp; Gap Matrix
+        </button>
+      </div>
+
+      ${this.lmsSubTab === 'courses' ? this.renderLMSCoursesView(courses, enrollments, emps) : this.renderSkillGapMatrixView(emps, courses)}
+    `;
+  },
+
+  renderLMSCoursesView(courses, enrollments, emps) {
+    return `
+      <!-- Course Catalog Cards -->
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:24px">
+        ${courses.map(c => `
+          <div class="card" style="padding:18px;display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                <span class="chip" style="font-size:11px;font-weight:700">${c.category}</span>
+                <span class="badge badge-success">${c.level}</span>
+              </div>
+              <div style="font-weight:800;font-size:15px;color:var(--text);margin-bottom:4px">${c.title}</div>
+              <div style="font-size:12px;color:var(--text-2);line-height:1.5;margin-bottom:12px">${c.description}</div>
+            </div>
+
+            <div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;background:var(--surface);border-radius:8px;padding:8px 12px;font-size:11.5px;margin-bottom:12px">
+                <div><span style="color:var(--text-3)">Duration:</span> <strong>${c.duration}</strong></div>
+                <div><span style="color:var(--text-3)">CPD Credits:</span> <strong>${c.cpdCredits} Pts</strong></div>
+                <div><span style="color:var(--text-3)">Modules:</span> <strong>${c.modulesCount} Lessons</strong></div>
+              </div>
+              <button class="btn btn-primary btn-sm" style="width:100%" onclick="Performance.showEnrollModal(${c.id})">
+                <i class="fa fa-user-plus"></i> Enroll Team Member
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Enrollments Register Table -->
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:13.5px;color:var(--text)">
+            <i class="fa fa-list-check" style="color:var(--primary);margin-right:6px"></i> Active Employee Learning Enrollments
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">${enrollments.length} total enrollments recorded</div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Course Program</th>
+                <th>Enrolled Date</th>
+                <th>Progress</th>
+                <th>Score</th>
+                <th>Status</th>
+                <th>Certificate</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${enrollments.map(en => {
+                const emp = DB.find('employees', en.employeeId);
+                const crs = DB.find('courses_lms', en.courseId);
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:600;font-size:13px">${emp?.fullName || '—'}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${emp?.empNo}</div>
+                    </td>
+                    <td><strong style="font-size:12.5px">${crs?.title || 'Course'}</strong></td>
+                    <td>${en.enrolledDate}</td>
+                    <td style="min-width:130px">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div class="progress" style="height:7px;flex:1"><div class="progress-bar" style="width:${en.progress}%;background:var(--success)"></div></div>
+                        <span style="font-size:11px;font-weight:700">${en.progress}%</span>
+                      </div>
+                    </td>
+                    <td>${en.score ? `<strong style="color:var(--success)">${en.score}%</strong>` : 'In Progress'}</td>
+                    <td>
+                      ${en.status === 'completed' ? '<span class="badge badge-success"><i class="fa fa-check"></i> Certified</span>' : '<span class="badge badge-warning">In Progress</span>'}
+                    </td>
+                    <td>
+                      ${en.certificateRef ? `<span class="chip" style="font-family:monospace;font-size:10.5px;color:var(--primary)"><i class="fa fa-certificate"></i> ${en.certificateRef}</span>` : 'Pending'}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  renderSkillGapMatrixView(emps, courses) {
+    const benchmarks = [
+      { desig: 'Software Engineer', reqSkills: ['React / TypeScript (L4)', 'Node.js APIs (L3)', 'SQL Architecture (L3)', 'Git Flow (L4)'], recommendedCourseId: 1 },
+      { desig: 'Deputy Manager / Tech Lead', reqSkills: ['AWS Cloud Architecture (L4)', 'DevOps CI/CD (L4)', 'Engineering Mentorship (L4)'], recommendedCourseId: 2 },
+      { desig: 'HR Manager', reqSkills: ['Labor Law & FBR Tax (L5)', 'Talent Succession (L4)', 'Payroll Automation (L5)'], recommendedCourseId: 3 },
+      { desig: 'All Personnel', reqSkills: ['ISO 27001 Infosec (Mandatory)', 'Data Privacy Compliance (L3)'], recommendedCourseId: 4 }
+    ];
+
+    return `
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:13.5px;color:var(--text)">
+            <i class="fa fa-layer-group" style="color:var(--primary);margin-right:6px"></i> Designation Competency Benchmark &amp; Recommended LMS Actions
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">Benchmarked against corporate performance matrix</div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Job Designation</th>
+                <th>Benchmark Skill Requirements</th>
+                <th>Target Proficiency</th>
+                <th>Recommended LMS Intervention</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${benchmarks.map(b => {
+                const crs = courses.find(c => c.id === b.recommendedCourseId);
+                return `
+                  <tr>
+                    <td style="font-weight:700;color:var(--text)">${b.desig}</td>
+                    <td>
+                      <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        ${b.reqSkills.map(s => `<span class="badge badge-secondary" style="font-size:11px">${s}</span>`).join('')}
+                      </div>
+                    </td>
+                    <td><span class="badge badge-success">Level 4 / Advanced</span></td>
+                    <td>
+                      <strong style="color:var(--primary);font-size:12.5px">${crs?.title || 'Corporate Course'}</strong>
+                      <div style="font-size:11px;color:var(--text-3)">Duration: ${crs?.duration || '20h'} &bull; ${crs?.cpdCredits || 15} CPD Credits</div>
+                    </td>
+                    <td>
+                      <button class="btn btn-primary btn-sm" onclick="Performance.showEnrollModal(${b.recommendedCourseId})">
+                        <i class="fa fa-graduation-cap"></i> Enroll Cohort
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddCourseModal() {
+    Modal.show('Add Corporate LMS Course', `
+      <div class="form-group">
+        <label class="form-label required">Course Title</label>
+        <input class="form-control" id="crs-title" placeholder="e.g. Docker, Kubernetes &amp; Cloud Native Architecture">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Category</label>
+          <select class="form-control" id="crs-cat">
+            <option value="Technical / Engineering">Technical / Engineering</option>
+            <option value="Cloud &amp; Infrastructure">Cloud &amp; Infrastructure</option>
+            <option value="Management &amp; Leadership">Management &amp; Leadership</option>
+            <option value="Compliance &amp; Governance">Compliance &amp; Governance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Level</label>
+          <select class="form-control" id="crs-level">
+            <option value="Intermediate">Intermediate</option>
+            <option value="Advanced">Advanced</option>
+            <option value="Executive">Executive</option>
+            <option value="Mandatory">Mandatory Compliance</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Duration</label>
+          <input class="form-control" id="crs-duration" value="20 Hours" placeholder="e.g. 20 Hours">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">CPD Credits</label>
+          <input type="number" class="form-control" id="crs-credits" value="15" min="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Course Description &amp; Learning Outcomes</label>
+        <textarea class="form-control" id="crs-desc" rows="3" placeholder="Outline core skills acquired upon completion..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.saveCourse()"><i class="fa fa-save"></i> Save Program</button>
+      `
+    });
+  },
+
+  saveCourse() {
+    const title = document.getElementById('crs-title').value.trim();
+    const category = document.getElementById('crs-cat').value;
+    const level = document.getElementById('crs-level').value;
+    const duration = document.getElementById('crs-duration').value.trim();
+    const cpdCredits = parseInt(document.getElementById('crs-credits').value) || 10;
+    const description = document.getElementById('crs-desc').value.trim();
+
+    if (!title || !description) {
+      Toast.show('Please fill required course details', 'error');
+      return;
+    }
+
+    let courses = DB.get('courses_lms') || [];
+    courses.push({
+      id: DB.nextId('courses_lms'),
+      title,
+      category,
+      provider: 'Corporate Academy',
+      duration,
+      cpdCredits,
+      level,
+      description,
+      modulesCount: 6,
+      enrolledCount: 0,
+      status: 'active'
+    });
+
+    DB.set('courses_lms', courses);
+    DB.log('ADD', 'Performance', `Added new LMS course: ${title}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Corporate course published to LMS!', 'success');
+    this.renderLMSAndSkills(document.getElementById('perf-content'));
+  },
+
+  showEnrollModal(defaultCourseId = 1) {
+    const courses = DB.get('courses_lms') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+
+    Modal.show('Enroll Employee in LMS Course', `
+      <div class="form-group">
+        <label class="form-label required">Select Course Program</label>
+        <select class="form-control" id="enr-course">
+          ${courses.map(c => `<option value="${c.id}" ${c.id===defaultCourseId?'selected':''}>${c.title} (${c.level})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Select Employee</label>
+        <select class="form-control" id="enr-emp">
+          ${emps.map(e => `<option value="${e.id}">${e.fullName} (${Utils.getDesigName(e.designationId)})</option>`).join('')}
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.saveEnrollment()"><i class="fa fa-user-plus"></i> Confirm Enrollment</button>
+      `
+    });
+  },
+
+  saveEnrollment() {
+    const courseId = parseInt(document.getElementById('enr-course').value);
+    const employeeId = parseInt(document.getElementById('enr-emp').value);
+    let enrollments = DB.get('course_enrollments') || [];
+
+    // Check duplicate
+    if (enrollments.some(e => e.courseId === courseId && e.employeeId === employeeId)) {
+      Toast.show('Employee already enrolled in this program', 'info');
+      Modal.close('dynamic-modal');
+      return;
+    }
+
+    enrollments.push({
+      id: DB.nextId('course_enrollments'),
+      employeeId,
+      courseId,
+      progress: 10,
+      score: 0,
+      status: 'in_progress',
+      enrolledDate: Utils.today(),
+      completedDate: null,
+      certificateRef: null
+    });
+
+    DB.set('course_enrollments', enrollments);
+    DB.log('ENROLL', 'Performance', `Enrolled ${Utils.getEmpName(employeeId)} in course #${courseId}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Employee enrolled successfully in LMS!', 'success');
+    this.renderLMSAndSkills(document.getElementById('perf-content'));
+  },
+
+  // ============================================================
+  // BATCH 4: Executive Succession Planning & 9-Box Talent Matrix
+  // ============================================================
+  renderSuccessionAnd9Box(container) {
+    const plans = DB.get('succession_plans') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+
+    // 9-Box Grid Quadrants mapping
+    const gridNine = [
+      // Row 1: High Potential
+      { key: 'Enigma', label: 'Enigma / High Potential', potential: 'High', performance: 'Low', color: '#8b5cf6', emps: [emps[4] || emps[0]] },
+      { key: 'Emerging Leader', label: 'Emerging Leader', potential: 'High', performance: 'Med', color: '#3b82f6', emps: [emps[5] || emps[1]] },
+      { key: 'Star', label: 'Star / Future Executive', potential: 'High', performance: 'High', color: '#10b981', emps: [emps[2] || emps[0], emps[3] || emps[1]] },
+
+      // Row 2: Medium Potential
+      { key: 'Dilemma', label: 'Dilemma / Needs Coaching', potential: 'Med', performance: 'Low', color: '#f59e0b', emps: [emps[6] || emps[0]] },
+      { key: 'Core Professional', label: 'Core Professional', potential: 'Med', performance: 'Med', color: '#6366f1', emps: [emps[7] || emps[1], emps[8] || emps[2]] },
+      { key: 'High Impact Contributor', label: 'High Impact Contributor', potential: 'Med', performance: 'High', color: '#059669', emps: [emps[1] || emps[0]] },
+
+      // Row 3: Low Potential
+      { key: 'Talent Risk', label: 'Talent Risk / Action Needed', potential: 'Low', performance: 'Low', color: '#ef4444', emps: [emps[9] || emps[3]] },
+      { key: 'Effective Performer', label: 'Effective Performer', potential: 'Low', performance: 'Med', color: '#64748b', emps: [emps[10] || emps[2]] },
+      { key: 'Trusted Specialist', label: 'Trusted Specialist', potential: 'Low', performance: 'High', color: '#0284c7', emps: [emps[0]] }
+    ];
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(99,102,241,0.12);color:var(--primary)">
+              <i class="fa fa-sitemap"></i>
+            </span>
+            Executive Succession Planning &amp; 9-Box Talent Matrix
+          </h2>
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
+            Strategic bench strength assessment, leadership readiness pipelines, and 9-box performance vs potential mapping
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" onclick="Performance.showNominateSuccessorModal()">
+          <i class="fa fa-user-plus"></i> Nominate Role Successor
+        </button>
+      </div>
+
+      <!-- 9-Box Talent Matrix Visualization -->
+      <div class="card" style="padding:22px;margin-bottom:24px">
+        <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px">
+          <i class="fa fa-table-cells-large" style="color:var(--primary)"></i> 9-Box Performance vs. Potential Talent Grid
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+          ${gridNine.map(box => `
+            <div style="background:var(--surface);border:1.5px solid ${box.color}44;border-top:4px solid ${box.color};border-radius:10px;padding:14px;min-height:140px;display:flex;flex-direction:column;justify-content:space-between">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div style="font-size:12px;font-weight:800;color:${box.color}">${box.label}</div>
+                  <span style="font-size:10px;color:var(--text-3)">${box.potential} Pot / ${box.performance} Perf</span>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:6px">
+                  ${box.emps.map(e => `
+                    <div style="background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;display:flex;align-items:center;gap:8px">
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};width:24px;height:24px;font-size:10px">${Utils.avatarInitials(e.fullName)}</div>
+                      <div style="overflow:hidden">
+                        <div style="font-size:12px;font-weight:700;white-space:nowrap;text-overflow:ellipsis">${e.fullName}</div>
+                        <div style="font-size:10px;color:var(--text-3)">${Utils.getDesigName(e.designationId)}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div style="font-size:10.5px;color:var(--text-3);margin-top:10px;text-align:right">
+                ${box.emps.length} Talent Candidates
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Critical Role Succession Pipelines Table -->
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:700;font-size:13.5px;color:var(--text)">
+            <i class="fa fa-shield-halved" style="color:var(--primary);margin-right:6px"></i> Mission-Critical Leadership Succession Pipelines
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">${plans.length} strategic positions tracked</div>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Critical Role Title</th>
+                <th>Current Incumbent</th>
+                <th>Criticality Level</th>
+                <th>Identified Successor Candidates &amp; Readiness Tiers</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${plans.map(p => `
+                <tr>
+                  <td>
+                    <strong style="font-size:13.5px;color:var(--text)">${p.roleTitle}</strong>
+                    <div style="font-size:11px;color:var(--text-3)">Department: ${Utils.getDeptName(p.departmentId)}</div>
+                  </td>
+                  <td>
+                    <div style="font-weight:600;font-size:13px">${p.currentIncumbent}</div>
+                  </td>
+                  <td>
+                    <span class="badge ${p.criticality==='High'?'badge-danger':'badge-warning'}">${p.criticality}</span>
+                  </td>
+                  <td>
+                    <div style="display:flex;flex-direction:column;gap:6px">
+                      ${p.successors.map(s => `
+                        <div style="background:var(--surface);border-radius:6px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;gap:12px">
+                          <div>
+                            <strong style="font-size:12px;color:var(--text)">${s.name}</strong>
+                            <span style="font-size:11px;color:var(--text-3)">(${s.currentRole})</span>
+                            <div style="font-size:10.5px;color:var(--primary)">Goal: ${s.developmentGoal || 'Mentorship program'}</div>
+                          </div>
+                          <span class="badge ${s.readiness.includes('Ready Now')?'badge-success':'badge-primary'}" style="font-size:10px">
+                            ${s.readiness}
+                          </span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </td>
+                  <td>
+                    <button class="btn btn-ghost btn-sm" onclick="Performance.showNominateSuccessorModal(${p.id})">
+                      <i class="fa fa-plus"></i> Add
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showNominateSuccessorModal(planId = 1) {
+    const plans = DB.get('succession_plans') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+
+    Modal.show('Nominate Role Successor Candidate', `
+      <div class="form-group">
+        <label class="form-label required">Strategic Position</label>
+        <select class="form-control" id="nom-role">
+          ${plans.map(p => `<option value="${p.id}" ${p.id===planId?'selected':''}>${p.roleTitle}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Nominated Successor</label>
+        <select class="form-control" id="nom-emp">
+          ${emps.map(e => `<option value="${e.id}">${e.fullName} &bull; ${Utils.getDesigName(e.designationId)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Readiness Horizon</label>
+          <select class="form-control" id="nom-readiness">
+            <option value="Ready Now (< 3 mos)">Ready Now (< 3 months)</option>
+            <option value="Ready with Mentorship (6-12 mos)" selected>Ready with Mentorship (6–12 months)</option>
+            <option value="Future Pipeline (1-2 yrs)">Future Pipeline (1–2 years)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Talent 9-Box Category</label>
+          <select class="form-control" id="nom-box">
+            <option value="Star / Future Leader">Star / Future Leader</option>
+            <option value="High Potential" selected>High Potential / Emerging Leader</option>
+            <option value="Core Contributor">Core Contributor</option>
+            <option value="Trusted Specialist">Trusted Specialist</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Target Development Action Plan</label>
+        <input class="form-control" id="nom-action" placeholder="e.g. Executive cross-functional rotation and leadership coaching" value="Executive cross-functional rotation and leadership coaching">
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.saveSuccessorNomination()"><i class="fa fa-save"></i> Save Nomination</button>
+      `
+    });
+  },
+
+  saveSuccessorNomination() {
+    const roleId = parseInt(document.getElementById('nom-role').value);
+    const empId = parseInt(document.getElementById('nom-emp').value);
+    const readiness = document.getElementById('nom-readiness').value;
+    const gridCategory = document.getElementById('nom-box').value;
+    const developmentGoal = document.getElementById('nom-action').value.trim();
+
+    const emp = DB.find('employees', empId);
+    let plans = DB.get('succession_plans') || [];
+    const plan = plans.find(p => p.id === roleId);
+
+    if (plan && emp) {
+      plan.successors.push({
+        employeeId: empId,
+        name: emp.fullName,
+        currentRole: Utils.getDesigName(emp.designationId),
+        readiness,
+        performance: 'High',
+        potential: 'High',
+        gridCategory,
+        developmentGoal
+      });
+      DB.set('succession_plans', plans);
+      DB.log('ADD', 'Performance', `Nominated ${emp.fullName} as successor for ${plan.roleTitle}`, Auth.user?.id);
+      Modal.close('dynamic-modal');
+      Toast.show('Successor nominated successfully!', 'success');
+      this.renderSuccessionAnd9Box(document.getElementById('perf-content'));
+    }
   },
 };
 

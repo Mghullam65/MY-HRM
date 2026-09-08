@@ -17,6 +17,7 @@ const DB = {
       this.ensureHRLetters();
       this.ensureTaxAndStatutoryData();
       this.ensureRosterAndGeofenceData();
+      this.ensureTalentAndLMSData();
       return;
     }
     this.seed();
@@ -30,6 +31,7 @@ const DB = {
     this.ensureHRLetters();
     this.ensureTaxAndStatutoryData();
     this.ensureRosterAndGeofenceData();
+    this.ensureTalentAndLMSData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -993,6 +995,185 @@ const DB = {
         }
       ];
       this.set('shift_swaps', swaps);
+    }
+  },
+
+  ensureTalentAndLMSData() {
+    // 1. 360-Degree Feedback Reviews
+    let f360 = this.get('feedback_360');
+    if (!f360 || !f360.length) {
+      f360 = [
+        {
+          id: 1,
+          cycle: 'Q3 2026 Annual Review',
+          employeeId: 4, // Fatima Raza
+          raterId: 4, // Self
+          relationship: 'Self',
+          scores: { technical: 4, leadership: 4, teamwork: 5, innovation: 4, values: 5 },
+          overallScore: 4.4,
+          strengths: 'Deep React expertise, clean architecture, high commitment to quality sprint delivery.',
+          improvements: 'Could delegate more frontend boilerplate to junior engineers to focus on core design.',
+          status: 'completed',
+          submittedAt: '2026-08-20'
+        },
+        {
+          id: 2,
+          cycle: 'Q3 2026 Annual Review',
+          employeeId: 4, // Fatima Raza
+          raterId: 3, // Usman Baig (Manager)
+          relationship: 'Manager',
+          scores: { technical: 5, leadership: 4, teamwork: 5, innovation: 4, values: 5 },
+          overallScore: 4.6,
+          strengths: 'Outstanding technical velocity, reliable on production deployments, natural mentor to juniors.',
+          improvements: 'Encouraged to present architectural patterns in company engineering guild seminars.',
+          status: 'completed',
+          submittedAt: '2026-08-22'
+        },
+        {
+          id: 3,
+          cycle: 'Q3 2026 Annual Review',
+          employeeId: 4, // Fatima Raza
+          raterId: 9, // Tariq Hussain (Peer)
+          relationship: 'Peer',
+          scores: { technical: 5, leadership: 4, teamwork: 4, innovation: 5, values: 5 },
+          overallScore: 4.6,
+          strengths: 'Fantastic pair programming partner; provides rigorous, helpful code reviews.',
+          improvements: 'None noted.',
+          status: 'completed',
+          submittedAt: '2026-08-23'
+        },
+        {
+          id: 4,
+          cycle: 'Q3 2026 Annual Review',
+          employeeId: 3, // Usman Baig (Deputy Manager)
+          raterId: 1, // Ahmed Khan (CEO)
+          relationship: 'Manager',
+          scores: { technical: 5, leadership: 5, teamwork: 4, innovation: 4, values: 5 },
+          overallScore: 4.6,
+          strengths: 'Exemplary leadership of engineering squad, zero downtime record, great hiring decisions.',
+          improvements: 'Transitioning into executive management track for upcoming CTO succession.',
+          status: 'completed',
+          submittedAt: '2026-08-15'
+        }
+      ];
+      this.set('feedback_360', f360);
+    }
+
+    // 2. LMS Courses
+    let courses = this.get('courses_lms');
+    if (!courses || !courses.length) {
+      courses = [
+        {
+          id: 1,
+          title: 'Advanced React & TypeScript Architecture',
+          category: 'Technical / Engineering',
+          provider: 'Internal Tech Guild',
+          duration: '24 Hours',
+          cpdCredits: 15,
+          level: 'Advanced',
+          description: 'Production state machines, custom hooks, micro-frontends, and performance profiling.',
+          modulesCount: 8,
+          enrolledCount: 9,
+          status: 'active'
+        },
+        {
+          id: 2,
+          title: 'AWS Certified Cloud Practitioner & Serverless',
+          category: 'Cloud & Infrastructure',
+          provider: 'Amazon Web Services',
+          duration: '35 Hours',
+          cpdCredits: 25,
+          level: 'Intermediate',
+          description: 'IAM security, Lambda event streaming, DynamoDB design, and CloudFormation IAC.',
+          modulesCount: 12,
+          enrolledCount: 6,
+          status: 'active'
+        },
+        {
+          id: 3,
+          title: 'Strategic People Leadership & Talent Retention',
+          category: 'Management & Leadership',
+          provider: 'SHRM Executive Series',
+          duration: '18 Hours',
+          cpdCredits: 20,
+          level: 'Executive',
+          description: 'Executive coaching, high-performing team dynamics, conflict mediation, and OKR execution.',
+          modulesCount: 6,
+          enrolledCount: 5,
+          status: 'active'
+        },
+        {
+          id: 4,
+          title: 'Corporate Infosec, Data Privacy & ISO 27001',
+          category: 'Compliance & Governance',
+          provider: 'Global Security Bureau',
+          duration: '10 Hours',
+          cpdCredits: 10,
+          level: 'Mandatory',
+          description: 'Phishing defense, GDPR compliance, corporate password policies, and data handling protocols.',
+          modulesCount: 4,
+          enrolledCount: 25,
+          status: 'active'
+        }
+      ];
+      this.set('courses_lms', courses);
+    }
+
+    // 3. Course Enrollments
+    let enrollments = this.get('course_enrollments');
+    if (!enrollments || !enrollments.length) {
+      enrollments = [
+        { id: 1, employeeId: 4, courseId: 1, progress: 100, score: 95, status: 'completed', enrolledDate: '2026-07-01', completedDate: '2026-08-10', certificateRef: 'CERT-RCT-2026-004' },
+        { id: 2, employeeId: 4, courseId: 2, progress: 65, score: 0, status: 'in_progress', enrolledDate: '2026-08-15', completedDate: null, certificateRef: null },
+        { id: 3, employeeId: 3, courseId: 2, progress: 100, score: 98, status: 'completed', enrolledDate: '2026-06-01', completedDate: '2026-07-15', certificateRef: 'CERT-AWS-2026-003' },
+        { id: 4, employeeId: 3, courseId: 3, progress: 80, score: 0, status: 'in_progress', enrolledDate: '2026-08-01', completedDate: null, certificateRef: null },
+        { id: 5, employeeId: 2, courseId: 3, progress: 100, score: 94, status: 'completed', enrolledDate: '2026-05-10', completedDate: '2026-06-25', certificateRef: 'CERT-SHRM-2026-002' },
+        { id: 6, employeeId: 9, courseId: 1, progress: 45, score: 0, status: 'in_progress', enrolledDate: '2026-08-10', completedDate: null, certificateRef: null },
+        { id: 7, employeeId: 13, courseId: 4, progress: 100, score: 100, status: 'completed', enrolledDate: '2026-08-01', completedDate: '2026-08-05', certificateRef: 'CERT-SEC-2026-013' }
+      ];
+      this.set('course_enrollments', enrollments);
+    }
+
+    // 4. Executive Succession Plans & 9-Box Grid
+    let plans = this.get('succession_plans');
+    if (!plans || !plans.length) {
+      plans = [
+        {
+          id: 1,
+          roleTitle: 'Chief Technology Officer / VP of Engineering',
+          departmentId: 2,
+          criticality: 'High',
+          currentIncumbent: 'Ahmed Khan (Interim / CEO Oversight)',
+          incumbentId: 1,
+          successors: [
+            { employeeId: 3, name: 'Usman Baig', currentRole: 'Deputy Manager', readiness: 'Ready Now (< 3 mos)', performance: 'High', potential: 'High', gridCategory: 'Star / Future Leader', developmentGoal: 'Executive Boardroom Strategy & Investor Communications' },
+            { employeeId: 4, name: 'Fatima Raza', currentRole: 'Senior Software Engineer', readiness: 'Ready with Mentorship (1-2 yrs)', performance: 'High', potential: 'High', gridCategory: 'High Potential', developmentGoal: 'Cloud Infrastructure & High-Volume Architecture' }
+          ]
+        },
+        {
+          id: 2,
+          roleTitle: 'Head of Human Resources',
+          departmentId: 1,
+          criticality: 'High',
+          currentIncumbent: 'Sara Malik',
+          incumbentId: 2,
+          successors: [
+            { employeeId: 6, name: 'Rabia Nawaz', currentRole: 'HR Executive', readiness: 'Ready with Mentorship (6-12 mos)', performance: 'High', potential: 'Medium', gridCategory: 'Core Contributor', developmentGoal: 'Enterprise Compensation & Labor Law Certifications' }
+          ]
+        },
+        {
+          id: 3,
+          roleTitle: 'Sales & Revenue Director',
+          departmentId: 4,
+          criticality: 'Medium',
+          currentIncumbent: 'Farhan Zaidi',
+          incumbentId: 8,
+          successors: [
+            { employeeId: 7, name: 'Bilal Qureshi', currentRole: 'Sales Executive', readiness: 'Ready with Mentorship (1 yr)', performance: 'Medium', potential: 'High', gridCategory: 'Emerging Leader', developmentGoal: 'Enterprise B2B Deal Structuring & Negotiation' }
+          ]
+        }
+      ];
+      this.set('succession_plans', plans);
     }
   },
 
