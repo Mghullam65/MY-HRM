@@ -683,7 +683,9 @@ const DB = {
           issueDate: '2024-04-05',
           issuedBy: 'Sara Malik (Head of HR)',
           purpose: 'Official proof of employment & service tenure',
-          content: 'This is to certify that Mr. Kamran Ali was employed with HRM Pro as Software Engineer from June 1, 2018 to March 31, 2024.'
+          content: 'This is to certify that Mr. Kamran Ali was employed with HRM Pro as Software Engineer from June 1, 2018 to March 31, 2024.',
+          acknowledged: true,
+          acknowledgedAt: '2024-04-06T10:00:00.000Z'
         },
         {
           id: 2,
@@ -695,7 +697,8 @@ const DB = {
           issueDate: '2026-08-15',
           issuedBy: 'Sara Malik (Head of HR)',
           purpose: 'United Kingdom Standard Visitor Visa Application',
-          content: 'This certificate verifies that Ms. Fatima Raza is currently employed as Software Engineer earning a gross salary of PKR 85,000 per month.'
+          content: 'This certificate verifies that Ms. Fatima Raza is currently employed as Software Engineer earning a gross salary of PKR 85,000 per month.',
+          acknowledged: false
         },
         {
           id: 3,
@@ -707,10 +710,39 @@ const DB = {
           issueDate: '2019-09-15',
           issuedBy: 'Ahmed Khan (Super Admin / CEO)',
           purpose: 'Completion of 3-Month Probationary Period',
-          content: 'We are pleased to confirm your appointment as Deputy Manager / Lead Software Engineer effective September 15, 2019.'
+          content: 'We are pleased to confirm your appointment as Deputy Manager / Lead Software Engineer effective September 15, 2019.',
+          acknowledged: true,
+          acknowledgedAt: '2019-09-16T09:00:00.000Z'
         }
       ];
       this.set('hr_letters', letters);
+    } else {
+      let modified = false;
+      if (!letters.some(l => parseInt(l.employeeId) === 4)) {
+        letters.push({
+          id: letters.reduce((max, l) => Math.max(max, l.id || 0), 0) + 1,
+          refNo: 'HRM/SAL/2026/014',
+          employeeId: 4,
+          templateType: 'salary_certificate',
+          title: 'Salary Verification & Employment Certificate',
+          recipient: 'The Visa Officer, British High Commission, Islamabad',
+          issueDate: '2026-08-15',
+          issuedBy: 'Sara Malik (Head of HR)',
+          purpose: 'United Kingdom Standard Visitor Visa Application',
+          content: 'This certificate verifies that Ms. Fatima Raza is currently employed as Software Engineer earning a gross salary of PKR 85,000 per month.',
+          acknowledged: false
+        });
+        modified = true;
+      }
+      letters.forEach(l => {
+        if (l.acknowledged === undefined) {
+          l.acknowledged = (parseInt(l.employeeId) === 4) ? false : true;
+          modified = true;
+        }
+      });
+      if (modified) {
+        this.set('hr_letters', letters);
+      }
     }
   },
 
@@ -2611,7 +2643,8 @@ const DB = {
     let notifs = this.get('user_notifications') || [];
 
     // Ensure Fatima Raza (id 4) has her urgent CNIC expiry reminder
-    if (!notifs.some(n => parseInt(n.recipientEmpId) === 4 && n.type === 'doc_expiry')) {
+    let cnicNotif = notifs.find(n => parseInt(n.recipientEmpId) === 4 && n.type === 'doc_expiry');
+    if (!cnicNotif) {
       notifs.unshift({
         id: notifs.length ? Math.max(...notifs.map(x => x.id || 0)) + 1 : 1,
         recipientEmpId: 4, // Fatima Raza (Employee demo account)
@@ -2623,15 +2656,20 @@ const DB = {
         title: '⚠️ Urgent: NADRA CNIC Expiry Notice (Renewal Required)',
         message: 'Your NADRA CNIC (No: 42201-4567890-4) will expire on 2026-09-28 (in 20 days). Please initiate NADRA renewal and upload your renewed attested smart copy to your e-DMS Document Vault.',
         actionUrl: 'employees',
-        subView: 'edms',
-        actionLabel: 'Upload Renewed CNIC',
+        subView: 'doc_expiry',
+        actionLabel: 'Update / Re-upload CNIC',
         read: false,
         createdAt: '2026-09-08T09:30:00Z'
       });
+    } else {
+      cnicNotif.actionUrl = 'employees';
+      cnicNotif.subView = 'doc_expiry';
+      cnicNotif.actionLabel = 'Update / Re-upload CNIC';
     }
 
     // Ensure Fatima Raza (id 4) has her official HR letter notification
-    if (!notifs.some(n => parseInt(n.recipientEmpId) === 4 && n.type === 'hr_letter')) {
+    let letterNotif = notifs.find(n => parseInt(n.recipientEmpId) === 4 && n.type === 'hr_letter');
+    if (!letterNotif) {
       notifs.unshift({
         id: notifs.length ? Math.max(...notifs.map(x => x.id || 0)) + 1 : 2,
         recipientEmpId: 4, // Fatima Raza
@@ -2640,14 +2678,19 @@ const DB = {
         senderName: 'Sara Malik (HR Operations)',
         type: 'hr_letter',
         priority: 'normal',
-        title: '📄 Official HR Document Issued: Employment Confirmation Letter',
-        message: 'Human Resources has generated and officially signed your Employment Confirmation Letter (Ref: HRM/CON/2026/001). You can inspect and download your signed certificate.',
+        title: '📄 Official HR Document Issued: Salary Verification Certificate',
+        message: 'Human Resources has generated and officially issued your Salary Verification Certificate (Ref: HRM/SAL/2026/014). Please review the letter and submit your electronic acknowledgment of receipt.',
         actionUrl: 'employees',
         subView: 'hr_letters',
-        actionLabel: 'Download Letter',
+        actionLabel: 'View & Acknowledge',
         read: false,
         createdAt: '2026-09-07T14:15:00Z'
       });
+    } else {
+      letterNotif.actionUrl = 'employees';
+      letterNotif.subView = 'hr_letters';
+      letterNotif.actionLabel = 'View & Acknowledge';
+      letterNotif.title = '📄 Official HR Document Issued: Salary Verification Certificate';
     }
 
     // Ensure Dept Manager (id 3) has policy mandate
