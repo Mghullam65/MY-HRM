@@ -31,6 +31,7 @@ const Employees = {
             { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
             { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
             { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
+            { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
@@ -39,7 +40,7 @@ const Employees = {
           `).join('')}
         </div>
 
-        ${!['orgchart','doc_expiry','exit_clearance','hr_letters'].includes(this.currentView) ? `
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events'].includes(this.currentView) ? `
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="search-box">
@@ -138,6 +139,10 @@ const Employees = {
     }
     if (this.currentView === 'hr_letters') {
       this.renderHRLetters(container);
+      return;
+    }
+    if (this.currentView === 'dependents_events') {
+      this.renderDependentsAndLifeEvents(container);
       return;
     }
 
@@ -2542,23 +2547,114 @@ const Employees = {
         `).join('');
       }
       case 'Dependents': {
-        const deps = DB.get('dependents').filter(d => d.employeeId === emp.id);
-        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+        const fullDeps = DB.get('employee_dependents') || [];
+        let deps = fullDeps.filter(d => d.employeeId === emp.id);
+        if (!deps.length) {
+          const legacy = DB.get('dependents').filter(d => d.employeeId === emp.id);
+          deps = legacy.map(l => ({
+            id: l.id,
+            employeeId: l.employeeId,
+            fullName: l.name,
+            relation: l.relation,
+            dob: l.dob,
+            cnicOrBForm: l.cnic,
+            isMedicalCovered: true,
+            isEmergencyContact: true,
+            beneficiaryPercent: 50,
+            bloodGroup: '—'
+          }));
+        }
+        const lifeEvents = (DB.get('life_events') || []).filter(e => e.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+
         return `
-          <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-            ${canEdit ? `<button class="btn btn-primary btn-sm" onclick="Employees.showAddDependent(${emp.id})"><i class="fa fa-plus"></i> Add Dependent</button>` : ''}
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+            <div>
+              <h4 style="font-size:14px;font-weight:700;color:var(--text);margin:0 0 2px 0">Family Dependents & Beneficiary Schedule</h4>
+              <p style="font-size:11.5px;color:var(--text-3);margin:0">Eligible family members for Group Health TPA Cover and Life/Gratuity Beneficiaries</p>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="Employees.showSubmitLifeEventModal(${emp.id})">
+                <i class="fa fa-bullhorn"></i> Submit Life Event
+              </button>
+              ${canEdit ? `<button class="btn btn-primary btn-sm" onclick="Employees.showAddDependent(${emp.id})"><i class="fa fa-plus"></i> Add Dependent</button>` : ''}
+            </div>
           </div>
-          <div class="dependents-list">
-            ${deps.length === 0 ? '<div class="text-muted text-sm">No dependents recorded.</div>' : deps.map(d => `
-              <div class="dependent-card">
-                <div style="width:38px;height:38px;border-radius:50%;background:var(--primary-glow);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--primary)">${d.name.charAt(0)}</div>
-                <div style="flex:1">
-                  <div style="font-weight:600;font-size:13px">${d.name}</div>
-                  <div style="font-size:11px;color:var(--text-3)">${d.relation} • DOB: ${d.dob ? Utils.formatDate(d.dob) : '—'} ${d.cnic ? '• CNIC: '+d.cnic : ''}</div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:14px;margin-bottom:24px">
+            ${deps.length === 0 ? '<div class="card text-muted text-sm" style="padding:24px;text-align:center;grid-column:1/-1"><i class="fa fa-people-roof" style="font-size:28px;display:block;margin-bottom:8px"></i>No dependents registered yet.</div>' : deps.map(d => `
+              <div class="card" style="padding:16px;border-radius:10px;border-left:4px solid ${d.relation==='Spouse'?'var(--accent)':d.relation==='Child'?'var(--info)':'var(--primary)'}">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+                  <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--text)">${d.fullName}</div>
+                    <div style="font-size:11.5px;color:var(--text-3)">${d.relation} ${d.gender ? `(${d.gender})` : ''} • DOB: ${d.dob ? Utils.formatDate(d.dob) : '—'}</div>
+                  </div>
+                  <span class="badge badge-secondary" style="font-size:11px">${d.relation}</span>
                 </div>
-                ${canEdit ? `<button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Employees.deleteDependent(${d.id},${emp.id})"><i class="fa fa-trash"></i></button>` : ''}
+
+                <div style="font-size:11.5px;color:var(--text-2);margin-bottom:12px;line-height:1.6">
+                  <div><strong>CNIC / B-Form:</strong> ${d.cnicOrBForm || '—'}</div>
+                  <div><strong>Blood Group:</strong> <span style="color:var(--danger);font-weight:700">${d.bloodGroup || '—'}</span></div>
+                  ${d.emergencyPhone ? `<div><strong>Emergency Tel:</strong> ${d.emergencyPhone}</div>` : ''}
+                </div>
+
+                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">
+                  ${d.isMedicalCovered ? `<span class="badge badge-success" style="font-size:10.5px"><i class="fa fa-shield-heart"></i> TPA Medical Card Active</span>` : '<span class="badge badge-secondary" style="font-size:10.5px">No Medical Cover</span>'}
+                  ${d.isEmergencyContact ? `<span class="badge badge-info" style="font-size:10.5px"><i class="fa fa-phone"></i> Next-of-Kin</span>` : ''}
+                  <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-hand-holding-dollar"></i> ${d.beneficiaryPercent || 0}% Gratuity Share</span>
+                </div>
+
+                <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);padding-top:10px;font-size:11px">
+                  <button class="btn btn-ghost btn-xs" onclick="Employees.printDependentHealthCard(${d.id})">
+                    <i class="fa fa-id-card"></i> Print Health Card
+                  </button>
+                  ${canEdit ? `
+                    <button class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Employees.deleteDependent(${d.id}, ${emp.id})">
+                      <i class="fa fa-trash"></i> Remove
+                    </button>
+                  ` : ''}
+                </div>
               </div>
             `).join('')}
+          </div>
+
+          <!-- Life Events Section for Employee -->
+          <div style="margin-top:20px">
+            <h4 style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px"><i class="fa fa-calendar-check" style="color:var(--primary);margin-right:6px"></i>Employee Life Events History</h4>
+            <p style="font-size:11.5px;color:var(--text-3);margin-bottom:12px">Notified corporate life milestones, official documents, and HR verification status</p>
+
+            ${lifeEvents.length === 0 ? `
+              <div class="card" style="padding:20px;text-align:center;color:var(--text-3);font-size:12.5px">
+                No life events submitted. Use "Submit Life Event" above for marriage, childbirth, address change, or new qualifications.
+              </div>
+            ` : `
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Event</th>
+                      <th>Effective Date</th>
+                      <th>Description</th>
+                      <th>Proof Document</th>
+                      <th>Status</th>
+                      <th>HR Review</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${lifeEvents.map(ev => `
+                      <tr>
+                        <td><strong>${ev.title}</strong></td>
+                        <td>${Utils.formatDate(ev.eventDate)}</td>
+                        <td style="font-size:11.5px;color:var(--text-2);max-width:280px">${ev.details}</td>
+                        <td><span class="badge badge-secondary" style="font-size:10.5px"><i class="fa fa-paperclip"></i> ${ev.supportingDocName || 'Attachment'}</span></td>
+                        <td>${Utils.statusBadge(ev.status)}</td>
+                        <td style="font-size:11.5px">${ev.hrRemarks || (ev.status === 'pending' ? 'Pending HR Review' : 'Verified')}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `}
           </div>
         `;
       }
@@ -2672,46 +2768,454 @@ const Employees = {
     }
   },
 
-  // ── Dependent helpers ──
-  showAddDependent(empId) {
-    Modal.show('Add Dependent', `
+  // ── Dependent & Life Event helpers ──
+  showAddDependent(empId = null) {
+    const allEmps = DB.get('employees').filter(e => e.status === 'active');
+    const empSelectHtml = empId ? `
+      <input type="hidden" id="dep-emp-id" value="${empId}">
+      <div class="form-group">
+        <label class="form-label">Employee</label>
+        <input class="form-control" value="${Utils.getEmpName(empId)}" readonly disabled>
+      </div>
+    ` : `
+      <div class="form-group">
+        <label class="form-label required">Select Employee</label>
+        <select class="form-control" id="dep-emp-id">
+          ${allEmps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo})</option>`).join('')}
+        </select>
+      </div>
+    `;
+
+    Modal.show('Register Family Dependent & Beneficiary', `
+      ${empSelectHtml}
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label required">Name</label><input class="form-control" id="dep-name" placeholder="Full name"></div>
-        <div class="form-group"><label class="form-label required">Relation</label>
+        <div class="form-group">
+          <label class="form-label required">Full Legal Name</label>
+          <input class="form-control" id="dep-name" placeholder="e.g. Ayesha Khan">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Relationship</label>
           <select class="form-control" id="dep-rel">
-            <option>Spouse</option><option>Child</option><option>Parent</option><option>Sibling</option><option>Other</option>
+            <option value="Spouse">Spouse</option>
+            <option value="Child">Child</option>
+            <option value="Parent">Parent</option>
+            <option value="Sibling">Sibling</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label">Gender</label>
+          <select class="form-control" id="dep-gender">
+            <option value="Female">Female</option>
+            <option value="Male">Male</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Date of Birth</label>
+          <input class="form-control" id="dep-dob" type="date">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Blood Group</label>
+          <select class="form-control" id="dep-blood">
+            <option value="">Unknown</option>
+            <option value="A+">A+</option><option value="A-">A-</option>
+            <option value="B+">B+</option><option value="B-">B-</option>
+            <option value="AB+">AB+</option><option value="AB-">AB-</option>
+            <option value="O+">O+</option><option value="O-">O-</option>
           </select>
         </div>
       </div>
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-control" id="dep-dob" type="date"></div>
-        <div class="form-group"><label class="form-label">CNIC</label><input class="form-control" id="dep-cnic" placeholder="42201-1234567-8"></div>
+        <div class="form-group">
+          <label class="form-label">CNIC / B-Form Number</label>
+          <input class="form-control" id="dep-cnic" placeholder="e.g. 42101-1234567-1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Emergency Phone</label>
+          <input class="form-control" id="dep-phone" placeholder="e.g. +92 300 1234567">
+        </div>
+      </div>
+      <div class="form-row form-row-2" style="background:var(--surface-2);padding:10px 14px;border-radius:8px;margin-bottom:12px">
+        <div class="form-group" style="margin:0">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+            <input type="checkbox" id="dep-med" checked>
+            <span><i class="fa fa-shield-heart" style="color:var(--success);margin-right:4px"></i>Enroll in Group Health TPA Cover</span>
+          </label>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12.5px;font-weight:600">
+            <input type="checkbox" id="dep-emergency">
+            <span><i class="fa fa-phone" style="color:var(--info);margin-right:4px"></i>Primary Next-of-Kin Contact</span>
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gratuity / Life Insurance Beneficiary Share (%)</label>
+        <input class="form-control" id="dep-benefit" type="number" min="0" max="100" value="50" placeholder="0 - 100%">
+        <small style="color:var(--text-3);font-size:11px">Percentage share of corporate gratuity defined benefit reserve & life insurance payout.</small>
       </div>
     `, {
       footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-               <button class="btn btn-primary" onclick="Employees.saveDependent(${empId})">Save</button>`
+               <button class="btn btn-primary" onclick="Employees.saveDependent()"><i class="fa fa-check"></i> Save Dependent</button>`
     });
   },
-  saveDependent(empId) {
-    const name = document.getElementById('dep-name').value.trim();
-    if (!name) { Toast.show('Name is required', 'error'); return; }
+
+  saveDependent() {
+    const empIdEl = document.getElementById('dep-emp-id');
+    const empId = parseInt(empIdEl?.value);
+    const name = document.getElementById('dep-name')?.value.trim();
+    if (!name) { Toast.show('Full Name is required', 'error'); return; }
+    if (!empId) { Toast.show('Employee selection required', 'error'); return; }
+
+    const relation = document.getElementById('dep-rel')?.value || 'Spouse';
+    const gender = document.getElementById('dep-gender')?.value || 'Female';
+    const dob = document.getElementById('dep-dob')?.value || null;
+    const bloodGroup = document.getElementById('dep-blood')?.value || '—';
+    const cnicOrBForm = document.getElementById('dep-cnic')?.value.trim() || '';
+    const emergencyPhone = document.getElementById('dep-phone')?.value.trim() || '';
+    const isMedicalCovered = document.getElementById('dep-med')?.checked ?? true;
+    const isEmergencyContact = document.getElementById('dep-emergency')?.checked ?? false;
+    const beneficiaryPercent = parseInt(document.getElementById('dep-benefit')?.value) || 0;
+
+    const newDep = {
+      id: DB.nextId('employee_dependents'),
+      employeeId: empId,
+      fullName: name,
+      relation,
+      gender,
+      dob,
+      cnicOrBForm,
+      bloodGroup,
+      isMedicalCovered,
+      isEmergencyContact,
+      emergencyPhone,
+      beneficiaryPercent,
+      verified: true,
+      createdAt: Utils.today()
+    };
+
+    DB.add('employee_dependents', newDep);
+
+    // Sync legacy dependents
     DB.add('dependents', {
-      id: DB.nextId('dependents'), employeeId: empId,
-      name, relation: document.getElementById('dep-rel').value,
-      dob: document.getElementById('dep-dob').value || null,
-      cnic: document.getElementById('dep-cnic').value.trim() || null,
+      id: newDep.id,
+      employeeId: empId,
+      name,
+      relation,
+      dob,
+      cnic: cnicOrBForm,
       status: 'active'
     });
+
+    DB.log('ADD_DEPENDENT', 'employees', `Registered dependent ${name} (${relation}) for ${Utils.getEmpName(empId)}`, Auth.employee?.id);
     Modal.close('dynamic-modal');
-    Toast.show('Dependent added!', 'success');
-    this.renderProfile(empId);
-  },
-  deleteDependent(depId, empId) {
-    Modal.confirm('Delete Dependent', 'Remove this dependent?', () => {
-      DB.delete('dependents', depId);
-      Toast.show('Dependent removed.', 'warning');
+    Toast.show(`Dependent ${name} registered successfully!`, 'success');
+
+    if (this.currentView === 'dependents_events') {
+      this.renderDependentsAndLifeEvents(document.getElementById('emp-content'));
+    } else {
       this.renderProfile(empId);
+    }
+  },
+
+  deleteDependent(depId, empId) {
+    Modal.confirm('Remove Dependent', 'Are you sure you want to remove this family dependent and cancel their TPA medical coverage?', () => {
+      DB.delete('employee_dependents', depId);
+      DB.delete('dependents', depId);
+      DB.log('DELETE_DEPENDENT', 'employees', `Removed dependent #${depId}`, Auth.employee?.id);
+      Toast.show('Dependent removed.', 'warning');
+      if (this.currentView === 'dependents_events') {
+        this.renderDependentsAndLifeEvents(document.getElementById('emp-content'));
+      } else {
+        this.renderProfile(empId);
+      }
     });
+  },
+
+  showSubmitLifeEventModal(empId = null) {
+    const allEmps = DB.get('employees').filter(e => e.status === 'active');
+    const currentEmpId = empId || Auth.employee?.id || (allEmps[0]?.id || 1);
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    const empSelectHtml = isHrOrAdmin && !empId ? `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        <select class="form-control" id="ev-emp-id">
+          ${allEmps.map(e => `<option value="${e.id}" ${e.id === currentEmpId ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+        </select>
+      </div>
+    ` : `
+      <input type="hidden" id="ev-emp-id" value="${currentEmpId}">
+      <div class="form-group">
+        <label class="form-label">Employee</label>
+        <input class="form-control" value="${Utils.getEmpName(currentEmpId)}" readonly disabled>
+      </div>
+    `;
+
+    Modal.show('Submit Employee Life Event Notification', `
+      ${empSelectHtml}
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Event Type</label>
+          <select class="form-control" id="ev-type" onchange="Employees.onLifeEventTypeChange()">
+            <option value="childbirth">Childbirth / Adoption</option>
+            <option value="marriage">Marriage Solemnization</option>
+            <option value="address_change">Residential Address Relocation</option>
+            <option value="qualification">Academic Degree / Professional Certification</option>
+            <option value="emergency_contact_update">Emergency Next-of-Kin Update</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Effective Event Date</label>
+          <input class="form-control" id="ev-date" type="date" value="${Utils.today()}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Event Subject / Title</label>
+        <input class="form-control" id="ev-title" placeholder="e.g. Birth of Son / Completion of MBA Executive">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Event Details & Requests</label>
+        <textarea class="form-control" id="ev-details" rows="3" placeholder="Describe the milestone and any requested company actions (e.g. Health Insurance enrollment, tax exemption updates, corporate transport route change)..."></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Supporting Verification Document</label>
+        <input class="form-control" id="ev-doc-name" placeholder="e.g. Birth_Certificate_NADRA.pdf or Nikahnama_Scan.pdf">
+        <small style="color:var(--text-3);font-size:11px">Official NADRA certificate, university degree, or utility bill for address verification.</small>
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+               <button class="btn btn-primary" onclick="Employees.submitLifeEvent()"><i class="fa fa-paper-plane"></i> Submit Event for Verification</button>`
+    });
+  },
+
+  onLifeEventTypeChange() {
+    const type = document.getElementById('ev-type')?.value;
+    const titleInput = document.getElementById('ev-title');
+    const docInput = document.getElementById('ev-doc-name');
+    if (!titleInput) return;
+
+    if (type === 'childbirth') {
+      titleInput.value = 'Birth of Child & Corporate Health Coverage Request';
+      if (docInput) docInput.value = 'Hospital_Birth_Certificate_NADRA.pdf';
+    } else if (type === 'marriage') {
+      titleInput.value = 'Marriage Solemnization & Spouse TPA Health Enrollment';
+      if (docInput) docInput.value = 'NADRA_Marriage_Registration_Certificate.pdf';
+    } else if (type === 'address_change') {
+      titleInput.value = 'Residential Relocation & Transport Roster Alignment';
+      if (docInput) docInput.value = 'K-Electric_Utility_Bill_Relocation_Proof.pdf';
+    } else if (type === 'qualification') {
+      titleInput.value = 'Higher Education Degree Award / Certification';
+      if (docInput) docInput.value = 'Official_Degree_Transcript_Verified.pdf';
+    } else {
+      titleInput.value = 'Emergency Contact / Next-of-Kin Record Update';
+      if (docInput) docInput.value = 'Emergency_Contact_Form.pdf';
+    }
+  },
+
+  submitLifeEvent() {
+    const empId = parseInt(document.getElementById('ev-emp-id')?.value);
+    const type = document.getElementById('ev-type')?.value;
+    const date = document.getElementById('ev-date')?.value;
+    const title = document.getElementById('ev-title')?.value.trim();
+    const details = document.getElementById('ev-details')?.value.trim();
+    const docName = document.getElementById('ev-doc-name')?.value.trim() || 'Verification_Document.pdf';
+
+    if (!title || !details) {
+      Toast.show('Title and details are required', 'error');
+      return;
+    }
+
+    const newEvent = {
+      id: DB.nextId('life_events'),
+      employeeId: empId,
+      eventType: type,
+      title,
+      eventDate: date,
+      details,
+      supportingDocName: docName,
+      status: 'pending',
+      submittedOn: Utils.today(),
+      reviewedBy: null,
+      reviewedOn: null,
+      hrRemarks: '',
+      impactActions: ['Verification by HR Operations', 'Profile Synchronization']
+    };
+
+    DB.add('life_events', newEvent);
+    DB.log('LIFE_EVENT_SUBMITTED', 'employees', `Submitted life event: ${title} for ${Utils.getEmpName(empId)}`, Auth.employee?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Life event submitted successfully! Awaiting HR review.', 'success');
+
+    if (this.currentView === 'dependents_events') {
+      this.renderDependentsAndLifeEvents(document.getElementById('emp-content'));
+    } else {
+      this.renderProfile(empId);
+    }
+  },
+
+  approveLifeEvent(id) {
+    const event = DB.find('life_events', id);
+    if (!event) return;
+
+    Modal.confirm('Approve Life Event', `Approve "${event.title}" for ${Utils.getEmpName(event.employeeId)} and execute corporate benefits synchronization?`, () => {
+      DB.update('life_events', id, {
+        status: 'approved',
+        reviewedBy: Auth.employee?.id || 1,
+        reviewedOn: Utils.today(),
+        hrRemarks: 'Verified and approved by HR Operations.'
+      });
+
+      DB.log('LIFE_EVENT_APPROVED', 'employees', `Approved life event #${id}: ${event.title}`, Auth.employee?.id);
+      Toast.show('Life event verified & approved!', 'success');
+
+      if (this.currentView === 'dependents_events') {
+        this.renderDependentsAndLifeEvents(document.getElementById('emp-content'));
+      } else if (App.currentModule === 'dashboard') {
+        Dashboard.render();
+      } else {
+        this.renderProfile(event.employeeId);
+      }
+    });
+  },
+
+  rejectLifeEvent(id) {
+    const event = DB.find('life_events', id);
+    if (!event) return;
+
+    Modal.show('Reject Life Event', `
+      <div class="form-group">
+        <label class="form-label required">Reason for Rejection / Missing Documents</label>
+        <textarea class="form-control" id="ev-reject-reason" rows="3" placeholder="Specify reasons (e.g. Unclear document scan, missing official NADRA seal)..."></textarea>
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+               <button class="btn btn-danger" onclick="Employees.confirmRejectLifeEvent(${id})">Confirm Rejection</button>`
+    });
+  },
+
+  confirmRejectLifeEvent(id) {
+    const reason = document.getElementById('ev-reject-reason')?.value.trim() || 'Missing official proof documents.';
+    DB.update('life_events', id, {
+      status: 'rejected',
+      reviewedBy: Auth.employee?.id || 1,
+      reviewedOn: Utils.today(),
+      hrRemarks: reason
+    });
+
+    DB.log('LIFE_EVENT_REJECTED', 'employees', `Rejected life event #${id}: ${reason}`, Auth.employee?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Life event rejected', 'warning');
+
+    if (this.currentView === 'dependents_events') {
+      this.renderDependentsAndLifeEvents(document.getElementById('emp-content'));
+    } else if (App.currentModule === 'dashboard') {
+      Dashboard.render();
+    }
+  },
+
+  auditBeneficiaryShares() {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const dependents = DB.get('employee_dependents') || [];
+
+    const auditRows = emps.map(emp => {
+      const empDeps = dependents.filter(d => d.employeeId === emp.id);
+      const totalPct = empDeps.reduce((acc, d) => acc + (d.beneficiaryPercent || 0), 0);
+      let statusBadge = '<span class="badge badge-success"><i class="fa fa-check"></i> 100% Compliant</span>';
+      if (totalPct === 0) statusBadge = '<span class="badge badge-danger">0% (Unallocated)</span>';
+      else if (totalPct < 100) statusBadge = `<span class="badge badge-warning">${totalPct}% (Under-allocated)</span>`;
+      else if (totalPct > 100) statusBadge = `<span class="badge badge-danger">${totalPct}% (Exceeds 100%)</span>`;
+      return { emp, count: empDeps.length, totalPct, statusBadge };
+    });
+
+    Modal.show('Corporate Life Insurance & Gratuity Beneficiary Audit Matrix', `
+      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">
+        Statutory review of defined benefit Gratuity reserve and Life Takaful beneficiary allocations across all active personnel.
+      </div>
+      <div class="table-wrapper" style="max-height:360px">
+        <table>
+          <thead>
+            <tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Dependents Count</th>
+              <th>Beneficiary Allocation</th>
+              <th>Audit Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${auditRows.map(r => `
+              <tr>
+                <td><strong>${r.emp.fullName}</strong> <span style="font-size:11px;color:var(--text-3)">(${r.emp.empNo})</span></td>
+                <td>${Utils.getDeptName(r.emp.departmentId)}</td>
+                <td style="text-align:center">${r.count}</td>
+                <td style="font-weight:700;font-family:monospace">${r.totalPct}%</td>
+                <td>${r.statusBadge}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Audit</button>`
+    });
+  },
+
+  printDependentHealthCard(depId) {
+    const dep = (DB.get('employee_dependents') || []).find(d => d.id === depId) || (DB.get('dependents') || []).find(d => d.id === depId);
+    if (!dep) { Toast.show('Dependent not found', 'error'); return; }
+    const emp = DB.find('employees', dep.employeeId) || { fullName: 'Employee', empNo: 'EMP-001' };
+    const settings = DB.getObj('settings') || { companyName: 'MY-HRM Global Enterprise' };
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      Toast.show('Pop-up blocked. Please allow pop-ups to print.', 'error');
+      return;
+    }
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Family Medical Card — ${dep.fullName || dep.name}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; background: #f3f4f6; }
+          .card { width: 85mm; height: 54mm; background: linear-gradient(135deg, #1e1b4b, #312e81); border-radius: 4mm; color: #ffffff; padding: 4mm; box-sizing: border-box; position: relative; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+          .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 2mm; margin-bottom: 2mm; }
+          .logo { font-size: 8pt; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; }
+          .policy-badge { font-size: 6pt; background: #10b981; color: #fff; padding: 1mm 2mm; border-radius: 1mm; font-weight: 700; }
+          .dep-name { font-size: 11pt; font-weight: 800; color: #ffffff; margin-top: 1mm; }
+          .dep-rel { font-size: 7.5pt; color: #a5b4fc; margin-bottom: 2mm; font-weight: 600; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm; font-size: 6.5pt; background: rgba(0,0,0,0.2); padding: 1.5mm; border-radius: 1.5mm; }
+          .footer { position: absolute; bottom: 2mm; left: 4mm; right: 4mm; display: flex; justify-content: space-between; font-size: 5pt; color: #cbd5e1; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 1mm; }
+          @media print { body { background: transparent; padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="header">
+            <div class="logo">${settings.companyName}</div>
+            <div class="policy-badge">TPA GROUP HEALTH PASS</div>
+          </div>
+          <div class="dep-name">${dep.fullName || dep.name}</div>
+          <div class="dep-rel">${dep.relation} of ${emp.fullName} (${emp.empNo})</div>
+          <div class="info-grid">
+            <div><strong>CNIC/B-Form:</strong> ${dep.cnicOrBForm || dep.cnic || 'Verified on file'}</div>
+            <div><strong>Blood Group:</strong> <span style="color:#f87171;font-weight:700">${dep.bloodGroup || 'O+'}</span></div>
+            <div><strong>DOB:</strong> ${dep.dob ? Utils.formatDate(dep.dob) : '—'}</div>
+            <div><strong>Card Ref:</strong> TPA-${emp.id}-${dep.id}</div>
+          </div>
+          <div class="footer">
+            <span>24/7 TPA Helpline: 0800-48762</span>
+            <span>Corporate Health Scheme 2026</span>
+          </div>
+        </div>
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
   },
 
   // ── Transfer helpers ──
@@ -5822,6 +6326,275 @@ const Employees = {
       </html>
     `);
     win.document.close();
+  },
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // DEPENDENTS & LIFE EVENTS PORTAL
+  // ═════════════════════════════════════════════════════════════════════════
+  depSubTab: 'dependents', // 'dependents' | 'events'
+  depSearchQuery: '',
+  depRelFilter: '',
+
+  renderDependentsAndLifeEvents(container) {
+    if (!container) return;
+
+    const allDeps = DB.get('employee_dependents') || [];
+    const allEvents = DB.get('life_events') || [];
+    const allEmps = DB.get('employees') || [];
+
+    const totalDeps = allDeps.length;
+    const insuredDeps = allDeps.filter(d => d.isMedicalCovered).length;
+    const emergencyContacts = allDeps.filter(d => d.isEmergencyContact).length;
+    const pendingEvents = allEvents.filter(e => e.status === 'pending').length;
+
+    const canManage = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics Deck -->
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:14px;margin-bottom:20px">
+          <div class="stat-card" style="border-left:4px solid var(--primary)">
+            <div class="stat-icon" style="background:rgba(99,102,241,0.15);color:var(--primary)"><i class="fa fa-people-roof"></i></div>
+            <div class="stat-info">
+              <div class="stat-value">${totalDeps}</div>
+              <div class="stat-label">Registered Dependents</div>
+              <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Spouses, Children & Parents</div>
+            </div>
+          </div>
+
+          <div class="stat-card" style="border-left:4px solid var(--success)">
+            <div class="stat-icon" style="background:rgba(16,185,129,0.15);color:var(--success)"><i class="fa fa-shield-heart"></i></div>
+            <div class="stat-info">
+              <div class="stat-value">${insuredDeps}</div>
+              <div class="stat-label">TPA Medical Covered</div>
+              <div style="font-size:11.5px;color:var(--success);margin-top:2px">${Math.round(totalDeps ? insuredDeps/totalDeps*100 : 100)}% Insurance Enrollment</div>
+            </div>
+          </div>
+
+          <div class="stat-card" style="border-left:4px solid var(--info)">
+            <div class="stat-icon" style="background:rgba(20,184,166,0.15);color:var(--info)"><i class="fa fa-phone"></i></div>
+            <div class="stat-info">
+              <div class="stat-value">${emergencyContacts}</div>
+              <div class="stat-label">Next-of-Kin Contacts</div>
+              <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Designated Emergency Contacts</div>
+            </div>
+          </div>
+
+          <div class="stat-card" style="border-left:4px solid var(--warning)">
+            <div class="stat-icon" style="background:rgba(245,158,11,0.15);color:var(--warning)"><i class="fa fa-bell"></i></div>
+            <div class="stat-info">
+              <div class="stat-value">${pendingEvents}</div>
+              <div class="stat-label">Pending Life Events</div>
+              <div style="font-size:11.5px;color:${pendingEvents>0?'var(--warning)':'var(--success)'};margin-top:2px">${pendingEvents>0 ? 'Awaiting HR Verification' : 'All Verified'}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation & Actions Bar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border)">
+            <button class="tab-toggle-btn ${this.depSubTab === 'dependents' ? 'active' : ''}" onclick="Employees.depSubTab='dependents';Employees.renderDependentsAndLifeEvents(document.getElementById('emp-content'))">
+              <i class="fa fa-users" style="margin-right:6px"></i>Family Dependents & Beneficiaries (${totalDeps})
+            </button>
+            <button class="tab-toggle-btn ${this.depSubTab === 'events' ? 'active' : ''}" onclick="Employees.depSubTab='events';Employees.renderDependentsAndLifeEvents(document.getElementById('emp-content'))">
+              <i class="fa fa-bullhorn" style="margin-right:6px"></i>Life Events Portal
+              ${pendingEvents > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${pendingEvents}</span>` : ''}
+            </button>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="Employees.auditBeneficiaryShares()">
+              <i class="fa fa-scale-balanced"></i> Beneficiary Audit
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="Employees.showSubmitLifeEventModal()">
+              <i class="fa fa-bullhorn"></i> Submit Life Event
+            </button>
+            ${canManage ? `
+              <button class="btn btn-primary btn-sm" onclick="Employees.showAddDependent()">
+                <i class="fa fa-plus"></i> Add Dependent
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Tab Body Content -->
+        ${this.depSubTab === 'dependents' ? this.renderDependentsViewHTML(allDeps, allEmps, canManage) : this.renderLifeEventsViewHTML(allEvents, allEmps, canManage)}
+      </div>
+    `;
+  },
+
+  renderDependentsViewHTML(allDeps, allEmps, canManage) {
+    let filtered = [...allDeps];
+
+    if (this.depRelFilter) {
+      filtered = filtered.filter(d => d.relation === this.depRelFilter);
+    }
+
+    if (this.depSearchQuery) {
+      const q = this.depSearchQuery.toLowerCase();
+      filtered = filtered.filter(d => {
+        const emp = allEmps.find(e => e.id === d.employeeId);
+        return (d.fullName || '').toLowerCase().includes(q) ||
+               (d.cnicOrBForm || '').toLowerCase().includes(q) ||
+               (emp?.fullName || '').toLowerCase().includes(q);
+      });
+    }
+
+    return `
+      <!-- Filters -->
+      <div class="filter-bar" style="margin-bottom:16px">
+        <div class="search-box">
+          <i class="fa fa-search"></i>
+          <input type="text" placeholder="Search by dependent name, CNIC, or employee..." value="${this.depSearchQuery}"
+            oninput="Employees.depSearchQuery=this.value;Employees.renderDependentsAndLifeEvents(document.getElementById('emp-content'))">
+        </div>
+        <select class="filter-select" onchange="Employees.depRelFilter=this.value;Employees.renderDependentsAndLifeEvents(document.getElementById('emp-content'))">
+          <option value="">All Relationships</option>
+          <option value="Spouse" ${this.depRelFilter==='Spouse'?'selected':''}>Spouses</option>
+          <option value="Child" ${this.depRelFilter==='Child'?'selected':''}>Children</option>
+          <option value="Parent" ${this.depRelFilter==='Parent'?'selected':''}>Parents</option>
+          <option value="Sibling" ${this.depRelFilter==='Sibling'?'selected':''}>Siblings</option>
+        </select>
+      </div>
+
+      <!-- Table View -->
+      <div class="card" style="padding:0;border-radius:12px;overflow:hidden">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Dependent Name</th>
+                <th>Relationship</th>
+                <th>Employee / Sponsor</th>
+                <th>CNIC / B-Form</th>
+                <th>Blood Group</th>
+                <th>Health Insurance</th>
+                <th>Gratuity Share</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.length === 0 ? `
+                <tr><td colspan="8" style="text-align:center;padding:36px;color:var(--text-3)"><i class="fa fa-people-roof" style="font-size:24px;display:block;margin-bottom:8px"></i>No dependents matched current filter.</td></tr>
+              ` : filtered.map(d => {
+                const emp = allEmps.find(e => e.id === d.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;color:var(--text)">${d.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">DOB: ${d.dob ? Utils.formatDate(d.dob) : '—'} ${d.gender ? `(${d.gender})` : ''}</div>
+                    </td>
+                    <td><span class="badge badge-secondary">${d.relation}</span></td>
+                    <td>
+                      <div style="font-weight:600;color:var(--text)">${emp.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${emp.empNo} • ${Utils.getDeptName(emp.departmentId)}</div>
+                    </td>
+                    <td><code style="font-family:monospace;font-size:12px">${d.cnicOrBForm || '—'}</code></td>
+                    <td><span style="font-weight:700;color:var(--danger)">${d.bloodGroup || '—'}</span></td>
+                    <td>
+                      ${d.isMedicalCovered ? `<span class="badge badge-success" style="font-size:11px"><i class="fa fa-shield-heart"></i> TPA Active</span>` : '<span class="badge badge-secondary" style="font-size:11px">No</span>'}
+                      ${d.isEmergencyContact ? `<span class="badge badge-info" style="font-size:10.5px;margin-left:4px" title="Emergency Next of Kin"><i class="fa fa-phone"></i></span>` : ''}
+                    </td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <span style="font-weight:700;font-family:monospace">${d.beneficiaryPercent || 0}%</span>
+                        <div style="width:50px;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+                          <div style="width:${d.beneficiaryPercent || 0}%;height:100%;background:var(--primary)"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style="text-align:right">
+                      <div style="display:flex;justify-content:flex-end;gap:4px">
+                        <button class="btn btn-ghost btn-xs" title="Print Medical Card" onclick="Employees.printDependentHealthCard(${d.id})">
+                          <i class="fa fa-id-card"></i> Card
+                        </button>
+                        ${canManage ? `
+                          <button class="btn btn-ghost btn-xs" style="color:var(--danger)" title="Remove" onclick="Employees.deleteDependent(${d.id}, ${d.employeeId})">
+                            <i class="fa fa-trash"></i>
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  renderLifeEventsViewHTML(allEvents, allEmps, canManage) {
+    return `
+      <div class="card" style="padding:0;border-radius:12px;overflow:hidden">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Event Type</th>
+                <th>Employee</th>
+                <th>Subject & Description</th>
+                <th>Event Date</th>
+                <th>Supporting Proof</th>
+                <th>Verification Status</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${allEvents.length === 0 ? `
+                <tr><td colspan="7" style="text-align:center;padding:36px;color:var(--text-3)"><i class="fa fa-bullhorn" style="font-size:24px;display:block;margin-bottom:8px"></i>No life events recorded.</td></tr>
+              ` : allEvents.map(ev => {
+                const emp = allEmps.find(e => e.id === ev.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+                const isPending = ev.status === 'pending';
+                return `
+                  <tr style="${isPending ? 'background:rgba(245,158,11,0.03)' : ''}">
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-glow);color:var(--primary);display:flex;align-items:center;justify-content:center">
+                          <i class="fa ${ev.eventType === 'childbirth' ? 'fa-baby' : ev.eventType === 'marriage' ? 'fa-rings-wedding' : ev.eventType === 'qualification' ? 'fa-graduation-cap' : 'fa-house'}"></i>
+                        </div>
+                        <span style="font-weight:700;text-transform:capitalize;font-size:12px">${ev.eventType.replace('_', ' ')}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600;color:var(--text)">${emp.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${emp.empNo} • ${Utils.getDeptName(emp.departmentId)}</div>
+                    </td>
+                    <td style="max-width:320px">
+                      <div style="font-weight:700;font-size:12.5px;color:var(--text)">${ev.title}</div>
+                      <div style="font-size:11.5px;color:var(--text-2);margin-top:2px;line-height:1.4">${ev.details}</div>
+                      ${ev.hrRemarks ? `<div style="font-size:11px;color:var(--info);margin-top:4px"><i class="fa fa-comment-dots"></i> HR: ${ev.hrRemarks}</div>` : ''}
+                    </td>
+                    <td style="font-size:12px">${Utils.formatDate(ev.eventDate)}</td>
+                    <td>
+                      <span class="badge badge-secondary" style="font-size:10.5px">
+                        <i class="fa fa-file-pdf" style="color:var(--danger);margin-right:4px"></i>${ev.supportingDocName || 'Certificate.pdf'}
+                      </span>
+                    </td>
+                    <td>${Utils.statusBadge(ev.status)}</td>
+                    <td style="text-align:right">
+                      <div style="display:flex;justify-content:flex-end;gap:4px">
+                        ${isPending && canManage ? `
+                          <button class="btn btn-success btn-xs" onclick="Employees.approveLifeEvent(${ev.id})">
+                            <i class="fa fa-check"></i> Verify & Approve
+                          </button>
+                          <button class="btn btn-danger btn-xs" onclick="Employees.rejectLifeEvent(${ev.id})">
+                            <i class="fa fa-times"></i> Reject
+                          </button>
+                        ` : `
+                          <span style="font-size:11.5px;color:var(--text-3)">${ev.reviewedOn ? 'Reviewed ' + Utils.formatDate(ev.reviewedOn) : '—'}</span>
+                        `}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
   }
 };
 

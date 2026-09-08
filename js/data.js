@@ -20,6 +20,7 @@ const DB = {
       this.ensureTalentAndLMSData();
       this.ensureEngagementData();
       this.ensureCompanyPolicies();
+      this.ensureLifeEventsAndDependents();
       return;
     }
     this.seed();
@@ -36,6 +37,7 @@ const DB = {
     this.ensureTalentAndLMSData();
     this.ensureEngagementData();
     this.ensureCompanyPolicies();
+    this.ensureLifeEventsAndDependents();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -1685,6 +1687,273 @@ const DB = {
         }
       ];
       this.set('company_policies', policies);
+    }
+  },
+
+  ensureLifeEventsAndDependents() {
+    // 1. Ensure employee_dependents table
+    let dependents = this.get('employee_dependents');
+    if (!dependents || !dependents.length) {
+      dependents = [
+        {
+          id: 1,
+          employeeId: 1, // Ahmed Khan
+          fullName: 'Sadia Ahmed',
+          relation: 'Spouse',
+          gender: 'Female',
+          dob: '1991-05-14',
+          cnicOrBForm: '42101-9876543-2',
+          bloodGroup: 'B+',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 300 1234567',
+          beneficiaryPercent: 60,
+          verified: true,
+          createdAt: '2026-01-10'
+        },
+        {
+          id: 2,
+          employeeId: 1, // Ahmed Khan
+          fullName: 'Ibrahim Ahmed',
+          relation: 'Child',
+          gender: 'Male',
+          dob: '2018-09-10',
+          cnicOrBForm: '42101-1122334-1',
+          bloodGroup: 'B+',
+          isMedicalCovered: true,
+          isEmergencyContact: false,
+          emergencyPhone: '',
+          beneficiaryPercent: 40,
+          verified: true,
+          createdAt: '2026-01-10'
+        },
+        {
+          id: 3,
+          employeeId: 2, // Sara Malik
+          fullName: 'Farhan Malik',
+          relation: 'Spouse',
+          gender: 'Male',
+          dob: '1989-11-20',
+          cnicOrBForm: '35202-8765432-1',
+          bloodGroup: 'O+',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 321 7654321',
+          beneficiaryPercent: 50,
+          verified: true,
+          createdAt: '2026-02-01'
+        },
+        {
+          id: 4,
+          employeeId: 2, // Sara Malik
+          fullName: 'Ayla Malik',
+          relation: 'Child',
+          gender: 'Female',
+          dob: '2021-03-15',
+          cnicOrBForm: '35202-3344556-2',
+          bloodGroup: 'O+',
+          isMedicalCovered: true,
+          isEmergencyContact: false,
+          emergencyPhone: '',
+          beneficiaryPercent: 50,
+          verified: true,
+          createdAt: '2026-02-01'
+        },
+        {
+          id: 5,
+          employeeId: 3, // Usman Baig
+          fullName: 'Hina Usman',
+          relation: 'Spouse',
+          gender: 'Female',
+          dob: '1988-08-12',
+          cnicOrBForm: '61101-2345678-2',
+          bloodGroup: 'A+',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 333 4567890',
+          beneficiaryPercent: 50,
+          verified: true,
+          createdAt: '2026-02-15'
+        },
+        {
+          id: 6,
+          employeeId: 3, // Usman Baig
+          fullName: 'Daniyal Usman',
+          relation: 'Child',
+          gender: 'Male',
+          dob: '2016-07-22',
+          cnicOrBForm: '61101-5566778-1',
+          bloodGroup: 'A+',
+          isMedicalCovered: true,
+          isEmergencyContact: false,
+          emergencyPhone: '',
+          beneficiaryPercent: 25,
+          verified: true,
+          createdAt: '2026-02-15'
+        },
+        {
+          id: 7,
+          employeeId: 3, // Usman Baig
+          fullName: 'Maryam Usman',
+          relation: 'Child',
+          gender: 'Female',
+          dob: '2019-12-04',
+          cnicOrBForm: '61101-9988776-2',
+          bloodGroup: 'A+',
+          isMedicalCovered: true,
+          isEmergencyContact: false,
+          emergencyPhone: '',
+          beneficiaryPercent: 25,
+          verified: true,
+          createdAt: '2026-02-15'
+        },
+        {
+          id: 8,
+          employeeId: 4, // Fatima Raza
+          fullName: 'Raza Ali',
+          relation: 'Spouse',
+          gender: 'Male',
+          dob: '1993-02-18',
+          cnicOrBForm: '42201-3456789-1',
+          bloodGroup: 'AB+',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 345 8899001',
+          beneficiaryPercent: 70,
+          verified: true,
+          createdAt: '2026-03-01'
+        },
+        {
+          id: 9,
+          employeeId: 4, // Fatima Raza
+          fullName: 'Begum Kulsoom Raza',
+          relation: 'Parent',
+          gender: 'Female',
+          dob: '1965-04-10',
+          cnicOrBForm: '42201-1239876-2',
+          bloodGroup: 'O+',
+          isMedicalCovered: true,
+          isEmergencyContact: false,
+          emergencyPhone: '',
+          beneficiaryPercent: 30,
+          verified: true,
+          createdAt: '2026-03-01'
+        },
+        {
+          id: 10,
+          employeeId: 5, // Bilal Qureshi
+          fullName: 'Mahnoor Bilal',
+          relation: 'Spouse',
+          gender: 'Female',
+          dob: '1994-06-25',
+          cnicOrBForm: '37405-4567890-2',
+          bloodGroup: 'A-',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 312 9988776',
+          beneficiaryPercent: 100,
+          verified: true,
+          createdAt: '2026-03-10'
+        },
+        {
+          id: 11,
+          employeeId: 9, // Tariq Hussain
+          fullName: 'Muhammad Hussain',
+          relation: 'Parent',
+          gender: 'Male',
+          dob: '1960-10-15',
+          cnicOrBForm: '42301-8765432-1',
+          bloodGroup: 'B+',
+          isMedicalCovered: true,
+          isEmergencyContact: true,
+          emergencyPhone: '+92 301 2233445',
+          beneficiaryPercent: 100,
+          verified: true,
+          createdAt: '2026-04-01'
+        }
+      ];
+      this.set('employee_dependents', dependents);
+    }
+
+    // Also sync legacy dependents array for backward-compatibility
+    let legacyDeps = this.get('dependents') || [];
+    if (legacyDeps.length < dependents.length) {
+      this.set('dependents', dependents.map(d => ({
+        id: d.id,
+        employeeId: d.employeeId,
+        name: d.fullName,
+        relation: d.relation,
+        dob: d.dob,
+        cnic: d.cnicOrBForm
+      })));
+    }
+
+    // 2. Ensure life_events table
+    let lifeEvents = this.get('life_events');
+    if (!lifeEvents || !lifeEvents.length) {
+      lifeEvents = [
+        {
+          id: 1,
+          employeeId: 4, // Fatima Raza
+          eventType: 'childbirth',
+          title: 'Birth of Daughter (Inaya Raza) & Health Cover Request',
+          eventDate: '2026-08-28',
+          details: 'Blessed with baby daughter Inaya Raza on August 28, 2026 at South City Hospital Karachi. Requesting registration into corporate TPA group health insurance and issuance of medical card.',
+          supportingDocName: 'Hospital_Birth_Notification_NADRA_Receipt.pdf',
+          status: 'pending',
+          submittedOn: '2026-09-02',
+          reviewedBy: null,
+          reviewedOn: null,
+          hrRemarks: '',
+          impactActions: ['Corporate TPA Health Card Issuance', 'B-Form verification pending NADRA copy']
+        },
+        {
+          id: 2,
+          employeeId: 9, // Tariq Hussain
+          eventType: 'qualification',
+          title: 'Master of Science in Computer Science (MS CS) Award',
+          eventDate: '2026-08-15',
+          details: 'Completed MS CS degree from FAST-NUCES Karachi with 3.78 CGPA specialization in Distributed Cloud Architecture. Requesting academic records update for Q3 technical appraisal.',
+          supportingDocName: 'FAST_NUCES_Official_Transcript_Degree.pdf',
+          status: 'pending',
+          submittedOn: '2026-09-04',
+          reviewedBy: null,
+          reviewedOn: null,
+          hrRemarks: '',
+          impactActions: ['Academic profile synchronization', 'Technical competency matrix update']
+        },
+        {
+          id: 3,
+          employeeId: 1, // Ahmed Khan
+          eventType: 'marriage',
+          title: 'Official Marriage Registration & Spouse Medical Card',
+          eventDate: '2026-01-10',
+          details: 'Marriage solemnized with Sadia Ahmed. Official Nadra Marriage Registration Certificate (MRC) submitted.',
+          supportingDocName: 'NADRA_MRC_Certified_Copy.pdf',
+          status: 'approved',
+          submittedOn: '2026-01-15',
+          reviewedBy: 2, // Sara Malik
+          reviewedOn: '2026-01-16',
+          hrRemarks: 'Verified with NADRA MRC copy. Added spouse to Jubilee Life Group Health Policy.',
+          impactActions: ['Spouse enrolled in Health Policy', 'Emergency Contact Updated']
+        },
+        {
+          id: 4,
+          employeeId: 3, // Usman Baig
+          eventType: 'address_change',
+          title: 'Relocation to Bahria Town Precinct 10, Karachi',
+          eventDate: '2026-05-01',
+          details: 'Relocated permanent family residence. Shifted van pickup route to Bahria Town Gate 1.',
+          supportingDocName: 'K-Electric_Utility_Bill_Proof.pdf',
+          status: 'approved',
+          submittedOn: '2026-05-03',
+          reviewedBy: 2,
+          reviewedOn: '2026-05-04',
+          hrRemarks: 'Address and emergency contact details updated in master profile and corporate transport roster.',
+          impactActions: ['Address updated', 'Transport roster aligned']
+        }
+      ];
+      this.set('life_events', lifeEvents);
     }
   },
 

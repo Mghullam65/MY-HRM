@@ -237,6 +237,7 @@
 - [x] **Batch 4: Talent, LMS & Performance Management**: 360-degree multi-rater peer reviews & competency radar, Corporate LMS & Training Center with skill gap matrix & CPD credits, and 9-box talent matrix with executive succession planning *(Completed in Batch 4)*.
 - [x] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing *(Completed in Batch 5)*.
 - [x] **Batch 6: ESS Smart Badges, Policy Hub & Executive Action Center**: Photorealistic digital smart ID badges with vector QR codes, corporate policies repository with digital signature audit, and unified Dashboard Executive Action Center Inbox *(Completed in Batch 6)*.
+- [x] **Batch 7: Executive BI Analytics, Custom Report Builder, Dependents & Life Events**: Interactive Executive BI Analytics deck, dynamic multi-entity Custom Report Builder with live column selection, aggregation math, Excel UTF-8 BOM CSV export and 3-tier signing executive PDF reports, 6 pre-configured standard compliance statements, Employee Family Dependents & Beneficiary Matrix with TPA health cards & gratuity share audit, and Employee Life Events Self-Service Portal with HR verification workflow *(Completed in Batch 7)*.
 
 ---
 

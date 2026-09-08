@@ -627,6 +627,26 @@ const Dashboard = {
       });
     });
 
+    // 6. Pending Life Event Verifications (for Super Admin & HR Manager)
+    if (isAdmin) {
+      const lifeEvents = DB.get('life_events') || [];
+      lifeEvents.filter(ev => ev.status === 'pending').slice(0, 2).forEach(ev => {
+        const u = emps.find(e => e.id === ev.employeeId);
+        actions.push({
+          type: 'life_event',
+          tag: 'LIFE EVENT VERIFICATION',
+          icon: 'fa-people-roof',
+          color: 'var(--accent)',
+          title: `${u?.fullName || 'Staff'}: ${ev.title}`,
+          sub: `Date: ${ev.eventDate} • ${ev.details}`,
+          actions: `
+            <button class="btn btn-success btn-xs" onclick="Employees.approveLifeEvent(${ev.id})"><i class="fa fa-check"></i> Verify</button>
+            <button class="btn btn-danger btn-xs" onclick="Employees.rejectLifeEvent(${ev.id})"><i class="fa fa-times"></i> Reject</button>
+          `
+        });
+      });
+    }
+
     if (actions.length === 0) {
       return `
         <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(99,102,241,0.05));border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
