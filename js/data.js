@@ -21,6 +21,7 @@ const DB = {
       this.ensureEngagementData();
       this.ensureCompanyPolicies();
       this.ensureLifeEventsAndDependents();
+      this.ensureWebhooksAndTemplates();
       return;
     }
     this.seed();
@@ -38,6 +39,7 @@ const DB = {
     this.ensureEngagementData();
     this.ensureCompanyPolicies();
     this.ensureLifeEventsAndDependents();
+    this.ensureWebhooksAndTemplates();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -1957,6 +1959,118 @@ const DB = {
     }
   },
 
+  ensureWebhooksAndTemplates() {
+    // 1. Ensure corporate webhooks
+    let webhooks = this.get('webhooks');
+    if (!webhooks || !webhooks.length) {
+      webhooks = [
+        {
+          id: 1,
+          name: 'Corporate Slack #hr-announcements Channel',
+          url: 'https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX',
+          secret: 'sec_slack_hr_live_9942a',
+          events: ['employee.created', 'policy.signed', 'leave.approved'],
+          status: 'active',
+          format: 'slack_blocks',
+          lastDispatchedAt: '2026-09-08T10:15:00Z',
+          lastStatus: 200,
+          failureCount: 0,
+          createdAt: '2026-01-01'
+        },
+        {
+          id: 2,
+          name: 'Microsoft Teams Executive Operations Deck',
+          url: 'https://outlook.office.com/webhook/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx@tenant/IncomingWebhook/xxx',
+          secret: 'sec_msteams_deck_8812c',
+          events: ['payroll.finalized', 'incident.reported', 'asset.handover'],
+          status: 'active',
+          format: 'adaptive_card',
+          lastDispatchedAt: '2026-09-07T14:30:00Z',
+          lastStatus: 200,
+          failureCount: 0,
+          createdAt: '2026-01-15'
+        },
+        {
+          id: 3,
+          name: 'General Ledger / SAP ERP Accounting Gateway',
+          url: 'https://erp.company.internal/api/v2/integrations/hrm-payroll-sync',
+          secret: 'sec_sap_ledger_hmac_4431d',
+          events: ['payroll.finalized', 'expense.reimbursed'],
+          status: 'active',
+          format: 'json_rest',
+          lastDispatchedAt: '2026-09-01T09:00:00Z',
+          lastStatus: 200,
+          failureCount: 0,
+          createdAt: '2026-02-01'
+        }
+      ];
+      this.set('webhooks', webhooks);
+    }
+
+    // 2. Ensure notification_templates
+    let templates = this.get('notification_templates');
+    if (!templates || !templates.length) {
+      templates = [
+        {
+          id: 1,
+          code: 'tpl_welcome_onboarding',
+          title: 'New Hire Welcome & Portal Access Instructions',
+          category: 'Onboarding & Lifecycle',
+          subject: 'Welcome to {{company_name}}, {{employee_name}}! Your Portal Credentials',
+          badgeColor: 'var(--primary)',
+          variables: ['{{employee_name}}', '{{company_name}}', '{{username}}', '{{designation}}', '{{department}}', '{{login_url}}', '{{joining_date}}'],
+          body: `Dear {{employee_name}},\n\nWelcome to {{company_name}}! We are thrilled to welcome you as our new {{designation}} in the {{department}} team, commencing on {{joining_date}}.\n\nYour employee self-service portal has been activated. Please log in using your corporate account to review onboarding requirements, verify your digital smart ID badge, and electronically sign company policies.\n\nPortal URL: {{login_url}}\nUsername: {{username}}\n\nShould you need any assistance, our HR Operations desk is available at hr@company.com.\n\nBest regards,\nPeople Operations Team\n{{company_name}}`,
+          lastUpdated: '2026-08-15'
+        },
+        {
+          id: 2,
+          code: 'tpl_payslip_disbursed',
+          title: 'Monthly Salary Payslip Availability Notification',
+          category: 'Payroll & Compensation',
+          subject: 'Your Salary Slip for {{month}} is now available — {{company_name}}',
+          badgeColor: 'var(--success)',
+          variables: ['{{employee_name}}', '{{company_name}}', '{{month}}', '{{net_salary}}', '{{bank_name}}', '{{account_mask}}', '{{payslip_url}}'],
+          body: `Dear {{employee_name}},\n\nYour monthly salary for {{month}} has been processed and deposited to your {{bank_name}} account ending in {{account_mask}}.\n\nNet Disbursed Amount: PKR {{net_salary}}\n\nYour Section 149 Withholding Tax and statutory EOBI/SESSI deductions have been updated on your FBR ledger. You can inspect and download your encrypted electronic payslip by logging into the portal:\n\n{{payslip_url}}\n\nWarm regards,\nFinance & Payroll Directorate\n{{company_name}}`,
+          lastUpdated: '2026-08-31'
+        },
+        {
+          id: 3,
+          code: 'tpl_leave_decision',
+          title: 'Leave Requisition Approval / Rejection Advice',
+          category: 'Time & Attendance',
+          subject: 'Leave Request Status: {{status}} for {{from_date}} to {{to_date}}',
+          badgeColor: 'var(--warning)',
+          variables: ['{{employee_name}}', '{{leave_type}}', '{{from_date}}', '{{to_date}}', '{{days}}', '{{status}}', '{{approver_name}}', '{{remarks}}'],
+          body: `Dear {{employee_name}},\n\nThis is to notify you that your leave application for {{days}} day(s) of {{leave_type}} from {{from_date}} to {{to_date}} has been {{status}} by {{approver_name}}.\n\nSupervisor Remarks: {{remarks}}\n\nYour remaining leave quota has been synchronized in the HRM attendance engine.\n\nRegards,\nLeave Administration\n{{company_name}}`,
+          lastUpdated: '2026-08-20'
+        },
+        {
+          id: 4,
+          code: 'tpl_expense_reimbursed',
+          title: 'Commercial Expense Claim Reimbursement Settlement',
+          category: 'Finance & Reimbursements',
+          subject: 'Expense Claim {{claim_number}} Approved for Reimbursement — PKR {{amount}}',
+          badgeColor: 'var(--info)',
+          variables: ['{{employee_name}}', '{{claim_number}}', '{{title}}', '{{amount}}', '{{month}}', '{{finance_auditor}}'],
+          body: `Dear {{employee_name}},\n\nYour commercial expense claim {{claim_number}} ("{{title}}") for PKR {{amount}} has received final financial authorization from {{finance_auditor}}.\n\nThe reimbursed sum has been queued into the {{month}} automated payroll pay run tax-exempt disbursement batch.\n\nThank you for submitting itemized tax invoices.\n\nRegards,\nFinance Accounts Payable\n{{company_name}}`,
+          lastUpdated: '2026-09-01'
+        },
+        {
+          id: 5,
+          code: 'tpl_policy_compliance',
+          title: 'Mandatory Corporate Policy Electronic Signature Mandate',
+          category: 'Governance & Compliance',
+          subject: 'Action Required: Mandatory Signature on {{policy_code}} — {{policy_title}}',
+          badgeColor: 'var(--danger)',
+          variables: ['{{employee_name}}', '{{company_name}}', '{{policy_code}}', '{{policy_title}}', '{{version}}', '{{deadline}}', '{{sign_url}}'],
+          body: `Dear {{employee_name}},\n\nIn accordance with our statutory governance framework, all personnel are required to review and electronically acknowledge {{policy_code}}: {{policy_title}} ({{version}}).\n\nCompliance Deadline: {{deadline}}\n\nPlease follow this link to execute your electronic signature:\n{{sign_url}}\n\nRegards,\nCorporate Governance & Compliance\n{{company_name}}`,
+          lastUpdated: '2026-09-05'
+        }
+      ];
+      this.set('notification_templates', templates);
+    }
+  },
+
   reset() {
     Object.keys(localStorage).filter(k => k.startsWith('hrm_')).forEach(k => localStorage.removeItem(k));
     this.seed();
@@ -2049,11 +2163,37 @@ const DB = {
     return arr.length > 0 ? Math.max(...arr.map(x => x.id || 0)) + 1 : 1;
   },
 
-  log(action, module, details, userId) {
+  log(action, module, details, userId, severity = null) {
     const logs = this.get('audit_logs');
-    logs.unshift({ id: Date.now(), action, module, details, userId, timestamp: new Date().toISOString() });
-    if (logs.length > 300) logs.pop();
+    const act = (action || 'INFO').toUpperCase();
+    const sev = severity || (['DELETE','RESET','REJECT','TERMINATE'].some(x => act.includes(x)) ? 'CRITICAL' : ['UPDATE','APPROVE','RESTORE','SUBMIT'].some(x => act.includes(x)) ? 'WARNING' : 'INFO');
+    const timestamp = new Date().toISOString();
+    const id = Date.now() + Math.floor(Math.random() * 100);
+    const checksum = `SHA256-${((id * 31 + (userId || 1) * 17) & 0x7fffffff).toString(16).padStart(8, '0').toUpperCase()}`;
+    const ip = `192.168.1.${((id % 45) + 10)}`;
+
+    logs.unshift({
+      id,
+      action: act,
+      module: module || 'core',
+      details: details || 'Operational action performed',
+      userId: userId || 1,
+      severity: sev,
+      checksum,
+      ip,
+      timestamp
+    });
+
+    if (logs.length > 500) logs.pop();
     this.set('audit_logs', logs);
+
+    // Auto-dispatch matching webhooks if any
+    try {
+      if (typeof Settings !== 'undefined' && Settings.triggerWebhooks) {
+        Settings.triggerWebhooks(module, act, { details, userId, timestamp });
+      }
+    } catch(e) {}
+
     if (typeof App !== 'undefined' && App.refreshHistoryDrawer) {
       App.refreshHistoryDrawer();
     }

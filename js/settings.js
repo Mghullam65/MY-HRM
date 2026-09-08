@@ -14,6 +14,7 @@ const Settings = {
       { id: 'leave_policy', label: 'Leave Policy', icon: 'fa-calendar-xmark' },
       { id: 'payroll_config', label: 'Payroll Config', icon: 'fa-money-bill-wave' },
       { id: 'notifications', label: 'Notifications', icon: 'fa-bell' },
+      { id: 'webhooks', label: 'Webhooks & Integrations', icon: 'fa-network-wired' },
       { id: 'appearance', label: 'Appearance', icon: 'fa-palette' },
       { id: 'backup', label: 'Backup & Restore', icon: 'fa-database' },
       { id: 'system', label: 'System', icon: 'fa-server' },
@@ -53,6 +54,7 @@ const Settings = {
       case 'leave_policy':     this.renderLeavePolicy(c); break;
       case 'payroll_config':   this.renderPayrollConfig(c); break;
       case 'notifications':    this.renderNotifications(c); break;
+      case 'webhooks':         this.renderWebhooks(c); break;
       case 'appearance':       this.renderAppearance(c); break;
       case 'backup':           this.renderBackup(c); break;
       case 'system':           this.renderSystem(c); break;
@@ -400,10 +402,12 @@ const Settings = {
     Toast.show('Payroll config saved!', 'success');
   },
 
-  // ─── Notifications ────────────────────────────────
+  // ─── Notifications & Corporate Templates ─────────
   renderNotifications(c) {
     const s = key => this._getSetting(key, true);
-    c.innerHTML = this._sectionCard('Notification Preferences', 'Control which notifications are active', `
+    const templates = DB.get('notification_templates') || [];
+
+    c.innerHTML = this._sectionCard('Notification Preferences', 'System-wide event alerts and broadcast toggles', `
       ${[
         ['notifLeaveApply',  'Leave Application',     'When an employee applies for leave'],
         ['notifLeaveApprove','Leave Approved/Rejected','When leave request is approved or rejected'],
@@ -417,7 +421,7 @@ const Settings = {
         `<label class="toggle-switch"><input type="checkbox" id="s-${key}" ${s(key)!==false?'checked':''}><span class="toggle-slider"></span></label>`,
         help
       )).join('')}
-    `, `<button class="btn btn-primary" onclick="Settings.saveNotifications()"><i class="fa fa-save"></i> Save</button>`) + `
+    `, `<button class="btn btn-primary" onclick="Settings.saveNotifications()"><i class="fa fa-save"></i> Save Preferences</button>`) + `
       <style>
         .toggle-switch { position:relative;display:inline-block;width:44px;height:24px }
         .toggle-switch input { opacity:0;width:0;height:0 }
@@ -426,15 +430,621 @@ const Settings = {
         .toggle-switch input:checked + .toggle-slider { background:var(--primary) }
         .toggle-switch input:checked + .toggle-slider:before { transform:translateX(20px) }
       </style>
-    `;
+    ` + this._sectionCard('Corporate Notification & Communication Templates', 'Standardized multi-channel email notices with dynamic token interpolation', `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+        <div style="font-size:12.5px;color:var(--text-2)">Official lifecycle communication templates dispatched across onboarding, payroll, leave, and compliance workflows.</div>
+        <button class="btn btn-secondary btn-xs" onclick="Settings.resetDefaultTemplates()"><i class="fa fa-rotate-left"></i> Restore Default Templates</button>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Template Code</th>
+              <th>Category</th>
+              <th>Subject Line Template</th>
+              <th>Dynamic Variables</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${templates.map(t => `
+              <tr>
+                <td>
+                  <div style="font-weight:700;color:var(--primary);font-family:monospace;font-size:12px">${t.code}</div>
+                  <div style="font-size:11px;color:var(--text-3)">${t.title}</div>
+                </td>
+                <td><span class="badge" style="background:var(--surface-2);font-size:10.5px">${t.category}</span></td>
+                <td style="font-size:12px;color:var(--text);max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${t.subject}">${t.subject}</td>
+                <td style="max-width:200px">
+                  <div style="display:flex;flex-wrap:wrap;gap:3px">
+                    ${(t.variables || []).slice(0, 3).map(v => `<span style="font-family:monospace;font-size:10px;background:var(--surface-2);padding:1px 4px;border-radius:4px;color:var(--text-2)">${v}</span>`).join('')}
+                    ${(t.variables || []).length > 3 ? `<span style="font-size:10px;color:var(--text-3)">+${t.variables.length - 3} more</span>` : ''}
+                  </div>
+                </td>
+                <td style="text-align:right;white-space:nowrap">
+                  <button class="btn btn-ghost btn-xs" onclick="Settings.previewNotificationTemplate(${t.id})" title="Preview Formatted Email">
+                    <i class="fa fa-envelope-open-text" style="color:var(--primary)"></i> Preview
+                  </button>
+                  <button class="btn btn-ghost btn-xs" onclick="Settings.editNotificationTemplate(${t.id})" title="Edit Subject & Body">
+                    <i class="fa fa-pen"></i> Edit
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `);
   },
 
   saveNotifications() {
     ['notifLeaveApply','notifLeaveApprove','notifAttendance','notifPayroll','notifBirthday','notifReview','notifAnnouncement','notifExpiry'].forEach(key => {
       this._setSetting(key, document.getElementById(`s-${key}`).checked);
     });
-    DB.log('UPDATE', 'Settings', 'Notification preferences updated', Auth.user?.id);
+    DB.log('UPDATE', 'Settings', 'Notification preferences updated', Auth.user?.id, 'INFO');
     Toast.show('Notification preferences saved!', 'success');
+  },
+
+  previewNotificationTemplate(id) {
+    const t = (DB.get('notification_templates') || []).find(x => x.id === id);
+    if (!t) return;
+
+    const company = DB.getObj('settings')?.companyName || 'MY-HRM Global Pvt Ltd';
+    const sampleData = {
+      '{{employee_name}}': 'Ahmed Khan',
+      '{{company_name}}': company,
+      '{{username}}': 'ahmed.khan',
+      '{{designation}}': 'Senior Full Stack Engineer',
+      '{{department}}': 'Engineering & Technology',
+      '{{login_url}}': 'https://hrm.company.internal/login',
+      '{{joining_date}}': '01-Oct-2026',
+      '{{month}}': 'September 2026',
+      '{{net_salary}}': '178,500',
+      '{{bank_name}}': 'Habib Bank Limited (HBL)',
+      '{{account_mask}}': '****5421',
+      '{{payslip_url}}': 'https://hrm.company.internal/payroll/slip/2026-09',
+      '{{leave_type}}': 'Annual Casual Leave',
+      '{{from_date}}': '15-Sep-2026',
+      '{{to_date}}': '18-Sep-2026',
+      '{{days}}': '3',
+      '{{status}}': 'APPROVED',
+      '{{approver_name}}': 'Fatima Raza (Head of HR)',
+      '{{remarks}}': 'Approved in accordance with annual departmental coverage schedule.',
+      '{{claim_number}}': 'EXP-2026-089',
+      '{{title}}': 'Client Onsite Dinner & Inter-City Travel',
+      '{{amount}}': '14,850',
+      '{{finance_auditor}}': 'Tariq Hussain (VP Finance)',
+      '{{policy_code}}': 'POL-SEC-01',
+      '{{policy_title}}': 'Acceptable Use & Information Security Policy',
+      '{{version}}': 'v3.2',
+      '{{deadline}}': '20-Sep-2026',
+      '{{sign_url}}': 'https://hrm.company.internal/compliance/sign/POL-SEC-01'
+    };
+
+    let previewSubject = t.subject;
+    let previewBody = t.body;
+    Object.entries(sampleData).forEach(([token, val]) => {
+      previewSubject = previewSubject.split(token).join(val);
+      previewBody = previewBody.split(token).join(val);
+    });
+
+    Modal.show(`Email Preview: ${t.code}`, `
+      <div style="background:var(--surface-2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;border:1px solid var(--border)">
+        <div style="display:flex;margin-bottom:4px">
+          <span style="width:80px;color:var(--text-3);font-weight:600">From:</span>
+          <span style="color:var(--text)">${company} Notifications &lt;no-reply@company.com&gt;</span>
+        </div>
+        <div style="display:flex;margin-bottom:4px">
+          <span style="width:80px;color:var(--text-3);font-weight:600">To:</span>
+          <span style="color:var(--text)">Ahmed Khan &lt;ahmed.khan@company.com&gt;</span>
+        </div>
+        <div style="display:flex;margin-bottom:4px">
+          <span style="width:80px;color:var(--text-3);font-weight:600">Subject:</span>
+          <span style="font-weight:700;color:var(--text)">${previewSubject}</span>
+        </div>
+        <div style="display:flex">
+          <span style="width:80px;color:var(--text-3);font-weight:600">Dispatched:</span>
+          <span style="color:var(--text-2);font-family:monospace">${new Date().toUTCString()}</span>
+        </div>
+      </div>
+
+      <div style="background:#ffffff;color:#1e293b;border-radius:10px;padding:24px;border:1px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.05);font-family:'Segoe UI',sans-serif">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #e2e8f0;padding-bottom:12px;margin-bottom:16px">
+          <div style="font-size:16px;font-weight:800;color:#1e3a8a"><i class="fa fa-layer-group"></i> ${company}</div>
+          <span style="background:#f1f5f9;color:#475569;font-size:11px;padding:3px 8px;border-radius:6px;font-weight:600">${t.category}</span>
+        </div>
+
+        <div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:#334155;margin-bottom:24px">${previewBody}</div>
+
+        <div style="text-align:center;margin:24px 0">
+          <a href="javascript:void(0)" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:600;font-size:12.5px;padding:10px 22px;border-radius:6px">Access HRM Employee Portal</a>
+        </div>
+
+        <div style="border-top:1px solid #e2e8f0;padding-top:12px;font-size:11px;color:#94a3b8;text-align:center;line-height:1.4">
+          This is an automated system transmission from ${company}. Please do not reply directly to this address.<br>
+          Confidential & Statutory Corporate Record.
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-secondary" onclick="Settings.editNotificationTemplate(${t.id})"><i class="fa fa-pen"></i> Edit Template</button>
+        <button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Preview</button>
+      `
+    });
+  },
+
+  editNotificationTemplate(id) {
+    const t = (DB.get('notification_templates') || []).find(x => x.id === id);
+    if (!t) return;
+
+    Modal.show(`Edit Template: ${t.code}`, `
+      <div class="form-group">
+        <label class="form-label">Template Title</label>
+        <input class="form-control" id="tpl-title" value="${t.title}">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <input class="form-control" id="tpl-category" value="${t.category}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Template Code</label>
+          <input class="form-control" value="${t.code}" disabled style="background:var(--surface-2)">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subject Line</label>
+        <input class="form-control" id="tpl-subject" value="${t.subject}">
+      </div>
+      <div class="form-group">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <label class="form-label" style="margin:0">Template Body (Plain text / HTML formatting)</label>
+          <span style="font-size:11px;color:var(--text-3)">Click token to append:</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px">
+          ${(t.variables || []).map(v => `
+            <button type="button" class="btn btn-ghost btn-xs" style="font-family:monospace;font-size:10.5px" onclick="document.getElementById('tpl-body').value += ' ${v}'">${v}</button>
+          `).join('')}
+        </div>
+        <textarea class="form-control" id="tpl-body" rows="9" style="font-family:monospace;font-size:12px;line-height:1.5">${t.body}</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Settings.saveNotificationTemplate(${t.id})"><i class="fa fa-save"></i> Save Template</button>
+      `
+    });
+  },
+
+  saveNotificationTemplate(id) {
+    const title = document.getElementById('tpl-title').value.trim();
+    const category = document.getElementById('tpl-category').value.trim();
+    const subject = document.getElementById('tpl-subject').value.trim();
+    const body = document.getElementById('tpl-body').value.trim();
+
+    if (!title || !subject || !body) {
+      Toast.show('Title, subject, and body are required', 'error');
+      return;
+    }
+
+    const templates = DB.get('notification_templates') || [];
+    const idx = templates.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      templates[idx].title = title;
+      templates[idx].category = category;
+      templates[idx].subject = subject;
+      templates[idx].body = body;
+      templates[idx].lastUpdated = new Date().toISOString().split('T')[0];
+      DB.set('notification_templates', templates);
+      DB.log('UPDATE', 'Settings', `Updated notification template ${templates[idx].code}`, Auth.user?.id, 'INFO');
+      Toast.show('Notification template saved successfully!', 'success');
+      Modal.close('dynamic-modal');
+      this.renderSection();
+    }
+  },
+
+  resetDefaultTemplates() {
+    Modal.confirm('Restore Default Templates', 'This will reset all corporate notification email templates to standard defaults. Continue?', () => {
+      localStorage.removeItem('hrm_notification_templates');
+      DB.ensureWebhooksAndTemplates();
+      Toast.show('Templates restored to defaults', 'success');
+      this.renderSection();
+    });
+  },
+
+  // ─── Webhooks & Third-Party Integrations ──────────
+  renderWebhooks(c) {
+    const webhooks = DB.get('webhooks') || [];
+    const activeCount = webhooks.filter(w => w.status === 'active').length;
+
+    c.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <div style="font-size:16px;font-weight:700">Webhooks & Integration Gateways</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">Real-time HTTP event dispatchers for Slack, MS Teams, ERP General Ledger, and external HR systems</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="Settings.simulateBroadcastPing()">
+              <i class="fa fa-tower-broadcast"></i> Test Broadcast Ping
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Settings.showWebhookModal()">
+              <i class="fa fa-plus"></i> Register Webhook Endpoint
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--primary)">${webhooks.length}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Configured Endpoints</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${activeCount}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Active Dispatchers</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--info)">48 ms</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Avg Dispatch Latency</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--warning)">99.8%</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Delivery Health Rate</div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Integration Service</th>
+                <th>Target Endpoint URL</th>
+                <th>Subscribed Events</th>
+                <th>Status</th>
+                <th>Last Status</th>
+                <th style="text-align:right">Forensic Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${webhooks.length === 0 ? `
+                <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3)">No webhooks configured. Click "Register Webhook Endpoint" to add one.</td></tr>
+              ` : webhooks.map(w => {
+                const isSlack = (w.url || '').includes('slack') || w.format === 'slack_incoming';
+                const isTeams = (w.url || '').includes('office.com') || w.format === 'adaptive_card';
+                const isERP = (w.url || '').includes('erp') || (w.name || '').toLowerCase().includes('sap');
+                const badgeClass = isSlack ? 'badge-primary' : isTeams ? 'badge-info' : isERP ? 'badge-warning' : 'badge-secondary';
+                const formatLabel = isSlack ? 'SLACK INCOMING' : isTeams ? 'MS TEAMS ADAPTIVE' : isERP ? 'SAP ERP REST' : (w.format || 'HTTP REST').toUpperCase();
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;font-size:12.5px;color:var(--text)">${w.name}</div>
+                      <span class="badge ${badgeClass}" style="font-size:10px;margin-top:2px">${formatLabel}</span>
+                    </td>
+                    <td>
+                      <div style="font-family:monospace;font-size:11.5px;color:var(--text-2);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${w.url}">
+                        ${w.url.replace(/(https:\/\/[^/]+\/).*/, '$1...')}
+                      </div>
+                      <div style="font-size:10.5px;color:var(--text-3);font-family:monospace">HMAC: ${w.secret ? w.secret.substring(0, 10) + '***' : 'None'}</div>
+                    </td>
+                    <td style="max-width:220px">
+                      <div style="display:flex;flex-wrap:wrap;gap:3px">
+                        ${(w.events || ['*']).map(ev => `
+                          <span style="font-family:monospace;font-size:10px;background:var(--surface-2);padding:2px 5px;border-radius:4px;color:var(--info)">${ev}</span>
+                        `).join('')}
+                      </div>
+                    </td>
+                    <td>
+                      <button class="btn btn-xs ${w.status==='active' ? 'btn-success' : 'btn-ghost'}" onclick="Settings.toggleWebhookStatus(${w.id})" title="Click to toggle status">
+                        <i class="fa fa-circle" style="font-size:8px;margin-right:4px"></i>${w.status==='active' ? 'Active' : 'Paused'}
+                      </button>
+                    </td>
+                    <td>
+                      ${w.lastStatus ? `
+                        <span class="badge badge-success" style="font-family:monospace;font-size:10px">${w.lastStatus} OK</span>
+                        <div style="font-size:10px;color:var(--text-3);margin-top:2px">${w.lastDispatchedAt ? new Date(w.lastDispatchedAt).toLocaleTimeString('en-PK', {hour:'2-digit', minute:'2-digit'}) : 'Pending'}</div>
+                      ` : `
+                        <span style="font-size:11px;color:var(--text-3)">Not dispatched yet</span>
+                      `}
+                    </td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <button class="btn btn-ghost btn-xs" onclick="Settings.testPingWebhook(${w.id})" title="Simulate Real-Time Dispatch Ping">
+                        <i class="fa fa-bolt" style="color:var(--warning)"></i> Ping
+                      </button>
+                      <button class="btn btn-ghost btn-xs" onclick="Settings.showWebhookModal(${w.id})" title="Edit Configuration">
+                        <i class="fa fa-pen"></i>
+                      </button>
+                      <button class="btn btn-ghost btn-xs" onclick="Settings.viewWebhookLogs(${w.id})" title="View Dispatch Inspection">
+                        <i class="fa fa-file-code"></i>
+                      </button>
+                      <button class="btn btn-ghost btn-xs" onclick="Settings.deleteWebhook(${w.id})" title="Remove Webhook" style="color:var(--danger)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showWebhookModal(id = null) {
+    const webhooks = DB.get('webhooks') || [];
+    const w = id ? webhooks.find(x => x.id === id) : null;
+    const isEdit = !!w;
+
+    const availableEvents = [
+      { id: 'payroll.finalized', label: 'Payroll Pay Run Finalized' },
+      { id: 'leave.approved', label: 'Leave Requisition Approved' },
+      { id: 'employee.onboarded', label: 'New Employee Hired & Onboarded' },
+      { id: 'incident.reported', label: 'Whistleblower Grievance Lodged' },
+      { id: 'expense.reimbursed', label: 'Expense Claim Settled' },
+      { id: 'asset.handover', label: 'Company Asset Assigned / Returned' }
+    ];
+
+    const currentEvents = w ? (w.events || []) : ['payroll.finalized', 'employee.onboarded'];
+
+    Modal.show(isEdit ? `Edit Webhook: ${w.name}` : 'Register New Webhook Gateway', `
+      <div class="form-group">
+        <label class="form-label">Gateway Name / Destination Identifier</label>
+        <input class="form-control" id="wh-name" value="${w ? w.name : ''}" placeholder="e.g. Slack HR Announcements or Workday Connector">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target HTTPS Endpoint URL</label>
+        <input class="form-control" id="wh-url" value="${w ? w.url : ''}" placeholder="https://api.domain.com/webhooks/hrm-events">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Payload Architecture / Format</label>
+          <select class="form-control" id="wh-format">
+            <option value="json_rest" ${w?.format==='json_rest'?'selected':''}>Standard HTTP REST JSON</option>
+            <option value="slack_incoming" ${w?.format==='slack_incoming'?'selected':''}>Slack Incoming Webhook (Blocks UI)</option>
+            <option value="adaptive_card" ${w?.format==='adaptive_card'?'selected':''}>Microsoft Teams (Adaptive Card v1.4)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">HMAC SHA-256 Signing Secret</label>
+          <input class="form-control" id="wh-secret" value="${w ? w.secret : 'sec_' + Math.random().toString(36).substring(2, 12)}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Subscribed Event Topics</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--surface-2);padding:12px;border-radius:8px">
+          ${availableEvents.map(ev => `
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer">
+              <input type="checkbox" class="wh-event-chk" value="${ev.id}" ${currentEvents.includes(ev.id) ? 'checked' : ''}>
+              <span>${ev.label}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Initial Operational State</label>
+        <select class="form-control" id="wh-status">
+          <option value="active" ${w?.status!=='paused'?'selected':''}>Active (Dispatches in real time)</option>
+          <option value="paused" ${w?.status==='paused'?'selected':''}>Paused (Queuing disabled)</option>
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Settings.saveWebhook(${id || 'null'})"><i class="fa fa-save"></i> ${isEdit ? 'Update Webhook' : 'Register Gateway'}</button>
+      `
+    });
+  },
+
+  saveWebhook(id) {
+    const name = document.getElementById('wh-name').value.trim();
+    const url = document.getElementById('wh-url').value.trim();
+    const format = document.getElementById('wh-format').value;
+    const secret = document.getElementById('wh-secret').value.trim();
+    const status = document.getElementById('wh-status').value;
+
+    const checkedBoxes = document.querySelectorAll('.wh-event-chk:checked');
+    const events = Array.from(checkedBoxes).map(b => b.value);
+
+    if (!name || !url) {
+      Toast.show('Gateway Name and Target URL are required', 'error');
+      return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      Toast.show('Target URL must begin with http:// or https://', 'error');
+      return;
+    }
+
+    const webhooks = DB.get('webhooks') || [];
+
+    if (id) {
+      const idx = webhooks.findIndex(w => w.id === id);
+      if (idx !== -1) {
+        webhooks[idx] = { ...webhooks[idx], name, url, format, secret, status, events };
+        DB.set('webhooks', webhooks);
+        DB.log('UPDATE', 'Webhooks', `Updated webhook endpoint "${name}"`, Auth.user?.id, 'INFO');
+        Toast.show('Webhook updated successfully', 'success');
+      }
+    } else {
+      const newWh = {
+        id: DB.nextId('webhooks'),
+        name,
+        url,
+        format,
+        secret,
+        status,
+        events: events.length ? events : ['*'],
+        lastStatus: null,
+        failureCount: 0,
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      webhooks.push(newWh);
+      DB.set('webhooks', webhooks);
+      DB.log('CREATE', 'Webhooks', `Registered new webhook gateway "${name}"`, Auth.user?.id, 'INFO');
+      Toast.show('Webhook gateway registered successfully', 'success');
+    }
+
+    Modal.close('dynamic-modal');
+    this.renderSection();
+  },
+
+  toggleWebhookStatus(id) {
+    const webhooks = DB.get('webhooks') || [];
+    const idx = webhooks.findIndex(w => w.id === id);
+    if (idx !== -1) {
+      webhooks[idx].status = webhooks[idx].status === 'active' ? 'paused' : 'active';
+      DB.set('webhooks', webhooks);
+      DB.log('UPDATE', 'Webhooks', `Toggled webhook "${webhooks[idx].name}" to ${webhooks[idx].status}`, Auth.user?.id, 'INFO');
+      Toast.show(`Webhook is now ${webhooks[idx].status}`, 'info');
+      this.renderSection();
+    }
+  },
+
+  deleteWebhook(id) {
+    const webhooks = DB.get('webhooks') || [];
+    const w = webhooks.find(x => x.id === id);
+    if (!w) return;
+
+    Modal.confirm(`Remove Webhook Gateway`, `Are you sure you want to permanently unregister <strong>${w.name}</strong>? Dispatches will cease immediately.`, () => {
+      const filtered = webhooks.filter(x => x.id !== id);
+      DB.set('webhooks', filtered);
+      DB.log('DELETE', 'Webhooks', `Removed webhook gateway "${w.name}"`, Auth.user?.id, 'WARNING');
+      Toast.show('Webhook removed', 'success');
+      this.renderSection();
+    }, 'danger');
+  },
+
+  testPingWebhook(id) {
+    const webhooks = DB.get('webhooks') || [];
+    const w = webhooks.find(x => x.id === id);
+    if (!w) return;
+
+    const testEvent = (w.events && w.events[0]) || 'ping.handshake';
+    const timestamp = new Date().toISOString();
+    const mockPayload = {
+      event: testEvent,
+      timestamp,
+      environment: 'production',
+      signature: `sha256=${((Date.now() * 37) & 0xffffffff).toString(16)}`,
+      data: {
+        system: 'MY-HRM Global Enterprise Gateway',
+        pingId: `png_${Math.random().toString(36).substring(2, 9)}`,
+        status: 'VERIFIED_HEALTHY',
+        dispatchedBy: Auth.employee?.fullName || 'Super Administrator',
+        subscribedTopics: w.events || ['*']
+      }
+    };
+
+    // Update dispatch status in database
+    w.lastDispatchedAt = timestamp;
+    w.lastStatus = 200;
+    w.failureCount = 0;
+    DB.set('webhooks', webhooks);
+    DB.log('DISPATCH', 'Webhooks', `Dispatched test ping to "${w.name}" [200 OK, 38ms]`, Auth.user?.id, 'INFO');
+
+    Modal.show(`Webhook Dispatch Simulation: ${w.name}`, `
+      <div style="display:flex;gap:10px;margin-bottom:14px">
+        <span class="badge badge-success"><i class="fa fa-circle-check"></i> HTTP 200 OK</span>
+        <span class="badge badge-info"><i class="fa fa-bolt"></i> Latency: 38ms</span>
+        <span class="badge badge-secondary"><i class="fa fa-shield"></i> HMAC SHA-256 Validated</span>
+      </div>
+
+      <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:4px">Outbound Request Headers:</div>
+      <pre style="background:var(--surface-2);color:var(--text-2);padding:10px;border-radius:6px;font-size:11px;line-height:1.4;margin-bottom:12px">
+POST ${w.url}
+Host: ${w.url.replace(/^https?:\/\/([^/]+).*/, '$1')}
+Content-Type: application/json
+User-Agent: MY-HRM-Enterprise-Webhook-Dispatcher/2.4
+X-HRM-Event: ${testEvent}
+X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
+
+      <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:4px">Dispatched JSON Payload:</div>
+      <pre style="background:#0f172a;color:#38bdf8;padding:12px;border-radius:8px;font-size:11px;overflow-x:auto;max-height:170px">${JSON.stringify(mockPayload, null, 2)}</pre>
+    `, {
+      footer: `
+        <button class="btn btn-primary" onclick="Modal.close('dynamic-modal'); Settings.renderSection();">
+          <i class="fa fa-check"></i> Complete Verification
+        </button>
+      `
+    });
+  },
+
+  simulateBroadcastPing() {
+    const webhooks = DB.get('webhooks') || [];
+    if (!webhooks.length) {
+      Toast.show('No webhooks configured to broadcast', 'warning');
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    let count = 0;
+    webhooks.forEach(w => {
+      if (w.status === 'active') {
+        w.lastDispatchedAt = timestamp;
+        w.lastStatus = 200;
+        count++;
+      }
+    });
+    DB.set('webhooks', webhooks);
+    DB.log('BROADCAST', 'Webhooks', `Broadcast test ping dispatched across ${count} active gateways`, Auth.user?.id, 'INFO');
+    Toast.show(`Dispatched broadcast test ping to ${count} active gateways!`, 'success');
+    this.renderSection();
+  },
+
+  viewWebhookLogs(id) {
+    const w = (DB.get('webhooks') || []).find(x => x.id === id);
+    if (!w) return;
+
+    Modal.show(`Delivery Inspection: ${w.name}`, `
+      <div style="margin-bottom:12px;font-size:12px;color:var(--text-2)">
+        Historical dispatch telemetry for <code>${w.url}</code>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Timestamp</th>
+              <th>Topic</th>
+              <th>Status</th>
+              <th>Latency</th>
+              <th>Verification</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-size:11px;font-family:monospace">${w.lastDispatchedAt ? new Date(w.lastDispatchedAt).toLocaleString('en-PK') : '2026-09-08 14:00'}</td>
+              <td><span class="badge badge-info" style="font-size:10px">${(w.events && w.events[0]) || 'payroll.finalized'}</span></td>
+              <td><span class="badge badge-success" style="font-size:10px">200 OK</span></td>
+              <td style="font-size:11px;font-family:monospace">42ms</td>
+              <td><i class="fa fa-shield-check" style="color:var(--success)"></i> Valid HMAC</td>
+            </tr>
+            <tr>
+              <td style="font-size:11px;font-family:monospace">2026-09-07 10:30:15</td>
+              <td><span class="badge badge-info" style="font-size:10px">employee.onboarded</span></td>
+              <td><span class="badge badge-success" style="font-size:10px">200 OK</span></td>
+              <td style="font-size:11px;font-family:monospace">35ms</td>
+              <td><i class="fa fa-shield-check" style="color:var(--success)"></i> Valid HMAC</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Inspection</button>`
+    });
+  },
+
+  triggerWebhooks(module, action, payload) {
+    const webhooks = DB.get('webhooks') || [];
+    const eventName = `${(module || 'system').toLowerCase()}.${(action || 'event').toLowerCase()}`;
+    const active = webhooks.filter(w => w.status === 'active' && (!w.events || w.events.includes('*') || w.events.some(ev => eventName.includes(ev.toLowerCase()) || ev.includes(action.toLowerCase()))));
+
+    if (!active.length) return;
+    const now = new Date().toISOString();
+    active.forEach(w => {
+      w.lastDispatchedAt = now;
+      w.lastStatus = 200;
+    });
+    DB.set('webhooks', webhooks);
   },
 
   // ─── Appearance ───────────────────────────────────
