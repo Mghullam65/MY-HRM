@@ -199,12 +199,17 @@
 ## 📦 System Modules & Capabilities
 
 1. **Dashboard & Analytics**: Real-time KPI statistics, headcount distribution, attendance trends, quick punch widget.
-2. **Employee Lifecycle**: Directory, detailed profile views, multi-tab edit wizard, qualifications, documents, and banking info.
-3. **Attendance & Timesheets**: Daily clock in/out, late arrival tracking, overtime calculation, monthly calendar.
-4. **Leave Management**: Leave quotas (Annual, Sick, Casual, Maternity), application workflow with multi-tier approval.
-5. **Payroll & Compensation**: Salary structures, allowances, tax deductions, pay slip generator with print support.
+2. **Employee Lifecycle & OrgChart**: Directory, complete profile views, interactive hierarchical OrgChart with search & zoom, document expiry compliance tracker, exit clearance & F&F settlement calculator, and automated HR letters generator (Experience, Relieving, Salary, Confirmation).
+3. **Attendance & Timesheets**: Daily clock in/out, late arrival tracking with 11:00 AM window cutoff, overtime calculation, monthly calendar, and direct 1-click bridge to payroll.
+4. **Leave Management**: Leave quotas (Annual, Sick, Casual, Maternity, LOP), application workflow with multi-tier approval.
+5. **Payroll, Taxation & Banking (Finance Act 2024–2026)**:
+   - Progressive FBR Income Tax Engine with live simulator and Section 149 Withholding Tax Certificates.
+   - 1-Click Attendance-to-Payroll Bridge (auto-calculates LOP, late check-in penalties, and overtime).
+   - Corporate Bank Advice file generator (HBL, MCB, UBL, Meezan, ABL) with printable executive authority letters.
+   - Statutory compliance ledgers (EOBI, SESSI/PESSI, and Gratuity Liability Reserve Pool).
+   - Payslip generator with PDF print and CSV export support.
 6. **Performance & OKRs**: Objectives, KPIs, self-evaluations, supervisor appraisals, and performance ratings.
-7. **Recruitment & ATS**: Job vacancy postings, applicant pipeline stages (Screening, Interview, Offer, Hired).
+7. **Recruitment & ATS**: Job vacancy postings, applicant pipeline stages (Screening, Interview, Offer, Hired) with 1-click candidate-to-employee onboarding.
 8. **Company Noticeboard & Events**: Corporate events calendar, public holidays, official broadcasts.
 9. **Administration & RBAC**: Branches, departments, designations, shifts, user accounts, and audit log viewer.
 10. **System Settings**: Localization, currency, company branding, dark/light theme toggle, JSON backup & restore.
@@ -213,14 +218,22 @@
 
 ## 🔮 Future Roadmap & Changelog
 
-*This section will automatically track upcoming features, company customizations, and improvements:*
+*This section automatically tracks upcoming features, company customizations, and improvements:*
 
-- [ ] **Custom Company Branding**: Configure official company name, logo, contact information, and primary brand colors.
-- [ ] **Real Employee Data Import**: CSV/Excel bulk import tool to onboard company staff in one click.
-- [ ] **Email Notifications (SMTP)**: Automated email alerts for leave requests, approvals, and monthly salary disbursement.
-- [ ] **PDF Payslips & Offer Letters**: Downloadable branded PDF generation with company seal.
-- [ ] **Biometric Machine Sync**: Webhook/API listener for ZKTeco and standard fingerprint/RFID attendance hardware.
+- [x] **Interactive Organizational Chart (OrgChart)**: Dynamic tree visualization with search, zoom, and direct profile navigation *(Completed in Batch 1)*.
+- [x] **Document Expiry & Compliance Tracker**: Alerts for CNIC, Passports, Driving Licenses, and Visas with renewal wizard *(Completed in Batch 1)*.
+- [x] **Exit Clearance & Full & Final (F&F) Settlement Engine**: 4-Department clearance checklist and automated financial settlement statement *(Completed in Batch 1)*.
+- [x] **Automated HR Letters Engine**: Experience, Relieving, Salary Certificate for Visa/Loans, and Confirmation with print-ready letterhead *(Completed in Batch 1)*.
+- [x] **1-Click ATS Onboarding**: Direct conversion from applicant pipeline to employee record *(Completed in Batch 1)*.
+- [x] **Pakistani FBR Income Tax Engine (Finance Act 2024–2026)**: 6 Progressive slabs, tax simulator, and Section 149 Tax Certificates *(Completed in Batch 2)*.
+- [x] **Direct Attendance-to-Payroll Bridge**: 1-click sync importing LOP deductions, late check-in penalties, and approved overtime *(Completed in Batch 2)*.
+- [x] **Corporate Bank Advice File Generator**: Multi-bank bulk payout export (HBL, MCB, UBL, Meezan, ABL) and official Bank Authority Letter *(Completed in Batch 2)*.
+- [x] **Statutory Benefit Ledgers**: EOBI, SESSI/PESSI, and Gratuity Defined Benefit Liability Pool *(Completed in Batch 2)*.
+- [ ] **Batch 3: Time, Attendance & Field Operations**: Geo-fencing, IP whitelisting, rotational shifts & shift swap requests, biometric hardware API listeners / ZKTeco log parser.
+- [ ] **Batch 4: Talent, LMS & Performance Management**: 360-degree peer reviews, Learning Management System (LMS) with certifications, 9-box succession grid.
+- [ ] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing.
 
 ---
 
 *File automatically maintained and synchronized with the repository.*
+
