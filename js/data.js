@@ -16,6 +16,7 @@ const DB = {
       this.ensureExitClearances();
       this.ensureHRLetters();
       this.ensureTaxAndStatutoryData();
+      this.ensureRosterAndGeofenceData();
       return;
     }
     this.seed();
@@ -28,6 +29,7 @@ const DB = {
     this.ensureExitClearances();
     this.ensureHRLetters();
     this.ensureTaxAndStatutoryData();
+    this.ensureRosterAndGeofenceData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -846,6 +848,151 @@ const DB = {
         };
       });
       this.set('gratuity_pool', gratuityPool);
+    }
+  },
+
+  calculateGeoDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371000; // Radius of the Earth in meters
+    const toRad = deg => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return Math.round(R * c); // Distance in meters
+  },
+
+  ensureRosterAndGeofenceData() {
+    // 1. Branch Geofences
+    let geofences = this.get('branch_geofences');
+    if (!geofences || !geofences.length) {
+      geofences = [
+        {
+          id: 1, branchId: 1, branchName: 'Karachi Head Office',
+          latitude: 24.8607, longitude: 67.0011, radiusMeters: 200,
+          ipRange: '192.168.1.0/24, 115.186.140.0/24',
+          enforceGeo: true, enforceIP: true, status: 'active',
+          address: 'Plot 12, Block B, PECHS, Karachi'
+        },
+        {
+          id: 2, branchId: 2, branchName: 'Lahore Tech Center',
+          latitude: 31.5204, longitude: 74.3587, radiusMeters: 250,
+          ipRange: '192.168.2.0/24, 115.186.141.0/24',
+          enforceGeo: true, enforceIP: true, status: 'active',
+          address: 'Gulberg III, Main Boulevard, Lahore'
+        },
+        {
+          id: 3, branchId: 3, branchName: 'Islamabad Executive Branch',
+          latitude: 33.6844, longitude: 73.0479, radiusMeters: 200,
+          ipRange: '192.168.3.0/24, 115.186.142.0/24',
+          enforceGeo: true, enforceIP: false, status: 'active',
+          address: 'Floor 7, Executive Tower, Blue Area, Islamabad'
+        }
+      ];
+      this.set('branch_geofences', geofences);
+    }
+
+    // 2. Biometric Devices
+    let devices = this.get('biometric_devices');
+    if (!devices || !devices.length) {
+      devices = [
+        { id: 1, name: 'ZKTeco-01 Main Lobby', serial: 'ZK-MB20-KHI-01', ip: '192.168.1.201', port: 4370, branchId: 1, location: 'Ground Floor Reception', status: 'online', lastSync: new Date().toISOString(), model: 'ZKTeco SilkBio-101TC (Face + Fingerprint)' },
+        { id: 2, name: 'ZKTeco-02 Engineering Wing', serial: 'ZK-IN05-LHE-02', ip: '192.168.2.201', port: 4370, branchId: 2, location: 'Floor 2 Entry Gate', status: 'online', lastSync: new Date().toISOString(), model: 'ZKTeco IN05-A (RFID + Biometric)' },
+        { id: 3, name: 'ZKTeco-03 Executive Suites', serial: 'ZK-KF50-ISB-03', ip: '192.168.3.201', port: 4370, branchId: 3, location: 'Floor 7 Turnstile', status: 'online', lastSync: new Date().toISOString(), model: 'ZKTeco ProCapture-X' }
+      ];
+      this.set('biometric_devices', devices);
+    }
+
+    // 3. Shift Roster for current month and next 7 days
+    let roster = this.get('shift_roster');
+    if (!roster || !roster.length) {
+      roster = [];
+      const emps = (this.get('employees') || []).filter(e => e.status === 'active');
+      const today = new Date();
+      let rosterId = 1;
+
+      // Seed for current window (-3 to +7 days)
+      for (let offset = -3; offset <= 7; offset++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + offset);
+        const dateStr = d.toISOString().split('T')[0];
+        const dayOfWeek = d.getDay(); // 0 is Sunday, 6 is Saturday
+
+        emps.forEach(e => {
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          let shiftId = e.shiftId || 1;
+
+          // Introduce rotational variation across support & IT
+          if (e.departmentId === 8 || e.departmentId === 2) {
+            if (e.id % 3 === 0) shiftId = 2; // Evening
+            else if (e.id % 5 === 0) shiftId = 3; // Night
+            else shiftId = 1; // Morning
+          }
+
+          roster.push({
+            id: rosterId++,
+            employeeId: e.id,
+            date: dateStr,
+            shiftId: isWeekend ? null : shiftId,
+            isOff: isWeekend,
+            status: isWeekend ? 'weekend' : 'scheduled',
+            notes: isWeekend ? 'Weekly Rest Day' : ''
+          });
+        });
+      }
+      this.set('shift_roster', roster);
+    }
+
+    // 4. Shift Swaps
+    let swaps = this.get('shift_swaps');
+    if (!swaps || !swaps.length) {
+      swaps = [
+        {
+          id: 1,
+          requesterId: 4, // Fatima Raza
+          targetEmployeeId: 9, // Tariq Hussain
+          date: '2026-09-12',
+          requestedShiftId: 2, // Wants Evening shift
+          targetShiftId: 1,    // Fatima offers Morning shift
+          reason: 'Family appointment in the morning; willing to cover evening shift for Tariq',
+          status: 'pending_peer', // Pending Tariq's consent
+          createdAt: '2026-09-08T10:15:00Z',
+          peerRespondedAt: null,
+          managerApprovedAt: null,
+          managerRemarks: ''
+        },
+        {
+          id: 2,
+          requesterId: 7, // Bilal Qureshi (Sales)
+          targetEmployeeId: 14, // Sana Ijaz
+          date: '2026-09-15',
+          requestedShiftId: 1, // Wants Morning
+          targetShiftId: 2,    // Offers Evening
+          reason: 'Doctor scheduled visit in late afternoon',
+          status: 'peer_accepted', // Sana accepted; pending Manager approval
+          createdAt: '2026-09-07T14:30:00Z',
+          peerRespondedAt: '2026-09-07T16:00:00Z',
+          managerApprovedAt: null,
+          managerRemarks: ''
+        },
+        {
+          id: 3,
+          requesterId: 13, // Omar Farhan
+          targetEmployeeId: 25, // Sehar Nawaz
+          date: '2026-09-02',
+          requestedShiftId: 2,
+          targetShiftId: 1,
+          reason: 'University exam revision class in morning',
+          status: 'approved',
+          createdAt: '2026-09-01T09:00:00Z',
+          peerRespondedAt: '2026-09-01T11:00:00Z',
+          managerApprovedAt: '2026-09-01T15:30:00Z',
+          managerRemarks: 'Approved by Usman Baig (Deputy Manager).'
+        }
+      ];
+      this.set('shift_swaps', swaps);
     }
   },
 
