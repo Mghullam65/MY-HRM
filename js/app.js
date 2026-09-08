@@ -161,9 +161,10 @@ const App = {
           <i class="fa fa-clock-rotate-left"></i>
         </button>
         <div style="position:relative">
-          <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications">
+          <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative">
             <i class="fa fa-bell"></i>
             <span class="badge-dot" id="notif-badge-dot"></span>
+            <span id="notif-badge-pill" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#ffffff;font-size:9.5px;font-weight:800;border-radius:10px;padding:1px 5px;line-height:1.2;box-shadow:0 0 6px rgba(239,68,68,0.7)"></span>
           </button>
           <div class="notif-dropdown" id="notif-dropdown" style="width:360px">
             <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
@@ -206,7 +207,7 @@ const App = {
     // 1. Targeted Direct Notifications from Senior Roles (CNIC expiries, HR letters, policy mandates)
     const allUserNotifs = DB.get('user_notifications') || [];
     const targetedNotifs = allUserNotifs.filter(n => {
-      if (n.recipientEmpId && n.recipientEmpId === myEmpId) return true;
+      if (n.recipientEmpId && parseInt(n.recipientEmpId) === parseInt(myEmpId)) return true;
       if (!n.recipientEmpId && n.recipientRole === role) return true;
       return false;
     });
@@ -234,6 +235,36 @@ const App = {
         sender: n.senderName
       });
     });
+
+    // 1b. Direct Automatic Identity & CNIC Expiry Alerts for Logged-In Employee
+    if (role === 'employee' && myEmpId) {
+      const myDocs = (DB.get('document_expiries') || []).filter(d => parseInt(d.employeeId) === parseInt(myEmpId));
+      const today = new Date();
+      myDocs.forEach(d => {
+        const exp = new Date(d.expiryDate);
+        const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+        if (diffDays <= 30 || d.status === 'expired' || d.status === 'urgent') {
+          const alreadyNotified = notifs.some(n => n.text && n.text.includes(d.docType));
+          if (!alreadyNotified) {
+            const daysText = diffDays < 0 ? `EXPIRED ${Math.abs(diffDays)} day(s) ago!` : `expires in ${diffDays} day(s) on ${Utils.formatDate(d.expiryDate)}`;
+            notifs.unshift({
+              id: 'auto_exp_' + d.id,
+              isUserNotif: true,
+              unread: true,
+              color: 'var(--danger)',
+              icon: 'fa-id-card-clip',
+              text: `⚠️ Action Required: Renew ${d.docType} (${d.docNumber})`,
+              sub: `Your ${d.docType} ${daysText}. Please renew through NADRA and upload your renewed attested smart copy to your e-DMS Vault.`,
+              actionUrl: 'employees',
+              subView: 'edms',
+              actionLabel: 'Upload Renewed ' + d.docType,
+              time: 'Urgent compliance',
+              sender: 'HR Compliance Directorate'
+            });
+          }
+        }
+      });
+    }
 
     // 2. Pending leaves for approvers
     if (role === 'superadmin' || role === 'hr_manager' || role === 'dept_manager') {
@@ -289,10 +320,19 @@ const App = {
     const unreadUserCount = targetedNotifs.filter(n => !n.read).length;
     const totalCount = notifs.length;
     const badge = document.getElementById('notif-badge-dot');
+    const pill = document.getElementById('notif-badge-pill');
     const countEl = document.getElementById('notif-count');
     const listEl = document.getElementById('notif-list');
 
     if (badge) badge.style.display = (unreadUserCount > 0 || totalCount > 0) ? 'block' : 'none';
+    if (pill) {
+      if (unreadUserCount > 0) {
+        pill.style.display = 'inline-block';
+        pill.textContent = unreadUserCount;
+      } else {
+        pill.style.display = 'none';
+      }
+    }
     if (countEl) countEl.textContent = unreadUserCount > 0 ? unreadUserCount : totalCount;
     if (listEl) {
       listEl.innerHTML = totalCount === 0
@@ -300,7 +340,7 @@ const App = {
         : notifs.map(n => {
             if (n.isUserNotif) {
               return `
-                <div class="notif-item ${n.unread ? 'notif-unread' : ''}" style="${n.unread ? 'background:rgba(99,102,241,0.06);border-left:3px solid ' + n.color + ';' : 'border-bottom:1px solid var(--border);'}padding:12px 14px;cursor:pointer;transition:background 0.2s" onclick="App.handleNotificationClick(${n.id}, '${n.actionUrl}', '${n.subView || ''}')">
+                <div class="notif-item ${n.unread ? 'notif-unread' : ''}" style="${n.unread ? 'background:rgba(99,102,241,0.06);border-left:3px solid ' + n.color + ';' : 'border-bottom:1px solid var(--border);'}padding:12px 14px;cursor:pointer;transition:background 0.2s" onclick="App.handleNotificationClick('${n.id}', '${n.actionUrl}', '${n.subView || ''}')">
                   <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
                     <div class="notif-dot" style="background:${n.color};margin-top:4px"></div>
                     <div style="flex:1">
@@ -335,11 +375,13 @@ const App = {
   },
 
   handleNotificationClick(notifId, module, subView) {
-    const notifs = DB.get('user_notifications') || [];
-    const n = notifs.find(x => x.id === notifId);
-    if (n) {
-      n.read = true;
-      DB.set('user_notifications', notifs);
+    if (notifId && !String(notifId).startsWith('auto_')) {
+      const notifs = DB.get('user_notifications') || [];
+      const n = notifs.find(x => x.id === parseInt(notifId) || String(x.id) === String(notifId));
+      if (n) {
+        n.read = true;
+        DB.set('user_notifications', notifs);
+      }
     }
     this.refreshNotifications();
     const dropdown = document.getElementById('notif-dropdown');
@@ -363,7 +405,7 @@ const App = {
     const myRole = Auth.role;
     const notifs = DB.get('user_notifications') || [];
     notifs.forEach(n => {
-      if ((n.recipientEmpId && n.recipientEmpId === myEmpId) || (!n.recipientEmpId && n.recipientRole === myRole)) {
+      if ((n.recipientEmpId && parseInt(n.recipientEmpId) === parseInt(myEmpId)) || (!n.recipientEmpId && n.recipientRole === myRole)) {
         n.read = true;
       }
     });

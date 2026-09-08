@@ -630,7 +630,7 @@ const Dashboard = {
     // 5b. Urgent Expiring Documents & CNIC Expiry Notices (for current user)
     const docExpiries = DB.get('document_expiries') || [];
     const todayDate = new Date();
-    docExpiries.filter(d => d.employeeId === myId).forEach(d => {
+    docExpiries.filter(d => parseInt(d.employeeId) === parseInt(myId)).forEach(d => {
       const exp = new Date(d.expiryDate);
       const diffDays = Math.ceil((exp - todayDate) / (1000 * 60 * 60 * 24));
       if (diffDays <= 30 || d.status === 'expired' || d.status === 'urgent') {
@@ -649,20 +649,34 @@ const Dashboard = {
       }
     });
 
-    // 5c. Targeted Unread Notifications from Senior Roles
+    // 5c. Targeted Unread Notifications from Senior Roles (CNIC, HR Letters, Policy Directives)
     const userNotifs = DB.get('user_notifications') || [];
-    userNotifs.filter(n => (n.recipientEmpId === myId || (!n.recipientEmpId && n.recipientRole === role)) && !n.read && n.type === 'hr_letter').forEach(n => {
-      actions.push({
-        type: 'hr_letter',
-        tag: 'OFFICIAL DOCUMENT',
-        icon: 'fa-file-signature',
-        color: 'var(--info)',
-        title: n.title,
-        sub: `${n.senderName || 'HR'} • Ready for download & print`,
-        actions: `
-          <button class="btn btn-info btn-xs" onclick="App.handleNotificationClick(${n.id}, 'employees', 'hr_letters')"><i class="fa fa-eye"></i> View Letter</button>
-        `
-      });
+    userNotifs.filter(n => (parseInt(n.recipientEmpId) === parseInt(myId) || (!n.recipientEmpId && n.recipientRole === role)) && !n.read).forEach(n => {
+      if (n.type === 'hr_letter') {
+        actions.push({
+          type: 'hr_letter',
+          tag: 'OFFICIAL DOCUMENT',
+          icon: 'fa-file-signature',
+          color: 'var(--info)',
+          title: n.title,
+          sub: `${n.senderName || 'HR'} • Ready for download & print`,
+          actions: `
+            <button class="btn btn-info btn-xs" onclick="App.handleNotificationClick('${n.id}', 'employees', 'hr_letters')"><i class="fa fa-eye"></i> View Letter</button>
+          `
+        });
+      } else if (n.type === 'doc_expiry' && !actions.some(a => a.type === 'doc_expiry')) {
+        actions.unshift({
+          type: 'doc_expiry',
+          tag: 'IDENTITY & CNIC COMPLIANCE',
+          icon: 'fa-id-card-clip',
+          color: 'var(--danger)',
+          title: n.title,
+          sub: n.message,
+          actions: `
+            <button class="btn btn-danger btn-xs" onclick="App.handleNotificationClick('${n.id}', 'employees', 'edms')"><i class="fa fa-upload"></i> Upload to e-DMS</button>
+          `
+        });
+      }
     });
 
     // 6. Pending Life Event Verifications (for Super Admin & HR Manager)

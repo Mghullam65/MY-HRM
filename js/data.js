@@ -508,8 +508,21 @@ const DB = {
       ];
       this.set('document_expiries', docs);
     } else {
-      const cnic4 = docs.find(d => d.employeeId === 4 && d.docType === 'CNIC');
-      if (cnic4) {
+      let cnic4 = docs.find(d => parseInt(d.employeeId) === 4 && d.docType === 'CNIC');
+      if (!cnic4) {
+        docs.push({
+          id: docs.length ? Math.max(...docs.map(x => x.id)) + 1 : 14,
+          employeeId: 4,
+          docType: 'CNIC',
+          docNumber: '42201-4567890-4',
+          issueDate: '2016-09-28',
+          expiryDate: '2026-09-28',
+          issuingAuthority: 'NADRA Clifton',
+          notes: 'CRITICAL: Smart CNIC expiring in under 20 days! Renewal required.',
+          status: 'urgent'
+        });
+        this.set('document_expiries', docs);
+      } else {
         cnic4.expiryDate = '2026-09-28';
         cnic4.status = 'urgent';
         this.set('document_expiries', docs);
@@ -2595,60 +2608,69 @@ const DB = {
   },
 
   ensureUserNotifications() {
-    let notifs = this.get('user_notifications');
-    if (!notifs || !notifs.length) {
-      notifs = [
-        {
-          id: 1,
-          recipientEmpId: 4, // Fatima Raza (Employee demo account)
-          recipientRole: 'employee',
-          senderRole: 'hr_manager',
-          senderName: 'Sara Malik (HR Manager)',
-          type: 'doc_expiry',
-          priority: 'urgent',
-          title: '⚠️ Urgent: NADRA CNIC Expiry Notice (Renewal Required)',
-          message: 'Your NADRA CNIC (No: 42201-4567890-4) will expire on 2026-09-28 (in 20 days). Please initiate NADRA renewal and upload your renewed attested smart copy to your e-DMS Document Vault.',
-          actionUrl: 'employees',
-          subView: 'edms',
-          actionLabel: 'Upload Renewed CNIC',
-          read: false,
-          createdAt: '2026-09-08T09:30:00Z'
-        },
-        {
-          id: 2,
-          recipientEmpId: 4, // Fatima Raza
-          recipientRole: 'employee',
-          senderRole: 'hr_manager',
-          senderName: 'Sara Malik (HR Operations)',
-          type: 'hr_letter',
-          priority: 'normal',
-          title: '📄 Official HR Document Issued: Employment Confirmation Letter',
-          message: 'Human Resources has generated and officially signed your Employment Confirmation Letter (Ref: HRM/CON/2026/001). You can inspect and download your signed certificate.',
-          actionUrl: 'employees',
-          subView: 'hr_letters',
-          actionLabel: 'Download Letter',
-          read: false,
-          createdAt: '2026-09-07T14:15:00Z'
-        },
-        {
-          id: 3,
-          recipientEmpId: 3, // Usman Baig (Dept Manager)
-          recipientRole: 'dept_manager',
-          senderRole: 'superadmin',
-          senderName: 'Ahmed Khan (Super Admin)',
-          type: 'policy_mandate',
-          priority: 'high',
-          title: '🛡️ Compliance Mandate: IT Security & Remote Access Policy v2.4',
-          message: 'All Department Leads and engineering teams are required to execute electronic acknowledgment of the revised IT Security & Acceptable Use Policy before September 15.',
-          actionUrl: 'events',
-          subView: 'policies',
-          actionLabel: 'Review & E-Sign',
-          read: false,
-          createdAt: '2026-09-06T11:00:00Z'
-        }
-      ];
-      this.set('user_notifications', notifs);
+    let notifs = this.get('user_notifications') || [];
+
+    // Ensure Fatima Raza (id 4) has her urgent CNIC expiry reminder
+    if (!notifs.some(n => parseInt(n.recipientEmpId) === 4 && n.type === 'doc_expiry')) {
+      notifs.unshift({
+        id: notifs.length ? Math.max(...notifs.map(x => x.id || 0)) + 1 : 1,
+        recipientEmpId: 4, // Fatima Raza (Employee demo account)
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: 'Sara Malik (HR Manager)',
+        type: 'doc_expiry',
+        priority: 'urgent',
+        title: '⚠️ Urgent: NADRA CNIC Expiry Notice (Renewal Required)',
+        message: 'Your NADRA CNIC (No: 42201-4567890-4) will expire on 2026-09-28 (in 20 days). Please initiate NADRA renewal and upload your renewed attested smart copy to your e-DMS Document Vault.',
+        actionUrl: 'employees',
+        subView: 'edms',
+        actionLabel: 'Upload Renewed CNIC',
+        read: false,
+        createdAt: '2026-09-08T09:30:00Z'
+      });
     }
+
+    // Ensure Fatima Raza (id 4) has her official HR letter notification
+    if (!notifs.some(n => parseInt(n.recipientEmpId) === 4 && n.type === 'hr_letter')) {
+      notifs.unshift({
+        id: notifs.length ? Math.max(...notifs.map(x => x.id || 0)) + 1 : 2,
+        recipientEmpId: 4, // Fatima Raza
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: 'Sara Malik (HR Operations)',
+        type: 'hr_letter',
+        priority: 'normal',
+        title: '📄 Official HR Document Issued: Employment Confirmation Letter',
+        message: 'Human Resources has generated and officially signed your Employment Confirmation Letter (Ref: HRM/CON/2026/001). You can inspect and download your signed certificate.',
+        actionUrl: 'employees',
+        subView: 'hr_letters',
+        actionLabel: 'Download Letter',
+        read: false,
+        createdAt: '2026-09-07T14:15:00Z'
+      });
+    }
+
+    // Ensure Dept Manager (id 3) has policy mandate
+    if (!notifs.some(n => parseInt(n.recipientEmpId) === 3 && n.type === 'policy_mandate')) {
+      notifs.unshift({
+        id: notifs.length ? Math.max(...notifs.map(x => x.id || 0)) + 1 : 3,
+        recipientEmpId: 3, // Usman Baig (Dept Manager)
+        recipientRole: 'dept_manager',
+        senderRole: 'superadmin',
+        senderName: 'Ahmed Khan (Super Admin)',
+        type: 'policy_mandate',
+        priority: 'high',
+        title: '🛡️ Compliance Mandate: IT Security & Remote Access Policy v2.4',
+        message: 'All Department Leads and engineering teams are required to execute electronic acknowledgment of the revised IT Security & Acceptable Use Policy before September 15.',
+        actionUrl: 'events',
+        subView: 'policies',
+        actionLabel: 'Review & E-Sign',
+        read: false,
+        createdAt: '2026-09-06T11:00:00Z'
+      });
+    }
+
+    this.set('user_notifications', notifs);
   },
 
   reset() {
