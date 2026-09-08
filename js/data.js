@@ -15,6 +15,7 @@ const DB = {
       this.ensureDocumentExpiries();
       this.ensureExitClearances();
       this.ensureHRLetters();
+      this.ensureTaxAndStatutoryData();
       return;
     }
     this.seed();
@@ -26,6 +27,7 @@ const DB = {
     this.ensureDocumentExpiries();
     this.ensureExitClearances();
     this.ensureHRLetters();
+    this.ensureTaxAndStatutoryData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -674,6 +676,176 @@ const DB = {
         }
       ];
       this.set('hr_letters', letters);
+    }
+  },
+
+  calculateFBRTax(monthlyIncome) {
+    const annualIncome = Math.max(0, Number(monthlyIncome) || 0) * 12;
+    let annualTax = 0;
+    let slabDesc = 'Slab 1 (Up to PKR 600K: 0%)';
+    let slabId = 1;
+
+    if (annualIncome <= 600000) {
+      annualTax = 0;
+      slabDesc = 'Slab 1 (Up to PKR 600,000: 0%)';
+      slabId = 1;
+    } else if (annualIncome <= 1200000) {
+      annualTax = (annualIncome - 600000) * 0.05;
+      slabDesc = 'Slab 2 (PKR 600K - 1.2M: 5% of excess)';
+      slabId = 2;
+    } else if (annualIncome <= 2200000) {
+      annualTax = 30000 + (annualIncome - 1200000) * 0.15;
+      slabDesc = 'Slab 3 (PKR 1.2M - 2.2M: PKR 30K + 15%)';
+      slabId = 3;
+    } else if (annualIncome <= 3200000) {
+      annualTax = 180000 + (annualIncome - 2200000) * 0.25;
+      slabDesc = 'Slab 4 (PKR 2.2M - 3.2M: PKR 180K + 25%)';
+      slabId = 4;
+    } else if (annualIncome <= 4100000) {
+      annualTax = 430000 + (annualIncome - 3200000) * 0.30;
+      slabDesc = 'Slab 5 (PKR 3.2M - 4.1M: PKR 430K + 30%)';
+      slabId = 5;
+    } else {
+      annualTax = 700000 + (annualIncome - 4100000) * 0.35;
+      slabDesc = 'Slab 6 (Above PKR 4.1M: PKR 700K + 35%)';
+      slabId = 6;
+    }
+
+    const monthlyTax = Math.round(annualTax / 12);
+    const effectiveRate = annualIncome > 0 ? ((annualTax / annualIncome) * 100).toFixed(2) : 0;
+
+    return {
+      annualIncome,
+      annualTax: Math.round(annualTax),
+      monthlyTax,
+      slabDesc,
+      slabId,
+      effectiveRate
+    };
+  },
+
+  ensureTaxAndStatutoryData() {
+    // 1. Ensure tax_config
+    let config = this.get('tax_config');
+    if (!config || !config.slabs) {
+      config = {
+        financialYear: '2024–2026',
+        act: 'Finance Act 2024 / FBR SRO',
+        statutoryMinWage: 37000,
+        slabs: [
+          { slab: 1, min: 0, max: 600000, rate: 0, fixed: 0, desc: 'Up to PKR 600,000 (Tax Free)' },
+          { slab: 2, min: 600000, max: 1200000, rate: 0.05, fixed: 0, desc: '5% of amount exceeding PKR 600,000' },
+          { slab: 3, min: 1200000, max: 2200000, rate: 0.15, fixed: 30000, desc: 'PKR 30,000 + 15% of amount exceeding PKR 1,200,000' },
+          { slab: 4, min: 2200000, max: 3200000, rate: 0.25, fixed: 180000, desc: 'PKR 180,000 + 25% of amount exceeding PKR 2,200,000' },
+          { slab: 5, min: 3200000, max: 4100000, rate: 0.30, fixed: 430000, desc: 'PKR 430,000 + 30% of amount exceeding PKR 3,200,000' },
+          { slab: 6, min: 4100000, max: Infinity, rate: 0.35, fixed: 700000, desc: 'PKR 700,000 + 35% of amount exceeding PKR 4,100,000' }
+        ],
+        eobi: { employerRate: 0.05, employeeRate: 0.01, wageBase: 37000, employerAmt: 1850, employeeAmt: 370, totalAmt: 2220 },
+        sessi: { employerRate: 0.06, employeeRate: 0, wageBase: 37000, employerAmt: 2220, employeeAmt: 0, totalAmt: 2220 },
+        gratuity: { formula: '1 Month Basic Salary x Completed Years of Service (Minimum 1 Year Required)' }
+      };
+      this.set('tax_config', config);
+    }
+
+    // 2. Ensure salary records have accurate FBR tax calculated
+    const salaries = this.get('salary') || [];
+    let salUpdated = false;
+    salaries.forEach(s => {
+      const gross = (s.basic || 0) + (s.allowances || 0);
+      const taxCalc = this.calculateFBRTax(gross);
+      if (s.tax !== taxCalc.monthlyTax) {
+        s.tax = taxCalc.monthlyTax;
+        s.netSalary = Math.round((s.basic || 0) + (s.allowances || 0) + (s.overtime || 0) + (s.bonus || 0) - (s.deductions || 0) - s.tax);
+        salUpdated = true;
+      }
+    });
+    if (salUpdated) {
+      this.set('salary', salaries);
+    }
+
+    // 3. Ensure EOBI ledger
+    let eobiLedger = this.get('eobi_ledger');
+    if (!eobiLedger || !eobiLedger.length) {
+      const emps = (this.get('employees') || []).filter(e => e.status === 'active');
+      const months = ['2026-07', '2026-08', '2026-09'];
+      eobiLedger = [];
+      let nextEobiId = 1;
+      months.forEach(m => {
+        emps.forEach(e => {
+          eobiLedger.push({
+            id: nextEobiId++,
+            employeeId: e.id,
+            month: m,
+            eobiNo: `EOBI-${String(100000 + e.id * 142)}-PK`,
+            wageBase: 37000,
+            employeeShare: 370,
+            employerShare: 1850,
+            totalContribution: 2220,
+            status: m === '2026-09' ? 'pending_deposit' : 'deposited',
+            depositSlipNo: m === '2026-09' ? null : `NBP-EOBI-CH-${m.replace('-','')}-${String(e.id).padStart(3,'0')}`,
+            depositDate: m === '2026-09' ? null : `${m}-28`
+          });
+        });
+      });
+      this.set('eobi_ledger', eobiLedger);
+    }
+
+    // 4. Ensure SESSI / PESSI ledger
+    let sessiLedger = this.get('sessi_ledger');
+    if (!sessiLedger || !sessiLedger.length) {
+      const emps = (this.get('employees') || []).filter(e => e.status === 'active');
+      const months = ['2026-07', '2026-08', '2026-09'];
+      sessiLedger = [];
+      let nextSessiId = 1;
+      months.forEach(m => {
+        emps.forEach(e => {
+          const isSindh = e.branchId === 1 || e.branchId === 2;
+          sessiLedger.push({
+            id: nextSessiId++,
+            employeeId: e.id,
+            month: m,
+            institution: isSindh ? 'SESSI (Sindh)' : 'PESSI (Punjab)',
+            socialSecurityNo: `SS-${isSindh ? 'KHI' : 'LHE'}-${String(88000 + e.id * 19)}`,
+            wageBase: 37000,
+            employerContribution: 2220,
+            employeeContribution: 0,
+            status: m === '2026-09' ? 'pending_deposit' : 'deposited',
+            paymentChallanNo: m === '2026-09' ? null : `NBP-${isSindh ? 'SESSI' : 'PESSI'}-${m.replace('-','')}-${String(e.id).padStart(3,'0')}`,
+            paymentDate: m === '2026-09' ? null : `${m}-29`
+          });
+        });
+      });
+      this.set('sessi_ledger', sessiLedger);
+    }
+
+    // 5. Ensure Gratuity Liability Pool
+    let gratuityPool = this.get('gratuity_pool');
+    if (!gratuityPool || !gratuityPool.length) {
+      const emps = (this.get('employees') || []).filter(e => e.status === 'active');
+      const now = new Date('2026-09-08');
+      gratuityPool = emps.map((e, idx) => {
+        const join = new Date(e.joiningDate || '2023-01-01');
+        const diffYears = (now - join) / (1000 * 60 * 60 * 24 * 365.25);
+        const completedYears = Math.floor(diffYears);
+        const basicSalary = Math.round(Number(e.salary || 60000) * 0.65); // Standard 65% basic ratio
+        const accruedGratuity = completedYears >= 1 ? completedYears * basicSalary : 0;
+        const monthlyAccrualProvision = Math.round(basicSalary / 12);
+
+        return {
+          id: idx + 1,
+          employeeId: e.id,
+          joiningDate: e.joiningDate,
+          completedYears,
+          exactTenureYears: diffYears.toFixed(1),
+          basicSalary,
+          eligible: completedYears >= 1,
+          accruedLiability: accruedGratuity,
+          monthlyProvision: monthlyAccrualProvision,
+          vestingPercentage: completedYears >= 1 ? 100 : 0,
+          fundedStatus: '100% Fully Provisioned'
+        };
+      });
+      this.set('gratuity_pool', gratuityPool);
     }
   },
 
