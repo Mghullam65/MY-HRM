@@ -1702,14 +1702,17 @@ const Recruitment = {
     const jobs = DB.get('recruitment') || [];
     const apps = DB.get('applications') || [];
     const offers = DB.get('offer_letters') || [];
+    const reqs = DB.get('job_requisitions') || [];
+    const pendingReqs = reqs.filter(r => r.status === 'pending_review').length;
     const isHR = this.isHROrAdmin();
 
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Recruitment Top KPI Banner -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
           ${[
             { label:'Open Positions',  val:jobs.filter(j=>j.status==='open').length, icon:'fa-briefcase', color:'var(--success)', action:"Recruitment.switchView('jobs')" },
+            { label:'Headcount Reqs',  val:reqs.length, icon:'fa-file-invoice-dollar', color:'var(--info)', action:"Recruitment.switchView('requisitions')" },
             { label:'Total Applicants',val:apps.length, icon:'fa-users', color:'var(--primary)', action:"Recruitment.switchView('pipeline')" },
             { label:'In Interview',    val:apps.filter(a=>a.stage==='interview').length, icon:'fa-comments', color:'var(--warning)', action:"Recruitment.switchView('pipeline')" },
             { label:'Offer Letters',   val:offers.length, icon:'fa-file-signature', color:'var(--accent)', action: isHR ? "Recruitment.switchView('offers')" : '' },
@@ -1733,6 +1736,10 @@ const Recruitment = {
             <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')">
               <i class="fa fa-briefcase" style="margin-right:6px"></i>Job Postings
             </button>
+            <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative">
+              <i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Requisitions & Headcount
+              ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${pendingReqs}</span>` : ''}
+            </button>
             <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')">
               <i class="fa fa-list-check" style="margin-right:6px"></i>Applicant Pipeline
             </button>
@@ -1744,7 +1751,13 @@ const Recruitment = {
             ` : ''}
           </div>
 
-          ${isHR && this.currentView === 'offers' ? `
+          ${this.currentView === 'requisitions' ? `
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddRequisitionModal()">
+                <i class="fa fa-plus"></i> Submit Headcount Requisition
+              </button>
+            </div>
+          ` : isHR && this.currentView === 'offers' ? `
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary btn-sm" onclick="Recruitment.showGenerateOfferLetterModal()">
                 <i class="fa fa-plus"></i> Create Offer Letter
@@ -1777,6 +1790,7 @@ const Recruitment = {
     const container = document.getElementById('rec-content');
     if (!container) return;
     if (this.currentView === 'jobs') this.renderJobs(container);
+    else if (this.currentView === 'requisitions') this.renderRequisitions(container);
     else if (this.currentView === 'pipeline') this.renderPipeline(container);
     else if (this.currentView === 'offers') this.renderOfferLetters(container);
   },
@@ -1851,6 +1865,8 @@ const Recruitment = {
                 stageApps.map(app => {
                   const job = DB.find('recruitment', app.jobId);
                   const hasOffer = (DB.get('offer_letters')||[]).some(o => o.applicationId === app.id);
+                  const appScorecards = (DB.get('interview_scorecards')||[]).filter(s => s.applicantId === app.id);
+                  const latestScorecard = appScorecards[0];
                   return `
                     <div class="kanban-card" onclick="Recruitment.viewApplicant(${app.id})">
                       <div style="display:flex;align-items:center;justify-content:space-between">
@@ -1859,7 +1875,15 @@ const Recruitment = {
                       </div>
                       <div class="kc-meta">${job?.title||'—'} • Applied: ${Utils.formatDate(app.appliedOn)}</div>
                       ${app.cnic ? `<div style="font-size:10.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-id-card" style="margin-right:4px"></i>${app.cnic}</div>` : ''}
-                      ${app.score ? `<div class="progress" style="margin-top:8px"><div class="progress-bar" style="width:${app.score}%;background:${stage.color}"></div></div><div style="font-size:10px;margin-top:3px;color:var(--text-muted)">Score: ${app.score}%</div>` : ''}
+
+                      ${latestScorecard ? `
+                        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);padding:4px 8px;border-radius:6px;margin-top:6px">
+                          <span style="font-size:11px;font-weight:700;color:var(--warning)"><i class="fa fa-star"></i> ${latestScorecard.overallScore}/5.0</span>
+                          <span class="badge ${latestScorecard.recommendation.includes('Hire') ? 'badge-success' : 'badge-secondary'}" style="font-size:9.5px;padding:2px 5px">${latestScorecard.recommendation}</span>
+                        </div>
+                      ` : ''}
+
+                      ${app.score ? `<div class="progress" style="margin-top:8px"><div class="progress-bar" style="width:${app.score}%;background:${stage.color}"></div></div><div style="font-size:10px;margin-top:3px;color:var(--text-muted)">Composite Score: ${app.score}%</div>` : ''}
                       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:10px;flex-wrap:wrap">
                         <div style="display:flex;gap:4px">
                           ${stage.id !== 'hired' && stage.id !== 'rejected' ? `
@@ -1868,9 +1892,12 @@ const Recruitment = {
                           ` : ''}
                         </div>
                         <div style="display:flex;gap:4px">
+                          <button class="btn btn-warning btn-xs" onclick="event.stopPropagation();Recruitment.showScorecardModal(${app.id})" title="Interview Evaluation Scorecard">
+                            <i class="fa fa-star-half-stroke"></i> ${latestScorecard ? 'Scorecard (' + latestScorecard.overallScore + ')' : 'Scorecard'}
+                          </button>
                           ${isHR && (stage.id === 'interview' || stage.id === 'offer') ? `
                             <button class="btn btn-primary btn-xs" onclick="event.stopPropagation();Recruitment.showGenerateOfferLetterModal(${app.id})" title="Generate Formal Offer Letter">
-                              <i class="fa fa-file-signature"></i> Offer Letter
+                              <i class="fa fa-file-signature"></i> Offer
                             </button>
                           ` : ''}
                           ${isHR && (stage.id === 'offer' || stage.id === 'hired') ? `
@@ -3315,5 +3342,478 @@ const Recruitment = {
   viewJob(jobId) {
     const job = DB.find('recruitment', jobId);
     Toast.show(`${job.title} — ${job.applicantCount} applicants`, 'info');
+  },
+
+  // ═══════════════════════════════════════════════
+  // HEADCOUNT REQUISITIONS & BUDGETING
+  // ═══════════════════════════════════════════════
+
+  renderRequisitions(container) {
+    const reqs = DB.get('job_requisitions') || [];
+    const depts = DB.get('departments') || [];
+    const isHR = this.isHROrAdmin();
+
+    const totalHeadcount = reqs.reduce((sum, r) => sum + (r.headcount || 1), 0);
+    const approvedHeadcount = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.headcount || 1), 0);
+    const pendingCount = reqs.filter(r => r.status === 'pending_review').length;
+    const totalMaxBudget = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.maxSalary || 0) * (r.headcount || 1), 0);
+
+    container.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <div style="font-size:16px;font-weight:700">Headcount Requisitions & Budget Approvals</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">Formal departmental position opening requests with budget salary ceiling and executive authorization</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddRequisitionModal()">
+            <i class="fa fa-plus"></i> New Requisition
+          </button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--primary)">${reqs.length}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Total Requisitions</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${approvedHeadcount} / ${totalHeadcount}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Headcount</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingCount}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending Review</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--info)">PKR ${(totalMaxBudget/1000000).toFixed(1)}M</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Mo. Payroll Cap</div>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Requisition Ref</th>
+                <th>Role & Department</th>
+                <th>Requested By</th>
+                <th>Headcount</th>
+                <th>Budget Salary Range</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reqs.length === 0 ? `
+                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No requisitions submitted. Click "New Requisition" to request headcount.</td></tr>
+              ` : reqs.map(r => {
+                const dept = depts.find(d => d.id === r.departmentId);
+                const requester = Utils.getEmpName(r.requestedBy);
+                const priorityClass = r.priority === 'Urgent' ? 'badge-danger' : r.priority === 'High' ? 'badge-warning' : 'badge-secondary';
+                const statusBadge = r.status === 'approved' ? '<span class="badge badge-success"><i class="fa fa-check"></i> Approved</span>' :
+                                    r.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
+                                    '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--primary)">${r.reqNumber}</div>
+                      <div style="font-size:10.5px;color:var(--text-3)">${Utils.formatDate(r.createdAt)}</div>
+                    </td>
+                    <td>
+                      <div style="font-weight:700;font-size:13px;color:var(--text)">${r.title}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${dept?.name || 'General'} • ${r.employmentType || 'Permanent'}</div>
+                    </td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600">${requester}</div>
+                      <div style="font-size:10.5px;color:var(--text-3)">${r.reason || 'Expansion'}</div>
+                    </td>
+                    <td style="font-weight:700;font-size:13px;text-align:center">${r.headcount}</td>
+                    <td style="font-family:monospace;font-size:12px">
+                      PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()}
+                    </td>
+                    <td><span class="badge ${priorityClass}" style="font-size:10.5px">${r.priority}</span></td>
+                    <td>${statusBadge}</td>
+                    <td style="text-align:right;white-space:nowrap">
+                      ${r.status === 'approved' && !r.jobPostId ? `
+                        <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
+                          <i class="fa fa-briefcase"></i> Post Job
+                        </button>
+                      ` : r.status === 'approved' && r.jobPostId ? `
+                        <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check-double"></i> Posted</span>
+                      ` : ''}
+
+                      ${isHR && r.status === 'pending_review' ? `
+                        <button class="btn btn-success btn-xs" onclick="Recruitment.approveRequisition(${r.id})" title="Approve Headcount">
+                          <i class="fa fa-check"></i>
+                        </button>
+                        <button class="btn btn-danger btn-xs" onclick="Recruitment.rejectRequisition(${r.id})" title="Reject Requisition">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      ` : ''}
+
+                      <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${r.id})" title="Inspect Requisition Details">
+                        <i class="fa fa-eye"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddRequisitionModal() {
+    const depts = DB.get('departments') || [];
+    Modal.show('Submit Headcount & Budget Requisition', `
+      <div class="form-group">
+        <label class="form-label">Position Title</label>
+        <input class="form-control" id="rq-title" placeholder="e.g. Staff Site Reliability Engineer">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-control" id="rq-dept">
+            ${depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Headcount Openings</label>
+          <input class="form-control" id="rq-count" type="number" min="1" max="20" value="1">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Employment Classification</label>
+          <select class="form-control" id="rq-type">
+            <option value="Permanent">Permanent Salaried</option>
+            <option value="Contract">Fixed Term Contract</option>
+            <option value="Internship">Graduate Trainee / Internship</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Hiring Priority</label>
+          <select class="form-control" id="rq-priority">
+            <option value="Urgent">Urgent (Immediate Project Need)</option>
+            <option value="High" selected>High (Next 30 Days)</option>
+            <option value="Medium">Medium (Q3 Growth)</option>
+            <option value="Standard">Standard Replacement</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Minimum Monthly Salary (PKR)</label>
+          <input class="form-control" id="rq-minsal" type="number" step="10000" value="200000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Maximum Budget Ceiling (PKR)</label>
+          <input class="form-control" id="rq-maxsal" type="number" step="10000" value="280000">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Target Onboarding Date</label>
+          <input class="form-control" id="rq-target" type="date" value="2026-10-15">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Requisition Justification</label>
+          <select class="form-control" id="rq-reason">
+            <option value="Expansion">Team Expansion / Revenue Scaling</option>
+            <option value="Replacement">Replacement for Separated Personnel</option>
+            <option value="New Technology">New Technology Stack Specialization</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Operational Notes & Justification</label>
+        <textarea class="form-control" id="rq-notes" rows="3" placeholder="Explain project business justification, reporting lines, and expected deliverables..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveRequisition()"><i class="fa fa-save"></i> Submit for Approval</button>
+      `
+    });
+  },
+
+  saveRequisition() {
+    const title = document.getElementById('rq-title').value.trim();
+    const deptId = parseInt(document.getElementById('rq-dept').value);
+    const count = parseInt(document.getElementById('rq-count').value) || 1;
+    const type = document.getElementById('rq-type').value;
+    const priority = document.getElementById('rq-priority').value;
+    const minSal = parseInt(document.getElementById('rq-minsal').value) || 0;
+    const maxSal = parseInt(document.getElementById('rq-maxsal').value) || 0;
+    const targetDate = document.getElementById('rq-target').value;
+    const reason = document.getElementById('rq-reason').value;
+    const notes = document.getElementById('rq-notes').value.trim();
+
+    if (!title) {
+      Toast.show('Position title is required', 'error');
+      return;
+    }
+
+    const reqs = DB.get('job_requisitions') || [];
+    const nextNum = reqs.length + 1;
+    const reqNumber = `REQ-2026-${String(nextNum).padStart(3, '0')}`;
+
+    const newReq = {
+      id: DB.nextId('job_requisitions'),
+      reqNumber,
+      title,
+      departmentId: deptId,
+      requestedBy: Auth.user?.id || 1,
+      headcount: count,
+      employmentType: type,
+      priority,
+      reason,
+      minSalary: minSal,
+      maxSalary: maxSal,
+      targetDate,
+      status: this.isHROrAdmin() ? 'approved' : 'pending_review',
+      approvedBy: this.isHROrAdmin() ? (Auth.user?.id || 1) : null,
+      approvedAt: this.isHROrAdmin() ? new Date().toISOString().split('T')[0] : null,
+      notes,
+      jobPostId: null,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+
+    reqs.push(newReq);
+    DB.set('job_requisitions', reqs);
+    DB.log('CREATE', 'Recruitment', `Submitted headcount requisition ${reqNumber} for ${title} (${count} opening(s))`, Auth.user?.id, 'INFO');
+    Toast.show('Headcount requisition submitted successfully!', 'success');
+    Modal.close('dynamic-modal');
+    this.render();
+  },
+
+  approveRequisition(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const idx = reqs.findIndex(r => r.id === id);
+    if (idx === -1) return;
+
+    reqs[idx].status = 'approved';
+    reqs[idx].approvedBy = Auth.user?.id || 1;
+    reqs[idx].approvedAt = new Date().toISOString().split('T')[0];
+    DB.set('job_requisitions', reqs);
+    DB.log('APPROVE', 'Recruitment', `Approved headcount requisition ${reqs[idx].reqNumber} for ${reqs[idx].title}`, Auth.user?.id, 'WARNING');
+    Toast.show(`Requisition ${reqs[idx].reqNumber} approved!`, 'success');
+    this.render();
+  },
+
+  rejectRequisition(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const idx = reqs.findIndex(r => r.id === id);
+    if (idx === -1) return;
+
+    Modal.confirm('Reject Requisition', `Are you sure you want to reject requisition <strong>${reqs[idx].reqNumber}</strong>?`, () => {
+      reqs[idx].status = 'rejected';
+      DB.set('job_requisitions', reqs);
+      DB.log('REJECT', 'Recruitment', `Rejected headcount requisition ${reqs[idx].reqNumber}`, Auth.user?.id, 'WARNING');
+      Toast.show('Requisition rejected', 'info');
+      this.render();
+    }, 'danger');
+  },
+
+  convertRequisitionToJob(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => x.id === id);
+    if (!r) return;
+
+    const newJob = {
+      id: DB.nextId('recruitment'),
+      title: r.title,
+      departmentId: r.departmentId,
+      positions: r.headcount || 1,
+      status: 'open',
+      postedOn: Utils.today(),
+      deadline: r.targetDate || '2026-10-31',
+      salary: `${r.minSalary ? (r.minSalary/1000) + 'k' : '200k'}-${r.maxSalary ? (r.maxSalary/1000) + 'k' : '300k'}`,
+      experience: '3-6 years',
+      description: `Active job opening created from approved requisition ${r.reqNumber}. ${r.notes || ''}`,
+      applicantCount: 0
+    };
+
+    DB.add('recruitment', newJob);
+    r.jobPostId = newJob.id;
+    DB.set('job_requisitions', reqs);
+    DB.log('CREATE', 'Recruitment', `Created active job posting #${newJob.id} from approved requisition ${r.reqNumber}`, Auth.user?.id, 'INFO');
+    Toast.show(`Job posting created for "${r.title}"!`, 'success');
+    this.switchView('jobs');
+  },
+
+  viewRequisition(id) {
+    const r = (DB.get('job_requisitions') || []).find(x => x.id === id);
+    if (!r) return;
+    const dept = (DB.get('departments') || []).find(d => d.id === r.departmentId);
+
+    Modal.show(`Requisition Inspection: ${r.reqNumber}`, `
+      <div style="background:var(--surface-2);padding:14px;border-radius:10px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
+        <div><strong>Position Title:</strong> ${r.title}</div>
+        <div><strong>Department:</strong> ${dept?.name || 'General'}</div>
+        <div><strong>Requested Headcount:</strong> ${r.headcount} (${r.employmentType || 'Permanent'})</div>
+        <div><strong>Target Compensation:</strong> PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()} / month</div>
+        <div><strong>Target Onboarding Date:</strong> ${r.targetDate || 'Flexible'}</div>
+        <div><strong>Reason & Justification:</strong> ${r.reason}</div>
+        <div><strong>Status:</strong> ${r.status.toUpperCase()}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text);margin-bottom:6px"><strong>Justification Notes:</strong></div>
+      <div style="background:var(--card);border:1px solid var(--border);padding:12px;border-radius:8px;font-size:12px;color:var(--text-2);line-height:1.5">
+        ${r.notes || 'No detailed notes recorded.'}
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Inspection</button>`
+    });
+  },
+
+  // ═══════════════════════════════════════════════
+  // CANDIDATE INTERVIEW SCORECARDS & RUBRIC EVALUATOR
+  // ═══════════════════════════════════════════════
+
+  showScorecardModal(applicantId) {
+    const app = DB.find('applications', applicantId);
+    if (!app) return;
+    const job = DB.find('recruitment', app.jobId);
+    const existingScorecards = (DB.get('interview_scorecards') || []).filter(s => s.applicantId === applicantId);
+    const existing = existingScorecards[0];
+
+    Modal.show(`Candidate Evaluation Scorecard: ${app.name}`, `
+      <div style="background:var(--surface-2);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:700;font-size:13px">${app.name} (${app.email})</div>
+          <div style="font-size:11px;color:var(--text-3)">Role: ${job?.title || 'Open Position'} • Evaluator: ${Auth.employee?.fullName || 'Senior Evaluator'}</div>
+        </div>
+        <div id="sc-live-score" style="text-align:right">
+          <div style="font-size:24px;font-weight:800;color:var(--primary)">${existing ? existing.overallScore : '4.0'} <span style="font-size:13px;color:var(--text-3)">/ 5.0</span></div>
+          <span class="badge ${existing?.recommendation?.includes('Hire') ? 'badge-success' : 'badge-primary'}" id="sc-live-badge">${existing ? existing.recommendation : 'Hire'}</span>
+        </div>
+      </div>
+
+      <div style="font-size:12.5px;font-weight:700;margin-bottom:10px">Multi-Competency Rubric Assessment (1 to 5 Stars):</div>
+
+      ${[
+        { id:'sc-tech', label:'1. Technical Competency & Architecture Depth (Weight 30%)', desc:'Mastery of software systems, coding paradigms, and modern tech stack', val: existing?.ratings?.technical || 4 },
+        { id:'sc-prob', label:'2. Problem Solving & Analytical Rigor (Weight 25%)', desc:'Debugging, algorithm efficiency, trade-off analysis under pressure', val: existing?.ratings?.problemSolving || 4 },
+        { id:'sc-comm', label:'3. Communication & Interpersonal Presence (Weight 15%)', desc:'Clarity, active listening, executive presentation, and team collaboration', val: existing?.ratings?.communication || 4 },
+        { id:'sc-cult', label:'4. Culture Fit & Corporate Values Alignment (Weight 15%)', desc:'Empathy, constructive feedback reception, transparency, and integrity', val: existing?.ratings?.cultureFit || 4 },
+        { id:'sc-lead', label:'5. Leadership, Autonomy & Ownership (Weight 15%)', desc:'Proactive initiative, mentoring potential, and accountability for outcomes', val: existing?.ratings?.leadership || 4 },
+      ].map(crit => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:12px">
+            <div style="font-size:12px;font-weight:600">${crit.label}</div>
+            <div style="font-size:10.5px;color:var(--text-3)">${crit.desc}</div>
+          </div>
+          <div style="width:140px">
+            <select class="form-control" id="${crit.id}" onchange="Recruitment.updateScorecardLiveMath()" style="font-weight:700">
+              <option value="5" ${crit.val===5?'selected':''}>⭐⭐⭐⭐⭐ (5 - Outstanding)</option>
+              <option value="4" ${crit.val===4?'selected':''}>⭐⭐⭐⭐ (4 - Exceeds Expectations)</option>
+              <option value="3" ${crit.val===3?'selected':''}>⭐⭐⭐ (3 - Meets Expectations)</option>
+              <option value="2" ${crit.val===2?'selected':''}>⭐⭐ (2 - Below Bar / Gaps)</option>
+              <option value="1" ${crit.val===1?'selected':''}>⭐ (1 - Significant Risk)</option>
+            </select>
+          </div>
+        </div>
+      `).join('')}
+
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Final Hiring Recommendation</label>
+        <select class="form-control" id="sc-rec" style="font-weight:700">
+          <option value="Strong Hire" ${existing?.recommendation==='Strong Hire'?'selected':''}>🟢 Strong Hire (Top 5% Candidate, Champion for Role)</option>
+          <option value="Hire" ${(!existing || existing?.recommendation==='Hire')?'selected':''}>🟢 Hire (Solid addition, meets role criteria)</option>
+          <option value="Hold" ${existing?.recommendation==='Hold'?'selected':''}>🟡 Hold / Re-evaluate against pool</option>
+          <option value="No Hire" ${existing?.recommendation==='No Hire'?'selected':''}>🔴 No Hire (Does not meet required technical bar)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Key Strengths & Notable Highlights</label>
+        <textarea class="form-control" id="sc-strengths" rows="2" placeholder="Specific technical examples, stellar responses, or project achievements...">${existing?.strengths || ''}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Key Concerns & Developmental Areas</label>
+        <textarea class="form-control" id="sc-concerns" rows="2" placeholder="Knowledge gaps, hesitation points, or mentorship requirements...">${existing?.concerns || ''}</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveScorecard(${applicantId})"><i class="fa fa-save"></i> Save Scorecard</button>
+      `
+    });
+  },
+
+  updateScorecardLiveMath() {
+    const tech = parseInt(document.getElementById('sc-tech')?.value || 4);
+    const prob = parseInt(document.getElementById('sc-prob')?.value || 4);
+    const comm = parseInt(document.getElementById('sc-comm')?.value || 4);
+    const cult = parseInt(document.getElementById('sc-cult')?.value || 4);
+    const lead = parseInt(document.getElementById('sc-lead')?.value || 4);
+
+    const overall = (tech * 0.30 + prob * 0.25 + comm * 0.15 + cult * 0.15 + lead * 0.15).toFixed(1);
+    const liveScoreEl = document.getElementById('sc-live-score');
+    if (liveScoreEl) {
+      const rec = overall >= 4.3 ? 'Strong Hire' : overall >= 3.5 ? 'Hire' : overall >= 2.8 ? 'Hold' : 'No Hire';
+      const badgeClass = rec.includes('Hire') ? 'badge-success' : rec === 'Hold' ? 'badge-warning' : 'badge-danger';
+      liveScoreEl.innerHTML = `
+        <div style="font-size:24px;font-weight:800;color:var(--primary)">${overall} <span style="font-size:13px;color:var(--text-3)">/ 5.0</span></div>
+        <span class="badge ${badgeClass}">${rec}</span>
+      `;
+      const recSelect = document.getElementById('sc-rec');
+      if (recSelect) recSelect.value = rec;
+    }
+  },
+
+  saveScorecard(applicantId) {
+    const app = DB.find('applications', applicantId);
+    if (!app) return;
+
+    const tech = parseInt(document.getElementById('sc-tech').value);
+    const prob = parseInt(document.getElementById('sc-prob').value);
+    const comm = parseInt(document.getElementById('sc-comm').value);
+    const cult = parseInt(document.getElementById('sc-cult').value);
+    const lead = parseInt(document.getElementById('sc-lead').value);
+
+    const overallScore = parseFloat((tech * 0.30 + prob * 0.25 + comm * 0.15 + cult * 0.15 + lead * 0.15).toFixed(1));
+    const recommendation = document.getElementById('sc-rec').value;
+    const strengths = document.getElementById('sc-strengths').value.trim();
+    const concerns = document.getElementById('sc-concerns').value.trim();
+
+    const scorecards = DB.get('interview_scorecards') || [];
+    const existingIdx = scorecards.findIndex(s => s.applicantId === applicantId);
+
+    const scorecardObj = {
+      id: existingIdx !== -1 ? scorecards[existingIdx].id : DB.nextId('interview_scorecards'),
+      applicantId,
+      candidateName: app.name,
+      jobId: app.jobId,
+      interviewerId: Auth.user?.id || 1,
+      interviewerName: Auth.employee?.fullName || 'Senior Evaluator',
+      stage: 'Multi-Competency Interview',
+      ratings: { technical: tech, problemSolving: prob, communication: comm, cultureFit: cult, leadership: lead },
+      overallScore,
+      recommendation,
+      strengths,
+      concerns,
+      evaluatedAt: new Date().toISOString().split('T')[0]
+    };
+
+    if (existingIdx !== -1) {
+      scorecards[existingIdx] = scorecardObj;
+    } else {
+      scorecards.push(scorecardObj);
+    }
+    DB.set('interview_scorecards', scorecards);
+
+    // Update applicant score
+    app.score = Math.round(overallScore * 20); // convert 5.0 to 100%
+    DB.update('applications', applicantId, app);
+
+    DB.log('EVALUATE', 'Recruitment', `Evaluated candidate ${app.name}: Score ${overallScore}/5.0 (${recommendation})`, Auth.user?.id, 'INFO');
+    Toast.show(`Scorecard saved for ${app.name}! (Score: ${overallScore}/5.0)`, 'success');
+    Modal.close('dynamic-modal');
+    this.render();
   },
 };

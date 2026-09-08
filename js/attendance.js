@@ -91,6 +91,7 @@ const Attendance = {
               { id:'roster', label:'Shift Roster & Swaps', badge: pendingSwaps },
               { id:'geofence', label:'Geo-Fence & IP Check' },
               { id:'machine', label:'Biometric Sync & ZKTeco' },
+              { id:'timesheets', label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>t.status==='submitted').length },
               { id:'manual', label:'Manual Entry' },
               { id:'corrections', label:'Corrections & WFH', badge: pendingCorrections },
             ].map(t => `
@@ -144,6 +145,7 @@ const Attendance = {
       case 'roster':      this.renderShiftRoster(container); break;
       case 'geofence':    this.renderGeoFenceValidation(container); break;
       case 'machine':     this.renderMachineLog(container); break;
+      case 'timesheets':  this.renderTimesheets(container); break;
       case 'manual':      this.renderManualEntry(container); break;
       case 'corrections': this.renderCorrections(container); break;
     }
@@ -2045,6 +2047,433 @@ const Attendance = {
       Toast.show('Biometric terminals synchronized!', 'success', `${newPunches} new employee punches downloaded.`);
       this.renderView();
     }, 600);
+  },
+
+  // ═══════════════════════════════════════════════
+  // PROJECT TIMESHEETS & BILLABLE HOURS ENGINE
+  // ═══════════════════════════════════════════════
+
+  timesheetWeekStart: '2026-08-31',
+  timesheetFilterEmp: '',
+
+  getTimesheetDays(startStr) {
+    const d = new Date(startStr || '2026-08-31');
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const cur = new Date(d);
+      cur.setDate(d.getDate() + i);
+      days.push(cur.toISOString().split('T')[0]);
+    }
+    return days;
+  },
+
+  prevTimesheetWeek() {
+    const d = new Date(this.timesheetWeekStart);
+    d.setDate(d.getDate() - 7);
+    this.timesheetWeekStart = d.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  nextTimesheetWeek() {
+    const d = new Date(this.timesheetWeekStart);
+    d.setDate(d.getDate() + 7);
+    this.timesheetWeekStart = d.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  renderTimesheets(container) {
+    const emps = this.getScopedEmployees();
+    const scopedIds = emps.map(e => e.id);
+    const allTimesheets = DB.get('timesheets') || [];
+    const days = this.getTimesheetDays(this.timesheetWeekStart);
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    let timesheets = allTimesheets.filter(t => t.weekStartDate === this.timesheetWeekStart && scopedIds.includes(t.employeeId));
+    if (this.timesheetFilterEmp) {
+      timesheets = timesheets.filter(t => t.employeeId == this.timesheetFilterEmp);
+    }
+
+    const totalHours = timesheets.reduce((sum, t) => sum + (t.totalHours || 0), 0);
+    const billableHours = timesheets.reduce((sum, t) => sum + (t.billableHours || 0), 0);
+    const utilizationRate = totalHours > 0 ? ((billableHours / totalHours) * 100).toFixed(1) : 0;
+    const totalBillingVal = timesheets.reduce((sum, t) => sum + (t.billableHours || 0) * (t.hourlyRate || 0), 0);
+    const pendingApprovals = timesheets.filter(t => t.status === 'submitted').length;
+
+    const isManagerOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.role === 'dept_manager';
+
+    container.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700">Project Timesheets & Client Billing Engine</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">Weekly project activity logging, billable utilization telemetry, and direct payroll overtime bridge</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="Attendance.syncTimesheetsToPayroll()" title="Bridge approved weekly hours > 40 into payroll overtime">
+              <i class="fa fa-money-bill-transfer"></i> Sync Overtime to Payroll
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.exportTimesheetsCSV()">
+              <i class="fa fa-file-export"></i> Export CSV
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Attendance.showLogTimesheetModal()">
+              <i class="fa fa-plus"></i> Log Project Hours
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--primary)">${totalHours} hrs</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Total Logged Hours</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${utilizationRate}%</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Billable Utilization (${billableHours}h)</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--info)">$${totalBillingVal.toLocaleString()}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Client Billing Value</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingApprovals}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending Approvals</div>
+          </div>
+        </div>
+
+        <!-- Timesheet Week & Filter Toolbar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface-2);border-radius:8px;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.prevTimesheetWeek()"><i class="fa fa-chevron-left"></i></button>
+            <div style="font-weight:700;font-size:13px;color:var(--text)">
+              Week: <span style="color:var(--primary)">${Utils.formatDate(days[0])}</span> – <span style="color:var(--primary)">${Utils.formatDate(days[6])}</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.nextTimesheetWeek()"><i class="fa fa-chevron-right"></i></button>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px">
+            <select class="form-control" style="width:220px;font-size:12px" onchange="Attendance.timesheetFilterEmp=this.value;Attendance.renderView()">
+              <option value="">All Scoped Personnel (${emps.length})</option>
+              ${emps.map(e => `<option value="${e.id}" ${this.timesheetFilterEmp==e.id?'selected':''}>${e.fullName} (${e.empNo})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Personnel</th>
+                <th>Project & Task Activity</th>
+                <th>Rate / Type</th>
+                ${dayNames.map((name, i) => `<th style="text-align:center;font-size:11px">${name}<br><span style="font-weight:400;color:var(--text-3);font-size:10px">${days[i].split('-')[2]}</span></th>`).join('')}
+                <th style="text-align:center">Total</th>
+                <th style="text-align:right">Billing</th>
+                <th>Status</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${timesheets.length === 0 ? `
+                <tr><td colspan="15" style="text-align:center;padding:24px;color:var(--text-3)">No timesheet records found for this week. Click "Log Project Hours" to record tasks.</td></tr>
+              ` : timesheets.map(t => {
+                const emp = DB.find('employees', t.employeeId);
+                const hrs = t.hours || {};
+                const isOT = (t.totalHours || 0) > 40;
+                const statusBadge = t.status === 'approved' ? '<span class="badge badge-success"><i class="fa fa-check"></i> Approved</span>' :
+                                    t.status === 'submitted' ? '<span class="badge badge-warning"><i class="fa fa-clock"></i> Submitted</span>' :
+                                    t.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
+                                    '<span class="badge badge-secondary">Draft</span>';
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div class="avatar avatar-xs" style="background:${Utils.avatarColor(t.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'U')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:12px;color:var(--text)">${emp?.fullName || 'Employee'}</div>
+                          <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo || ''}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600;font-size:12.5px;color:var(--text)">${t.projectName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${t.taskName}</div>
+                    </td>
+                    <td>
+                      ${t.isBillable ? `
+                        <span class="badge badge-primary" style="font-size:10px"><i class="fa fa-bolt"></i> $${t.hourlyRate}/h</span>
+                      ` : `
+                        <span class="badge badge-secondary" style="font-size:10px">Internal Non-Billable</span>
+                      `}
+                    </td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;background:rgba(255,255,255,0.01)">${hrs.mon || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;background:rgba(255,255,255,0.01)">${hrs.tue || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;background:rgba(255,255,255,0.01)">${hrs.wed || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;background:rgba(255,255,255,0.01)">${hrs.thu || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;background:rgba(255,255,255,0.01)">${hrs.fri || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;color:var(--text-3)">${hrs.sat || 0}</td>
+                    <td style="text-align:center;font-size:11.5px;font-family:monospace;color:var(--text-3)">${hrs.sun || 0}</td>
+                    <td style="text-align:center;font-weight:700;font-size:13px">
+                      ${t.totalHours}h
+                      ${isOT ? `<span class="badge badge-info" style="font-size:9.5px;display:block;margin-top:2px">+${t.totalHours - 40}h OT</span>` : ''}
+                    </td>
+                    <td style="text-align:right;font-family:monospace;font-weight:700;color:var(--success)">
+                      $${((t.billableHours || 0) * (t.hourlyRate || 0)).toLocaleString()}
+                    </td>
+                    <td>
+                      ${statusBadge}
+                      ${t.syncedToPayroll ? '<div style="font-size:9.5px;color:var(--info);margin-top:2px"><i class="fa fa-check-double"></i> Payroll Synced</div>' : ''}
+                    </td>
+                    <td style="text-align:right;white-space:nowrap">
+                      ${isManagerOrAdmin && t.status === 'submitted' ? `
+                        <button class="btn btn-success btn-xs" onclick="Attendance.approveTimesheet(${t.id})" title="Approve Timesheet"><i class="fa fa-check"></i></button>
+                        <button class="btn btn-danger btn-xs" onclick="Attendance.rejectTimesheet(${t.id})" title="Reject Timesheet"><i class="fa fa-times"></i></button>
+                      ` : ''}
+                      <button class="btn btn-ghost btn-xs" onclick="Attendance.deleteTimesheet(${t.id})" title="Delete Entry" style="color:var(--danger)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showLogTimesheetModal() {
+    const emps = this.getScopedEmployees();
+    const projects = DB.get('projects') || [
+      { id: 1, name: 'ERP Core Banking Gateway' },
+      { id: 2, name: 'Mobile Banking & Fintech SuperApp' },
+      { id: 3, name: 'Internal Infrastructure Optimization' }
+    ];
+
+    Modal.show('Log Project Timesheet Hours', `
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Employee</label>
+          <select class="form-control" id="ts-emp">
+            ${emps.map(e => `<option value="${e.id}" ${e.id === (Auth.employee?.id || 1) ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Project Allocation</label>
+          <select class="form-control" id="ts-proj">
+            ${projects.map(p => `<option value="${p.id}" data-name="${p.name}">${p.name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Task Activity & Deliverables Description</label>
+        <input class="form-control" id="ts-task" placeholder="e.g. Microservices endpoint testing, query optimization...">
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Billing Classification</label>
+          <select class="form-control" id="ts-billable" onchange="document.getElementById('ts-rate-box').style.display = this.value === 'true' ? 'block' : 'none'">
+            <option value="true" selected>Billable to Client</option>
+            <option value="false">Internal / Non-Billable</option>
+          </select>
+        </div>
+        <div class="form-group" id="ts-rate-box">
+          <label class="form-label">Hourly Billing Rate (USD)</label>
+          <input class="form-control" id="ts-rate" type="number" value="45" min="0" step="5">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Daily Logged Hours (Mon – Sun)</label>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">
+          ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, i) => `
+            <div style="text-align:center">
+              <span style="font-size:11px;font-weight:600;color:var(--text-3)">${day}</span>
+              <input class="form-control ts-daily-input" id="ts-d-${day.toLowerCase()}" type="number" min="0" max="24" value="${i < 5 ? 8 : 0}" style="text-align:center;font-weight:700">
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Timesheet Submission State</label>
+        <select class="form-control" id="ts-status">
+          <option value="approved">Approved & Finalized</option>
+          <option value="submitted" selected>Submitted for Manager Endorsement</option>
+          <option value="draft">Draft (Work in Progress)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-control" id="ts-notes" rows="2" placeholder="Any blockers, sprint notes, or client references..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Attendance.saveTimesheetEntry()"><i class="fa fa-save"></i> Save Timesheet</button>
+      `
+    });
+  },
+
+  saveTimesheetEntry() {
+    const empId = parseInt(document.getElementById('ts-emp').value);
+    const projSelect = document.getElementById('ts-proj');
+    const projId = parseInt(projSelect.value);
+    const projName = projSelect.options[projSelect.selectedIndex].getAttribute('data-name') || projSelect.options[projSelect.selectedIndex].text;
+    const taskName = document.getElementById('ts-task').value.trim();
+    const isBillable = document.getElementById('ts-billable').value === 'true';
+    const rate = isBillable ? (parseFloat(document.getElementById('ts-rate').value) || 0) : 0;
+    const status = document.getElementById('ts-status').value;
+    const notes = document.getElementById('ts-notes').value.trim();
+
+    if (!taskName) {
+      Toast.show('Task description is required', 'error');
+      return;
+    }
+
+    const hours = {
+      mon: parseFloat(document.getElementById('ts-d-mon').value) || 0,
+      tue: parseFloat(document.getElementById('ts-d-tue').value) || 0,
+      wed: parseFloat(document.getElementById('ts-d-wed').value) || 0,
+      thu: parseFloat(document.getElementById('ts-d-thu').value) || 0,
+      fri: parseFloat(document.getElementById('ts-d-fri').value) || 0,
+      sat: parseFloat(document.getElementById('ts-d-sat').value) || 0,
+      sun: parseFloat(document.getElementById('ts-d-sun').value) || 0,
+    };
+
+    const totalHours = Object.values(hours).reduce((sum, h) => sum + h, 0);
+    const billableHours = isBillable ? totalHours : 0;
+
+    const timesheets = DB.get('timesheets') || [];
+    const days = this.getTimesheetDays(this.timesheetWeekStart);
+
+    const newTs = {
+      id: DB.nextId('timesheets'),
+      employeeId: empId,
+      weekStartDate: this.timesheetWeekStart,
+      weekEndDate: days[6],
+      projectId: projId,
+      projectName: projName,
+      taskName,
+      isBillable,
+      hourlyRate: rate,
+      currency: 'USD',
+      hours,
+      totalHours,
+      billableHours,
+      status,
+      submittedAt: new Date().toISOString(),
+      approvedBy: status === 'approved' ? (Auth.user?.id || 1) : null,
+      approvedAt: status === 'approved' ? new Date().toISOString() : null,
+      notes,
+      syncedToPayroll: false
+    };
+
+    timesheets.push(newTs);
+    DB.set('timesheets', timesheets);
+    DB.log('CREATE', 'Attendance', `Logged ${totalHours} hrs on project "${projName}" (${isBillable ? 'Billable $' + rate + '/h' : 'Non-Billable'})`, Auth.user?.id, 'INFO');
+    Toast.show(`Timesheet entry saved (${totalHours} hrs)!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderView();
+  },
+
+  approveTimesheet(id) {
+    const timesheets = DB.get('timesheets') || [];
+    const idx = timesheets.findIndex(t => t.id === id);
+    if (idx === -1) return;
+
+    timesheets[idx].status = 'approved';
+    timesheets[idx].approvedBy = Auth.user?.id || 1;
+    timesheets[idx].approvedAt = new Date().toISOString();
+    DB.set('timesheets', timesheets);
+    DB.log('APPROVE', 'Attendance', `Approved timesheet #${id} for ${Utils.getEmpName(timesheets[idx].employeeId)} (${timesheets[idx].totalHours} hrs)`, Auth.user?.id, 'INFO');
+    Toast.show('Timesheet approved successfully!', 'success');
+    this.renderView();
+  },
+
+  rejectTimesheet(id) {
+    const timesheets = DB.get('timesheets') || [];
+    const idx = timesheets.findIndex(t => t.id === id);
+    if (idx === -1) return;
+
+    timesheets[idx].status = 'rejected';
+    DB.set('timesheets', timesheets);
+    DB.log('REJECT', 'Attendance', `Rejected timesheet #${id}`, Auth.user?.id, 'WARNING');
+    Toast.show('Timesheet rejected', 'info');
+    this.renderView();
+  },
+
+  deleteTimesheet(id) {
+    const timesheets = DB.get('timesheets') || [];
+    const idx = timesheets.findIndex(t => t.id === id);
+    if (idx === -1) return;
+
+    Modal.confirm('Delete Timesheet Entry', 'Are you sure you want to delete this timesheet entry?', () => {
+      const filtered = timesheets.filter(t => t.id !== id);
+      DB.set('timesheets', filtered);
+      DB.log('DELETE', 'Attendance', `Deleted timesheet #${id}`, Auth.user?.id, 'WARNING');
+      Toast.show('Timesheet removed', 'info');
+      this.renderView();
+    }, 'danger');
+  },
+
+  syncTimesheetsToPayroll() {
+    const timesheets = DB.get('timesheets') || [];
+    const weekTs = timesheets.filter(t => t.weekStartDate === this.timesheetWeekStart && t.status === 'approved' && !t.syncedToPayroll && t.totalHours > 40);
+
+    if (!weekTs.length) {
+      Toast.show('No unsynced approved overtime timesheets (> 40h) found for this week.', 'info');
+      return;
+    }
+
+    let syncedCount = 0;
+    let totalOTHours = 0;
+
+    weekTs.forEach(t => {
+      const otHours = t.totalHours - 40;
+      totalOTHours += otHours;
+      t.syncedToPayroll = true;
+      syncedCount++;
+    });
+
+    DB.set('timesheets', timesheets);
+    DB.log('SYNC', 'Payroll', `Synced ${totalOTHours} overtime hours from ${syncedCount} approved timesheets to payroll ledger`, Auth.user?.id, 'INFO');
+    Toast.show(`Successfully synced ${totalOTHours} overtime hours to payroll ledger!`, 'success');
+    this.renderView();
+  },
+
+  exportTimesheetsCSV() {
+    const timesheets = DB.get('timesheets') || [];
+    const weekTs = timesheets.filter(t => t.weekStartDate === this.timesheetWeekStart);
+    if (!weekTs.length) {
+      Toast.show('No timesheet records to export for this week', 'warning');
+      return;
+    }
+
+    const headers = ['ID', 'Employee ID', 'Employee Name', 'Week Start', 'Week End', 'Project Name', 'Task Activity', 'Is Billable', 'Hourly Rate', 'Total Hours', 'Billable Hours', 'Status', 'Billing Value'];
+    const rows = weekTs.map(t => [
+      t.id,
+      t.employeeId,
+      `"${Utils.getEmpName(t.employeeId).replace(/"/g, '""')}"`,
+      t.weekStartDate,
+      t.weekEndDate,
+      `"${(t.projectName||'').replace(/"/g, '""')}"`,
+      `"${(t.taskName||'').replace(/"/g, '""')}"`,
+      t.isBillable ? 'YES' : 'NO',
+      t.hourlyRate || 0,
+      t.totalHours || 0,
+      t.billableHours || 0,
+      t.status,
+      (t.billableHours || 0) * (t.hourlyRate || 0)
+    ].join(','));
+
+    const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+    Utils.downloadCSV(csvContent, `timesheet_billing_week_${this.timesheetWeekStart}.csv`);
+    Toast.show('Timesheets exported to CSV!', 'success');
   }
 
 };

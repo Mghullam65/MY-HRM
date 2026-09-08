@@ -22,6 +22,7 @@ const DB = {
       this.ensureCompanyPolicies();
       this.ensureLifeEventsAndDependents();
       this.ensureWebhooksAndTemplates();
+      this.ensureBatch9Data();
       return;
     }
     this.seed();
@@ -40,6 +41,7 @@ const DB = {
     this.ensureCompanyPolicies();
     this.ensureLifeEventsAndDependents();
     this.ensureWebhooksAndTemplates();
+    this.ensureBatch9Data();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -2068,6 +2070,471 @@ const DB = {
         }
       ];
       this.set('notification_templates', templates);
+    }
+  },
+
+  ensureBatch9Data() {
+    // 1. Job Requisitions (Headcount budgeting & approvals)
+    let reqs = this.get('job_requisitions');
+    if (!reqs || !reqs.length) {
+      reqs = [
+        {
+          id: 1,
+          reqNumber: 'REQ-2026-001',
+          title: 'Lead Cloud & DevOps Infrastructure Architect',
+          departmentId: 1, // Engineering & Technology
+          requestedBy: 1, // Ahmed Khan
+          headcount: 2,
+          employmentType: 'Permanent',
+          priority: 'Urgent',
+          reason: 'Expansion',
+          minSalary: 280000,
+          maxSalary: 380000,
+          targetDate: '2026-10-15',
+          status: 'approved',
+          approvedBy: 1,
+          approvedAt: '2026-08-25',
+          notes: 'Approved for AWS multi-region architecture and enterprise Kubernetes migration.',
+          jobPostId: 1,
+          createdAt: '2026-08-20'
+        },
+        {
+          id: 2,
+          reqNumber: 'REQ-2026-002',
+          title: 'Senior Product Designer (Design Systems & UX)',
+          departmentId: 1, // Engineering
+          requestedBy: 3, // Usman Baig
+          headcount: 1,
+          employmentType: 'Permanent',
+          priority: 'High',
+          reason: 'Replacement',
+          minSalary: 220000,
+          maxSalary: 290000,
+          targetDate: '2026-10-30',
+          status: 'approved',
+          approvedBy: 2, // Sara Malik
+          approvedAt: '2026-08-28',
+          notes: 'Replacement for mobile design track. Candidate search initiated.',
+          jobPostId: null,
+          createdAt: '2026-08-22'
+        },
+        {
+          id: 3,
+          reqNumber: 'REQ-2026-003',
+          title: 'Senior Statutory & Tax Compliance Accountant',
+          departmentId: 2, // Finance & Accounts
+          requestedBy: 9, // Tariq Hussain
+          headcount: 1,
+          employmentType: 'Permanent',
+          priority: 'Medium',
+          reason: 'Expansion',
+          minSalary: 180000,
+          maxSalary: 240000,
+          targetDate: '2026-11-15',
+          status: 'pending_review',
+          approvedBy: null,
+          approvedAt: null,
+          notes: 'To support FBR quarterly withholding audits and digital invoice integrations.',
+          jobPostId: null,
+          createdAt: '2026-09-02'
+        },
+        {
+          id: 4,
+          reqNumber: 'REQ-2026-004',
+          title: 'Enterprise Technical Sales Account Director',
+          departmentId: 3, // Sales & BD
+          requestedBy: 11, // Hassan Qureshi
+          headcount: 2,
+          employmentType: 'Permanent',
+          priority: 'High',
+          reason: 'Expansion',
+          minSalary: 250000,
+          maxSalary: 350000,
+          targetDate: '2026-11-01',
+          status: 'approved',
+          approvedBy: 1,
+          approvedAt: '2026-09-03',
+          notes: 'Targeting banking and telecom accounts in Islamabad and Lahore.',
+          jobPostId: null,
+          createdAt: '2026-09-01'
+        }
+      ];
+      this.set('job_requisitions', reqs);
+    }
+
+    // 2. Candidate Interview Scorecards & Evaluation Rubrics
+    let scorecards = this.get('interview_scorecards');
+    if (!scorecards || !scorecards.length) {
+      scorecards = [
+        {
+          id: 1,
+          applicantId: 1,
+          candidateName: 'Zainab Qazi',
+          jobId: 1,
+          interviewerId: 1, // Ahmed Khan
+          interviewerName: 'Ahmed Khan (CTO)',
+          stage: 'Technical Architecture Round',
+          ratings: { technical: 5, problemSolving: 5, communication: 4, cultureFit: 4, leadership: 4 },
+          overallScore: 4.4,
+          recommendation: 'Strong Hire',
+          strengths: 'Exceptional mastery of microservices decomposition, distributed tracing, and high-concurrency event brokers.',
+          concerns: 'Notice period of 60 days; negotiation required to buy out 30 days.',
+          evaluatedAt: '2026-09-01'
+        },
+        {
+          id: 2,
+          applicantId: 2,
+          candidateName: 'Bilal Farooq',
+          jobId: 2,
+          interviewerId: 3, // Usman Baig
+          interviewerName: 'Usman Baig (Lead Architect)',
+          stage: 'Technical Coding & System Design',
+          ratings: { technical: 4, problemSolving: 4, communication: 3, cultureFit: 4, leadership: 3 },
+          overallScore: 3.6,
+          recommendation: 'Hire',
+          strengths: 'Solid fundamentals in React, state management, and accessibility standards.',
+          concerns: 'Needs mentorship on large-scale WebSocket state synchronizations.',
+          evaluatedAt: '2026-09-03'
+        },
+        {
+          id: 3,
+          applicantId: 3,
+          candidateName: 'Mehak Noor',
+          jobId: 1,
+          interviewerId: 2, // Sara Malik
+          interviewerName: 'Sara Malik (HR Director)',
+          stage: 'Culture Fit & Behavioral Interview',
+          ratings: { technical: 4, problemSolving: 4, communication: 5, cultureFit: 5, leadership: 5 },
+          overallScore: 4.6,
+          recommendation: 'Strong Hire',
+          strengths: 'Outstanding emotional intelligence, collaborative mindset, and proven track record of mentoring junior engineers.',
+          concerns: 'None identified. Fits corporate core values seamlessly.',
+          evaluatedAt: '2026-09-04'
+        }
+      ];
+      this.set('interview_scorecards', scorecards);
+    }
+
+    // 3. Project Timesheets & Billable Hours
+    let timesheets = this.get('timesheets');
+    if (!timesheets || !timesheets.length) {
+      timesheets = [
+        {
+          id: 1,
+          employeeId: 1, // Ahmed Khan
+          weekStartDate: '2026-08-31',
+          weekEndDate: '2026-09-06',
+          projectId: 1,
+          projectName: 'ERP Core Banking Gateway',
+          taskName: 'Microservices Architecture & Resilience Engineering',
+          isBillable: true,
+          hourlyRate: 50,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 9, thu: 8, fri: 8, sat: 0, sun: 0 },
+          totalHours: 41,
+          billableHours: 41,
+          status: 'approved',
+          submittedAt: '2026-09-06T18:00:00Z',
+          approvedBy: 1,
+          approvedAt: '2026-09-07T09:30:00Z',
+          notes: 'Completed ISO 27001 TLS audit compliance verification.',
+          syncedToPayroll: true
+        },
+        {
+          id: 2,
+          employeeId: 3, // Usman Baig
+          weekStartDate: '2026-08-31',
+          weekEndDate: '2026-09-06',
+          projectId: 1,
+          projectName: 'ERP Core Banking Gateway',
+          taskName: 'API Middleware Implementation & Unit Testing',
+          isBillable: true,
+          hourlyRate: 40,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 },
+          totalHours: 40,
+          billableHours: 40,
+          status: 'approved',
+          submittedAt: '2026-09-06T19:00:00Z',
+          approvedBy: 1,
+          approvedAt: '2026-09-07T09:35:00Z',
+          notes: 'Delivered customer onboarding endpoint suites.',
+          syncedToPayroll: true
+        },
+        {
+          id: 3,
+          employeeId: 4, // Fatima Raza
+          weekStartDate: '2026-08-31',
+          weekEndDate: '2026-09-06',
+          projectId: 2,
+          projectName: 'Mobile Banking & Fintech SuperApp',
+          taskName: 'Biometric Login SDK Integration & FIDO2 Testing',
+          isBillable: true,
+          hourlyRate: 38,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 8, thu: 9, fri: 8, sat: 0, sun: 0 },
+          totalHours: 41,
+          billableHours: 41,
+          status: 'approved',
+          submittedAt: '2026-09-06T17:30:00Z',
+          approvedBy: 1,
+          approvedAt: '2026-09-07T09:40:00Z',
+          notes: 'Resolved face recognition regression on Android 14 builds.',
+          syncedToPayroll: true
+        },
+        {
+          id: 4,
+          employeeId: 7, // Farhan Ali
+          weekStartDate: '2026-08-31',
+          weekEndDate: '2026-09-06',
+          projectId: 3,
+          projectName: 'Internal Infrastructure Optimization',
+          taskName: 'CI/CD Pipeline Automation & Build Time Optimization',
+          isBillable: false,
+          hourlyRate: 0,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 7, sat: 0, sun: 0 },
+          totalHours: 39,
+          billableHours: 0,
+          status: 'approved',
+          submittedAt: '2026-09-06T18:15:00Z',
+          approvedBy: 1,
+          approvedAt: '2026-09-07T09:45:00Z',
+          notes: 'Reduced Docker image build times by 42%.',
+          syncedToPayroll: false
+        },
+        {
+          id: 5,
+          employeeId: 5, // Sehar Nawaz
+          weekStartDate: '2026-09-07',
+          weekEndDate: '2026-09-13',
+          projectId: 2,
+          projectName: 'Mobile Banking & Fintech SuperApp',
+          taskName: 'User Flow Wireframing & Design System Tokens',
+          isBillable: true,
+          hourlyRate: 35,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 0, thu: 0, fri: 0, sat: 0, sun: 0 },
+          totalHours: 16,
+          billableHours: 16,
+          status: 'submitted',
+          submittedAt: '2026-09-08T15:00:00Z',
+          approvedBy: null,
+          approvedAt: null,
+          notes: 'In progress design sprint deliverables for loan disbursement module.',
+          syncedToPayroll: false
+        },
+        {
+          id: 6,
+          employeeId: 9, // Tariq Hussain
+          weekStartDate: '2026-08-31',
+          weekEndDate: '2026-09-06',
+          projectId: 1,
+          projectName: 'ERP Core Banking Gateway',
+          taskName: 'Financial Ledger Reconciliation & Audit Scripts',
+          isBillable: true,
+          hourlyRate: 42,
+          currency: 'USD',
+          hours: { mon: 8, tue: 8, wed: 8, thu: 8, fri: 8, sat: 0, sun: 0 },
+          totalHours: 40,
+          billableHours: 40,
+          status: 'approved',
+          submittedAt: '2026-09-06T17:00:00Z',
+          approvedBy: 1,
+          approvedAt: '2026-09-07T10:00:00Z',
+          notes: 'Synchronized general ledger accounts with test banking core.',
+          syncedToPayroll: false
+        }
+      ];
+      this.set('timesheets', timesheets);
+    }
+
+    // 4. Employee Document Vault (e-DMS)
+    let docs = this.get('employee_documents');
+    if (!docs || !docs.length) {
+      docs = [
+        {
+          id: 1,
+          employeeId: 1, // Ahmed Khan
+          title: 'Permanent Employment Contract & Non-Disclosure Agreement',
+          category: 'Contracts & Agreements',
+          fileName: 'Ahmed_Khan_Employment_Contract_Executed.pdf',
+          fileSize: '1.4 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-01-15',
+          expiryDate: '2029-01-15',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-01-16',
+          notes: 'Signed physical copy archived in HR cabinet A-12.'
+        },
+        {
+          id: 2,
+          employeeId: 1,
+          title: 'Computerized National Identity Card (Smart CNIC)',
+          category: 'Identity & Legal',
+          fileName: 'Ahmed_Khan_CNIC_Both_Sides_Verified.pdf',
+          fileSize: '820 KB',
+          fileType: 'PDF',
+          uploadedAt: '2026-01-15',
+          expiryDate: '2031-08-14',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-01-16',
+          notes: 'NADRA biometric verification record cleared.'
+        },
+        {
+          id: 3,
+          employeeId: 1,
+          title: 'MS Computer Science Degree Certificate (NUST)',
+          category: 'Academic & Professional',
+          fileName: 'Ahmed_Khan_MSCS_Degree_Attested_HEC.pdf',
+          fileSize: '2.1 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-01-15',
+          expiryDate: '',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-01-16',
+          notes: 'HEC attested degree verified.'
+        },
+        {
+          id: 4,
+          employeeId: 2, // Sara Malik
+          title: 'Master of Human Resource Management (MHRM)',
+          category: 'Academic & Professional',
+          fileName: 'Sara_Malik_MHRM_Degree_IBA.pdf',
+          fileSize: '1.8 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-02-01',
+          expiryDate: '',
+          verificationStatus: 'verified',
+          verifiedBy: 1,
+          verifiedAt: '2026-02-02',
+          notes: 'IBA Karachi graduation degree confirmed.'
+        },
+        {
+          id: 5,
+          employeeId: 2,
+          title: 'SHRM-SCP Senior Certified Professional Credential',
+          category: 'Academic & Professional',
+          fileName: 'Sara_Malik_SHRM_SCP_Certificate.pdf',
+          fileSize: '950 KB',
+          fileType: 'PDF',
+          uploadedAt: '2026-02-01',
+          expiryDate: '2027-12-31',
+          verificationStatus: 'verified',
+          verifiedBy: 1,
+          verifiedAt: '2026-02-02',
+          notes: 'SHRM license number verified on certification portal.'
+        },
+        {
+          id: 6,
+          employeeId: 3, // Usman Baig
+          title: 'Permanent Employment Contract & IP Assignment',
+          category: 'Contracts & Agreements',
+          fileName: 'Usman_Baig_Employment_Agreement.pdf',
+          fileSize: '1.2 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-02-15',
+          expiryDate: '2029-02-15',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-02-16',
+          notes: 'Standard permanent IP assignment executed.'
+        },
+        {
+          id: 7,
+          employeeId: 4, // Fatima Raza
+          title: 'AWS Certified Solutions Architect — Professional',
+          category: 'Academic & Professional',
+          fileName: 'Fatima_Raza_AWS_Solutions_Architect_Pro.pdf',
+          fileSize: '1.1 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-03-01',
+          expiryDate: '2028-03-01',
+          verificationStatus: 'verified',
+          verifiedBy: 1,
+          verifiedAt: '2026-03-02',
+          notes: 'AWS validation token: AWS-PSA-9941-VERIFIED.'
+        },
+        {
+          id: 8,
+          employeeId: 4,
+          title: 'FBR Annual Tax Return & CPR Proof Form 114(1)',
+          category: 'Tax & Statutory',
+          fileName: 'Fatima_Raza_FBR_IncomeTax_Return_TY2025.pdf',
+          fileSize: '640 KB',
+          fileType: 'PDF',
+          uploadedAt: '2026-08-20',
+          expiryDate: '2026-12-31',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-08-22',
+          notes: 'FBR active taxpayer status confirmed on IRIS portal.'
+        },
+        {
+          id: 9,
+          employeeId: 5, // Sehar Nawaz
+          title: 'Bachelor of Design (B.Des) Degree — Indus Valley',
+          category: 'Academic & Professional',
+          fileName: 'Sehar_Nawaz_Indus_Valley_Degree.pdf',
+          fileSize: '2.4 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-03-15',
+          expiryDate: '',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-03-16',
+          notes: 'IVS Communication Design degree verified.'
+        },
+        {
+          id: 10,
+          employeeId: 9, // Tariq Hussain
+          title: 'Chartered Accountant Final Part Qualified (ICAP)',
+          category: 'Academic & Professional',
+          fileName: 'Tariq_Hussain_ICAP_CFAP_Certificate.pdf',
+          fileSize: '1.5 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-04-01',
+          expiryDate: '',
+          verificationStatus: 'verified',
+          verifiedBy: 2,
+          verifiedAt: '2026-04-02',
+          notes: 'ICAP registration confirmed.'
+        },
+        {
+          id: 11,
+          employeeId: 7, // Farhan Ali
+          title: 'International Passport Scan (Machine Readable)',
+          category: 'Identity & Legal',
+          fileName: 'Farhan_Ali_Passport_MRP_Copy.pdf',
+          fileSize: '1.3 MB',
+          fileType: 'PDF',
+          uploadedAt: '2026-09-02',
+          expiryDate: '2030-05-20',
+          verificationStatus: 'pending',
+          verifiedBy: null,
+          verifiedAt: null,
+          notes: 'Submitted for international client deployment clearance.'
+        },
+        {
+          id: 12,
+          employeeId: 8, // Nadia Farooq
+          title: 'Corporate Health Insurance Enrollment & TPA Card',
+          category: 'Medical & Insurance',
+          fileName: 'Nadia_Farooq_Jubilee_Health_Cover.pdf',
+          fileSize: '780 KB',
+          fileType: 'PDF',
+          uploadedAt: '2026-09-04',
+          expiryDate: '2027-06-30',
+          verificationStatus: 'pending',
+          verifiedBy: null,
+          verifiedAt: null,
+          notes: 'Awaiting HR benefit coordinator signoff.'
+        }
+      ];
+      this.set('employee_documents', docs);
     }
   },
 

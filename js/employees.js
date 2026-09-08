@@ -32,6 +32,7 @@ const Employees = {
             { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
             { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
             { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
+            { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
@@ -40,7 +41,7 @@ const Employees = {
           `).join('')}
         </div>
 
-        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events'].includes(this.currentView) ? `
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms'].includes(this.currentView) ? `
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="search-box">
@@ -143,6 +144,10 @@ const Employees = {
     }
     if (this.currentView === 'dependents_events') {
       this.renderDependentsAndLifeEvents(container);
+      return;
+    }
+    if (this.currentView === 'edms') {
+      this.renderDocumentVault(container);
       return;
     }
 
@@ -6595,6 +6600,400 @@ const Employees = {
         </div>
       </div>
     `;
+  },
+
+  // ═══════════════════════════════════════════════
+  // ENTERPRISE DOCUMENT MANAGEMENT SYSTEM (e-DMS)
+  // ═══════════════════════════════════════════════
+
+  docVaultCategory: 'all',
+  docVaultSearch: '',
+  docVaultStatus: 'all',
+
+  renderDocumentVault(container) {
+    const allDocs = DB.get('employee_documents') || [];
+    let docs = allDocs;
+
+    // Scope check
+    if (Auth.role === 'employee') {
+      docs = docs.filter(d => d.employeeId === (Auth.employee?.id || 1));
+    } else if (Auth.role === 'dept_manager') {
+      const myId = Auth.employee?.id;
+      const scopedEmps = DB.get('employees').filter(e => e.managerId === myId || e.reportingTo === myId).map(e => e.id);
+      scopedEmps.push(myId);
+      docs = docs.filter(d => scopedEmps.includes(d.employeeId));
+    }
+
+    if (this.docVaultCategory !== 'all') {
+      docs = docs.filter(d => d.category === this.docVaultCategory);
+    }
+    if (this.docVaultStatus !== 'all') {
+      docs = docs.filter(d => d.verificationStatus === this.docVaultStatus);
+    }
+    if (this.docVaultSearch) {
+      const q = this.docVaultSearch.toLowerCase();
+      docs = docs.filter(d => {
+        const empName = (Utils.getEmpName(d.employeeId) || '').toLowerCase();
+        return (d.title || '').toLowerCase().includes(q) ||
+               (d.fileName || '').toLowerCase().includes(q) ||
+               (d.notes || '').toLowerCase().includes(q) ||
+               empName.includes(q);
+      });
+    }
+
+    const verifiedCount = docs.filter(d => d.verificationStatus === 'verified').length;
+    const pendingCount = docs.filter(d => d.verificationStatus === 'pending').length;
+    const categories = [
+      'All Categories',
+      'Contracts & Agreements',
+      'Identity & Legal',
+      'Academic & Professional',
+      'Tax & Statutory',
+      'Medical & Insurance'
+    ];
+
+    const canManage = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    container.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700">Enterprise Employee Document Vault (e-DMS)</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">Centralized legal contracts, attested academic credentials, tax forms, and corporate compliance archives</div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${canManage && pendingCount > 0 ? `
+              <button class="btn btn-secondary btn-sm" onclick="Employees.batchVerifyDocuments()">
+                <i class="fa fa-shield-check"></i> Batch Verify Pending (${pendingCount})
+              </button>
+            ` : ''}
+            <button class="btn btn-primary btn-sm" onclick="Employees.showUploadDocModal()">
+              <i class="fa fa-cloud-arrow-up"></i> Upload Document
+            </button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--primary)">${docs.length}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Archived Documents</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${verifiedCount}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Verified & Audited</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingCount}</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending HR Review</div>
+          </div>
+          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:22px;font-weight:800;color:var(--info)">18.4 MB</div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Encrypted Vault Storage</div>
+          </div>
+        </div>
+
+        <!-- Category Tabs -->
+        <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px">
+          ${categories.map(cat => {
+            const catKey = cat === 'All Categories' ? 'all' : cat;
+            const isActive = this.docVaultCategory === catKey;
+            return `
+              <button class="btn btn-xs ${isActive ? 'btn-primary' : 'btn-ghost'}" onclick="Employees.docVaultCategory='${catKey}';Employees.renderTable()">
+                ${cat}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- Filters Toolbar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:240px">
+            <input type="text" class="form-control" style="font-size:12px" placeholder="Search by document title, filename, or employee..."
+              value="${this.docVaultSearch}" oninput="Employees.docVaultSearch=this.value;Employees.renderTable()">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <select class="form-control" style="width:160px;font-size:12px" onchange="Employees.docVaultStatus=this.value;Employees.renderTable()">
+              <option value="all" ${this.docVaultStatus==='all'?'selected':''}>All Statuses</option>
+              <option value="verified" ${this.docVaultStatus==='verified'?'selected':''}>Verified Only</option>
+              <option value="pending" ${this.docVaultStatus==='pending'?'selected':''}>Pending Review</option>
+              <option value="rejected" ${this.docVaultStatus==='rejected'?'selected':''}>Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Document Name & File</th>
+                <th>Personnel</th>
+                <th>Category</th>
+                <th>Upload Date</th>
+                <th>Expiry Date</th>
+                <th>Audit Status</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${docs.length === 0 ? `
+                <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-3)">No documents match the filter criteria.</td></tr>
+              ` : docs.map(d => {
+                const emp = DB.find('employees', d.employeeId);
+                const isPDF = (d.fileName || '').endsWith('.pdf');
+                const isImg = (d.fileName || '').endsWith('.jpg') || (d.fileName || '').endsWith('.png');
+                const fileIcon = isPDF ? 'fa-file-pdf text-danger' : isImg ? 'fa-file-image text-success' : 'fa-file-lines text-info';
+                const statusBadge = d.verificationStatus === 'verified' ? '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Verified</span>' :
+                                    d.verificationStatus === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
+                                    '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div style="font-size:20px"><i class="fa ${fileIcon}"></i></div>
+                        <div>
+                          <div style="font-weight:700;font-size:12.5px;color:var(--text)">${d.title}</div>
+                          <div style="font-size:10.5px;color:var(--text-3);font-family:monospace">${d.fileName} (${d.fileSize || '1.2 MB'})</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:600;font-size:12px">${emp?.fullName || 'Employee'}</div>
+                      <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo || ''}</div>
+                    </td>
+                    <td><span class="badge" style="background:var(--surface-2);font-size:10.5px">${d.category}</span></td>
+                    <td style="font-size:11.5px;color:var(--text-2)">${Utils.formatDate(d.uploadedAt)}</td>
+                    <td style="font-size:11.5px;color:var(--text-2)">${d.expiryDate ? Utils.formatDate(d.expiryDate) : '<span style="color:var(--text-3)">Permanent</span>'}</td>
+                    <td>
+                      ${statusBadge}
+                      ${d.verifiedBy ? `<div style="font-size:10px;color:var(--text-3);margin-top:2px">Audited by ${Utils.getEmpName(d.verifiedBy)}</div>` : ''}
+                    </td>
+                    <td style="text-align:right;white-space:nowrap">
+                      <button class="btn btn-ghost btn-xs" onclick="Employees.previewDocument(${d.id})" title="Preview Document">
+                        <i class="fa fa-eye"></i> Preview
+                      </button>
+                      ${canManage && d.verificationStatus === 'pending' ? `
+                        <button class="btn btn-success btn-xs" onclick="Employees.verifyDocument(${d.id})" title="Approve Document">
+                          <i class="fa fa-check"></i>
+                        </button>
+                        <button class="btn btn-danger btn-xs" onclick="Employees.rejectDocument(${d.id})" title="Reject Document">
+                          <i class="fa fa-times"></i>
+                        </button>
+                      ` : ''}
+                      <button class="btn btn-ghost btn-xs" onclick="Employees.deleteDocument(${d.id})" title="Delete" style="color:var(--danger)">
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showUploadDocModal() {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const categories = [
+      'Contracts & Agreements',
+      'Identity & Legal',
+      'Academic & Professional',
+      'Tax & Statutory',
+      'Medical & Insurance'
+    ];
+
+    Modal.show('Upload Employee Document to e-DMS', `
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Employee</label>
+          <select class="form-control" id="up-emp">
+            ${emps.map(e => `<option value="${e.id}" ${e.id === (Auth.employee?.id || 1) ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Document Category</label>
+          <select class="form-control" id="up-cat">
+            ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Document Title / Formal Description</label>
+        <input class="form-control" id="up-title" placeholder="e.g. Master of Business Administration (MBA) Degree">
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Simulated File Name</label>
+          <input class="form-control" id="up-filename" placeholder="e.g. Employee_Degree_Attested.pdf" value="Employee_Document_${Date.now().toString().slice(-4)}.pdf">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Document Expiry Date (if applicable)</label>
+          <input class="form-control" id="up-expiry" type="date">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Verification State</label>
+        <select class="form-control" id="up-status">
+          <option value="verified" ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? 'selected' : ''}>Verified by HR (Direct Upload)</option>
+          <option value="pending" ${Auth.role === 'employee' ? 'selected' : ''}>Pending Verification</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Archival Notes</label>
+        <textarea class="form-control" id="up-notes" rows="2" placeholder="Storage location, issuing authority, registration ID..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveUploadedDocument()"><i class="fa fa-upload"></i> Upload & Archive</button>
+      `
+    });
+  },
+
+  saveUploadedDocument() {
+    const empId = parseInt(document.getElementById('up-emp').value);
+    const category = document.getElementById('up-cat').value;
+    const title = document.getElementById('up-title').value.trim();
+    const fileName = document.getElementById('up-filename').value.trim() || 'Document.pdf';
+    const expiryDate = document.getElementById('up-expiry').value;
+    const status = document.getElementById('up-status').value;
+    const notes = document.getElementById('up-notes').value.trim();
+
+    if (!title) {
+      Toast.show('Document title is required', 'error');
+      return;
+    }
+
+    const docs = DB.get('employee_documents') || [];
+    const newDoc = {
+      id: DB.nextId('employee_documents'),
+      employeeId: empId,
+      title,
+      category,
+      fileName,
+      fileSize: '1.2 MB',
+      fileType: fileName.endsWith('.jpg') || fileName.endsWith('.png') ? 'Image' : 'PDF',
+      uploadedAt: new Date().toISOString().split('T')[0],
+      expiryDate,
+      verificationStatus: status,
+      verifiedBy: status === 'verified' ? (Auth.user?.id || 1) : null,
+      verifiedAt: status === 'verified' ? new Date().toISOString().split('T')[0] : null,
+      notes
+    };
+
+    docs.push(newDoc);
+    DB.set('employee_documents', docs);
+    DB.log('UPLOAD', 'Employees', `Uploaded document "${title}" for ${Utils.getEmpName(empId)}`, Auth.user?.id, 'INFO');
+    Toast.show('Document uploaded and archived successfully!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderTable();
+  },
+
+  verifyDocument(id) {
+    const docs = DB.get('employee_documents') || [];
+    const idx = docs.findIndex(d => d.id === id);
+    if (idx === -1) return;
+
+    docs[idx].verificationStatus = 'verified';
+    docs[idx].verifiedBy = Auth.user?.id || 1;
+    docs[idx].verifiedAt = new Date().toISOString().split('T')[0];
+    DB.set('employee_documents', docs);
+    DB.log('VERIFY', 'Employees', `Verified compliance document "${docs[idx].title}"`, Auth.user?.id, 'INFO');
+    Toast.show('Document verified and audit stamped!', 'success');
+    this.renderTable();
+  },
+
+  rejectDocument(id) {
+    const docs = DB.get('employee_documents') || [];
+    const idx = docs.findIndex(d => d.id === id);
+    if (idx === -1) return;
+
+    Modal.confirm('Reject Document', 'Reject this document and notify employee to re-upload?', () => {
+      docs[idx].verificationStatus = 'rejected';
+      DB.set('employee_documents', docs);
+      DB.log('REJECT', 'Employees', `Rejected document "${docs[idx].title}"`, Auth.user?.id, 'WARNING');
+      Toast.show('Document marked as rejected', 'info');
+      this.renderTable();
+    }, 'danger');
+  },
+
+  batchVerifyDocuments() {
+    const docs = DB.get('employee_documents') || [];
+    let count = 0;
+    const today = new Date().toISOString().split('T')[0];
+    docs.forEach(d => {
+      if (d.verificationStatus === 'pending') {
+        d.verificationStatus = 'verified';
+        d.verifiedBy = Auth.user?.id || 1;
+        d.verifiedAt = today;
+        count++;
+      }
+    });
+    DB.set('employee_documents', docs);
+    DB.log('VERIFY', 'Employees', `Batch verified ${count} pending employee documents`, Auth.user?.id, 'INFO');
+    Toast.show(`Verified ${count} documents!`, 'success');
+    this.renderTable();
+  },
+
+  deleteDocument(id) {
+    const docs = DB.get('employee_documents') || [];
+    const d = docs.find(x => x.id === id);
+    if (!d) return;
+
+    Modal.confirm('Delete Document', `Are you sure you want to permanently delete <strong>${d.title}</strong>?`, () => {
+      const filtered = docs.filter(x => x.id !== id);
+      DB.set('employee_documents', filtered);
+      DB.log('DELETE', 'Employees', `Deleted archived document "${d.title}"`, Auth.user?.id, 'WARNING');
+      Toast.show('Document deleted', 'success');
+      this.renderTable();
+    }, 'danger');
+  },
+
+  previewDocument(id) {
+    const d = (DB.get('employee_documents') || []).find(x => x.id === id);
+    if (!d) return;
+    const emp = DB.find('employees', d.employeeId);
+
+    Modal.show(`Document Inspection: ${d.title}`, `
+      <div style="background:var(--surface-2);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;line-height:1.6">
+        <div style="display:flex;justify-content:space-between">
+          <div><strong>Associated Personnel:</strong> ${emp?.fullName} (${emp?.empNo})</div>
+          <div><span class="badge badge-primary">${d.category}</span></div>
+        </div>
+        <div><strong>Original File:</strong> <code>${d.fileName}</code> (${d.fileSize || '1.2 MB'})</div>
+        <div><strong>Uploaded Date:</strong> ${Utils.formatDate(d.uploadedAt)}</div>
+        <div><strong>Expiry / Renewal:</strong> ${d.expiryDate ? Utils.formatDate(d.expiryDate) : 'Permanent Document'}</div>
+        <div><strong>Audit Status:</strong> <span class="badge ${d.verificationStatus==='verified'?'badge-success':'badge-warning'}">${d.verificationStatus.toUpperCase()}</span></div>
+      </div>
+
+      <div style="background:#ffffff;color:#1e293b;border-radius:10px;padding:24px;border:1px solid #cbd5e1;box-shadow:0 4px 12px rgba(0,0,0,0.06);font-family:'Segoe UI',sans-serif;text-align:center">
+        <div style="font-size:40px;color:#dc2626;margin-bottom:10px"><i class="fa fa-file-pdf"></i></div>
+        <div style="font-size:16px;font-weight:800;color:#0f172a;margin-bottom:4px">${d.title}</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:16px">${d.fileName} • Official Corporate Archive Copy</div>
+
+        <div style="display:inline-block;background:#f8fafc;border:1px dashed #94a3b8;border-radius:8px;padding:16px 24px;margin-bottom:16px;text-align:left;font-size:11.5px;color:#334155;line-height:1.5">
+          <div><strong>Integrity Checksum:</strong> <code>SHA256-${((d.id * 837) & 0xfffffff).toString(16).toUpperCase()}</code></div>
+          <div><strong>Digital Storage Path:</strong> <code>/hrm-vault/secured-docs/${emp?.empNo}/${d.fileName}</code></div>
+          <div><strong>Audited By:</strong> ${d.verifiedBy ? Utils.getEmpName(d.verifiedBy) : 'Pending HR Verification'}</div>
+          <div><strong>Archival Notes:</strong> ${d.notes || 'Official personnel record certified genuine.'}</div>
+        </div>
+
+        <div>
+          <button class="btn btn-primary btn-sm" onclick="Toast.show('Initiating encrypted mock PDF download...', 'info')">
+            <i class="fa fa-download"></i> Download Verified Document
+          </button>
+        </div>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Preview</button>`
+    });
   }
+
 };
 
