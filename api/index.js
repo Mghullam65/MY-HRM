@@ -19,6 +19,7 @@ const attendanceRoutes = require('../server/src/routes/attendance');
 const leaveRoutes = require('../server/src/routes/leaves');
 const payrollRoutes = require('../server/src/routes/payroll');
 const adminRoutes = require('../server/src/routes/admin');
+const notificationRoutes = require('../server/src/routes/notifications');
 
 const app = express();
 
@@ -85,5 +86,6 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 module.exports = app;

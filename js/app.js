@@ -8,6 +8,9 @@ const App = {
   init() {
     DB.init();
     Auth.init();
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
+      LiveNotifications.init();
+    }
     // Apply saved theme immediately (default to light mode)
     const savedTheme = DB.getObj('settings')?.theme || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -166,12 +169,25 @@ const App = {
             <span class="badge-dot" id="notif-badge-dot"></span>
             <span id="notif-badge-pill" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#ffffff;font-size:9.5px;font-weight:800;border-radius:10px;padding:1px 5px;line-height:1.2;box-shadow:0 0 6px rgba(239,68,68,0.7)"></span>
           </button>
-          <div class="notif-dropdown" id="notif-dropdown" style="width:360px">
+          <div class="notif-dropdown" id="notif-dropdown" style="width:375px">
             <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-              <div style="font-weight:700">Notifications <span class="badge badge-primary" id="notif-count" style="margin-left:8px">0</span></div>
-              <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-weight:700">Notifications</span>
+                <span class="badge badge-primary" id="notif-count" style="margin-left:2px">0</span>
+                <span class="live-status-pill" title="Real-Time Synchronization Active"><span class="live-status-dot"></span> LIVE</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px">
+                <button class="btn btn-ghost btn-xs" id="desktop-notif-btn" onclick="LiveNotifications.toggleDesktopPermission()" title="Enable Desktop Push Alerts" style="padding:2px 6px;font-size:11px">
+                  <i class="fa fa-bell"></i>
+                </button>
+                <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
+              </div>
             </div>
             <div id="notif-list" style="max-height:380px;overflow-y:auto"></div>
+            <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);font-size:11px;color:var(--text-3)">
+              <span><span class="live-status-dot" style="display:inline-block;vertical-align:middle;margin-right:4px"></span> Real-Time Live Sync</span>
+              <a href="javascript:void(0)" onclick="LiveNotifications.sendTestAlert()" style="color:var(--primary);font-weight:700">⚡ Test Live Alert</a>
+            </div>
           </div>
         </div>
         <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile">
@@ -382,6 +398,9 @@ const App = {
         n.read = true;
         DB.set('user_notifications', notifs);
       }
+      if (typeof API !== 'undefined' && API.markNotificationRead) {
+        API.markNotificationRead(notifId).catch(() => {});
+      }
     }
     this.refreshNotifications();
     const dropdown = document.getElementById('notif-dropdown');
@@ -413,6 +432,9 @@ const App = {
       }
     });
     DB.set('user_notifications', notifs);
+    if (typeof API !== 'undefined' && API.markAllNotificationsRead) {
+      API.markAllNotificationsRead({ recipientEmpId: myEmpId, recipientRole: myRole }).catch(() => {});
+    }
     this.refreshNotifications();
     Toast.show('All notifications marked as read', 'info');
   },

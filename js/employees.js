@@ -5373,10 +5373,8 @@ const Employees = {
     });
     DB.set('employee_documents', empDocs);
 
-    // 4. Dispatch notification to HR Manager and Super Admin
-    const userNotifs = DB.get('user_notifications') || [];
-    userNotifs.unshift({
-      id: DB.nextId('user_notifications'),
+    // 4. Dispatch live notification to HR Manager and Super Admin
+    const hrNotifPayload = {
       recipientRole: 'hr_manager',
       senderRole: 'employee',
       senderName: Auth.user?.name || 'Employee',
@@ -5386,12 +5384,19 @@ const Employees = {
       message: `${Auth.user?.name || 'Employee'} (${Auth.employee?.empNo || 'EMP'}) has uploaded their renewed ${doc.docType} (Number: ${newDocNum}, New Expiry: ${newExpiry}). Please review and verify in e-DMS Vault.`,
       actionUrl: 'employees',
       subView: 'doc_expiry',
-      actionLabel: 'Verify Document',
-      read: false,
-      createdAt: new Date().toISOString()
-    });
+      actionLabel: 'Verify Document'
+    };
+
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch(hrNotifPayload);
+    } else {
+      const userNotifs = DB.get('user_notifications') || [];
+      userNotifs.unshift({ id: DB.nextId('user_notifications'), ...hrNotifPayload, read: false, createdAt: new Date().toISOString() });
+      DB.set('user_notifications', userNotifs);
+    }
 
     // 5. Mark employee's own expiry notifications as read
+    const userNotifs = DB.get('user_notifications') || [];
     userNotifs.forEach(n => {
       if (parseInt(n.recipientEmpId) === parseInt(doc.employeeId) && (n.type === 'doc_expiry' || n.type === 'cnic_reminder' || n.subView === 'doc_expiry' || n.subView === 'edms')) {
         n.read = true;
@@ -5427,9 +5432,7 @@ const Employees = {
     const daysText = diffDays < 0 ? `expired ${Math.abs(diffDays)} day(s) ago` : `expires in ${diffDays} day(s) on ${Utils.formatDate(doc.expiryDate)}`;
 
     // 1. Create targeted user_notification for the employee
-    const userNotifs = DB.get('user_notifications') || [];
-    const newNotif = {
-      id: DB.nextId('user_notifications'),
+    const notifPayload = {
       recipientEmpId: doc.employeeId,
       recipientRole: 'employee',
       senderRole: Auth.role || 'hr_manager',
@@ -5439,13 +5442,17 @@ const Employees = {
       title: `⚠️ Action Required: ${doc.docType} Renewal Reminder`,
       message: `Your ${doc.docType} (No: ${doc.docNumber}) ${daysText}. Under statutory compliance regulations, please renew through NADRA / issuing authority and upload your updated copy to your e-DMS Vault.`,
       actionUrl: 'employees',
-      subView: 'edms',
-      actionLabel: 'Upload to e-DMS Vault',
-      read: false,
-      createdAt: new Date().toISOString()
+      subView: 'doc_expiry',
+      actionLabel: 'Update / Re-upload ' + doc.docType
     };
-    userNotifs.unshift(newNotif);
-    DB.set('user_notifications', userNotifs);
+
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch(notifPayload);
+    } else {
+      const userNotifs = DB.get('user_notifications') || [];
+      userNotifs.unshift({ id: DB.nextId('user_notifications'), ...notifPayload, read: false, createdAt: new Date().toISOString() });
+      DB.set('user_notifications', userNotifs);
+    }
 
     // 2. Dispatch simulated webhook event
     if (typeof Webhooks !== 'undefined' && Webhooks.dispatchMockEvent) {
@@ -6351,10 +6358,8 @@ const Employees = {
     l.acknowledgedBy = empName;
     DB.set('hr_letters', letters);
 
-    // Notify HR Management and Super Admin
-    const userNotifs = DB.get('user_notifications') || [];
-    userNotifs.unshift({
-      id: DB.nextId('user_notifications'),
+    // Notify HR Management and Super Admin via LiveNotifications
+    const ackPayload = {
       recipientRole: 'hr_manager',
       senderRole: 'employee',
       senderName: empName,
@@ -6364,12 +6369,19 @@ const Employees = {
       message: `${empName} (${emp?.empNo || 'EMP'}) has formally acknowledged receipt of official letter ${l.refNo} (${l.title || l.templateType}).`,
       actionUrl: 'employees',
       subView: 'hr_letters',
-      actionLabel: 'View Letter',
-      read: false,
-      createdAt: new Date().toISOString()
-    });
+      actionLabel: 'View Letter'
+    };
+
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch(ackPayload);
+    } else {
+      const userNotifs = DB.get('user_notifications') || [];
+      userNotifs.unshift({ id: DB.nextId('user_notifications'), ...ackPayload, read: false, createdAt: new Date().toISOString() });
+      DB.set('user_notifications', userNotifs);
+    }
 
     // Mark employee's own notification about this letter as read
+    const userNotifs = DB.get('user_notifications') || [];
     userNotifs.forEach(n => {
       if (parseInt(n.recipientEmpId) === parseInt(l.employeeId) && (n.type === 'hr_letter' || n.subView === 'hr_letters')) {
         if ((n.message && n.message.includes(l.refNo)) || (n.title && n.title.includes(l.title))) {
@@ -6439,10 +6451,8 @@ const Employees = {
     letters.unshift(newLetter);
     DB.set('hr_letters', letters);
 
-    // Dispatch targeted notification to the employee
-    const userNotifs = DB.get('user_notifications') || [];
-    userNotifs.unshift({
-      id: DB.nextId('user_notifications'),
+    // Dispatch targeted live notification to the employee
+    const letterNotifPayload = {
       recipientEmpId: empId,
       recipientRole: 'employee',
       senderRole: Auth.role || 'hr_manager',
@@ -6453,12 +6463,17 @@ const Employees = {
       message: `Your official ${title} (Ref: ${refNo}) has been issued by ${issuedBy || 'HR'}. You can view and print your digitally signed certificate directly from your portal.`,
       actionUrl: 'employees',
       subView: 'hr_letters',
-      actionLabel: 'View Letter',
-      read: false,
-      createdAt: new Date().toISOString()
-    });
-    DB.set('user_notifications', userNotifs);
-    if (typeof App !== 'undefined' && App.refreshNotifications) App.refreshNotifications();
+      actionLabel: 'View Letter'
+    };
+
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch(letterNotifPayload);
+    } else {
+      const userNotifs = DB.get('user_notifications') || [];
+      userNotifs.unshift({ id: DB.nextId('user_notifications'), ...letterNotifPayload, read: false, createdAt: new Date().toISOString() });
+      DB.set('user_notifications', userNotifs);
+      if (typeof App !== 'undefined' && App.refreshNotifications) App.refreshNotifications();
+    }
 
     Toast.show('Official letter generated and notified to employee!', 'success');
     this.renderHRLetters(document.getElementById('emp-content'));

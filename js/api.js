@@ -191,6 +191,37 @@ const API = {
   async getAuditLogs(params = {}) {
     const query = new URLSearchParams(params).toString();
     return this.request(`/admin/audit-logs${query ? '?' + query : ''}`);
+  },
+
+  // Live Notifications APIs
+  async getNotifications(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/notifications${query ? '?' + query : ''}`);
+  },
+
+  async pollNotifications(params = {}) {
+    const query = new URLSearchParams(params).toString();
+    return this.request(`/notifications/poll${query ? '?' + query : ''}`);
+  },
+
+  async createNotification(data) {
+    return this.request('/notifications', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+  },
+
+  async markNotificationRead(id) {
+    return this.request(`/notifications/${id}/read`, {
+      method: 'PUT'
+    });
+  },
+
+  async markAllNotificationsRead(data = {}) {
+    return this.request('/notifications/read-all', {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
   }
 };
 

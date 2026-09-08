@@ -110,6 +110,7 @@
 ══════════════════════════════════════ -->
 <script src="js/api.js"></script>
 <script src="js/data.js"></script>
+<script src="js/notifications.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 <script src="js/dashboard.js"></script>
@@ -130,7 +131,7 @@
   <script>
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
-      const required = ['API','DB','Auth','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
+      const required = ['API','DB','LiveNotifications','Auth','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
         console.error('HRM: Missing modules:', missing);
