@@ -229,7 +229,7 @@
 - [x] **Direct Attendance-to-Payroll Bridge**: 1-click sync importing LOP deductions, late check-in penalties, and approved overtime *(Completed in Batch 2)*.
 - [x] **Corporate Bank Advice File Generator**: Multi-bank bulk payout export (HBL, MCB, UBL, Meezan, ABL) and official Bank Authority Letter *(Completed in Batch 2)*.
 - [x] **Statutory Benefit Ledgers**: EOBI, SESSI/PESSI, and Gratuity Defined Benefit Liability Pool *(Completed in Batch 2)*.
-- [ ] **Batch 3: Time, Attendance & Field Operations**: Geo-fencing, IP whitelisting, rotational shifts & shift swap requests, biometric hardware API listeners / ZKTeco log parser.
+- [x] **Batch 3: Time, Attendance & Field Operations**: Multi-shift roster calendar, automated rotational schedule generator, peer-to-peer shift swaps, GPS geo-fencing (Haversine perimeter verification), corporate IP whitelisting, and ZKTeco biometric machine log parser *(Completed in Batch 3)*.
 - [ ] **Batch 4: Talent, LMS & Performance Management**: 360-degree peer reviews, Learning Management System (LMS) with certifications, 9-box succession grid.
 - [ ] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing.
 
