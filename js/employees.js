@@ -5035,6 +5035,9 @@ const Employees = {
                       <td style="font-size:11.5px;color:var(--text-3);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.notes||''}">${d.notes || '—'}</td>
                       <td style="text-align:right">
                         <div class="tbl-actions" style="justify-content:flex-end">
+                          <button class="btn btn-warning btn-xs" onclick="Employees.sendDocExpiryReminder(${d.id})" title="Dispatch urgent expiry reminder notification to ${d.emp.fullName}">
+                            <i class="fa fa-bell"></i> Send Notice
+                          </button>
                           <button class="btn btn-primary btn-xs" onclick="Employees.showRenewDocModal(${d.id})" title="Renew or update expiry date">
                             <i class="fa fa-arrows-rotate"></i> Renew
                           </button>
@@ -5193,6 +5196,63 @@ const Employees = {
     DB.set('document_expiries', docs);
     Toast.show('Document record removed', 'info');
     this.renderDocExpiry(document.getElementById('emp-content'));
+  },
+
+  sendDocExpiryReminder(docId) {
+    const docs = DB.get('document_expiries') || [];
+    const doc = docs.find(d => d.id === docId);
+    if (!doc) return Toast.show('Document record not found', 'danger');
+
+    const emp = (DB.get('employees') || []).find(e => e.id === doc.employeeId);
+    const empName = emp ? emp.fullName : 'Employee';
+    const today = new Date();
+    const exp = new Date(doc.expiryDate);
+    const diffDays = Math.ceil((exp - today) / (1000 * 60 * 60 * 24));
+    const daysText = diffDays < 0 ? `expired ${Math.abs(diffDays)} day(s) ago` : `expires in ${diffDays} day(s) on ${Utils.formatDate(doc.expiryDate)}`;
+
+    // 1. Create targeted user_notification for the employee
+    const userNotifs = DB.get('user_notifications') || [];
+    const newNotif = {
+      id: DB.nextId('user_notifications'),
+      recipientEmpId: doc.employeeId,
+      recipientRole: 'employee',
+      senderRole: Auth.role || 'hr_manager',
+      senderName: Auth.employee ? `${Auth.employee.fullName} (${Auth.role === 'superadmin' ? 'Super Admin' : 'HR Manager'})` : 'HR Compliance Directorate',
+      type: 'doc_expiry',
+      priority: diffDays <= 30 ? 'urgent' : 'high',
+      title: `⚠️ Action Required: ${doc.docType} Renewal Reminder`,
+      message: `Your ${doc.docType} (No: ${doc.docNumber}) ${daysText}. Under statutory compliance regulations, please renew through NADRA / issuing authority and upload your updated copy to your e-DMS Vault.`,
+      actionUrl: 'employees',
+      subView: 'edms',
+      actionLabel: 'Upload to e-DMS Vault',
+      read: false,
+      createdAt: new Date().toISOString()
+    };
+    userNotifs.unshift(newNotif);
+    DB.set('user_notifications', userNotifs);
+
+    // 2. Dispatch simulated webhook event
+    if (typeof Webhooks !== 'undefined' && Webhooks.dispatchMockEvent) {
+      Webhooks.dispatchMockEvent('document.expiry_reminder', {
+        employeeId: doc.employeeId,
+        employeeName: empName,
+        docType: doc.docType,
+        docNumber: doc.docNumber,
+        expiryDate: doc.expiryDate,
+        daysRemaining: diffDays,
+        sentBy: Auth.user?.username || 'admin'
+      });
+    }
+
+    // 3. Security Audit Log
+    DB.log('NOTIFICATION', 'Compliance', `Dispatched expiry notice for ${doc.docType} (${doc.docNumber}) to ${empName}`, Auth.user?.id, 'INFO');
+
+    // 4. Update topbar notification counter in real-time
+    if (typeof App !== 'undefined' && App.refreshNotifications) {
+      App.refreshNotifications();
+    }
+
+    Toast.show(`Expiry notice & email alert dispatched to ${empName}!`, 'success', 'Notification Sent');
   },
 
   // ============================================================
@@ -6000,7 +6060,29 @@ const Employees = {
 
     letters.unshift(newLetter);
     DB.set('hr_letters', letters);
-    Toast.show('Official letter generated!', 'success');
+
+    // Dispatch targeted notification to the employee
+    const userNotifs = DB.get('user_notifications') || [];
+    userNotifs.unshift({
+      id: DB.nextId('user_notifications'),
+      recipientEmpId: empId,
+      recipientRole: 'employee',
+      senderRole: Auth.role || 'hr_manager',
+      senderName: issuedBy || 'HR Operations Directorate',
+      type: 'hr_letter',
+      priority: 'normal',
+      title: `📄 Official HR Document Issued: ${title}`,
+      message: `Your official ${title} (Ref: ${refNo}) has been issued by ${issuedBy || 'HR'}. You can view and print your digitally signed certificate directly from your portal.`,
+      actionUrl: 'employees',
+      subView: 'hr_letters',
+      actionLabel: 'View Letter',
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('user_notifications', userNotifs);
+    if (typeof App !== 'undefined' && App.refreshNotifications) App.refreshNotifications();
+
+    Toast.show('Official letter generated and notified to employee!', 'success');
     this.renderHRLetters(document.getElementById('emp-content'));
     this.previewLetterModal(newLetter.id);
   },

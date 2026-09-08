@@ -165,9 +165,12 @@ const App = {
             <i class="fa fa-bell"></i>
             <span class="badge-dot" id="notif-badge-dot"></span>
           </button>
-          <div class="notif-dropdown" id="notif-dropdown">
-            <div class="notif-header">Notifications <span class="badge badge-primary" id="notif-count" style="margin-left:8px">0</span></div>
-            <div id="notif-list"></div>
+          <div class="notif-dropdown" id="notif-dropdown" style="width:360px">
+            <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+              <div style="font-weight:700">Notifications <span class="badge badge-primary" id="notif-count" style="margin-left:8px">0</span></div>
+              <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
+            </div>
+            <div id="notif-list" style="max-height:380px;overflow-y:auto"></div>
           </div>
         </div>
         <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile">
@@ -192,14 +195,47 @@ const App = {
   },
 
   refreshNotifications() {
-    const leaves = DB.get('leave_requests');
-    const reviews = DB.get('performance_reviews');
-    const logs = DB.get('audit_logs').slice(0, 5);
+    const leaves = DB.get('leave_requests') || [];
+    const reviews = DB.get('performance_reviews') || [];
+    const logs = (DB.get('audit_logs') || []).slice(0, 5);
     const role = Auth.role;
+    const myEmpId = Auth.employee?.id;
 
     const notifs = [];
 
-    // Pending leaves for approvers
+    // 1. Targeted Direct Notifications from Senior Roles (CNIC expiries, HR letters, policy mandates)
+    const allUserNotifs = DB.get('user_notifications') || [];
+    const targetedNotifs = allUserNotifs.filter(n => {
+      if (n.recipientEmpId && n.recipientEmpId === myEmpId) return true;
+      if (!n.recipientEmpId && n.recipientRole === role) return true;
+      return false;
+    });
+
+    targetedNotifs.forEach(n => {
+      let color = 'var(--primary)';
+      let icon = 'fa-bell';
+      if (n.type === 'doc_expiry') { color = 'var(--danger)'; icon = 'fa-id-card-clip'; }
+      else if (n.type === 'hr_letter') { color = 'var(--info)'; icon = 'fa-file-signature'; }
+      else if (n.type === 'policy_mandate') { color = 'var(--warning)'; icon = 'fa-signature'; }
+      else if (n.priority === 'urgent') { color = 'var(--danger)'; icon = 'fa-triangle-exclamation'; }
+
+      notifs.push({
+        id: n.id,
+        isUserNotif: true,
+        unread: !n.read,
+        color,
+        icon,
+        text: n.title,
+        sub: n.message,
+        actionUrl: n.actionUrl,
+        subView: n.subView,
+        actionLabel: n.actionLabel,
+        time: n.createdAt ? (Utils.formatDate(n.createdAt.slice(0, 10)) + ' ' + new Date(n.createdAt).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })) : 'Recent',
+        sender: n.senderName
+      });
+    });
+
+    // 2. Pending leaves for approvers
     if (role === 'superadmin' || role === 'hr_manager' || role === 'dept_manager') {
       const pendingLeaves = leaves.filter(l => l.status === 'pending').length;
       const mgrPending = leaves.filter(l => l.status === 'manager_approved').length;
@@ -207,21 +243,21 @@ const App = {
       if (mgrPending > 0) notifs.push({ color: 'var(--info)', text: `${mgrPending} leave${mgrPending > 1 ? 's' : ''} awaiting HR approval`, time: 'Action required', icon: 'fa-user-check' });
     }
 
-    // Employee-specific
-    if (role === 'employee') {
+    // 3. Employee-specific leave status
+    if (role === 'employee' && Auth.employee) {
       const myLeaves = leaves.filter(l => l.employeeId === Auth.employee.id && (l.status === 'approved' || l.status === 'rejected'));
       myLeaves.slice(0, 2).forEach(l => {
         notifs.push({ color: l.status === 'approved' ? 'var(--success)' : 'var(--danger)', text: `Your leave request was ${l.status}`, time: Utils.formatDate(l.approvedOn || l.appliedOn), icon: l.status === 'approved' ? 'fa-circle-check' : 'fa-circle-xmark' });
       });
     }
 
-    // Pending reviews
+    // 4. Pending reviews
     if (role === 'superadmin' || role === 'hr_manager') {
       const pendingRev = reviews.filter(r => r.status === 'pending').length;
       if (pendingRev > 0) notifs.push({ color: 'var(--accent)', text: `${pendingRev} performance review${pendingRev > 1 ? 's' : ''} pending`, time: 'Action required', icon: 'fa-chart-line' });
     }
 
-    // Pending expense claims
+    // 5. Pending expense claims
     const expClaims = DB.get('expense_claims') || [];
     if (role === 'dept_manager') {
       const pClaims = expClaims.filter(c => c.status === 'pending_manager' && c.employeeId !== Auth.employee?.id).length;
@@ -231,45 +267,109 @@ const App = {
       if (fClaims > 0) notifs.push({ color: 'var(--info)', text: `${fClaims} expense claim${fClaims > 1 ? 's' : ''} awaiting finance authorization`, time: 'Action required', icon: 'fa-stamp' });
     }
 
-    // Urgent helpdesk tickets
+    // 6. Urgent helpdesk tickets
     const tickets = DB.get('helpdesk_tickets') || [];
     if (role === 'superadmin' || role === 'hr_manager') {
       const urgentTickets = tickets.filter(t => t.priority === 'urgent' && t.status !== 'closed' && t.status !== 'resolved').length;
       if (urgentTickets > 0) notifs.push({ color: 'var(--danger)', text: `${urgentTickets} urgent ticket${urgentTickets > 1 ? 's' : ''} requiring immediate response`, time: 'SLA priority', icon: 'fa-headset' });
     }
 
-    // Upcoming birthdays
+    // 7. Upcoming birthdays
     const today = Utils.today();
     const todayMMDD = today.slice(5);
-    const bdays = DB.get('employees').filter(e => e.dob?.slice(5) === todayMMDD && e.status === 'active');
+    const bdays = (DB.get('employees') || []).filter(e => e.dob?.slice(5) === todayMMDD && e.status === 'active');
     if (bdays.length > 0) notifs.push({ color: 'var(--success)', text: `🎂 ${bdays.map(e => e.firstName).join(', ')} birthday today!`, time: 'Today', icon: 'fa-cake-candles' });
 
-    // Recent audit log
+    // 8. Recent audit log
     if (logs.length > 0) {
       const l = logs[0];
       notifs.push({ color: 'var(--primary)', text: l.details, time: new Date(l.timestamp).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }), icon: 'fa-scroll' });
     }
 
-    const count = notifs.length;
+    const unreadUserCount = targetedNotifs.filter(n => !n.read).length;
+    const totalCount = notifs.length;
     const badge = document.getElementById('notif-badge-dot');
     const countEl = document.getElementById('notif-count');
     const listEl = document.getElementById('notif-list');
 
-    if (badge) badge.style.display = count > 0 ? 'block' : 'none';
-    if (countEl) countEl.textContent = count;
+    if (badge) badge.style.display = (unreadUserCount > 0 || totalCount > 0) ? 'block' : 'none';
+    if (countEl) countEl.textContent = unreadUserCount > 0 ? unreadUserCount : totalCount;
     if (listEl) {
-      listEl.innerHTML = count === 0
-        ? `<div style="padding:20px;text-align:center;color:var(--text-muted);font-size:13px"><i class="fa fa-bell-slash" style="font-size:24px;margin-bottom:8px;display:block"></i>No new notifications</div>`
-        : notifs.map(n => `
-            <div class="notif-item">
-              <div class="notif-dot" style="background:${n.color}"></div>
-              <div>
-                <div class="notif-text">${n.text}</div>
-                <div class="notif-time">${n.time}</div>
+      listEl.innerHTML = totalCount === 0
+        ? `<div style="padding:24px;text-align:center;color:var(--text-muted);font-size:13px"><i class="fa fa-bell-slash" style="font-size:26px;margin-bottom:8px;display:block;opacity:0.6"></i>No new notifications</div>`
+        : notifs.map(n => {
+            if (n.isUserNotif) {
+              return `
+                <div class="notif-item ${n.unread ? 'notif-unread' : ''}" style="${n.unread ? 'background:rgba(99,102,241,0.06);border-left:3px solid ' + n.color + ';' : 'border-bottom:1px solid var(--border);'}padding:12px 14px;cursor:pointer;transition:background 0.2s" onclick="App.handleNotificationClick(${n.id}, '${n.actionUrl}', '${n.subView || ''}')">
+                  <div style="display:flex;align-items:flex-start;gap:10px;width:100%">
+                    <div class="notif-dot" style="background:${n.color};margin-top:4px"></div>
+                    <div style="flex:1">
+                      <div style="display:flex;justify-content:space-between;align-items:center">
+                        <div class="notif-text" style="font-weight:700;font-size:12.5px;color:var(--text)">
+                          <i class="fa ${n.icon}" style="color:${n.color};margin-right:4px"></i>${n.text}
+                        </div>
+                        ${n.unread ? `<span class="badge badge-danger" style="font-size:9px;padding:1px 5px;font-weight:700">NEW</span>` : ''}
+                      </div>
+                      <div style="font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.4">${n.sub || ''}</div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+                        <span class="notif-time" style="font-size:10px;color:var(--text-3)">${n.sender ? n.sender + ' • ' : ''}${n.time}</span>
+                        ${n.actionLabel ? `<span style="font-size:10.5px;font-weight:700;color:var(--primary)"><i class="fa fa-arrow-up-right-from-square"></i> ${n.actionLabel}</span>` : ''}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }
+
+            return `
+              <div class="notif-item" style="padding:10px 14px;border-bottom:1px solid var(--border)">
+                <div class="notif-dot" style="background:${n.color}"></div>
+                <div>
+                  <div class="notif-text">${n.text}</div>
+                  <div class="notif-time">${n.time}</div>
+                </div>
               </div>
-            </div>
-          `).join('');
+            `;
+          }).join('');
     }
+  },
+
+  handleNotificationClick(notifId, module, subView) {
+    const notifs = DB.get('user_notifications') || [];
+    const n = notifs.find(x => x.id === notifId);
+    if (n) {
+      n.read = true;
+      DB.set('user_notifications', notifs);
+    }
+    this.refreshNotifications();
+    const dropdown = document.getElementById('notif-dropdown');
+    if (dropdown) dropdown.classList.remove('open');
+    if (module) {
+      this.navigate(module);
+      if (subView) {
+        setTimeout(() => {
+          if (module === 'employees' && typeof Employees !== 'undefined' && Employees.switchView) {
+            Employees.switchView(subView);
+          } else if (module === 'events' && typeof Events !== 'undefined' && Events.switchView) {
+            Events.switchView(subView);
+          }
+        }, 150);
+      }
+    }
+  },
+
+  markAllNotificationsRead() {
+    const myEmpId = Auth.employee?.id;
+    const myRole = Auth.role;
+    const notifs = DB.get('user_notifications') || [];
+    notifs.forEach(n => {
+      if ((n.recipientEmpId && n.recipientEmpId === myEmpId) || (!n.recipientEmpId && n.recipientRole === myRole)) {
+        n.read = true;
+      }
+    });
+    DB.set('user_notifications', notifs);
+    this.refreshNotifications();
+    Toast.show('All notifications marked as read', 'info');
   },
 
   navigate(module) {

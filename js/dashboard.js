@@ -627,6 +627,44 @@ const Dashboard = {
       });
     });
 
+    // 5b. Urgent Expiring Documents & CNIC Expiry Notices (for current user)
+    const docExpiries = DB.get('document_expiries') || [];
+    const todayDate = new Date();
+    docExpiries.filter(d => d.employeeId === myId).forEach(d => {
+      const exp = new Date(d.expiryDate);
+      const diffDays = Math.ceil((exp - todayDate) / (1000 * 60 * 60 * 24));
+      if (diffDays <= 30 || d.status === 'expired' || d.status === 'urgent') {
+        const daysText = diffDays < 0 ? `EXPIRED ${Math.abs(diffDays)} day(s) ago!` : `Expires in ${diffDays} days (${d.expiryDate})`;
+        actions.unshift({
+          type: 'doc_expiry',
+          tag: 'IDENTITY & CNIC COMPLIANCE',
+          icon: 'fa-id-card-clip',
+          color: 'var(--danger)',
+          title: `⚠️ Action Required: Renew ${d.docType} (${d.docNumber})`,
+          sub: `${daysText} • Initiated by HR. Upload renewed document to your e-DMS Vault`,
+          actions: `
+            <button class="btn btn-danger btn-xs" onclick="App.navigate('employees');setTimeout(()=>{if(typeof Employees!=='undefined'&&Employees.switchView)Employees.switchView('edms');},150)"><i class="fa fa-upload"></i> Upload to e-DMS</button>
+          `
+        });
+      }
+    });
+
+    // 5c. Targeted Unread Notifications from Senior Roles
+    const userNotifs = DB.get('user_notifications') || [];
+    userNotifs.filter(n => (n.recipientEmpId === myId || (!n.recipientEmpId && n.recipientRole === role)) && !n.read && n.type === 'hr_letter').forEach(n => {
+      actions.push({
+        type: 'hr_letter',
+        tag: 'OFFICIAL DOCUMENT',
+        icon: 'fa-file-signature',
+        color: 'var(--info)',
+        title: n.title,
+        sub: `${n.senderName || 'HR'} • Ready for download & print`,
+        actions: `
+          <button class="btn btn-info btn-xs" onclick="App.handleNotificationClick(${n.id}, 'employees', 'hr_letters')"><i class="fa fa-eye"></i> View Letter</button>
+        `
+      });
+    });
+
     // 6. Pending Life Event Verifications (for Super Admin & HR Manager)
     if (isAdmin) {
       const lifeEvents = DB.get('life_events') || [];

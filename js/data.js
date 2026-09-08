@@ -23,6 +23,7 @@ const DB = {
       this.ensureLifeEventsAndDependents();
       this.ensureWebhooksAndTemplates();
       this.ensureBatch9Data();
+      this.ensureUserNotifications();
       return;
     }
     this.seed();
@@ -470,9 +471,9 @@ const DB = {
         },
         {
           id: 8, employeeId: 4, docType: 'CNIC', docNumber: '42201-4567890-4',
-          issueDate: '2019-05-30', expiryDate: '2029-05-29',
-          issuingAuthority: 'NADRA Bahria',
-          notes: 'National Identity Card', status: 'active'
+          issueDate: '2016-09-28', expiryDate: '2026-09-28',
+          issuingAuthority: 'NADRA Clifton',
+          notes: 'CRITICAL: Smart CNIC expiring in under 20 days! Renewal required.', status: 'urgent'
         },
         {
           id: 9, employeeId: 7, docType: 'CNIC', docNumber: '42201-7890123-7',
@@ -506,6 +507,13 @@ const DB = {
         }
       ];
       this.set('document_expiries', docs);
+    } else {
+      const cnic4 = docs.find(d => d.employeeId === 4 && d.docType === 'CNIC');
+      if (cnic4) {
+        cnic4.expiryDate = '2026-09-28';
+        cnic4.status = 'urgent';
+        this.set('document_expiries', docs);
+      }
     }
   },
 
@@ -2067,9 +2075,57 @@ const DB = {
           variables: ['{{employee_name}}', '{{company_name}}', '{{policy_code}}', '{{policy_title}}', '{{version}}', '{{deadline}}', '{{sign_url}}'],
           body: `Dear {{employee_name}},\n\nIn accordance with our statutory governance framework, all personnel are required to review and electronically acknowledge {{policy_code}}: {{policy_title}} ({{version}}).\n\nCompliance Deadline: {{deadline}}\n\nPlease follow this link to execute your electronic signature:\n{{sign_url}}\n\nRegards,\nCorporate Governance & Compliance\n{{company_name}}`,
           lastUpdated: '2026-09-05'
+        },
+        {
+          id: 6,
+          code: 'tpl_cnic_expiry_alert',
+          title: 'NADRA CNIC & Identity Document Expiry / Renewal Notice',
+          category: 'Compliance & Identity',
+          subject: 'URGENT: Your {{doc_type}} ({{doc_number}}) expires on {{expiry_date}} — Renewal Action Required',
+          badgeColor: 'var(--danger)',
+          variables: ['{{employee_name}}', '{{doc_type}}', '{{doc_number}}', '{{expiry_date}}', '{{days_left}}', '{{portal_url}}'],
+          body: `Dear {{employee_name}},\n\nOur statutory compliance audit records indicate that your {{doc_type}} (No: {{doc_number}}) will expire on {{expiry_date}} (in {{days_left}} days).\n\nUnder corporate compliance and labor regulations, an active and verified identity document must remain on record at all times. Please take immediate steps to renew your CNIC through NADRA and upload a high-resolution attested copy to your Document Vault.\n\nUpload Link: {{portal_url}}\n\nFailure to maintain valid documentation may impact salary disbursement and corporate benefits.\n\nRegards,\nHuman Resources & Compliance Directorate\n{{company_name}}`,
+          lastUpdated: '2026-09-08'
+        },
+        {
+          id: 7,
+          code: 'tpl_hr_letter_issued',
+          title: 'Official HR Letter Issuance & Download Notice',
+          category: 'Human Resources & Records',
+          subject: 'Official HR Letter Issued: {{letter_title}} — {{company_name}}',
+          badgeColor: 'var(--primary)',
+          variables: ['{{employee_name}}', '{{letter_type}}', '{{letter_title}}', '{{ref_number}}', '{{issue_date}}', '{{download_url}}'],
+          body: `Dear {{employee_name}},\n\nYour requested official document "{{letter_title}}" (Ref: {{ref_number}}) has been formally authorized and issued by Human Resources on {{issue_date}}.\n\nYou may view and print your digitally signed letter directly from your self-service portal:\n\n{{download_url}}\n\nBest regards,\nPeople Operations Team\n{{company_name}}`,
+          lastUpdated: '2026-09-08'
         }
       ];
       this.set('notification_templates', templates);
+    } else {
+      if (!templates.some(t => t.code === 'tpl_cnic_expiry_alert')) {
+        templates.push({
+          id: 6,
+          code: 'tpl_cnic_expiry_alert',
+          title: 'NADRA CNIC & Identity Document Expiry / Renewal Notice',
+          category: 'Compliance & Identity',
+          subject: 'URGENT: Your {{doc_type}} ({{doc_number}}) expires on {{expiry_date}} — Renewal Action Required',
+          badgeColor: 'var(--danger)',
+          variables: ['{{employee_name}}', '{{doc_type}}', '{{doc_number}}', '{{expiry_date}}', '{{days_left}}', '{{portal_url}}'],
+          body: `Dear {{employee_name}},\n\nOur statutory compliance audit records indicate that your {{doc_type}} (No: {{doc_number}}) will expire on {{expiry_date}} (in {{days_left}} days).\n\nUnder corporate compliance and labor regulations, an active and verified identity document must remain on record at all times. Please take immediate steps to renew your CNIC through NADRA and upload a high-resolution attested copy to your Document Vault.\n\nUpload Link: {{portal_url}}\n\nFailure to maintain valid documentation may impact salary disbursement and corporate benefits.\n\nRegards,\nHuman Resources & Compliance Directorate\n{{company_name}}`,
+          lastUpdated: '2026-09-08'
+        });
+        templates.push({
+          id: 7,
+          code: 'tpl_hr_letter_issued',
+          title: 'Official HR Letter Issuance & Download Notice',
+          category: 'Human Resources & Records',
+          subject: 'Official HR Letter Issued: {{letter_title}} — {{company_name}}',
+          badgeColor: 'var(--primary)',
+          variables: ['{{employee_name}}', '{{letter_type}}', '{{letter_title}}', '{{ref_number}}', '{{issue_date}}', '{{download_url}}'],
+          body: `Dear {{employee_name}},\n\nYour requested official document "{{letter_title}}" (Ref: {{ref_number}}) has been formally authorized and issued by Human Resources on {{issue_date}}.\n\nYou may view and print your digitally signed letter directly from your self-service portal:\n\n{{download_url}}\n\nBest regards,\nPeople Operations Team\n{{company_name}}`,
+          lastUpdated: '2026-09-08'
+        });
+        this.set('notification_templates', templates);
+      }
     }
   },
 
@@ -2535,6 +2591,63 @@ const DB = {
         }
       ];
       this.set('employee_documents', docs);
+    }
+  },
+
+  ensureUserNotifications() {
+    let notifs = this.get('user_notifications');
+    if (!notifs || !notifs.length) {
+      notifs = [
+        {
+          id: 1,
+          recipientEmpId: 4, // Fatima Raza (Employee demo account)
+          recipientRole: 'employee',
+          senderRole: 'hr_manager',
+          senderName: 'Sara Malik (HR Manager)',
+          type: 'doc_expiry',
+          priority: 'urgent',
+          title: '⚠️ Urgent: NADRA CNIC Expiry Notice (Renewal Required)',
+          message: 'Your NADRA CNIC (No: 42201-4567890-4) will expire on 2026-09-28 (in 20 days). Please initiate NADRA renewal and upload your renewed attested smart copy to your e-DMS Document Vault.',
+          actionUrl: 'employees',
+          subView: 'edms',
+          actionLabel: 'Upload Renewed CNIC',
+          read: false,
+          createdAt: '2026-09-08T09:30:00Z'
+        },
+        {
+          id: 2,
+          recipientEmpId: 4, // Fatima Raza
+          recipientRole: 'employee',
+          senderRole: 'hr_manager',
+          senderName: 'Sara Malik (HR Operations)',
+          type: 'hr_letter',
+          priority: 'normal',
+          title: '📄 Official HR Document Issued: Employment Confirmation Letter',
+          message: 'Human Resources has generated and officially signed your Employment Confirmation Letter (Ref: HRM/CON/2026/001). You can inspect and download your signed certificate.',
+          actionUrl: 'employees',
+          subView: 'hr_letters',
+          actionLabel: 'Download Letter',
+          read: false,
+          createdAt: '2026-09-07T14:15:00Z'
+        },
+        {
+          id: 3,
+          recipientEmpId: 3, // Usman Baig (Dept Manager)
+          recipientRole: 'dept_manager',
+          senderRole: 'superadmin',
+          senderName: 'Ahmed Khan (Super Admin)',
+          type: 'policy_mandate',
+          priority: 'high',
+          title: '🛡️ Compliance Mandate: IT Security & Remote Access Policy v2.4',
+          message: 'All Department Leads and engineering teams are required to execute electronic acknowledgment of the revised IT Security & Acceptable Use Policy before September 15.',
+          actionUrl: 'events',
+          subView: 'policies',
+          actionLabel: 'Review & E-Sign',
+          read: false,
+          createdAt: '2026-09-06T11:00:00Z'
+        }
+      ];
+      this.set('user_notifications', notifs);
     }
   },
 
