@@ -10,33 +10,54 @@ const Employees = {
 
   render() {
     const content = document.getElementById('page-content');
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const myEmpId = Auth.employee?.id;
+
+    // Staff role subtab access guard: redirect unallowed admin subtabs
+    const staffAllowedViews = ['hr_letters', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
+    if (isStaff && !staffAllowedViews.includes(this.currentView)) {
+      this.currentView = 'hr_letters';
+    }
+
     const depts = DB.get('departments');
-    const docs = DB.get('document_expiries') || [];
+    let docs = DB.get('document_expiries') || [];
+    if (isStaff && myEmpId) {
+      docs = docs.filter(d => d.employeeId === myEmpId);
+    }
     const urgentDocs = docs.filter(d => {
       const days = Math.ceil((new Date(d.expiryDate) - new Date()) / (1000*60*60*24));
       return days <= 30;
     }).length;
-    const pendingExits = (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress').length;
+    const pendingExits = isStaff ? 0 : (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress').length;
+
+    const tabs = isStaff ? [
+      { id:'hr_letters', label:'My Official HR Letters', icon:'fa-file-signature', badge: (DB.get('hr_letters')||[]).filter(l=>l.employeeId===myEmpId && !l.acknowledged).length },
+      { id:'doc_expiry', label:'My Document Expiries', icon:'fa-id-card-clip', badge: urgentDocs },
+      { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.employeeId===myEmpId && d.verificationStatus==='pending').length },
+      { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof' },
+      { id:'directory', label:'Company Directory', icon:'fa-id-card' },
+      { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
+    ] : [
+      { id:'current', label:'Active Employees', icon:'fa-users' },
+      { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
+      { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
+      { id:'directory', label:'Directory', icon:'fa-id-card' },
+      { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
+      { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
+      { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
+      { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
+      { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
+      { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
+    ];
 
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Sub-tabs -->
         <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap">
-          ${[
-            { id:'current', label:'Active Employees', icon:'fa-users' },
-            { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
-            { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
-            { id:'directory', label:'Directory', icon:'fa-id-card' },
-            { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
-            { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
-            { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
-            { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
-            { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
-            { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
-          ].map(t => `
+          ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
-              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'||t.id==='hr_letters'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
           `).join('')}
         </div>
@@ -4885,9 +4906,15 @@ const Employees = {
   docSearchQuery: '',
 
   renderDocExpiry(container) {
-    const docs = DB.get('document_expiries') || [];
+    let docs = DB.get('document_expiries') || [];
     const allEmps = DB.get('employees') || [];
     const today = new Date();
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const myEmpId = Auth.employee?.id;
+
+    if (isStaff && myEmpId) {
+      docs = docs.filter(d => d.employeeId === myEmpId);
+    }
 
     const enriched = docs.map(d => {
       const emp = allEmps.find(e => e.id === d.employeeId) || { fullName: 'Unknown', empNo: 'EMP-??', departmentId: 1 };
@@ -4924,10 +4951,10 @@ const Employees = {
         <!-- Top Metrics Cards -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           ${[
-            { label:'Expired Documents', val: expiredCount, color:'#ef4444', icon:'fa-triangle-exclamation', filter:'expired' },
-            { label:'Critical (< 30 Days)', val: urgentCount, color:'#f59e0b', icon:'fa-bell', filter:'urgent' },
-            { label:'Upcoming (< 60 Days)', val: upcomingCount, color:'#6366f1', icon:'fa-calendar-clock', filter:'upcoming' },
-            { label:'Valid & Compliant', val: activeCount, color:'#10b981', icon:'fa-circle-check', filter:'active' },
+            { label: isStaff ? 'My Expired Documents' : 'Expired Documents', val: expiredCount, color:'#ef4444', icon:'fa-triangle-exclamation', filter:'expired' },
+            { label: isStaff ? 'My Critical (< 30 Days)' : 'Critical (< 30 Days)', val: urgentCount, color:'#f59e0b', icon:'fa-bell', filter:'urgent' },
+            { label: isStaff ? 'My Upcoming (< 60 Days)' : 'Upcoming (< 60 Days)', val: upcomingCount, color:'#6366f1', icon:'fa-calendar-clock', filter:'upcoming' },
+            { label: isStaff ? 'My Valid & Compliant' : 'Valid & Compliant', val: activeCount, color:'#10b981', icon:'fa-circle-check', filter:'active' },
           ].map(s => `
             <div style="background:var(--card);border:1px solid var(--border);border-left:4px solid ${s.color};border-radius:12px;padding:16px;cursor:pointer;transition:all .2s"
               onclick="Employees.docExpiryFilter='${s.filter}'; Employees.renderDocExpiry(document.getElementById('emp-content'))">
@@ -4975,9 +5002,15 @@ const Employees = {
           </div>
 
           <div>
-            <button class="btn btn-primary btn-sm" onclick="Employees.showAddDocModal()">
-              <i class="fa fa-plus"></i> Add Employee Document
-            </button>
+            ${isStaff ? `
+              <button class="btn btn-primary btn-sm" onclick="Employees.showReuploadDocModal()">
+                <i class="fa fa-cloud-arrow-up"></i> Re-upload / Update Document
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-sm" onclick="Employees.showAddDocModal()">
+                <i class="fa fa-plus"></i> Add Employee Document
+              </button>
+            `}
           </div>
         </div>
 
@@ -4990,18 +5023,18 @@ const Employees = {
           <div class="table-wrapper" style="border:none;border-radius:0">
             <table>
               <thead><tr>
-                <th>Employee</th>
+                ${!isStaff ? `<th>Employee</th>` : ''}
                 <th>Document Type</th>
                 <th>Document Number</th>
                 <th>Issuing Authority</th>
                 <th>Expiry Date</th>
                 <th>Status & Days Remaining</th>
-                <th>Notes / Compliance Flag</th>
+                <th>Notes / Compliance Remarks</th>
                 <th style="text-align:right">Actions</th>
               </tr></thead>
               <tbody>
                 ${filtered.length === 0 ? `
-                  <tr><td colspan="8"><div class="empty-state"><i class="fa fa-circle-check" style="color:var(--success)"></i><h3>All documents within filter are compliant!</h3></div></td></tr>
+                  <tr><td colspan="${isStaff ? 7 : 8}"><div class="empty-state"><i class="fa fa-circle-check" style="color:var(--success)"></i><h3>All documents within filter are compliant!</h3></div></td></tr>
                 ` : filtered.map(d => {
                   let badge = '';
                   if (d.statusCat === 'expired') {
@@ -5012,6 +5045,29 @@ const Employees = {
                     badge = `<span class="badge badge-primary" style="font-size:11px"><i class="fa fa-clock"></i> ${d.diffDays} days left</span>`;
                   } else {
                     badge = `<span class="badge badge-success" style="font-size:11px"><i class="fa fa-circle-check"></i> Valid (${d.diffDays} days)</span>`;
+                  }
+
+                  if (isStaff) {
+                    return `
+                      <tr>
+                        <td><strong>${d.docType}</strong></td>
+                        <td><code style="font-family:monospace;font-size:12px;color:var(--primary)">${d.docNumber}</code></td>
+                        <td style="font-size:12px">${d.issuingAuthority || 'N/A'}</td>
+                        <td style="font-size:12px;font-weight:600">${Utils.formatDate(d.expiryDate)}</td>
+                        <td>${badge}</td>
+                        <td style="font-size:11.5px;color:var(--text-3);max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.notes||''}">${d.notes || '—'}</td>
+                        <td style="text-align:right">
+                          <div class="tbl-actions" style="justify-content:flex-end">
+                            <button class="btn btn-primary btn-xs" onclick="Employees.showReuploadDocModal(${d.id})" title="Re-upload or update renewed document copy">
+                              <i class="fa fa-cloud-arrow-up"></i> Re-upload / Update
+                            </button>
+                            <button class="btn btn-ghost btn-xs" onclick="Employees.switchView('edms')" title="View in e-DMS Vault">
+                              <i class="fa fa-folder-open"></i> Vault
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `;
                   }
 
                   return `
@@ -5186,6 +5242,166 @@ const Employees = {
     DB.set('document_expiries', docs);
     Modal.close('dynamic-modal');
     Toast.show('Document successfully renewed!', 'success');
+    this.renderDocExpiry(document.getElementById('emp-content'));
+  },
+
+  showReuploadDocModal(docId) {
+    const myId = Auth.employee?.id;
+    const allDocs = DB.get('document_expiries') || [];
+    const myDocs = myId ? allDocs.filter(d => d.employeeId === myId) : allDocs;
+    let doc = docId ? allDocs.find(d => d.id === docId) : myDocs[0];
+    if (!doc && myDocs.length > 0) doc = myDocs[0];
+    if (!doc) return Toast.show('No document record found to update.', 'info');
+
+    // Suggest 5 years from today as a convenient default for renewed smart card / passport
+    const suggestedExp = new Date();
+    suggestedExp.setFullYear(suggestedExp.getFullYear() + 5);
+    const suggestedExpStr = suggestedExp.toISOString().split('T')[0];
+
+    Modal.show(`Re-upload / Update Document — ${doc.docType}`, `
+      <form onsubmit="Employees.saveReuploadDoc(event, ${doc.id})">
+        <div style="background:var(--surface);padding:12px 16px;border-radius:10px;margin-bottom:16px;border-left:4px solid var(--primary)">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">${doc.docType} Renewal Self-Service</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                Current Number: <code>${doc.docNumber}</code> | Current Expiry: <strong>${Utils.formatDate(doc.expiryDate)}</strong>
+              </div>
+            </div>
+            <span class="badge ${doc.statusCat === 'expired' ? 'badge-danger' : 'badge-warning'}">
+              ${doc.statusCat === 'expired' ? 'Expired' : 'Renewal Due'}
+            </span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Document Type</label>
+            <input type="text" class="form-control" id="m-reup-type" value="${doc.docType}" readonly style="background:var(--surface);opacity:0.85">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Document / Smart Card #</label>
+            <input type="text" class="form-control" id="m-reup-num" value="${doc.docNumber}" required placeholder="e.g. 42201-4567890-4">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">New / Renewed Expiry Date</label>
+            <input type="date" class="form-control" id="m-reup-exp" value="${suggestedExpStr}" min="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Issuing Authority</label>
+            <input type="text" class="form-control" id="m-reup-auth" value="${doc.issuingAuthority || 'NADRA'}" required placeholder="e.g. NADRA / DGI&P">
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Attach Scanned Copy / Proof (PDF, PNG, JPG)</label>
+          <div style="border:2px dashed var(--border);border-radius:10px;padding:16px;text-align:center;background:var(--surface);cursor:pointer" onclick="document.getElementById('m-reup-file').click()">
+            <i class="fa fa-cloud-arrow-up" style="font-size:28px;color:var(--primary);margin-bottom:6px;display:block"></i>
+            <div style="font-size:13px;font-weight:600;color:var(--text)" id="m-reup-file-label">Click to select renewed document scan</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">Official government smart card scan or passport bio page (Max 10 MB)</div>
+            <input type="file" id="m-reup-file" style="display:none" accept=".pdf,.png,.jpg,.jpeg" onchange="document.getElementById('m-reup-file-label').textContent = this.files[0] ? this.files[0].name + ' (' + Math.round(this.files[0].size/1024) + ' KB)' : 'Click to select renewed document scan'">
+          </div>
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Employee Remarks / Reference Details</label>
+          <textarea class="form-control" id="m-reup-notes" rows="2" placeholder="e.g. Renewed Smart Card issued by NADRA Executive Center on ${Utils.today()}">${doc.notes ? doc.notes + '\n' : ''}Renewed & re-uploaded on ${Utils.today()}</textarea>
+        </div>
+
+        <div class="modal-footer" style="padding:0;margin-top:20px;display:flex;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fa fa-paper-plane"></i> Submit Renewed Document to HR
+          </button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveReuploadDoc(e, docId) {
+    e.preventDefault();
+    const allDocs = DB.get('document_expiries') || [];
+    const doc = allDocs.find(d => d.id === docId);
+    if (!doc) return Toast.show('Document record not found', 'danger');
+
+    const newDocNum = document.getElementById('m-reup-num').value.trim();
+    const newExpiry = document.getElementById('m-reup-exp').value;
+    const newAuthority = document.getElementById('m-reup-auth').value.trim();
+    const notes = document.getElementById('m-reup-notes').value.trim();
+    const fileInput = document.getElementById('m-reup-file');
+    const uploadedFileName = fileInput && fileInput.files && fileInput.files[0] ? fileInput.files[0].name : `${doc.docType.toLowerCase().replace(/[^a-z0-9]/g, '_')}_renewed_${Date.now()}.pdf`;
+
+    // 1. Update document_expiries record
+    doc.docNumber = newDocNum || doc.docNumber;
+    doc.expiryDate = newExpiry;
+    doc.issuingAuthority = newAuthority || doc.issuingAuthority;
+    doc.notes = notes;
+    doc.status = 'active';
+    doc.lastRenewedAt = new Date().toISOString();
+    doc.renewedByEmployee = true;
+    doc.verificationStatus = 'pending_verification';
+    DB.set('document_expiries', allDocs);
+
+    // 2. If CNIC, synchronize with employee profile
+    if (doc.docType === 'CNIC') {
+      const allEmps = DB.get('employees') || [];
+      const emp = allEmps.find(x => x.id === doc.employeeId);
+      if (emp) {
+        emp.cnic = newDocNum;
+        emp.cnicExpiry = newExpiry;
+        DB.set('employees', allEmps);
+      }
+    }
+
+    // 3. Archive in e-DMS Vault (employee_documents)
+    const empDocs = DB.get('employee_documents') || [];
+    empDocs.unshift({
+      id: DB.nextId('employee_documents'),
+      employeeId: doc.employeeId,
+      title: `Renewed ${doc.docType} (${newDocNum})`,
+      category: 'Identity & Legal',
+      fileName: uploadedFileName,
+      fileSize: fileInput && fileInput.files && fileInput.files[0] ? `${Math.round(fileInput.files[0].size/1024)} KB` : '1.5 MB',
+      fileType: uploadedFileName.endsWith('.pdf') ? 'pdf' : 'image',
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: Auth.user?.name || Auth.employee?.fullName || 'Employee',
+      verificationStatus: 'pending',
+      notes: notes || `Renewed copy uploaded by employee. New Expiry: ${newExpiry}`
+    });
+    DB.set('employee_documents', empDocs);
+
+    // 4. Dispatch notification to HR Manager and Super Admin
+    const userNotifs = DB.get('user_notifications') || [];
+    userNotifs.unshift({
+      id: DB.nextId('user_notifications'),
+      recipientRole: 'hr_manager',
+      senderRole: 'employee',
+      senderName: Auth.user?.name || 'Employee',
+      type: 'document_update',
+      priority: 'high',
+      title: `📄 Renewed Document Uploaded: ${doc.docType}`,
+      message: `${Auth.user?.name || 'Employee'} (${Auth.employee?.empNo || 'EMP'}) has uploaded their renewed ${doc.docType} (Number: ${newDocNum}, New Expiry: ${newExpiry}). Please review and verify in e-DMS Vault.`,
+      actionUrl: 'employees',
+      subView: 'doc_expiry',
+      actionLabel: 'Verify Document',
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+
+    // 5. Mark employee's own expiry notifications as read
+    userNotifs.forEach(n => {
+      if (parseInt(n.recipientEmpId) === parseInt(doc.employeeId) && (n.type === 'doc_expiry' || n.type === 'cnic_reminder' || n.subView === 'doc_expiry' || n.subView === 'edms')) {
+        n.read = true;
+      }
+    });
+    DB.set('user_notifications', userNotifs);
+    if (typeof App !== 'undefined' && App.refreshNotifications) App.refreshNotifications();
+
+    Modal.close('dynamic-modal');
+    Toast.show('Renewed document uploaded successfully! HR Directorate notified for verification.', 'success');
     this.renderDocExpiry(document.getElementById('emp-content'));
   },
 
@@ -5889,7 +6105,110 @@ const Employees = {
   renderHRLetters(container) {
     const letters = DB.get('hr_letters') || [];
     const allEmps = DB.get('employees') || [];
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const myEmpId = Auth.employee?.id;
 
+    if (isStaff) {
+      // Regular employees strictly view their own letters, print/download, and send acknowledgments
+      const myLetters = letters.filter(l => l.employeeId === myEmpId);
+      const pendingAckCount = myLetters.filter(l => !l.acknowledged).length;
+
+      container.innerHTML = `
+        <div class="animate-fade-in">
+          <!-- Employee Portal Header Card -->
+          <div class="card mb-20" style="background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(37,99,235,0.04) 100%);border-left:4px solid var(--primary)">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div>
+                <h3 style="font-size:17px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+                  <i class="fa fa-file-signature" style="color:var(--primary)"></i> My Official HR Letters & Verification Certificates
+                </h3>
+                <div style="font-size:12.5px;color:var(--text-3)">
+                  Corporate letters and certificates issued to you by Management & Human Resources. Review, print, and submit formal acknowledgment of receipt.
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                ${pendingAckCount > 0 ? `
+                  <span class="badge badge-warning" style="font-size:11.5px;padding:4px 10px;background:#f59e0b;color:#fff">
+                    <i class="fa fa-bell"></i> ${pendingAckCount} Acknowledgment${pendingAckCount > 1 ? 's' : ''} Pending
+                  </span>
+                ` : `
+                  <span class="badge badge-success" style="font-size:11.5px;padding:4px 10px">
+                    <i class="fa fa-circle-check"></i> All Letters Acknowledged
+                  </span>
+                `}
+                <span class="chip" style="font-size:11px"><i class="fa fa-stamp"></i> Corporate Authorized Documents</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Letters Archive Table for Employee -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <h4 style="font-size:14px;font-weight:700;margin:0">Official Letters Issued to Me (${myLetters.length})</h4>
+              <span style="font-size:12px;color:var(--text-3)">Digitally signed and verifiable corporate certificates</span>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Reference #</th>
+                  <th>Letter Title & Type</th>
+                  <th>Addressee / Purpose</th>
+                  <th>Issue Date</th>
+                  <th>Issued By</th>
+                  <th>Receipt Status</th>
+                  <th style="text-align:right">Actions</th>
+                </tr></thead>
+                <tbody>
+                  ${myLetters.length === 0 ? `
+                    <tr><td colspan="7"><div class="empty-state"><i class="fa fa-file-circle-check" style="color:var(--primary)"></i><h3>No HR letters issued yet</h3><p>Official letters generated by HR Management will appear here with instant print and acknowledgment options.</p></div></td></tr>
+                  ` : myLetters.map(l => `
+                    <tr>
+                      <td><code style="font-family:monospace;font-size:12px;color:var(--primary)">${l.refNo}</code></td>
+                      <td>
+                        <div style="font-weight:600;font-size:13px;color:var(--text)">${l.title || l.templateType}</div>
+                        <div style="font-size:11px;color:var(--text-3);text-transform:capitalize">${(l.templateType || '').replace(/_/g, ' ')}</div>
+                      </td>
+                      <td style="font-size:12px">
+                        <div><strong>${l.recipient}</strong></div>
+                        <div style="font-size:11px;color:var(--text-3)">${l.purpose || 'General Purpose'}</div>
+                      </td>
+                      <td style="font-size:12px">${Utils.formatDate(l.issueDate)}</td>
+                      <td style="font-size:12px">${l.issuedBy}</td>
+                      <td>
+                        ${l.acknowledged ? `
+                          <span class="badge badge-success" style="font-size:11px;padding:3px 8px">
+                            <i class="fa fa-circle-check"></i> Acknowledged (${Utils.formatDate(l.acknowledgedAt)})
+                          </span>
+                        ` : `
+                          <span class="badge badge-warning" style="font-size:11px;padding:3px 8px;background:#f59e0b;color:#fff">
+                            <i class="fa fa-clock"></i> Action Required: Pending
+                          </span>
+                        `}
+                      </td>
+                      <td style="text-align:right">
+                        <div style="display:flex;justify-content:flex-end;gap:6px">
+                          <button class="btn btn-ghost btn-xs" onclick="Employees.previewLetterModal(${l.id})">
+                            <i class="fa fa-eye"></i> View & Print
+                          </button>
+                          ${!l.acknowledged ? `
+                            <button class="btn btn-success btn-xs" onclick="Employees.acknowledgeLetter(${l.id})" title="Formally confirm and acknowledge receipt of this official letter">
+                              <i class="fa fa-check-double"></i> Acknowledge Receipt
+                            </button>
+                          ` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // HR Management & Super Admin View (Letter Generator Form + Company-wide Archive)
     container.innerHTML = `
       <div class="animate-fade-in">
         <!-- Letter Generator Header & Wizard Card -->
@@ -5969,11 +6288,12 @@ const Employees = {
                 <th>Recipient / Purpose</th>
                 <th>Issue Date</th>
                 <th>Issued By</th>
+                <th>Receipt Status</th>
                 <th style="text-align:right">Action</th>
               </tr></thead>
               <tbody>
                 ${letters.length === 0 ? `
-                  <tr><td colspan="7"><div class="empty-state"><i class="fa fa-file-invoice"></i><h3>No letters issued yet</h3></div></td></tr>
+                  <tr><td colspan="8"><div class="empty-state"><i class="fa fa-file-invoice"></i><h3>No letters issued yet</h3></div></td></tr>
                 ` : letters.map(l => {
                   const emp = allEmps.find(e => e.id === l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
                   return `
@@ -5990,6 +6310,17 @@ const Employees = {
                       <td style="font-size:12px">${l.recipient}</td>
                       <td style="font-size:12px">${Utils.formatDate(l.issueDate)}</td>
                       <td style="font-size:12px">${l.issuedBy}</td>
+                      <td>
+                        ${l.acknowledged ? `
+                          <span class="badge badge-success" style="font-size:11px;padding:3px 8px">
+                            <i class="fa fa-circle-check"></i> Acknowledged (${Utils.formatDate(l.acknowledgedAt)})
+                          </span>
+                        ` : `
+                          <span class="badge badge-secondary" style="font-size:11px;padding:3px 8px">
+                            <i class="fa fa-clock"></i> Pending
+                          </span>
+                        `}
+                      </td>
                       <td style="text-align:right">
                         <button class="btn btn-ghost btn-xs" onclick="Employees.previewLetterModal(${l.id})">
                           <i class="fa fa-eye"></i> View & Print
@@ -6004,6 +6335,53 @@ const Employees = {
         </div>
       </div>
     `;
+  },
+
+  acknowledgeLetter(letterId) {
+    const letters = DB.get('hr_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return Toast.show('Letter not found', 'danger');
+    if (l.acknowledged) return Toast.show('This letter has already been acknowledged.', 'info');
+
+    const emp = Auth.employee || DB.find('employees', l.employeeId);
+    const empName = emp ? emp.fullName : (Auth.user?.name || 'Employee');
+
+    l.acknowledged = true;
+    l.acknowledgedAt = new Date().toISOString();
+    l.acknowledgedBy = empName;
+    DB.set('hr_letters', letters);
+
+    // Notify HR Management and Super Admin
+    const userNotifs = DB.get('user_notifications') || [];
+    userNotifs.unshift({
+      id: DB.nextId('user_notifications'),
+      recipientRole: 'hr_manager',
+      senderRole: 'employee',
+      senderName: empName,
+      type: 'letter_acknowledgment',
+      priority: 'normal',
+      title: `✅ Letter Acknowledged: ${l.title || 'Official Letter'}`,
+      message: `${empName} (${emp?.empNo || 'EMP'}) has formally acknowledged receipt of official letter ${l.refNo} (${l.title || l.templateType}).`,
+      actionUrl: 'employees',
+      subView: 'hr_letters',
+      actionLabel: 'View Letter',
+      read: false,
+      createdAt: new Date().toISOString()
+    });
+
+    // Mark employee's own notification about this letter as read
+    userNotifs.forEach(n => {
+      if (parseInt(n.recipientEmpId) === parseInt(l.employeeId) && (n.type === 'hr_letter' || n.subView === 'hr_letters')) {
+        if ((n.message && n.message.includes(l.refNo)) || (n.title && n.title.includes(l.title))) {
+          n.read = true;
+        }
+      }
+    });
+    DB.set('user_notifications', userNotifs);
+    if (typeof App !== 'undefined' && App.refreshNotifications) App.refreshNotifications();
+
+    Toast.show('Official letter receipt acknowledged! Confirmation sent to HR.', 'success');
+    this.renderHRLetters(document.getElementById('emp-content'));
   },
 
   onLetterTemplateChange() {
@@ -6178,9 +6556,18 @@ const Employees = {
         </div>
       </div>
 
-      <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between">
+      <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <span style="font-size:12px;color:var(--text-3)">Printed copies are valid with official corporate seal</span>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;align-items:center">
+          ${l.acknowledged ? `
+            <span style="font-size:12px;color:var(--success);font-weight:600;margin-right:6px">
+              <i class="fa fa-circle-check"></i> Acknowledged on ${Utils.formatDate(l.acknowledgedAt)} by ${l.acknowledgedBy || 'Employee'}
+            </span>
+          ` : (Auth.role === 'employee' || Auth.employee?.id === l.employeeId ? `
+            <button type="button" class="btn btn-success" onclick="Employees.acknowledgeLetter(${l.id}); Modal.close('dynamic-modal')">
+              <i class="fa fa-check-double"></i> Acknowledge Receipt
+            </button>
+          ` : '')}
           <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
           <button type="button" class="btn btn-primary" onclick="Employees.printLetter(${l.id})">
             <i class="fa fa-print"></i> Print Official Letter

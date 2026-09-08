@@ -387,7 +387,10 @@ const App = {
     const dropdown = document.getElementById('notif-dropdown');
     if (dropdown) dropdown.classList.remove('open');
     if (module) {
-      this.navigate(module);
+      if (module === 'employees' && subView && typeof Employees !== 'undefined') {
+        Employees.currentView = subView;
+      }
+      this.navigate(module, subView);
       if (subView) {
         setTimeout(() => {
           if (module === 'employees' && typeof Employees !== 'undefined' && Employees.switchView) {
@@ -414,12 +417,19 @@ const App = {
     Toast.show('All notifications marked as read', 'info');
   },
 
-  navigate(module) {
+  navigate(module, subView) {
     // Role-based module access guard
-    if (module === 'employees' && Auth.role === 'employee') {
-      // Regular employees don't have the employees list, redirect to their own profile
-      setTimeout(() => Employees.renderProfile(Auth.employee.id, true), 50);
-      module = 'profile';
+    if (module === 'employees' && (Auth.role === 'employee' || Auth.role === 'onboarding')) {
+      const staffAllowed = ['hr_letters', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
+      const targetSub = subView || (typeof Employees !== 'undefined' ? Employees.currentView : null);
+      if (targetSub && staffAllowed.includes(targetSub)) {
+        if (typeof Employees !== 'undefined') Employees.currentView = targetSub;
+        // Keep module = 'employees' to render employee-scoped views
+      } else {
+        // Regular employees accessing employees without an allowed subview default to profile
+        setTimeout(() => Employees.renderProfile(Auth.employee.id, true), 50);
+        module = 'profile';
+      }
     }
     // Update active nav item
     document.querySelectorAll('.nav-item').forEach(el => {
