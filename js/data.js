@@ -18,6 +18,7 @@ const DB = {
       this.ensureTaxAndStatutoryData();
       this.ensureRosterAndGeofenceData();
       this.ensureTalentAndLMSData();
+      this.ensureEngagementData();
       return;
     }
     this.seed();
@@ -32,6 +33,7 @@ const DB = {
     this.ensureTaxAndStatutoryData();
     this.ensureRosterAndGeofenceData();
     this.ensureTalentAndLMSData();
+    this.ensureEngagementData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -1174,6 +1176,401 @@ const DB = {
         }
       ];
       this.set('succession_plans', plans);
+    }
+  },
+
+  ensureEngagementData() {
+    // 1. Company Asset Inventory & Lifecycle
+    let assets = this.get('assets');
+    if (!assets || !assets.length || !assets[0]?.assetTag) {
+      assets = [
+        {
+          id: 1,
+          assetTag: 'AST-LPT-001',
+          name: 'Apple MacBook Pro 16" M3 Max',
+          category: 'Laptop',
+          brand: 'Apple',
+          model: 'MacBook Pro 16-inch Space Black',
+          serialNumber: 'C02G4589MD6V',
+          purchaseDate: '2024-03-15',
+          purchaseCost: 820000,
+          warrantyExpiry: '2027-03-14',
+          status: 'assigned',
+          assignedTo: 4, // Fatima Raza
+          assignedDate: '2024-03-20',
+          condition: 'excellent',
+          specs: 'Apple M3 Max (16-core CPU, 40-core GPU), 64GB Unified RAM, 1TB SSD',
+          location: 'Karachi Tech Hub',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 4, assignedDate: '2024-03-20', returnDate: null, condition: 'New in Box', remarks: 'Handed over for primary engineering work' }
+          ]
+        },
+        {
+          id: 2,
+          assetTag: 'AST-LPT-002',
+          name: 'Dell Precision 5570 Mobile Workstation',
+          category: 'Workstation',
+          brand: 'Dell',
+          model: 'Precision 5570 Silver',
+          serialNumber: 'DL-5570-98412K',
+          purchaseDate: '2023-11-10',
+          purchaseCost: 580000,
+          warrantyExpiry: '2026-11-09',
+          status: 'assigned',
+          assignedTo: 3, // Usman Baig
+          assignedDate: '2023-11-15',
+          condition: 'good',
+          specs: 'Intel Core i7-12800H, 32GB DDR5 RAM, NVIDIA RTX A2000 8GB, 1TB NVMe',
+          location: 'Karachi Tech Hub',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 3, assignedDate: '2023-11-15', returnDate: null, condition: 'Excellent', remarks: 'Assigned for engineering management and load testing' }
+          ]
+        },
+        {
+          id: 3,
+          assetTag: 'AST-LPT-003',
+          name: 'Lenovo ThinkPad X1 Carbon Gen 11',
+          category: 'Laptop',
+          brand: 'Lenovo',
+          model: 'ThinkPad X1 Carbon Ultrabook',
+          serialNumber: 'LN-X1C-44210',
+          purchaseDate: '2024-01-05',
+          purchaseCost: 450000,
+          warrantyExpiry: '2027-01-04',
+          status: 'assigned',
+          assignedTo: 2, // Sara Malik
+          assignedDate: '2024-01-10',
+          condition: 'excellent',
+          specs: 'Intel Core i7-1365U, 16GB LPDDR5, 512GB NVMe SSD, 14" 2.8K OLED',
+          location: 'Head Office - Executive Wing',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 2, assignedDate: '2024-01-10', returnDate: null, condition: 'New in Box', remarks: 'Assigned for HR executive operations' }
+          ]
+        },
+        {
+          id: 4,
+          assetTag: 'AST-MON-001',
+          name: 'Dell UltraSharp 27" 4K USB-C Hub Monitor',
+          category: 'Display / Monitor',
+          brand: 'Dell',
+          model: 'UltraSharp U2723QE',
+          serialNumber: 'CN-0M381P-74261',
+          purchaseDate: '2024-04-12',
+          purchaseCost: 185000,
+          warrantyExpiry: '2027-04-11',
+          status: 'assigned',
+          assignedTo: 4, // Fatima Raza
+          assignedDate: '2024-04-15',
+          condition: 'excellent',
+          specs: '27-inch 4K UHD (3840x2160), IPS Black, 90W USB-C Power Delivery Hub',
+          location: 'Karachi Tech Hub - Desk #14',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 4, assignedDate: '2024-04-15', returnDate: null, condition: 'New', remarks: 'Dual monitor desk setup' }
+          ]
+        },
+        {
+          id: 5,
+          assetTag: 'AST-MOB-001',
+          name: 'Apple iPhone 15 Pro 256GB (QA Fleet)',
+          category: 'Mobile / Tablet',
+          brand: 'Apple',
+          model: 'iPhone 15 Pro Natural Titanium',
+          serialNumber: 'DX3L9012N6X7',
+          purchaseDate: '2024-02-01',
+          purchaseCost: 360000,
+          warrantyExpiry: '2025-02-01',
+          status: 'assigned',
+          assignedTo: 9, // Tariq Hussain
+          assignedDate: '2024-02-05',
+          condition: 'good',
+          specs: 'A17 Pro Chip, 256GB Storage, iOS 17.5 Testing Sandbox Profile',
+          location: 'Karachi QA Lab',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 9, assignedDate: '2024-02-05', returnDate: null, condition: 'New', remarks: 'Mobile responsive & browser automated testing device' }
+          ]
+        },
+        {
+          id: 6,
+          assetTag: 'AST-VEH-001',
+          name: 'Toyota Yaris ATIV 1.3 CVT (Pool Car)',
+          category: 'Vehicle',
+          brand: 'Toyota',
+          model: 'Yaris ATIV 1.3 CVT Super White',
+          serialNumber: 'TY-KHI-BFG-902',
+          purchaseDate: '2023-06-20',
+          purchaseCost: 4800000,
+          warrantyExpiry: '2026-06-19',
+          status: 'assigned',
+          assignedTo: 8, // Farhan Zaidi
+          assignedDate: '2023-07-01',
+          condition: 'good',
+          specs: 'Reg # BFG-902, Comprehensive Takaful Insured, Tracker Installed',
+          location: 'Karachi Office Parking #B2',
+          acknowledged: true,
+          custodyHistory: [
+            { employeeId: 8, assignedDate: '2023-07-01', returnDate: null, condition: 'Good', remarks: 'Sales executive corporate client mobility' }
+          ]
+        },
+        {
+          id: 7,
+          assetTag: 'AST-LPT-004',
+          name: 'Apple MacBook Pro 14" M2 Pro',
+          category: 'Laptop',
+          brand: 'Apple',
+          model: 'MacBook Pro 14-inch Space Gray',
+          serialNumber: 'C02F9921MD4A',
+          purchaseDate: '2023-08-10',
+          purchaseCost: 520000,
+          warrantyExpiry: '2026-08-09',
+          status: 'available',
+          assignedTo: null,
+          assignedDate: null,
+          condition: 'excellent',
+          specs: 'Apple M2 Pro (10-core CPU, 16-core GPU), 32GB RAM, 512GB SSD',
+          location: 'Karachi IT Storeroom - Locker A-3',
+          acknowledged: false,
+          custodyHistory: []
+        },
+        {
+          id: 8,
+          assetTag: 'AST-FUR-001',
+          name: 'Herman Miller Aeron Ergonomic Chair',
+          category: 'Furniture / Ergonomics',
+          brand: 'Herman Miller',
+          model: 'Aeron Size B Graphite PostureFit SL',
+          serialNumber: 'HM-AER-2023-718',
+          purchaseDate: '2023-05-18',
+          purchaseCost: 240000,
+          warrantyExpiry: '2035-05-17',
+          status: 'maintenance',
+          assignedTo: null,
+          assignedDate: null,
+          condition: 'fair',
+          specs: 'Fully adjustable arms, tilt limiter, forward tilt, carpet casters',
+          location: 'Karachi Maintenance Workshop',
+          acknowledged: false,
+          custodyHistory: []
+        }
+      ];
+      this.set('assets', assets);
+    }
+
+    // 2. Expense Claims & Travel Reimbursements
+    let expenses = this.get('expense_claims');
+    if (!expenses || !expenses.length) {
+      expenses = [
+        {
+          id: 1,
+          claimNumber: 'EXP-2026-001',
+          employeeId: 4, // Fatima Raza
+          title: 'AWS Certified Solutions Architect Professional Exam',
+          category: 'training',
+          amount: 35000,
+          currency: 'PKR',
+          taxAmount: 0,
+          expenseDate: '2026-08-12',
+          merchant: 'Amazon Web Services / Pearson VUE',
+          description: 'Certification exam fee for cloud infrastructure specialization as approved in Q3 training roadmap.',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><rect width="300" height="400" fill="%23f8fafc" stroke="%23cbd5e1"/><text x="150" y="40" font-family="Arial" font-size="16" font-weight="bold" fill="%230f172a" text-anchor="middle">TAX INVOICE / RECEIPT</text><text x="20" y="80" font-family="Arial" font-size="12" fill="%2364748b">Merchant: Pearson VUE Testing</text><text x="20" y="110" font-family="Arial" font-size="12" fill="%2364748b">Candidate: Fatima Raza</text><text x="20" y="140" font-family="Arial" font-size="12" fill="%2364748b">Item: AWS-SAP-C02 Exam Fee</text><line x1="20" y1="170" x2="280" y2="170" stroke="%23cbd5e1" stroke-dasharray="4"/><text x="20" y="210" font-family="Arial" font-size="14" font-weight="bold" fill="%230f172a">Total Paid: PKR 35,000</text><text x="20" y="240" font-family="Arial" font-size="11" fill="%2310b981">Status: PAID VIA VISA CARD</text><rect x="20" y="270" width="260" height="80" fill="%23f1f5f9" rx="6"/><text x="150" y="315" font-family="Arial" font-size="11" fill="%23475569" text-anchor="middle">Official Pearson VUE Digital Token</text></svg>',
+          status: 'reimbursed',
+          managerApproval: { approvedBy: 3, approvedAt: '2026-08-14', remarks: 'Verified passing score and certification credential.' },
+          financeApproval: { approvedBy: 1, approvedAt: '2026-08-16', remarks: 'Disbursed in August 2026 payroll run.' },
+          payoutMethod: 'payroll',
+          createdAt: '2026-08-13T10:00:00Z'
+        },
+        {
+          id: 2,
+          claimNumber: 'EXP-2026-002',
+          employeeId: 3, // Usman Baig
+          title: 'Client Architecture Discovery Session & Inter-City Travel',
+          category: 'travel',
+          amount: 48500,
+          currency: 'PKR',
+          taxAmount: 4200,
+          expenseDate: '2026-08-22',
+          merchant: 'PIA Airlines & Serena Hotel Lahore',
+          description: 'Round-trip flights (KHI-LHE) and 1 night stay for enterprise fintech integration workshop.',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><rect width="300" height="400" fill="%23f8fafc" stroke="%23cbd5e1"/><text x="150" y="40" font-family="Arial" font-size="16" font-weight="bold" fill="%230f172a" text-anchor="middle">TRAVEL FOLIO INVOICE</text><text x="20" y="80" font-family="Arial" font-size="12" fill="%2364748b">Serena Hotel Lahore</text><text x="20" y="110" font-family="Arial" font-size="12" fill="%2364748b">Guest: Usman Baig</text><text x="20" y="140" font-family="Arial" font-size="12" fill="%2364748b">Room + Airport Transfer</text><line x1="20" y1="170" x2="280" y2="170" stroke="%23cbd5e1"/><text x="20" y="210" font-family="Arial" font-size="14" font-weight="bold" fill="%230f172a">Total Amount: PKR 48,500</text><text x="20" y="240" font-family="Arial" font-size="11" fill="%2310b981">GST Included (16% PRA)</text></svg>',
+          status: 'approved',
+          managerApproval: { approvedBy: 1, approvedAt: '2026-08-25', remarks: 'Client deal successfully signed.' },
+          financeApproval: { approvedBy: 2, approvedAt: '2026-08-26', remarks: 'Approved for disbursement in September payroll.' },
+          payoutMethod: 'payroll',
+          createdAt: '2026-08-24T14:30:00Z'
+        },
+        {
+          id: 3,
+          claimNumber: 'EXP-2026-003',
+          employeeId: 4, // Fatima Raza
+          title: 'Home Office High-Speed Fiber Internet Allowance - August 2026',
+          category: 'utilities',
+          amount: 8500,
+          currency: 'PKR',
+          taxAmount: 1100,
+          expenseDate: '2026-08-28',
+          merchant: 'StormFiber Telecom',
+          description: 'Monthly high-bandwidth fiber connection fee supporting remote on-call and release deployments.',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><rect width="300" height="400" fill="%23f8fafc" stroke="%23cbd5e1"/><text x="150" y="40" font-family="Arial" font-size="16" font-weight="bold" fill="%230f172a" text-anchor="middle">TELECOM BILL RECEIPT</text><text x="20" y="80" font-family="Arial" font-size="12" fill="%2364748b">StormFiber 100Mbps Ultra</text><text x="20" y="110" font-family="Arial" font-size="12" fill="%2364748b">Acc: SF-KHI-40912</text><text x="20" y="140" font-family="Arial" font-size="12" fill="%2364748b">Period: Aug 1 - Aug 31, 2026</text><line x1="20" y1="170" x2="280" y2="170" stroke="%23cbd5e1"/><text x="20" y="210" font-family="Arial" font-size="14" font-weight="bold" fill="%230f172a">Total Paid: PKR 8,500</text></svg>',
+          status: 'pending_manager',
+          managerApproval: null,
+          financeApproval: null,
+          payoutMethod: 'payroll',
+          createdAt: '2026-08-29T11:15:00Z'
+        },
+        {
+          id: 4,
+          claimNumber: 'EXP-2026-004',
+          employeeId: 9, // Tariq Hussain
+          title: 'Team Sprint Retrospective & Technical Guild Lunch',
+          category: 'meals',
+          amount: 14200,
+          currency: 'PKR',
+          taxAmount: 1850,
+          expenseDate: '2026-08-30',
+          merchant: 'Kolachi Seaside Restaurant',
+          description: 'Quarterly retrospective lunch for 6 squad engineers after successful v3.0 core release.',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><rect width="300" height="400" fill="%23f8fafc" stroke="%23cbd5e1"/><text x="150" y="40" font-family="Arial" font-size="16" font-weight="bold" fill="%230f172a" text-anchor="middle">DINING RECEIPT</text><text x="20" y="80" font-family="Arial" font-size="12" fill="%2364748b">Kolachi Restaurant Karachi</text><text x="20" y="110" font-family="Arial" font-size="12" fill="%2364748b">6 Covers / Table #19</text><text x="20" y="140" font-family="Arial" font-size="12" fill="%2364748b">Food &amp; Beverages</text><line x1="20" y1="170" x2="280" y2="170" stroke="%23cbd5e1"/><text x="20" y="210" font-family="Arial" font-size="14" font-weight="bold" fill="%230f172a">Total Bill: PKR 14,200</text></svg>',
+          status: 'pending_finance',
+          managerApproval: { approvedBy: 3, approvedAt: '2026-08-31', remarks: 'Approved squad celebration within quarterly team budget.' },
+          financeApproval: null,
+          payoutMethod: 'payroll',
+          createdAt: '2026-08-30T17:00:00Z'
+        },
+        {
+          id: 5,
+          claimNumber: 'EXP-2026-005',
+          employeeId: 7, // Bilal Qureshi
+          title: 'B2B Client Hospitality Dinner & Contract Negotiation',
+          category: 'meals',
+          amount: 26800,
+          currency: 'PKR',
+          taxAmount: 3400,
+          expenseDate: '2026-08-20',
+          merchant: 'Okra Fine Dining Karachi',
+          description: 'Executive dinner with CIO and procurement leads from Meezan Bank group.',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="400" viewBox="0 0 300 400"><rect width="300" height="400" fill="%23f8fafc" stroke="%23cbd5e1"/><text x="150" y="40" font-family="Arial" font-size="16" font-weight="bold" fill="%230f172a" text-anchor="middle">COMMERCIAL HOSPITALITY</text><text x="20" y="80" font-family="Arial" font-size="12" fill="%2364748b">Okra Restaurant</text><text x="20" y="110" font-family="Arial" font-size="12" fill="%2364748b">Client: Meezan Bank Leads</text><line x1="20" y1="170" x2="280" y2="170" stroke="%23cbd5e1"/><text x="20" y="210" font-family="Arial" font-size="14" font-weight="bold" fill="%230f172a">Total: PKR 26,800</text></svg>',
+          status: 'approved',
+          managerApproval: { approvedBy: 8, approvedAt: '2026-08-21', remarks: 'Client deal reached verbal agreement.' },
+          financeApproval: { approvedBy: 1, approvedAt: '2026-08-22', remarks: 'Approved for reimbursement.' },
+          payoutMethod: 'payroll',
+          createdAt: '2026-08-21T09:00:00Z'
+        }
+      ];
+      this.set('expense_claims', expenses);
+    }
+
+    // 3. Employee Helpdesk & Grievance Redressal
+    let tickets = this.get('helpdesk_tickets');
+    if (!tickets || !tickets.length) {
+      tickets = [
+        {
+          id: 1,
+          ticketNumber: 'TKT-2026-001',
+          title: 'VPN Gateway Timeouts on Staging Kubernetes Cluster',
+          category: 'it_support',
+          priority: 'urgent',
+          reporterId: 4, // Fatima Raza
+          isAnonymous: false,
+          assignedTo: 1, // Ahmed Khan / IT Lead
+          department: 'IT Infrastructure',
+          status: 'in_progress',
+          slaHours: 4,
+          createdAt: '2026-09-07T09:00:00Z',
+          resolvedAt: null,
+          description: 'Engineers are getting frequent WireGuard handshake drops when running kubectl port-forwarding to staging namespace.',
+          messages: [
+            { id: 1, senderId: 4, senderName: 'Fatima Raza', role: 'Employee', text: 'WireGuard VPN drops every 12 minutes during staging deployment cycles.', time: '2026-09-07 09:00', isInternal: false },
+            { id: 2, senderId: 1, senderName: 'Ahmed Khan', role: 'Super Admin', text: 'Investigating firewall state table limit on Cisco Core router. Increasing keepalive interval.', time: '2026-09-07 09:45', isInternal: false }
+          ]
+        },
+        {
+          id: 2,
+          ticketNumber: 'TKT-2026-002',
+          title: 'Provident Fund / Gratuity Contribution Certificate Request',
+          category: 'hr_query',
+          priority: 'medium',
+          reporterId: 3, // Usman Baig
+          isAnonymous: false,
+          assignedTo: 2, // Sara Malik
+          department: 'Human Resources',
+          status: 'resolved',
+          slaHours: 24,
+          createdAt: '2026-09-05T11:00:00Z',
+          resolvedAt: '2026-09-06T10:15:00Z',
+          rating: 5,
+          description: 'Required official Gratuity defined benefit accumulated statement for housing finance application with Bank Alfalah.',
+          messages: [
+            { id: 1, senderId: 3, senderName: 'Usman Baig', role: 'Dept Manager', text: 'Please issue official stamped Gratuity & Service tenure certificate.', time: '2026-09-05 11:00', isInternal: false },
+            { id: 2, senderId: 2, senderName: 'Sara Malik', role: 'HR Manager', text: 'Certificate generated and verified via HR Letters module. Attached copy sent to your official email.', time: '2026-09-06 10:15', isInternal: false }
+          ]
+        },
+        {
+          id: 3,
+          ticketNumber: 'TKT-2026-003',
+          title: 'Tax Withholding Slip (Section 149) for Annual Tax Return Filing',
+          category: 'payroll',
+          priority: 'high',
+          reporterId: 8, // Farhan Zaidi
+          isAnonymous: false,
+          assignedTo: 2, // Sara Malik
+          department: 'Payroll & Tax',
+          status: 'resolved',
+          slaHours: 24,
+          createdAt: '2026-09-04T14:20:00Z',
+          resolvedAt: '2026-09-05T09:30:00Z',
+          rating: 5,
+          description: 'Need FBR Section 149 annual certificate for tax year 2026 wealth reconciliation.',
+          messages: [
+            { id: 1, senderId: 8, senderName: 'Farhan Zaidi', role: 'Employee', text: 'My tax lawyer requires the official Section 149 withholding slip.', time: '2026-09-04 14:20', isInternal: false },
+            { id: 2, senderId: 2, senderName: 'Sara Malik', role: 'HR Manager', text: 'Generated via Progressive Tax Engine with digital verification barcode. Ready in Payroll records.', time: '2026-09-05 09:30', isInternal: false }
+          ]
+        },
+        {
+          id: 4,
+          ticketNumber: 'TKT-2026-004',
+          title: 'Confidential: Workplace Interaction & Professional Decorum Grievance',
+          category: 'confidential_grievance',
+          priority: 'urgent',
+          reporterId: 0,
+          anonymousToken: 'ANON-HASH-7819',
+          isAnonymous: true,
+          assignedTo: 2, // Sara Malik (Ombudsperson)
+          department: 'Workplace Ethics & Grievance Committee',
+          status: 'in_progress',
+          slaHours: 24,
+          createdAt: '2026-09-06T16:00:00Z',
+          resolvedAt: null,
+          description: 'Submitting under the protection of Corporate Anti-Harassment & Whistleblower Policy. Observed repeated disparaging remarks and aggressive exclusion during project planning reviews.',
+          messages: [
+            { id: 1, senderId: 0, senderName: 'Protected Whistleblower (Token #7819)', role: 'Employee', text: 'Filing confidential report regarding intimidation and hostile conduct in squad meetings. Identity protected under policy.', time: '2026-09-06 16:00', isInternal: false },
+            { id: 2, senderId: 2, senderName: 'Sara Malik (Ethics Officer)', role: 'HR Ombudsperson', text: 'Receipt acknowledged under strict confidentiality. The Internal Inquiry Committee has initiated a preliminary factual review. You will receive private updates here.', time: '2026-09-07 10:00', isInternal: false }
+          ]
+        },
+        {
+          id: 5,
+          ticketNumber: 'TKT-2026-005',
+          title: 'Docker Desktop Enterprise License Renewal',
+          category: 'it_support',
+          priority: 'medium',
+          reporterId: 4, // Fatima Raza
+          isAnonymous: false,
+          assignedTo: 1,
+          department: 'IT Infrastructure',
+          status: 'open',
+          slaHours: 48,
+          createdAt: '2026-09-08T10:00:00Z',
+          resolvedAt: null,
+          description: 'Expiring Docker Enterprise subscription key on development workstations.',
+          messages: [
+            { id: 1, senderId: 4, senderName: 'Fatima Raza', role: 'Employee', text: 'Docker Desktop pop-up indicates company license expires in 5 days.', time: '2026-09-08 10:00', isInternal: false }
+          ]
+        }
+      ];
+      this.set('helpdesk_tickets', tickets);
     }
   },
 

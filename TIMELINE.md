@@ -213,6 +213,9 @@
 8. **Company Noticeboard & Events**: Corporate events calendar, public holidays, official broadcasts.
 9. **Administration & RBAC**: Branches, departments, designations, shifts, user accounts, and audit log viewer.
 10. **System Settings**: Localization, currency, company branding, dark/light theme toggle, JSON backup & restore.
+11. **Assets & Equipment Lifecycle**: Enterprise hardware tracking, valuation, check-out/check-in audits, warranty tracking, custody history, digital handover signing, and printable equipment undertaking certificates.
+12. **Expense Claims & Travel Reimbursements**: Multi-category claims, digital tax invoice receipt viewer, manager endorsement and finance final authorization, and 1-click direct bridge to payroll payout.
+13. **Employee Helpdesk & Grievance Redressal**: Multi-department support ticketing, live resolution workspace, SLA timers, and confidential anti-harassment / whistleblower redressal conforming to workplace protection acts with cryptographic anonymity tokens.
 
 ---
 
@@ -231,7 +234,7 @@
 - [x] **Statutory Benefit Ledgers**: EOBI, SESSI/PESSI, and Gratuity Defined Benefit Liability Pool *(Completed in Batch 2)*.
 - [x] **Batch 3: Time, Attendance & Field Operations**: Multi-shift roster calendar, automated rotational schedule generator, peer-to-peer shift swaps, GPS geo-fencing (Haversine perimeter verification), corporate IP whitelisting, and ZKTeco biometric machine log parser *(Completed in Batch 3)*.
 - [x] **Batch 4: Talent, LMS & Performance Management**: 360-degree multi-rater peer reviews & competency radar, Corporate LMS & Training Center with skill gap matrix & CPD credits, and 9-box talent matrix with executive succession planning *(Completed in Batch 4)*.
-- [ ] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing.
+- [x] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing *(Completed in Batch 5)*.
 
 ---
 

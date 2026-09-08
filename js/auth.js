@@ -62,10 +62,10 @@ const Auth = {
 
   canAccessModule(module) {
     const moduleMap = {
-      superadmin: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','events','reports','administration','settings','backup'],
-      hr_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','events','reports','administration'],
-      dept_manager: ['dashboard','employees','attendance','leaves','performance','events','reports'],
-      employee: ['dashboard','attendance','leaves','payroll','profile','performance','events','holidays','reports'],
+      superadmin: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
+      hr_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
+      dept_manager: ['dashboard','employees','attendance','leaves','performance','assets','expenses','helpdesk','events','reports'],
+      employee: ['dashboard','attendance','leaves','payroll','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
       onboarding: ['dashboard','profile','attendance','leaves','events','holidays'],
     };
     return (moduleMap[this.role] || []).includes(module);
@@ -81,6 +81,9 @@ const Auth = {
       { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','employee'] },
       { id: 'performance', label: 'Performance', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager'] },
+      { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'events', label: 'Events', icon: 'fa-calendar-days', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'reports', label: 'Reports', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'administration', label: 'Administration', icon: 'fa-gear', roles: ['superadmin','hr_manager'] },

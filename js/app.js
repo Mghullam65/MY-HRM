@@ -221,6 +221,23 @@ const App = {
       if (pendingRev > 0) notifs.push({ color: 'var(--accent)', text: `${pendingRev} performance review${pendingRev > 1 ? 's' : ''} pending`, time: 'Action required', icon: 'fa-chart-line' });
     }
 
+    // Pending expense claims
+    const expClaims = DB.get('expense_claims') || [];
+    if (role === 'dept_manager') {
+      const pClaims = expClaims.filter(c => c.status === 'pending_manager' && c.employeeId !== Auth.employee?.id).length;
+      if (pClaims > 0) notifs.push({ color: 'var(--warning)', text: `${pClaims} expense claim${pClaims > 1 ? 's' : ''} awaiting endorsement`, time: 'Action required', icon: 'fa-receipt' });
+    } else if (role === 'superadmin' || role === 'hr_manager') {
+      const fClaims = expClaims.filter(c => c.status === 'pending_finance').length;
+      if (fClaims > 0) notifs.push({ color: 'var(--info)', text: `${fClaims} expense claim${fClaims > 1 ? 's' : ''} awaiting finance authorization`, time: 'Action required', icon: 'fa-stamp' });
+    }
+
+    // Urgent helpdesk tickets
+    const tickets = DB.get('helpdesk_tickets') || [];
+    if (role === 'superadmin' || role === 'hr_manager') {
+      const urgentTickets = tickets.filter(t => t.priority === 'urgent' && t.status !== 'closed' && t.status !== 'resolved').length;
+      if (urgentTickets > 0) notifs.push({ color: 'var(--danger)', text: `${urgentTickets} urgent ticket${urgentTickets > 1 ? 's' : ''} requiring immediate response`, time: 'SLA priority', icon: 'fa-headset' });
+    }
+
     // Upcoming birthdays
     const today = Utils.today();
     const todayMMDD = today.slice(5);
@@ -275,8 +292,10 @@ const App = {
     const moduleLabels = {
       dashboard: 'Dashboard', employees: 'Employees', attendance: 'Attendance',
       leaves: 'Leave Management', payroll: 'Payroll', performance: 'Performance',
-      recruitment: 'Recruitment', events: 'Events & Announcements',
-      reports: 'Reports', administration: 'Administration', settings: 'Settings', profile: 'My Profile',
+      recruitment: 'Recruitment', assets: 'Assets & Inventory',
+      expenses: 'Expense Claims', helpdesk: 'Helpdesk & Grievance',
+      events: 'Events & Announcements', reports: 'Reports',
+      administration: 'Administration', settings: 'Settings', profile: 'My Profile',
     };
 
     if (title) title.textContent = moduleLabels[module] || module;
@@ -297,6 +316,9 @@ const App = {
           case 'payroll':       Payroll.render(); break;
           case 'performance':   Performance.render(); break;
           case 'recruitment':   Recruitment.render(); break;
+          case 'assets':        Assets.render(); break;
+          case 'expenses':      Expenses.render(); break;
+          case 'helpdesk':      Helpdesk.render(); break;
           case 'events':        Events.render(); break;
           case 'reports':       Reports.render(); break;
           case 'administration':Administration.render(); break;
