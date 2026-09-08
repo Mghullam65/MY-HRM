@@ -12,6 +12,9 @@ const DB = {
       this.ensureOnboardingData();
       this.ensureAttendanceLeaveAuditData();
       this.ensureHierarchyAndCorrections();
+      this.ensureDocumentExpiries();
+      this.ensureExitClearances();
+      this.ensureHRLetters();
       return;
     }
     this.seed();
@@ -20,6 +23,9 @@ const DB = {
     this.ensureOnboardingData();
     this.ensureAttendanceLeaveAuditData();
     this.ensureHierarchyAndCorrections();
+    this.ensureDocumentExpiries();
+    this.ensureExitClearances();
+    this.ensureHRLetters();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -397,6 +403,277 @@ const DB = {
 
     if (empUpdated) {
       this.set('employees', emps);
+    }
+  },
+
+  ensureDocumentExpiries() {
+    let docs = this.get('document_expiries');
+    if (!docs || !docs.length) {
+      docs = [
+        {
+          id: 1, employeeId: 1, docType: 'Passport', docNumber: 'PK-7788991',
+          issueDate: '2020-01-10', expiryDate: '2030-01-09',
+          issuingAuthority: 'Directorate of Passports PK',
+          notes: 'Official executive diplomatic passport', status: 'active'
+        },
+        {
+          id: 2, employeeId: 1, docType: 'CNIC', docNumber: '42201-1234567-1',
+          issueDate: '2018-05-15', expiryDate: '2028-05-14',
+          issuingAuthority: 'NADRA Karachi',
+          notes: 'Smart National Identity Card', status: 'active'
+        },
+        {
+          id: 3, employeeId: 2, docType: 'CNIC', docNumber: '42201-2345678-2',
+          issueDate: '2016-10-19', expiryDate: '2026-10-18',
+          issuingAuthority: 'NADRA Clifton',
+          notes: 'Expiring in under 45 days. Renewal reminder queued.', status: 'expiring_soon'
+        },
+        {
+          id: 4, employeeId: 2, docType: 'Passport', docNumber: 'PK-9922110',
+          issueDate: '2019-02-14', expiryDate: '2029-02-13',
+          issuingAuthority: 'Directorate of Passports PK',
+          notes: 'Standard 36-page booklet', status: 'active'
+        },
+        {
+          id: 5, employeeId: 3, docType: 'Driving License', docNumber: 'SINDH-KHI-88990',
+          issueDate: '2021-09-25', expiryDate: '2026-09-24',
+          issuingAuthority: 'Traffic Police Sindh (Clifton Branch)',
+          notes: 'Motor Car / LTV License. CRITICAL: Expiring in under 20 days!', status: 'urgent'
+        },
+        {
+          id: 6, employeeId: 3, docType: 'CNIC', docNumber: '42201-3456789-3',
+          issueDate: '2017-11-10', expiryDate: '2027-11-09',
+          issuingAuthority: 'NADRA Defence',
+          notes: 'Verified biometric chip card', status: 'active'
+        },
+        {
+          id: 7, employeeId: 4, docType: 'Passport', docNumber: 'PK-3344552',
+          issueDate: '2021-09-21', expiryDate: '2026-09-20',
+          issuingAuthority: 'Directorate of Passports PK',
+          notes: 'Urgent renewal required for scheduled international client training', status: 'urgent'
+        },
+        {
+          id: 8, employeeId: 4, docType: 'CNIC', docNumber: '42201-4567890-4',
+          issueDate: '2019-05-30', expiryDate: '2029-05-29',
+          issuingAuthority: 'NADRA Bahria',
+          notes: 'National Identity Card', status: 'active'
+        },
+        {
+          id: 9, employeeId: 7, docType: 'CNIC', docNumber: '42201-7890123-7',
+          issueDate: '2016-04-14', expiryDate: '2026-04-13',
+          issuingAuthority: 'NADRA Nazimabad',
+          notes: 'OVERDUE: Expired 5 months ago! Urgent replacement required.', status: 'expired'
+        },
+        {
+          id: 10, employeeId: 7, docType: 'Medical Fitness', docNumber: 'MED-FIT-2025-08',
+          issueDate: '2025-08-01', expiryDate: '2026-08-01',
+          issuingAuthority: 'Civil Hospital Karachi Diagnostic Center',
+          notes: 'Annual mandatory medical certificate expired.', status: 'expired'
+        },
+        {
+          id: 11, employeeId: 9, docType: 'Visa / Work Permit', docNumber: 'UAE-WP-99881',
+          issueDate: '2024-10-31', expiryDate: '2026-10-30',
+          issuingAuthority: 'Ministry of Human Resources & Emiratisation (MOHRE)',
+          notes: 'Expiring in under 55 days. Extension paperwork initiated.', status: 'expiring_soon'
+        },
+        {
+          id: 12, employeeId: 13, docType: 'Driving License', docNumber: 'ICT-ISB-44551',
+          issueDate: '2022-04-10', expiryDate: '2027-04-09',
+          issuingAuthority: 'Islamabad Traffic Police (ITP)',
+          notes: 'Valid commercial and private driver license', status: 'active'
+        },
+        {
+          id: 13, employeeId: 25, docType: 'CNIC', docNumber: '42201-7788902-1',
+          issueDate: '2021-02-15', expiryDate: '2031-02-14',
+          issuingAuthority: 'NADRA FB Area',
+          notes: 'Valid for next 5 years', status: 'active'
+        }
+      ];
+      this.set('document_expiries', docs);
+    }
+  },
+
+  ensureExitClearances() {
+    let clearances = this.get('exit_clearances');
+    if (!clearances || !clearances.length) {
+      clearances = [
+        {
+          id: 1,
+          employeeId: 11, // Kamran Ali (Ex-employee)
+          resignationDate: '2024-03-01',
+          lastWorkingDay: '2024-03-31',
+          noticePeriodDays: 30,
+          reason: 'Personal Relocation to Islamabad & Higher Education',
+          status: 'completed',
+          departments: {
+            it: {
+              cleared: true, clearedBy: 'Usman Baig (Tech Lead)', clearedDate: '2024-03-29',
+              remarks: 'Dell Latitude laptop, charger & monitor returned in good condition. Email and GitHub disabled.',
+              items: [
+                { name: 'Laptop & Charger Returned', done: true },
+                { name: 'Email & Cloud Accounts Deactivated', done: true },
+                { name: 'Source Code & VPN Access Revoked', done: true }
+              ]
+            },
+            admin: {
+              cleared: true, clearedBy: 'Amna Sheikh (Operations)', clearedDate: '2024-03-30',
+              remarks: 'RFID Access card returned. Locker 14 inspected and cleared. Cafeteria pass cancelled.',
+              items: [
+                { name: 'Building Access Card Handed In', done: true },
+                { name: 'Locker Keys Returned & Cleared', done: true },
+                { name: 'Cafeteria Card Deactivated', done: true }
+              ]
+            },
+            finance: {
+              cleared: true, clearedBy: 'Bilal Ahmed (Finance Manager)', clearedDate: '2024-03-30',
+              remarks: 'Zero loan balance outstanding. Petty cash advance of PKR 4,500 settled with receipts.',
+              items: [
+                { name: 'Company Loan Balances Settled', done: true },
+                { name: 'Petty Cash Advances Reconciled', done: true },
+                { name: 'Corporate Fuel/Credit Card Revoked', done: true }
+              ]
+            },
+            hr: {
+              cleared: true, clearedBy: 'Sara Malik (HR Head)', clearedDate: '2024-03-31',
+              remarks: 'Exit interview conducted. Handover documentation signed. Experience and relieving letters issued.',
+              items: [
+                { name: 'Exit Interview Completed', done: true },
+                { name: 'Health Insurance Cards Returned', done: true },
+                { name: 'Handover Document Signed by Supervisor', done: true },
+                { name: 'Final F&F Settlement Statement Approved', done: true }
+              ]
+            }
+          },
+          settlement: {
+            basicSalary: 80000,
+            workedDays: 31,
+            unpaidSalary: 80000,
+            leaveBalanceDays: 12,
+            leaveEncashmentAmount: 32000, // (80000/30)*12
+            gratuityYears: 5,
+            gratuityAmount: 400000, // 80000*5
+            noticeShortfallDays: 0,
+            noticeDeduction: 0,
+            loanDeduction: 0,
+            otherDeductions: 0,
+            netPayable: 512000,
+            paymentStatus: 'paid',
+            paidDate: '2024-04-05',
+            chequeNo: 'HBL-PAY-992140'
+          }
+        },
+        {
+          id: 2,
+          employeeId: 7, // Hassan Qureshi
+          resignationDate: '2026-08-25',
+          lastWorkingDay: '2026-09-25',
+          noticePeriodDays: 30,
+          reason: 'Career Advancement / Accepted Overseas Senior Role in Dubai',
+          status: 'in_progress',
+          departments: {
+            it: {
+              cleared: true, clearedBy: 'Usman Baig (Tech Lead)', clearedDate: '2026-09-02',
+              remarks: 'Hardware inspection scheduled. Backup of project files completed.',
+              items: [
+                { name: 'Laptop & Charger Returned', done: false },
+                { name: 'Email & Cloud Accounts Scheduled Deactivation', done: true },
+                { name: 'Source Code & VPN Access Revoked', done: false }
+              ]
+            },
+            admin: {
+              cleared: false, clearedBy: '', clearedDate: '',
+              remarks: 'Awaiting badge and cabinet keys return on last working day.',
+              items: [
+                { name: 'Building Access Card Handed In', done: false },
+                { name: 'Locker Keys Returned & Cleared', done: false },
+                { name: 'Cafeteria Card Deactivated', done: false }
+              ]
+            },
+            finance: {
+              cleared: true, clearedBy: 'Bilal Ahmed (Finance Manager)', clearedDate: '2026-09-04',
+              remarks: 'No active loans or travel advances pending.',
+              items: [
+                { name: 'Company Loan Balances Settled', done: true },
+                { name: 'Petty Cash Advances Reconciled', done: true },
+                { name: 'Corporate Fuel/Credit Card Revoked', done: true }
+              ]
+            },
+            hr: {
+              cleared: false, clearedBy: '', clearedDate: '',
+              remarks: 'Exit interview scheduled for 2026-09-22. Knowledge transfer in progress.',
+              items: [
+                { name: 'Exit Interview Completed', done: false },
+                { name: 'Health Insurance Cards Returned', done: false },
+                { name: 'Handover Document Signed by Supervisor', done: true },
+                { name: 'Final F&F Settlement Statement Approved', done: false }
+              ]
+            }
+          },
+          settlement: {
+            basicSalary: 75000,
+            workedDays: 25,
+            unpaidSalary: 62500, // (75000/30)*25
+            leaveBalanceDays: 8,
+            leaveEncashmentAmount: 20000, // (75000/30)*8
+            gratuityYears: 6,
+            gratuityAmount: 450000, // 75000*6
+            noticeShortfallDays: 0,
+            noticeDeduction: 0,
+            loanDeduction: 0,
+            otherDeductions: 0,
+            netPayable: 532500,
+            paymentStatus: 'pending',
+            paidDate: null,
+            chequeNo: ''
+          }
+        }
+      ];
+      this.set('exit_clearances', clearances);
+    }
+  },
+
+  ensureHRLetters() {
+    let letters = this.get('hr_letters');
+    if (!letters || !letters.length) {
+      letters = [
+        {
+          id: 1,
+          refNo: 'HRM/EXP/2024/001',
+          employeeId: 11,
+          templateType: 'experience',
+          title: 'Experience & Service Certificate',
+          recipient: 'To Whom It May Concern',
+          issueDate: '2024-04-05',
+          issuedBy: 'Sara Malik (Head of HR)',
+          purpose: 'Official proof of employment & service tenure',
+          content: 'This is to certify that Mr. Kamran Ali was employed with HRM Pro as Software Engineer from June 1, 2018 to March 31, 2024.'
+        },
+        {
+          id: 2,
+          refNo: 'HRM/SAL/2026/014',
+          employeeId: 4,
+          templateType: 'salary_certificate',
+          title: 'Salary Verification & Employment Certificate',
+          recipient: 'The Visa Officer, British High Commission, Islamabad',
+          issueDate: '2026-08-15',
+          issuedBy: 'Sara Malik (Head of HR)',
+          purpose: 'United Kingdom Standard Visitor Visa Application',
+          content: 'This certificate verifies that Ms. Fatima Raza is currently employed as Software Engineer earning a gross salary of PKR 85,000 per month.'
+        },
+        {
+          id: 3,
+          refNo: 'HRM/CONF/2019/008',
+          employeeId: 3,
+          templateType: 'confirmation',
+          title: 'Official Employment Confirmation Letter',
+          recipient: 'Mr. Usman Baig',
+          issueDate: '2019-09-15',
+          issuedBy: 'Ahmed Khan (Super Admin / CEO)',
+          purpose: 'Completion of 3-Month Probationary Period',
+          content: 'We are pleased to confirm your appointment as Deputy Manager / Lead Software Engineer effective September 15, 2019.'
+        }
+      ];
+      this.set('hr_letters', letters);
     }
   },
 

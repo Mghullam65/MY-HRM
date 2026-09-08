@@ -11,51 +11,62 @@ const Employees = {
   render() {
     const content = document.getElementById('page-content');
     const depts = DB.get('departments');
+    const docs = DB.get('document_expiries') || [];
+    const urgentDocs = docs.filter(d => {
+      const days = Math.ceil((new Date(d.expiryDate) - new Date()) / (1000*60*60*24));
+      return days <= 30;
+    }).length;
+    const pendingExits = (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress').length;
 
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Sub-tabs -->
-        <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content">
+        <div style="display:flex;gap:4px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap">
           ${[
             { id:'current', label:'Active Employees', icon:'fa-users' },
             { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
             { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
-            { id:'all', label:'All Employees', icon:'fa-list' },
             { id:'directory', label:'Directory', icon:'fa-id-card' },
+            { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
+            { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
+            { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
+            { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
-              ${t.badge ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
           `).join('')}
         </div>
 
-        <!-- Filter Bar -->
-        <div class="filter-bar">
-          <div class="search-box">
-            <i class="fa fa-search"></i>
-            <input type="text" placeholder="Search by name, ID, email, CNIC..." id="emp-search" value="${this.searchQuery}"
-              oninput="Employees.searchQuery=this.value;Employees.renderTable()">
-          </div>
-          <select class="filter-select" id="dept-filter" onchange="Employees.filterDept=this.value;Employees.renderTable()">
-            <option value="">All Departments</option>
-            ${depts.map(d => `<option value="${d.id}" ${this.filterDept==d.id?'selected':''}>${d.name}</option>`).join('')}
-          </select>
-          <select class="filter-select" id="type-filter" onchange="Employees.filterStatus=this.value;Employees.renderTable()">
-            <option value="">All Types</option>
-            <option value="Permanent">Permanent</option>
-            <option value="Probation">Probation</option>
-            <option value="Contract">Contract</option>
-          </select>
-          ${Auth.can('employees.add') || Auth.role === 'superadmin' ? `
-            <button class="btn btn-primary" onclick="Employees.showAddForm()">
-              <i class="fa fa-plus"></i> Add Employee
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters'].includes(this.currentView) ? `
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <div class="search-box">
+              <i class="fa fa-search"></i>
+              <input type="text" placeholder="Search by name, ID, email, CNIC..." id="emp-search" value="${this.searchQuery}"
+                oninput="Employees.searchQuery=this.value;Employees.renderTable()">
+            </div>
+            <select class="filter-select" id="dept-filter" onchange="Employees.filterDept=this.value;Employees.renderTable()">
+              <option value="">All Departments</option>
+              ${depts.map(d => `<option value="${d.id}" ${this.filterDept==d.id?'selected':''}>${d.name}</option>`).join('')}
+            </select>
+            <select class="filter-select" id="type-filter" onchange="Employees.filterStatus=this.value;Employees.renderTable()">
+              <option value="">All Types</option>
+              <option value="Permanent">Permanent</option>
+              <option value="Probation">Probation</option>
+              <option value="Contract">Contract</option>
+            </select>
+            ${Auth.can('employees.add') || Auth.role === 'superadmin' ? `
+              <button class="btn btn-primary" onclick="Employees.showAddForm()">
+                <i class="fa fa-plus"></i> Add Employee
+              </button>
+            ` : ''}
+            <button class="btn btn-ghost" onclick="Employees.exportEmployees()">
+              <i class="fa fa-file-export"></i> Export
             </button>
-          ` : ''}
-          <button class="btn btn-ghost" onclick="Employees.exportEmployees()">
-            <i class="fa fa-file-export"></i> Export
-          </button>
-        </div>
+          </div>
+        ` : ''}
 
         <!-- Content Area -->
         <div id="emp-content"></div>
@@ -63,7 +74,7 @@ const Employees = {
 
       <style>
         .tab-toggle-btn { padding:8px 16px;border:none;background:transparent;color:var(--text-3);font-size:12.5px;font-weight:500;border-radius:7px;cursor:pointer;transition:all .2s; }
-        .tab-toggle-btn.active { background:var(--primary);color:white; }
+        .tab-toggle-btn.active { background:var(--primary);color:white;box-shadow:0 2px 8px var(--primary-glow); }
         .tab-toggle-btn:hover:not(.active) { background:var(--surface-2);color:var(--text); }
       </style>
     `;
@@ -110,9 +121,27 @@ const Employees = {
   },
 
   renderTable() {
-    const emps = this.getFiltered();
     const container = document.getElementById('emp-content');
     if (!container) return;
+
+    if (this.currentView === 'orgchart') {
+      this.renderOrgChart(container);
+      return;
+    }
+    if (this.currentView === 'doc_expiry') {
+      this.renderDocExpiry(container);
+      return;
+    }
+    if (this.currentView === 'exit_clearance') {
+      this.renderExitClearance(container);
+      return;
+    }
+    if (this.currentView === 'hr_letters') {
+      this.renderHRLetters(container);
+      return;
+    }
+
+    const emps = this.getFiltered();
 
     if (this.currentView === 'directory') {
       container.innerHTML = `
@@ -4130,6 +4159,1537 @@ const Employees = {
     const a = document.createElement('a'); a.href = url; a.download = 'employees.csv'; a.click();
     URL.revokeObjectURL(url);
     Toast.show('Employees exported!', 'success');
+  },
+
+  // ============================================================
+  // BATCH 1: INTERACTIVE VISUAL ORG CHART
+  // ============================================================
+  orgChartZoom: 1.0,
+  orgChartDeptFilter: 'all',
+  orgChartSearchQuery: '',
+
+  renderOrgChart(container) {
+    const allEmps = DB.get('employees') || [];
+    const activeEmps = allEmps.filter(e => e.status === 'active');
+    const depts = DB.get('departments') || [];
+
+    // Filter root and build reporting map
+    const rootEmp = activeEmps.find(e => e.role === 'superadmin' || e.id === 1) || activeEmps[0];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Toolbar -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-sitemap" style="color:var(--primary)"></i> Organization Hierarchy Chart
+            </div>
+            <span class="chip" style="font-size:11px;background:var(--surface)">${activeEmps.length} Active Members</span>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <!-- Search in Tree -->
+            <div style="position:relative;width:200px">
+              <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:11px"></i>
+              <input type="text" class="form-control" placeholder="Find in chart..." style="padding-left:28px;font-size:12px;height:32px"
+                value="${this.orgChartSearchQuery}" oninput="Employees.orgChartSearchQuery=this.value.toLowerCase(); Employees.filterOrgChartNodes()">
+            </div>
+
+            <!-- Dept Filter -->
+            <select class="form-control" style="width:160px;font-size:12px;height:32px" onchange="Employees.orgChartDeptFilter=this.value; Employees.renderOrgChart(document.getElementById('emp-content'))">
+              <option value="all">All Departments</option>
+              ${depts.map(d => `<option value="${d.id}" ${this.orgChartDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+            </select>
+
+            <!-- Zoom Controls -->
+            <div style="display:flex;align-items:center;gap:2px;background:var(--surface);padding:2px;border-radius:8px;border:1px solid var(--border)">
+              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(0.1)" title="Zoom In"><i class="fa fa-magnifying-glass-plus"></i></button>
+              <span id="org-zoom-level" style="font-size:11px;font-family:monospace;padding:0 6px;min-width:40px;text-align:center">${Math.round(this.orgChartZoom*100)}%</span>
+              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(-0.1)" title="Zoom Out"><i class="fa fa-magnifying-glass-minus"></i></button>
+              <button class="btn btn-ghost btn-xs" onclick="Employees.resetOrgChartZoom()" title="Reset Zoom"><i class="fa fa-arrows-rotate"></i></button>
+            </div>
+
+            <button class="btn btn-ghost btn-sm" onclick="Employees.switchView('directory')" title="Switch to Grid View">
+              <i class="fa fa-id-card"></i> Grid View
+            </button>
+          </div>
+        </div>
+
+        <!-- Org Chart Canvas / Tree Area -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:30px 20px;overflow:auto;min-height:540px;display:flex;justify-content:center;position:relative">
+          <div id="org-tree-root" style="transform:scale(${this.orgChartZoom});transform-origin:top center;transition:transform .2s ease;display:inline-block">
+            ${this.buildOrgTreeNode(rootEmp, activeEmps)}
+          </div>
+        </div>
+      </div>
+
+      <style>
+        .org-node-wrap { display: flex; flex-direction: column; align-items: center; }
+        .org-card {
+          background: var(--card);
+          border: 1.5px solid var(--border);
+          border-radius: 12px;
+          padding: 12px 14px;
+          width: 220px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+          cursor: pointer;
+          transition: all .2s ease;
+          position: relative;
+          text-align: center;
+        }
+        .org-card:hover {
+          border-color: var(--primary);
+          transform: translateY(-3px);
+          box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+        .org-card.highlighted {
+          border-color: var(--warning);
+          box-shadow: 0 0 0 3px rgba(245,158,11,0.3);
+        }
+        .org-card.root-card { border-top: 4px solid var(--primary); }
+        .org-card.manager-card { border-top: 4px solid var(--accent); }
+        .org-card.lead-card { border-top: 4px solid var(--info); }
+        .org-card.member-card { border-top: 4px solid #10b981; }
+        .org-line-down { width: 2px; height: 24px; background: var(--border); margin: 0 auto; }
+        .org-line-up { width: 2px; height: 24px; background: var(--border); margin: 0 auto; }
+        .org-children-row {
+          display: flex;
+          justify-content: center;
+          gap: 24px;
+          position: relative;
+          padding-top: 24px;
+        }
+        .org-children-row::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 110px;
+          right: 110px;
+          height: 2px;
+          background: var(--border);
+        }
+        .org-child-col {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          position: relative;
+        }
+        .org-child-col::before {
+          content: '';
+          position: absolute;
+          top: -24px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 2px;
+          height: 24px;
+          background: var(--border);
+        }
+      </style>
+    `;
+  },
+
+  buildOrgTreeNode(emp, allEmps) {
+    if (!emp) return '';
+
+    // Find direct reports
+    let reports = allEmps.filter(e => e.id !== emp.id && (e.managerId === emp.id || e.reportingTo === emp.id));
+    
+    // Apply department filter if selected
+    if (this.orgChartDeptFilter !== 'all') {
+      reports = reports.filter(e => e.departmentId == this.orgChartDeptFilter || e.role === 'dept_manager' || e.role === 'superadmin');
+    }
+
+    const isRoot = emp.role === 'superadmin' || emp.id === 1;
+    const isDeptManager = emp.role === 'dept_manager' || emp.id === 3;
+    const isHR = emp.role === 'hr_manager' || emp.id === 2;
+
+    const cardClass = isRoot ? 'root-card' : isHR ? 'manager-card' : isDeptManager ? 'lead-card' : 'member-card';
+
+    return `
+      <div class="org-node-wrap" data-emp-id="${emp.id}" data-name="${emp.fullName.toLowerCase()}" data-dept="${emp.departmentId}">
+        <div class="org-card ${cardClass}" onclick="Employees.renderProfile(${emp.id})" title="Click to view ${emp.fullName}'s complete profile">
+          <!-- Avatar + Photo -->
+          <div style="position:relative;width:52px;height:52px;margin:0 auto 8px;border-radius:50%;overflow:hidden;border:2px solid var(--primary);box-shadow:var(--shadow-sm)">
+            ${emp.photo 
+              ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` 
+              : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-size:16px;font-weight:700">${Utils.avatarInitials(emp.fullName)}</div>`}
+          </div>
+
+          <div style="font-weight:700;font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.fullName}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Utils.getDesigName(emp.designationId)}</div>
+          <div style="font-size:10px;color:var(--primary);margin-top:2px">${Utils.getDeptName(emp.departmentId)}</div>
+
+          <div style="margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px">
+            <span class="chip" style="font-size:9.5px;padding:2px 6px">${emp.empNo}</span>
+            ${reports.length > 0 ? `<span class="badge badge-primary" style="font-size:9px;padding:2px 6px"><i class="fa fa-users"></i> ${reports.length} Reports</span>` : ''}
+          </div>
+        </div>
+
+        ${reports.length > 0 ? `
+          <div class="org-line-down"></div>
+          <div class="org-children-row">
+            ${reports.map(child => `
+              <div class="org-child-col">
+                ${this.buildOrgTreeNode(child, allEmps)}
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  zoomOrgChart(delta) {
+    this.orgChartZoom = Math.min(1.8, Math.max(0.4, Math.round((this.orgChartZoom + delta) * 10) / 10));
+    const root = document.getElementById('org-tree-root');
+    if (root) root.style.transform = `scale(${this.orgChartZoom})`;
+    const label = document.getElementById('org-zoom-level');
+    if (label) label.textContent = `${Math.round(this.orgChartZoom * 100)}%`;
+  },
+
+  resetOrgChartZoom() {
+    this.orgChartZoom = 1.0;
+    const root = document.getElementById('org-tree-root');
+    if (root) root.style.transform = 'scale(1)';
+    const label = document.getElementById('org-zoom-level');
+    if (label) label.textContent = '100%';
+  },
+
+  filterOrgChartNodes() {
+    const q = this.orgChartSearchQuery;
+    document.querySelectorAll('.org-card').forEach(card => {
+      card.classList.remove('highlighted');
+      if (q && card.parentElement.getAttribute('data-name')?.includes(q)) {
+        card.classList.add('highlighted');
+      }
+    });
+  },
+
+  // ============================================================
+  // BATCH 1: DOCUMENT EXPIRY & COMPLIANCE TRACKER
+  // ============================================================
+  docExpiryFilter: 'all',
+  docTypeFilter: 'all',
+  docSearchQuery: '',
+
+  renderDocExpiry(container) {
+    const docs = DB.get('document_expiries') || [];
+    const allEmps = DB.get('employees') || [];
+    const today = new Date();
+
+    const enriched = docs.map(d => {
+      const emp = allEmps.find(e => e.id === d.employeeId) || { fullName: 'Unknown', empNo: 'EMP-??', departmentId: 1 };
+      const exp = new Date(d.expiryDate);
+      const diffTime = exp - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      let statusCat = 'active';
+      if (diffDays < 0) statusCat = 'expired';
+      else if (diffDays <= 30) statusCat = 'urgent';
+      else if (diffDays <= 60) statusCat = 'upcoming';
+      return { ...d, emp, diffDays, statusCat };
+    });
+
+    const expiredCount = enriched.filter(d => d.statusCat === 'expired').length;
+    const urgentCount = enriched.filter(d => d.statusCat === 'urgent').length;
+    const upcomingCount = enriched.filter(d => d.statusCat === 'upcoming').length;
+    const activeCount = enriched.filter(d => d.statusCat === 'active').length;
+
+    let filtered = enriched;
+    if (this.docExpiryFilter !== 'all') filtered = filtered.filter(d => d.statusCat === this.docExpiryFilter);
+    if (this.docTypeFilter !== 'all') filtered = filtered.filter(d => d.docType === this.docTypeFilter);
+    if (this.docSearchQuery) {
+      const q = this.docSearchQuery.toLowerCase();
+      filtered = filtered.filter(d =>
+        d.emp.fullName.toLowerCase().includes(q) ||
+        d.emp.empNo.toLowerCase().includes(q) ||
+        d.docNumber.toLowerCase().includes(q) ||
+        d.issuingAuthority.toLowerCase().includes(q)
+      );
+    }
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          ${[
+            { label:'Expired Documents', val: expiredCount, color:'#ef4444', icon:'fa-triangle-exclamation', filter:'expired' },
+            { label:'Critical (< 30 Days)', val: urgentCount, color:'#f59e0b', icon:'fa-bell', filter:'urgent' },
+            { label:'Upcoming (< 60 Days)', val: upcomingCount, color:'#6366f1', icon:'fa-calendar-clock', filter:'upcoming' },
+            { label:'Valid & Compliant', val: activeCount, color:'#10b981', icon:'fa-circle-check', filter:'active' },
+          ].map(s => `
+            <div style="background:var(--card);border:1px solid var(--border);border-left:4px solid ${s.color};border-radius:12px;padding:16px;cursor:pointer;transition:all .2s"
+              onclick="Employees.docExpiryFilter='${s.filter}'; Employees.renderDocExpiry(document.getElementById('emp-content'))">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <div>
+                  <div style="font-size:26px;font-weight:800;color:${s.color}">${s.val}</div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:2px">${s.label}</div>
+                </div>
+                <div style="width:40px;height:40px;border-radius:10px;background:${s.color}22;display:flex;align-items:center;justify-content:center;color:${s.color};font-size:18px">
+                  <i class="fa ${s.icon}"></i>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Filter Bar -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <!-- Search -->
+            <div style="position:relative;width:220px">
+              <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:11px"></i>
+              <input type="text" class="form-control" placeholder="Search by name, CNIC, doc #..." style="padding-left:28px;font-size:12px;height:32px"
+                value="${this.docSearchQuery}" oninput="Employees.docSearchQuery=this.value; Employees.renderDocExpiry(document.getElementById('emp-content'))">
+            </div>
+
+            <!-- Status Filter -->
+            <select class="form-control" style="width:160px;font-size:12px;height:32px" onchange="Employees.docExpiryFilter=this.value; Employees.renderDocExpiry(document.getElementById('emp-content'))">
+              <option value="all" ${this.docExpiryFilter==='all'?'selected':''}>All Expiry Statuses</option>
+              <option value="expired" ${this.docExpiryFilter==='expired'?'selected':''}>Expired Only</option>
+              <option value="urgent" ${this.docExpiryFilter==='urgent'?'selected':''}>Urgent (< 30 Days)</option>
+              <option value="upcoming" ${this.docExpiryFilter==='upcoming'?'selected':''}>Upcoming (< 60 Days)</option>
+              <option value="active" ${this.docExpiryFilter==='active'?'selected':''}>Valid & Active</option>
+            </select>
+
+            <!-- Doc Type Filter -->
+            <select class="form-control" style="width:160px;font-size:12px;height:32px" onchange="Employees.docTypeFilter=this.value; Employees.renderDocExpiry(document.getElementById('emp-content'))">
+              <option value="all" ${this.docTypeFilter==='all'?'selected':''}>All Document Types</option>
+              <option value="CNIC" ${this.docTypeFilter==='CNIC'?'selected':''}>CNIC</option>
+              <option value="Passport" ${this.docTypeFilter==='Passport'?'selected':''}>Passport</option>
+              <option value="Visa / Work Permit" ${this.docTypeFilter==='Visa / Work Permit'?'selected':''}>Visa / Work Permit</option>
+              <option value="Driving License" ${this.docTypeFilter==='Driving License'?'selected':''}>Driving License</option>
+              <option value="Medical Fitness" ${this.docTypeFilter==='Medical Fitness'?'selected':''}>Medical Fitness</option>
+            </select>
+          </div>
+
+          <div>
+            <button class="btn btn-primary btn-sm" onclick="Employees.showAddDocModal()">
+              <i class="fa fa-plus"></i> Add Employee Document
+            </button>
+          </div>
+        </div>
+
+        <!-- Document Expiry Table -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <span style="font-size:13px;color:var(--text-3)">Showing ${filtered.length} compliance document record${filtered.length!==1?'s':''}</span>
+            ${this.docExpiryFilter !== 'all' ? `<button class="btn btn-ghost btn-xs" onclick="Employees.docExpiryFilter='all';Employees.renderDocExpiry(document.getElementById('emp-content'))"><i class="fa fa-times"></i> Clear Filter</button>` : ''}
+          </div>
+          <div class="table-wrapper" style="border:none;border-radius:0">
+            <table>
+              <thead><tr>
+                <th>Employee</th>
+                <th>Document Type</th>
+                <th>Document Number</th>
+                <th>Issuing Authority</th>
+                <th>Expiry Date</th>
+                <th>Status & Days Remaining</th>
+                <th>Notes / Compliance Flag</th>
+                <th style="text-align:right">Actions</th>
+              </tr></thead>
+              <tbody>
+                ${filtered.length === 0 ? `
+                  <tr><td colspan="8"><div class="empty-state"><i class="fa fa-circle-check" style="color:var(--success)"></i><h3>All documents within filter are compliant!</h3></div></td></tr>
+                ` : filtered.map(d => {
+                  let badge = '';
+                  if (d.statusCat === 'expired') {
+                    badge = `<span class="badge badge-danger" style="font-size:11px"><i class="fa fa-triangle-exclamation"></i> Expired (${Math.abs(d.diffDays)} days ago)</span>`;
+                  } else if (d.statusCat === 'urgent') {
+                    badge = `<span class="badge badge-warning" style="font-size:11px;background:#f59e0b;color:#fff"><i class="fa fa-bell"></i> Critical (${d.diffDays} days left)</span>`;
+                  } else if (d.statusCat === 'upcoming') {
+                    badge = `<span class="badge badge-primary" style="font-size:11px"><i class="fa fa-clock"></i> ${d.diffDays} days left</span>`;
+                  } else {
+                    badge = `<span class="badge badge-success" style="font-size:11px"><i class="fa fa-circle-check"></i> Valid (${d.diffDays} days)</span>`;
+                  }
+
+                  return `
+                    <tr>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(d.emp.id)};cursor:pointer" onclick="Employees.renderProfile(${d.emp.id})">
+                            ${d.emp.photo ? `<img src="${d.emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${d.emp.fullName}">` : Utils.avatarInitials(d.emp.fullName)}
+                          </div>
+                          <div>
+                            <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${d.emp.id})">${d.emp.fullName}</div>
+                            <div style="font-size:10.5px;color:var(--text-3)">${d.emp.empNo} • ${Utils.getDeptName(d.emp.departmentId)}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td><strong>${d.docType}</strong></td>
+                      <td><code style="font-family:monospace;font-size:12px;color:var(--primary)">${d.docNumber}</code></td>
+                      <td style="font-size:12px">${d.issuingAuthority || 'N/A'}</td>
+                      <td style="font-size:12px;font-weight:600">${Utils.formatDate(d.expiryDate)}</td>
+                      <td>${badge}</td>
+                      <td style="font-size:11.5px;color:var(--text-3);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${d.notes||''}">${d.notes || '—'}</td>
+                      <td style="text-align:right">
+                        <div class="tbl-actions" style="justify-content:flex-end">
+                          <button class="btn btn-primary btn-xs" onclick="Employees.showRenewDocModal(${d.id})" title="Renew or update expiry date">
+                            <i class="fa fa-arrows-rotate"></i> Renew
+                          </button>
+                          <button class="btn btn-ghost btn-icon btn-xs" onclick="Employees.deleteDoc(${d.id})" title="Delete record">
+                            <i class="fa fa-trash" style="color:var(--danger)"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddDocModal() {
+    const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    Modal.show('Add Employee Document', `
+      <form onsubmit="Employees.saveAddDoc(event)">
+        <div class="form-group mb-14">
+          <label class="form-label required">Employee</label>
+          <select class="form-control" id="m-doc-emp" required>
+            ${allEmps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo}) - ${Utils.getDeptName(e.departmentId)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Document Type</label>
+            <select class="form-control" id="m-doc-type" required>
+              <option value="CNIC">National ID Card (CNIC)</option>
+              <option value="Passport">Passport</option>
+              <option value="Visa / Work Permit">Visa / Work Permit</option>
+              <option value="Driving License">Driving License</option>
+              <option value="Medical Fitness">Medical Fitness Certificate</option>
+              <option value="Educational Degree">Degree Attestation</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Document Number / ID</label>
+            <input type="text" class="form-control" id="m-doc-num" placeholder="e.g. 42201-1234567-1" required>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label">Issue Date</label>
+            <input type="date" class="form-control" id="m-doc-issue" value="${Utils.today()}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Expiry Date</label>
+            <input type="date" class="form-control" id="m-doc-expiry" required>
+          </div>
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label">Issuing Authority</label>
+          <input type="text" class="form-control" id="m-doc-auth" placeholder="e.g. NADRA, Traffic Police, Passport Office">
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label">Notes & Remarks</label>
+          <textarea class="form-control" id="m-doc-notes" rows="2" placeholder="Renewal notes or verification remarks"></textarea>
+        </div>
+        <div class="modal-footer" style="padding:0;margin-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save Document</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveAddDoc(e) {
+    e.preventDefault();
+    const docs = DB.get('document_expiries') || [];
+    const newDoc = {
+      id: DB.nextId('document_expiries'),
+      employeeId: parseInt(document.getElementById('m-doc-emp').value),
+      docType: document.getElementById('m-doc-type').value,
+      docNumber: document.getElementById('m-doc-num').value.trim(),
+      issueDate: document.getElementById('m-doc-issue').value,
+      expiryDate: document.getElementById('m-doc-expiry').value,
+      issuingAuthority: document.getElementById('m-doc-auth').value.trim(),
+      notes: document.getElementById('m-doc-notes').value.trim(),
+      status: 'active'
+    };
+    docs.push(newDoc);
+    DB.set('document_expiries', docs);
+    Modal.close('dynamic-modal');
+    Toast.show('Document registered successfully!', 'success');
+    this.renderDocExpiry(document.getElementById('emp-content'));
+  },
+
+  showRenewDocModal(docId) {
+    const docs = DB.get('document_expiries') || [];
+    const doc = docs.find(d => d.id === docId);
+    if (!doc) return;
+    const emp = DB.find('employees', doc.employeeId) || { fullName: 'Employee' };
+
+    Modal.show(`Renew Document — ${doc.docType}`, `
+      <form onsubmit="Employees.saveRenewDoc(event, ${doc.id})">
+        <div style="background:var(--surface);padding:10px 14px;border-radius:8px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+          <div>
+            <div style="font-weight:700;font-size:13px">${emp.fullName}</div>
+            <div style="font-size:11px;color:var(--text-3)">Current ${doc.docType}: <code>${doc.docNumber}</code> | Expired on: <strong>${doc.expiryDate}</strong></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Renewed Document #</label>
+            <input type="text" class="form-control" id="m-renew-num" value="${doc.docNumber}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">New Expiry Date</label>
+            <input type="date" class="form-control" id="m-renew-exp" required>
+          </div>
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label">Issuing Authority</label>
+          <input type="text" class="form-control" id="m-renew-auth" value="${doc.issuingAuthority||''}">
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label">Renewal Notes</label>
+          <textarea class="form-control" id="m-renew-notes" rows="2" placeholder="Enter receipt number, renewal date, and verification notes">${doc.notes ? doc.notes + '\n' : ''}Renewed on ${Utils.today()}</textarea>
+        </div>
+        <div class="modal-footer" style="padding:0;margin-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-arrows-rotate"></i> Confirm Renewal</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveRenewDoc(e, docId) {
+    e.preventDefault();
+    const docs = DB.get('document_expiries') || [];
+    const doc = docs.find(d => d.id === docId);
+    if (!doc) return;
+    doc.docNumber = document.getElementById('m-renew-num').value.trim();
+    doc.expiryDate = document.getElementById('m-renew-exp').value;
+    doc.issuingAuthority = document.getElementById('m-renew-auth').value.trim();
+    doc.notes = document.getElementById('m-renew-notes').value.trim();
+    doc.status = 'active';
+    DB.set('document_expiries', docs);
+    Modal.close('dynamic-modal');
+    Toast.show('Document successfully renewed!', 'success');
+    this.renderDocExpiry(document.getElementById('emp-content'));
+  },
+
+  deleteDoc(docId) {
+    if (!confirm('Are you sure you want to remove this document compliance record?')) return;
+    let docs = DB.get('document_expiries') || [];
+    docs = docs.filter(d => d.id !== docId);
+    DB.set('document_expiries', docs);
+    Toast.show('Document record removed', 'info');
+    this.renderDocExpiry(document.getElementById('emp-content'));
+  },
+
+  // ============================================================
+  // BATCH 1: EXIT CLEARANCE & FULL & FINAL (F&F) SETTLEMENT
+  // ============================================================
+  renderExitClearance(container) {
+    const clearances = DB.get('exit_clearances') || [];
+    const allEmps = DB.get('employees') || [];
+
+    const inProgress = clearances.filter(c => c.status === 'in_progress').length;
+    const completed = clearances.filter(c => c.status === 'completed').length;
+    const totalDisbursed = clearances.reduce((sum, c) => sum + (c.settlement?.netPayable || 0), 0);
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          ${[
+            { label:'Total Resignations & Exits', val: clearances.length, color:'var(--primary)', icon:'fa-user-minus' },
+            { label:'Clearances in Progress', val: inProgress, color:'#f59e0b', icon:'fa-spinner' },
+            { label:'Clearances Completed', val: completed, color:'#10b981', icon:'fa-circle-check' },
+            { label:'Total F&F Settlement Value', val: Utils.formatCurrency(totalDisbursed), color:'var(--accent)', icon:'fa-money-bill-transfer' },
+          ].map(s => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
+              <div style="width:44px;height:44px;border-radius:10px;background:${s.color}22;display:flex;align-items:center;justify-content:center;color:${s.color};font-size:20px">
+                <i class="fa ${s.icon}"></i>
+              </div>
+              <div>
+                <div style="font-size:20px;font-weight:800;color:${s.color}">${s.val}</div>
+                <div style="font-size:12px;color:var(--text-3)">${s.label}</div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Action Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+          <div>
+            <h3 style="font-size:16px;font-weight:700;margin:0 0 2px 0">Exit Clearance & Final Settlement Cases</h3>
+            <div style="font-size:12px;color:var(--text-3)">Multi-department clearance checklist across IT, Admin, Finance, and HR</div>
+          </div>
+          <div>
+            <button class="btn btn-primary btn-sm" onclick="Employees.showInitiateExitModal()">
+              <i class="fa fa-user-xmark"></i> Initiate Exit Clearance
+            </button>
+          </div>
+        </div>
+
+        <!-- Clearance Cases List -->
+        <div style="display:flex;flex-direction:column;gap:18px">
+          ${clearances.length === 0 ? `
+            <div class="card"><div class="empty-state"><i class="fa fa-user-shield"></i><h3>No exit clearance cases recorded</h3></div></div>
+          ` : clearances.map(c => {
+            const emp = allEmps.find(e => e.id === c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', departmentId: 1, designationId: 1 };
+            
+            // Calculate progress percentage across all 4 departments
+            let totalItems = 0;
+            let doneItems = 0;
+            ['it', 'admin', 'finance', 'hr'].forEach(deptKey => {
+              const d = c.departments?.[deptKey];
+              if (d && d.items) {
+                totalItems += d.items.length;
+                doneItems += d.items.filter(i => i.done).length;
+              }
+            });
+            const pct = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
+
+            return `
+              <div class="card" style="padding:20px">
+                <!-- Case Header -->
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)}">
+                      ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : Utils.avatarInitials(emp.fullName)}
+                    </div>
+                    <div>
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <span style="font-size:16px;font-weight:700;color:var(--primary);cursor:pointer" onclick="Employees.renderProfile(${emp.id})">${emp.fullName}</span>
+                        <span class="chip" style="font-size:10.5px">${emp.empNo}</span>
+                        <span class="badge ${c.status==='completed'?'badge-success':'badge-warning'}" style="font-size:10px">
+                          ${c.status === 'completed' ? '<i class="fa fa-check-double"></i> Fully Cleared & Settled' : '<i class="fa fa-spinner"></i> Clearance In Progress'}
+                        </span>
+                      </div>
+                      <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                        ${Utils.getDesigName(emp.designationId)} • ${Utils.getDeptName(emp.departmentId)} | 
+                        Resignation: <strong>${c.resignationDate}</strong> | Last Working Day: <strong>${c.lastWorkingDay}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <button class="btn btn-secondary btn-sm" onclick="Employees.showFandFModal(${c.id})">
+                      <i class="fa fa-calculator"></i> View / Edit F&F
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="Employees.printFandFStatement(${c.id})">
+                      <i class="fa fa-print"></i> Print F&F Statement
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div style="margin-bottom:18px">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
+                    <span><strong>Overall Clearance Progress:</strong> ${doneItems} of ${totalItems} checkpoints completed</span>
+                    <span style="font-weight:700;color:${pct===100?'var(--success)':'var(--primary)'}">${pct}%</span>
+                  </div>
+                  <div class="progress" style="height:8px;background:var(--surface)">
+                    <div class="progress-bar" style="width:${pct}%;background:${pct===100?'var(--success)':'var(--primary)'}"></div>
+                  </div>
+                </div>
+
+                <!-- 4 Department Checkpoint Cards Grid -->
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px">
+                  ${[
+                    { key:'it', label:'IT Dept', icon:'fa-laptop', data: c.departments?.it },
+                    { key:'admin', label:'Admin & Facility', icon:'fa-building', data: c.departments?.admin },
+                    { key:'finance', label:'Finance Dept', icon:'fa-landmark', data: c.departments?.finance },
+                    { key:'hr', label:'Human Resources', icon:'fa-user-tie', data: c.departments?.hr },
+                  ].map(dept => {
+                    const isCleared = dept.data?.cleared;
+                    return `
+                      <div style="background:var(--surface);border:1px solid ${isCleared?'var(--success)':'var(--border)'};border-radius:10px;padding:12px;position:relative">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                          <div style="font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px">
+                            <i class="fa ${dept.icon}" style="color:var(--primary)"></i> ${dept.label}
+                          </div>
+                          <span class="badge ${isCleared?'badge-success':'badge-warning'}" style="font-size:9.5px;padding:1px 6px">
+                            ${isCleared ? 'Cleared' : 'Pending'}
+                          </span>
+                        </div>
+
+                        <!-- Checkbox items -->
+                        <div style="display:flex;flex-direction:column;gap:6px;font-size:11.5px;margin-bottom:10px">
+                          ${(dept.data?.items || []).map((item, idx) => `
+                            <label style="display:flex;align-items:flex-start;gap:6px;cursor:pointer;line-height:1.3">
+                              <input type="checkbox" ${item.done?'checked':''} onchange="Employees.toggleClearanceItem(${c.id}, '${dept.key}', ${idx})" style="margin-top:2px">
+                              <span style="${item.done?'text-decoration:line-through;color:var(--text-3)':''}">${item.name}</span>
+                            </label>
+                          `).join('')}
+                        </div>
+
+                        <div style="font-size:10px;color:var(--text-3);border-top:1px dashed var(--border);padding-top:6px">
+                          ${isCleared ? `<span style="color:var(--success)"><i class="fa fa-check"></i> ${dept.data.clearedBy || 'Verified'} (${dept.data.clearedDate || ''})</span>` : 'Awaiting final sign-off'}
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
+                </div>
+
+                <!-- Financial Settlement Quick Bar -->
+                <div style="background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(16,185,129,0.06));border:1px solid var(--border);border-radius:10px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                  <div style="display:flex;align-items:center;gap:18px;font-size:12px;flex-wrap:wrap">
+                    <div><span style="color:var(--text-3)">Basic Salary:</span> <strong>${Utils.formatCurrency(c.settlement?.basicSalary || 0)}</strong></div>
+                    <div><span style="color:var(--text-3)">Leave Encashment:</span> <strong>${Utils.formatCurrency(c.settlement?.leaveEncashmentAmount || 0)}</strong> (${c.settlement?.leaveBalanceDays || 0} days)</div>
+                    <div><span style="color:var(--text-3)">Gratuity:</span> <strong>${Utils.formatCurrency(c.settlement?.gratuityAmount || 0)}</strong> (${c.settlement?.gratuityYears || 0} yrs)</div>
+                    <div><span style="color:var(--text-3)">Deductions:</span> <strong style="color:var(--danger)">${Utils.formatCurrency((c.settlement?.noticeDeduction||0) + (c.settlement?.loanDeduction||0))}</strong></div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:13px;color:var(--text-2);font-weight:600">Net Payable:</span>
+                    <span style="font-size:18px;font-weight:800;color:var(--success)">${Utils.formatCurrency(c.settlement?.netPayable || 0)}</span>
+                    <span class="badge ${c.settlement?.paymentStatus==='paid'?'badge-success':'badge-warning'}" style="font-size:10px;margin-left:4px">
+                      ${c.settlement?.paymentStatus === 'paid' ? 'Paid' : 'Pending Payment'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  toggleClearanceItem(caseId, deptKey, itemIdx) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c || !c.departments?.[deptKey]?.items?.[itemIdx]) return;
+
+    c.departments[deptKey].items[itemIdx].done = !c.departments[deptKey].items[itemIdx].done;
+    
+    // If all items done in this dept, mark cleared
+    const allDone = c.departments[deptKey].items.every(i => i.done);
+    c.departments[deptKey].cleared = allDone;
+    if (allDone) {
+      c.departments[deptKey].clearedBy = Auth.user?.name || 'Authorized Officer';
+      c.departments[deptKey].clearedDate = Utils.today();
+    }
+
+    // Check if all 4 depts are cleared
+    const allDeptsCleared = ['it', 'admin', 'finance', 'hr'].every(d => c.departments[d]?.cleared);
+    if (allDeptsCleared) {
+      c.status = 'completed';
+    } else {
+      c.status = 'in_progress';
+    }
+
+    DB.set('exit_clearances', clearances);
+    Toast.show('Clearance checklist updated!', 'success');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  showInitiateExitModal() {
+    const activeEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    Modal.show('Initiate Exit Clearance', `
+      <form onsubmit="Employees.saveInitiateExit(event)">
+        <div class="form-group mb-14">
+          <label class="form-label required">Employee</label>
+          <select class="form-control" id="m-exit-emp" required>
+            ${activeEmps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo}) — ${Utils.getDesigName(e.designationId)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Resignation Date</label>
+            <input type="date" class="form-control" id="m-exit-resig" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Last Working Day (LWD)</label>
+            <input type="date" class="form-control" id="m-exit-lwd" required>
+          </div>
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label">Notice Period (Days)</label>
+          <input type="number" class="form-control" id="m-exit-notice" value="30">
+        </div>
+        <div class="form-group mb-14">
+          <label class="form-label required">Reason for Leaving</label>
+          <select class="form-control" id="m-exit-reason" required>
+            <option value="Better Career Opportunity / Higher Compensation">Better Career Opportunity / Higher Compensation</option>
+            <option value="Relocation / Family Reasons">Relocation / Family Reasons</option>
+            <option value="Pursuing Higher Studies">Pursuing Higher Studies</option>
+            <option value="Health / Personal Reasons">Health / Personal Reasons</option>
+            <option value="End of Contract Tenure">End of Contract Tenure</option>
+            <option value="Mutual Separation / Redundancy">Mutual Separation / Redundancy</option>
+          </select>
+        </div>
+        <div class="modal-footer" style="padding:0;margin-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-user-xmark"></i> Initiate Clearance</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveInitiateExit(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('m-exit-emp').value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const clearances = DB.get('exit_clearances') || [];
+    const basicSalary = emp.salary || 70000;
+    const leaveBalance = 10; // default estimated
+    const gratuityYears = Math.max(1, new Date().getFullYear() - parseInt((emp.joiningDate||'2022').slice(0,4)));
+
+    const newCase = {
+      id: DB.nextId('exit_clearances'),
+      employeeId: empId,
+      resignationDate: document.getElementById('m-exit-resig').value,
+      lastWorkingDay: document.getElementById('m-exit-lwd').value,
+      noticePeriodDays: parseInt(document.getElementById('m-exit-notice').value) || 30,
+      reason: document.getElementById('m-exit-reason').value,
+      status: 'in_progress',
+      departments: {
+        it: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting asset return & credential deactivation',
+          items: [
+            { name: 'Laptop & Charger Returned', done: false },
+            { name: 'Email & Cloud Accounts Deactivated', done: false },
+            { name: 'Source Code & VPN Access Revoked', done: false }
+          ]
+        },
+        admin: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting badge and keys return',
+          items: [
+            { name: 'Building Access Card Handed In', done: false },
+            { name: 'Locker Keys Returned & Cleared', done: false },
+            { name: 'Cafeteria Card Deactivated', done: false }
+          ]
+        },
+        finance: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting final account reconciliation',
+          items: [
+            { name: 'Company Loan Balances Settled', done: false },
+            { name: 'Petty Cash Advances Reconciled', done: false },
+            { name: 'Corporate Fuel/Credit Card Revoked', done: false }
+          ]
+        },
+        hr: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Exit interview pending',
+          items: [
+            { name: 'Exit Interview Completed', done: false },
+            { name: 'Health Insurance Cards Returned', done: false },
+            { name: 'Handover Document Signed by Supervisor', done: false },
+            { name: 'Final F&F Settlement Statement Approved', done: false }
+          ]
+        }
+      },
+      settlement: {
+        basicSalary,
+        workedDays: 30,
+        unpaidSalary: basicSalary,
+        leaveBalanceDays: leaveBalance,
+        leaveEncashmentAmount: Math.round((basicSalary / 30) * leaveBalance),
+        gratuityYears,
+        gratuityAmount: basicSalary * gratuityYears,
+        noticeShortfallDays: 0,
+        noticeDeduction: 0,
+        loanDeduction: 0,
+        otherDeductions: 0,
+        netPayable: basicSalary + Math.round((basicSalary / 30) * leaveBalance) + (basicSalary * gratuityYears),
+        paymentStatus: 'pending',
+        paidDate: null,
+        chequeNo: ''
+      }
+    };
+
+    clearances.push(newCase);
+    DB.set('exit_clearances', clearances);
+    Modal.close('dynamic-modal');
+    Toast.show(`Exit clearance initiated for ${emp.fullName}`, 'success');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  showFandFModal(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+    const s = c.settlement || {};
+
+    Modal.show(`Full & Final Settlement — ${emp.fullName}`, `
+      <form onsubmit="Employees.saveFandF(event, ${c.id})">
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:14px">${emp.fullName} (${emp.empNo})</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Resignation: ${c.resignationDate} | LWD: ${c.lastWorkingDay}</div>
+          </div>
+          <span class="chip">${c.reason}</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <!-- Earnings / Additions -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <h4 style="font-size:13px;font-weight:700;margin:0 0 10px 0;color:var(--success)"><i class="fa fa-circle-plus"></i> Payable Items</h4>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Monthly Basic Salary</label>
+              <input type="number" class="form-control" id="ff-basic" value="${s.basicSalary||0}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Worked Days in Last Month</label>
+              <input type="number" class="form-control" id="ff-worked-days" value="${s.workedDays||30}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Unavailed Leaves to Encash (Days)</label>
+              <input type="number" class="form-control" id="ff-leave-days" value="${s.leaveBalanceDays||0}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Gratuity Completed Years</label>
+              <input type="number" class="form-control" id="ff-gratuity-yrs" value="${s.gratuityYears||0}" oninput="Employees.recalcFF()">
+            </div>
+          </div>
+
+          <!-- Deductions -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <h4 style="font-size:13px;font-weight:700;margin:0 0 10px 0;color:var(--danger)"><i class="fa fa-circle-minus"></i> Deductions</h4>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Notice Period Shortfall (Days)</label>
+              <input type="number" class="form-control" id="ff-notice-days" value="${s.noticeShortfallDays||0}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Loan / Advance Deduction</label>
+              <input type="number" class="form-control" id="ff-loan-deduct" value="${s.loanDeduction||0}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Other Deductions (Assets/Damages)</label>
+              <input type="number" class="form-control" id="ff-other-deduct" value="${s.otherDeductions||0}" oninput="Employees.recalcFF()">
+            </div>
+            <div class="form-group mb-8">
+              <label class="form-label" style="font-size:11px">Disbursement Status</label>
+              <select class="form-control" id="ff-status">
+                <option value="pending" ${s.paymentStatus==='pending'?'selected':''}>Pending Payment</option>
+                <option value="paid" ${s.paymentStatus==='paid'?'selected':''}>Paid & Reconciled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Net Calculation Display -->
+        <div style="background:var(--card);border:2px solid var(--primary);border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div>
+            <div style="font-size:12px;color:var(--text-3)">Calculated Net Payable Amount</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success)" id="ff-net-display">${Utils.formatCurrency(s.netPayable||0)}</div>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-3);text-align:right" id="ff-breakdown-text">
+            Salary: ${Utils.formatCurrency(s.unpaidSalary||0)} + Leaves: ${Utils.formatCurrency(s.leaveEncashmentAmount||0)} + Gratuity: ${Utils.formatCurrency(s.gratuityAmount||0)}
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:0">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save F&F Settlement</button>
+        </div>
+      </form>
+    `);
+  },
+
+  recalcFF() {
+    const basic = parseFloat(document.getElementById('ff-basic')?.value) || 0;
+    const workedDays = parseFloat(document.getElementById('ff-worked-days')?.value) || 0;
+    const leaveDays = parseFloat(document.getElementById('ff-leave-days')?.value) || 0;
+    const gratYears = parseFloat(document.getElementById('ff-gratuity-yrs')?.value) || 0;
+    const noticeDays = parseFloat(document.getElementById('ff-notice-days')?.value) || 0;
+    const loanDeduct = parseFloat(document.getElementById('ff-loan-deduct')?.value) || 0;
+    const otherDeduct = parseFloat(document.getElementById('ff-other-deduct')?.value) || 0;
+
+    const perDay = basic / 30;
+    const unpaidSalary = Math.round(perDay * workedDays);
+    const leaveEncash = Math.round(perDay * leaveDays);
+    const gratuity = Math.round(basic * gratYears);
+    const noticeDeduct = Math.round(perDay * noticeDays);
+
+    const net = Math.max(0, unpaidSalary + leaveEncash + gratuity - noticeDeduct - loanDeduct - otherDeduct);
+
+    const display = document.getElementById('ff-net-display');
+    if (display) display.textContent = Utils.formatCurrency(net);
+    const breakdown = document.getElementById('ff-breakdown-text');
+    if (breakdown) breakdown.textContent = `Salary: ${Utils.formatCurrency(unpaidSalary)} + Leaves: ${Utils.formatCurrency(leaveEncash)} + Gratuity: ${Utils.formatCurrency(gratuity)} - Deductions: ${Utils.formatCurrency(noticeDeduct + loanDeduct + otherDeduct)}`;
+  },
+
+  saveFandF(e, caseId) {
+    e.preventDefault();
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+
+    const basic = parseFloat(document.getElementById('ff-basic')?.value) || 0;
+    const workedDays = parseFloat(document.getElementById('ff-worked-days')?.value) || 0;
+    const leaveDays = parseFloat(document.getElementById('ff-leave-days')?.value) || 0;
+    const gratYears = parseFloat(document.getElementById('ff-gratuity-yrs')?.value) || 0;
+    const noticeDays = parseFloat(document.getElementById('ff-notice-days')?.value) || 0;
+    const loanDeduct = parseFloat(document.getElementById('ff-loan-deduct')?.value) || 0;
+    const otherDeduct = parseFloat(document.getElementById('ff-other-deduct')?.value) || 0;
+    const status = document.getElementById('ff-status')?.value || 'pending';
+
+    const perDay = basic / 30;
+    const unpaidSalary = Math.round(perDay * workedDays);
+    const leaveEncash = Math.round(perDay * leaveDays);
+    const gratuity = Math.round(basic * gratYears);
+    const noticeDeduct = Math.round(perDay * noticeDays);
+    const net = Math.max(0, unpaidSalary + leaveEncash + gratuity - noticeDeduct - loanDeduct - otherDeduct);
+
+    c.settlement = {
+      basicSalary: basic,
+      workedDays,
+      unpaidSalary,
+      leaveBalanceDays: leaveDays,
+      leaveEncashmentAmount: leaveEncash,
+      gratuityYears: gratYears,
+      gratuityAmount: gratuity,
+      noticeShortfallDays: noticeDays,
+      noticeDeduction: noticeDeduct,
+      loanDeduction: loanDeduct,
+      otherDeductions: otherDeduct,
+      netPayable: net,
+      paymentStatus: status,
+      paidDate: status === 'paid' ? Utils.today() : null
+    };
+
+    DB.set('exit_clearances', clearances);
+    Modal.close('dynamic-modal');
+    Toast.show('F&F Settlement calculations saved!', 'success');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  printFandFStatement(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?' };
+    const s = c.settlement || {};
+    const settings = DB.getObj('settings') || {};
+
+    const printWin = window.open('', '_blank', 'width=900,height=950');
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Full & Final Settlement Statement — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.5; }
+          .header { border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { font-size: 20px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 1px; }
+          .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+          .meta-table td { padding: 6px 10px; font-size: 13px; border: 1px solid #e2e8f0; }
+          .meta-table td.label { background: #f8fafc; font-weight: 700; width: 22%; color: #475569; }
+          .calc-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          .calc-table th { background: #1e293b; color: #fff; padding: 10px; font-size: 13px; text-align: left; }
+          .calc-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid #e2e8f0; }
+          .calc-table tr.total-row { background: #eff6ff; font-weight: 800; font-size: 15px; }
+          .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 60px; text-align: center; }
+          .sig-line { border-top: 1.5px solid #475569; padding-top: 8px; font-size: 12px; font-weight: 600; }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 style="margin:0;font-size:24px;color:#1e40af">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h1>
+            <div style="font-size:12px;color:#64748b">${settings.companyAddress || 'Head Office: Business Executive Tower, Karachi, Pakistan'}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="title">Full & Final Settlement</div>
+            <div style="font-size:12px;color:#64748b">Ref: FNF-${String(c.id).padStart(4,'0')} | Date: ${Utils.today()}</div>
+          </div>
+        </div>
+
+        <table class="meta-table">
+          <tr>
+            <td class="label">Employee Name:</td>
+            <td><strong>${emp.fullName}</strong></td>
+            <td class="label">Employee ID:</td>
+            <td><strong>${emp.empNo}</strong></td>
+          </tr>
+          <tr>
+            <td class="label">CNIC No:</td>
+            <td>${emp.cnic || 'N/A'}</td>
+            <td class="label">Department:</td>
+            <td>${Utils.getDeptName(emp.departmentId)}</td>
+          </tr>
+          <tr>
+            <td class="label">Designation:</td>
+            <td>${Utils.getDesigName(emp.designationId)}</td>
+            <td class="label">Date of Joining:</td>
+            <td>${emp.joiningDate || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td class="label">Resignation Date:</td>
+            <td>${c.resignationDate}</td>
+            <td class="label">Last Working Day:</td>
+            <td>${c.lastWorkingDay}</td>
+          </tr>
+          <tr>
+            <td class="label">Separation Reason:</td>
+            <td colspan="3">${c.reason}</td>
+          </tr>
+        </table>
+
+        <h3 style="font-size:15px;margin:0 0 10px 0;color:#1e293b">Financial Settlement Summary</h3>
+        <table class="calc-table">
+          <thead>
+            <tr>
+              <th>Component Description</th>
+              <th style="text-align:center">Basis / Formula</th>
+              <th style="text-align:right">Payable (PKR)</th>
+              <th style="text-align:right">Deductions (PKR)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Unpaid Salary for Last Month</td>
+              <td style="text-align:center">${s.workedDays} days worked @ PKR ${Math.round(s.basicSalary/30)}/day</td>
+              <td style="text-align:right">${Utils.formatCurrency(s.unpaidSalary||0)}</td>
+              <td style="text-align:right">—</td>
+            </tr>
+            <tr>
+              <td>Leave Encashment (Unavailed Balance)</td>
+              <td style="text-align:center">${s.leaveBalanceDays} days balance encashed</td>
+              <td style="text-align:right">${Utils.formatCurrency(s.leaveEncashmentAmount||0)}</td>
+              <td style="text-align:right">—</td>
+            </tr>
+            <tr>
+              <td>Statutory Gratuity Allowance</td>
+              <td style="text-align:center">${s.gratuityYears} completed years of service</td>
+              <td style="text-align:right">${Utils.formatCurrency(s.gratuityAmount||0)}</td>
+              <td style="text-align:right">—</td>
+            </tr>
+            <tr>
+              <td>Notice Period Shortfall Recovery</td>
+              <td style="text-align:center">${s.noticeShortfallDays || 0} days shortfall</td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right;color:#dc2626">${s.noticeDeduction ? Utils.formatCurrency(s.noticeDeduction) : '0'}</td>
+            </tr>
+            <tr>
+              <td>Outstanding Company Loan Balance</td>
+              <td style="text-align:center">Clearance from Finance Dept</td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right;color:#dc2626">${s.loanDeduction ? Utils.formatCurrency(s.loanDeduction) : '0'}</td>
+            </tr>
+            <tr>
+              <td>Other Asset / Damage Deductions</td>
+              <td style="text-align:center">Clearance verification</td>
+              <td style="text-align:right">—</td>
+              <td style="text-align:right;color:#dc2626">${s.otherDeductions ? Utils.formatCurrency(s.otherDeductions) : '0'}</td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="2">NET SETTLEMENT AMOUNT PAYABLE</td>
+              <td colspan="2" style="text-align:right;color:#16a34a;font-size:18px">${Utils.formatCurrency(s.netPayable||0)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:12px;font-size:11.5px;color:#475569;margin-bottom:30px">
+          <strong>Employee Acknowledgment:</strong> I, <u>${emp.fullName}</u>, hereby confirm receipt of the above mentioned full and final settlement amount towards all my claims and dues against ${settings.companyName || 'the Company'}. I confirm that I have returned all company property and have no further financial claims.
+        </div>
+
+        <div class="signatures">
+          <div>
+            <div class="sig-line">Prepared By (HR Officer)</div>
+          </div>
+          <div>
+            <div class="sig-line">Verified By (Finance Head)</div>
+          </div>
+          <div>
+            <div class="sig-line">Employee Signature & Date</div>
+          </div>
+        </div>
+
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  },
+
+  // ============================================================
+  // BATCH 1: AUTOMATED HR LETTERS GENERATOR
+  // ============================================================
+  renderHRLetters(container) {
+    const letters = DB.get('hr_letters') || [];
+    const allEmps = DB.get('employees') || [];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Letter Generator Header & Wizard Card -->
+        <div class="card mb-20">
+          <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:14px;margin-bottom:18px">
+            <div>
+              <h3 style="font-size:17px;font-weight:700;margin:0 0 3px 0;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-file-signature" style="color:var(--primary)"></i> Official HR Letter & Certificate Generator
+              </h3>
+              <div style="font-size:12.5px;color:var(--text-3)">Generate formal corporate documents on official letterhead with 1-click print & PDF download</div>
+            </div>
+            <span class="chip" style="font-size:11px"><i class="fa fa-stamp"></i> Corporate Authorized Format</span>
+          </div>
+
+          <!-- Generation Form -->
+          <form onsubmit="Employees.generateHRLetter(event)">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px" class="mb-14">
+              <div class="form-group">
+                <label class="form-label required">Select Employee</label>
+                <select class="form-control" id="hl-emp" required>
+                  ${allEmps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo}) - ${Utils.getDesigName(e.designationId)}</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label required">Template Type</label>
+                <select class="form-control" id="hl-template" required onchange="Employees.onLetterTemplateChange()">
+                  <option value="experience">Experience & Service Certificate</option>
+                  <option value="relieving">Formal Relieving Letter</option>
+                  <option value="salary_certificate">Salary Verification Certificate</option>
+                  <option value="confirmation">Employment Confirmation Letter</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label required">Recipient / Addressee</label>
+                <input type="text" class="form-control" id="hl-recipient" value="To Whom It May Concern" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label required">Issue Date</label>
+                <input type="date" class="form-control" id="hl-date" value="${Utils.today()}" required>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-16">
+              <div class="form-group">
+                <label class="form-label">Purpose / Reference Remarks</label>
+                <input type="text" class="form-control" id="hl-purpose" placeholder="e.g. Visa Application, Banking / Credit Card, Higher Studies">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Authorized Signatory</label>
+                <input type="text" class="form-control" id="hl-signatory" value="Sara Malik (Head of Human Resources)">
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="submit" class="btn btn-primary">
+                <i class="fa fa-wand-magic-sparkles"></i> Generate & Preview Official Letter
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Previously Issued Letters Table -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <h4 style="font-size:14px;font-weight:700;margin:0">Previously Issued Letters Archive (${letters.length})</h4>
+            <span style="font-size:12px;color:var(--text-3)">Audit trail of all generated verification letters</span>
+          </div>
+          <div class="table-wrapper" style="border:none;border-radius:0">
+            <table>
+              <thead><tr>
+                <th>Reference #</th>
+                <th>Employee</th>
+                <th>Letter Type</th>
+                <th>Recipient / Purpose</th>
+                <th>Issue Date</th>
+                <th>Issued By</th>
+                <th style="text-align:right">Action</th>
+              </tr></thead>
+              <tbody>
+                ${letters.length === 0 ? `
+                  <tr><td colspan="7"><div class="empty-state"><i class="fa fa-file-invoice"></i><h3>No letters issued yet</h3></div></td></tr>
+                ` : letters.map(l => {
+                  const emp = allEmps.find(e => e.id === l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+                  return `
+                    <tr>
+                      <td><code style="font-family:monospace;font-size:12px;color:var(--primary)">${l.refNo}</code></td>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <div class="avatar avatar-xs" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+                          <span style="font-weight:600">${emp.fullName}</span>
+                          <span style="font-size:11px;color:var(--text-3)">(${emp.empNo})</span>
+                        </div>
+                      </td>
+                      <td><span class="chip" style="font-size:11px">${l.title || l.templateType}</span></td>
+                      <td style="font-size:12px">${l.recipient}</td>
+                      <td style="font-size:12px">${Utils.formatDate(l.issueDate)}</td>
+                      <td style="font-size:12px">${l.issuedBy}</td>
+                      <td style="text-align:right">
+                        <button class="btn btn-ghost btn-xs" onclick="Employees.previewLetterModal(${l.id})">
+                          <i class="fa fa-eye"></i> View & Print
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  onLetterTemplateChange() {
+    const template = document.getElementById('hl-template')?.value;
+    const recipient = document.getElementById('hl-recipient');
+    const purpose = document.getElementById('hl-purpose');
+    if (!recipient || !purpose) return;
+
+    if (template === 'salary_certificate') {
+      recipient.value = 'The Visa Officer / The Branch Manager';
+      purpose.value = 'Official Visit Visa Application / Banking Services';
+    } else if (template === 'experience' || template === 'relieving') {
+      recipient.value = 'To Whom It May Concern';
+      purpose.value = 'Proof of Employment & Service Record';
+    } else if (template === 'confirmation') {
+      recipient.value = 'Employee Direct';
+      purpose.value = 'Confirmation of Employment Post Probation';
+    }
+  },
+
+  generateHRLetter(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('hl-emp').value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const templateType = document.getElementById('hl-template').value;
+    const recipient = document.getElementById('hl-recipient').value.trim();
+    const issueDate = document.getElementById('hl-date').value;
+    const purpose = document.getElementById('hl-purpose').value.trim() || 'General Verification';
+    const issuedBy = document.getElementById('hl-signatory').value.trim();
+
+    const letters = DB.get('hr_letters') || [];
+    const year = new Date().getFullYear();
+    const count = letters.length + 1;
+    const refNo = `HRM/${templateType.toUpperCase().slice(0,3)}/${year}/${String(count).padStart(3, '0')}`;
+
+    let title = 'Experience & Service Certificate';
+    if (templateType === 'relieving') title = 'Formal Relieving & Release Letter';
+    if (templateType === 'salary_certificate') title = 'Salary Verification & Employment Certificate';
+    if (templateType === 'confirmation') title = 'Employment Confirmation Letter';
+
+    const newLetter = {
+      id: DB.nextId('hr_letters'),
+      refNo,
+      employeeId: empId,
+      templateType,
+      title,
+      recipient,
+      issueDate,
+      issuedBy,
+      purpose
+    };
+
+    letters.unshift(newLetter);
+    DB.set('hr_letters', letters);
+    Toast.show('Official letter generated!', 'success');
+    this.renderHRLetters(document.getElementById('emp-content'));
+    this.previewLetterModal(newLetter.id);
+  },
+
+  previewLetterModal(letterId) {
+    const letters = DB.get('hr_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return;
+    const emp = DB.find('employees', l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', salary: 75000, joiningDate: '2022-01-01' };
+    const settings = DB.getObj('settings') || {};
+
+    let bodyHTML = '';
+    if (l.templateType === 'experience') {
+      bodyHTML = `
+        <p>This is to certify that <strong>Mr./Ms. ${emp.fullName}</strong> (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee No: <code>${emp.empNo}</code>) was employed with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department from <strong>${Utils.formatDate(emp.joiningDate)}</strong> to <strong>${l.issueDate}</strong>.</p>
+        <p>During their tenure with us, we found them to be hard-working, disciplined, and professionally competent in executing their responsibilities. Their conduct and performance were exemplary.</p>
+        <p>We wish them the very best in all their future personal and professional endeavors.</p>
+      `;
+    } else if (l.templateType === 'relieving') {
+      bodyHTML = `
+        <p>With reference to your formal resignation, we hereby accept your resignation and relieve you from your duties as <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> with effect from the close of business hours on <strong>${l.issueDate}</strong>.</p>
+        <p>We confirm that you have completed all mandatory exit clearances across the IT, Administration, Finance, and Human Resources departments, and have returned all company assets in satisfactory order. All financial dues have been settled.</p>
+        <p>We appreciate your valuable contributions during your service with the company and wish you success in your future endeavors.</p>
+      `;
+    } else if (l.templateType === 'salary_certificate') {
+      bodyHTML = `
+        <p>This certificate is issued upon the request of <strong>Mr./Ms. ${emp.fullName}</strong> for the purpose of <strong>${l.purpose}</strong>.</p>
+        <p>We confirm that Mr./Ms. ${emp.fullName} (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee ID: <code>${emp.empNo}</code>) is a permanent, full-time employee with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> since <strong>${Utils.formatDate(emp.joiningDate)}</strong>, currently serving as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department.</p>
+        <p>Their present monthly salary and compensation breakdown is as follows:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+          <tr style="border-bottom:1px solid #ddd"><td style="padding:6px 0">Monthly Gross Basic Salary:</td><td style="text-align:right;font-weight:700">${Utils.formatCurrency(emp.salary || 70000)}</td></tr>
+          <tr style="border-bottom:1px solid #ddd"><td style="padding:6px 0">House Rent & Utility Allowance:</td><td style="text-align:right;font-weight:700">${Utils.formatCurrency(Math.round((emp.salary||70000)*0.25))}</td></tr>
+          <tr style="border-bottom:2px solid #333;font-weight:800"><td style="padding:8px 0">Total Gross Monthly Emoluments:</td><td style="text-align:right;color:#16a34a">${Utils.formatCurrency(Math.round((emp.salary||70000)*1.25))}</td></tr>
+        </table>
+        <p>To the best of our knowledge, their employment status is secure, active, and in good standing.</p>
+      `;
+    } else {
+      bodyHTML = `
+        <p>Following your successful performance review and the completion of your probationary service period, management is pleased to formally confirm your appointment as permanent <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> effective <strong>${l.issueDate}</strong>.</p>
+        <p>All other terms and conditions of your employment contract, including confidentiality, workplace code of conduct, and company benefits, shall remain applicable.</p>
+        <p>We congratulate you on this milestone and look forward to your continued dedication and success with the organization.</p>
+      `;
+    }
+
+    Modal.show('Official Letterhead Preview', `
+      <div id="print-letterhead-area" style="background:#fff;color:#111;padding:30px;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
+        <!-- Corporate Letterhead Header -->
+        <div style="border-bottom:3px solid #2563eb;padding-bottom:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end">
+          <div>
+            <h2 style="margin:0;font-size:22px;color:#1e3a8a;font-weight:800;letter-spacing:0.5px">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
+            <div style="font-size:11.5px;color:#64748b">${settings.companyAddress || 'Corporate Plaza, Main Boulevard, Karachi, Pakistan'}</div>
+            <div style="font-size:11px;color:#64748b">Phone: 021-34567890 | Email: hr@company.com | NTN: 4200881-7</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11.5px;color:#64748b">Ref: <strong>${l.refNo}</strong></div>
+            <div style="font-size:11.5px;color:#64748b">Date: <strong>${l.issueDate}</strong></div>
+          </div>
+        </div>
+
+        <!-- Addressee -->
+        <div style="margin-bottom:20px;font-size:13px">
+          <div><strong>To:</strong></div>
+          <div style="font-size:14px;font-weight:700">${l.recipient}</div>
+        </div>
+
+        <!-- Title -->
+        <div style="text-align:center;margin-bottom:22px">
+          <h3 style="display:inline-block;margin:0;font-size:16px;font-weight:800;text-decoration:underline;text-transform:uppercase;letter-spacing:0.5px;color:#0f172a">
+            ${l.title}
+          </h3>
+        </div>
+
+        <!-- Body -->
+        <div style="font-size:13.5px;color:#334155;text-align:justify;margin-bottom:40px">
+          ${bodyHTML}
+        </div>
+
+        <!-- Signature & Seal Block -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px">
+          <div>
+            <div style="width:140px;height:45px;border-bottom:1.5px solid #334155;margin-bottom:6px"></div>
+            <div style="font-size:12.5px;font-weight:700">${l.issuedBy}</div>
+            <div style="font-size:11px;color:#64748b">Authorized Signatory</div>
+            <div style="font-size:10.5px;color:#64748b">${settings.companyName || 'HRM Pro Corporation'}</div>
+          </div>
+
+          <!-- Official Stamp Watermark -->
+          <div style="border:2px dashed #2563eb;border-radius:50%;width:88px;height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2563eb;transform:rotate(-10deg);opacity:0.85">
+            <i class="fa fa-stamp" style="font-size:14px"></i>
+            <span style="font-size:8px;font-weight:800;text-transform:uppercase;margin-top:2px">HR DEPT</span>
+            <span style="font-size:7px">OFFICIAL SEAL</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between">
+        <span style="font-size:12px;color:var(--text-3)">Printed copies are valid with official corporate seal</span>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+          <button type="button" class="btn btn-primary" onclick="Employees.printLetter(${l.id})">
+            <i class="fa fa-print"></i> Print Official Letter
+          </button>
+        </div>
+      </div>
+    `);
+  },
+
+  printLetter(letterId) {
+    const letters = DB.get('hr_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return;
+    const emp = DB.find('employees', l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', salary: 75000, joiningDate: '2022-01-01' };
+    const settings = DB.getObj('settings') || {};
+
+    let bodyHTML = '';
+    if (l.templateType === 'experience') {
+      bodyHTML = `
+        <p>This is to certify that <strong>Mr./Ms. ${emp.fullName}</strong> (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee No: <code>${emp.empNo}</code>) was employed with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department from <strong>${Utils.formatDate(emp.joiningDate)}</strong> to <strong>${l.issueDate}</strong>.</p>
+        <p>During their tenure with us, we found them to be hard-working, disciplined, and professionally competent in executing their responsibilities. Their conduct and performance were exemplary.</p>
+        <p>We wish them the very best in all their future personal and professional endeavors.</p>
+      `;
+    } else if (l.templateType === 'relieving') {
+      bodyHTML = `
+        <p>With reference to your formal resignation, we hereby accept your resignation and relieve you from your duties as <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> with effect from the close of business hours on <strong>${l.issueDate}</strong>.</p>
+        <p>We confirm that you have completed all mandatory exit clearances across the IT, Administration, Finance, and Human Resources departments, and have returned all company assets in satisfactory order. All financial dues have been settled.</p>
+        <p>We appreciate your valuable contributions during your service with the company and wish you success in your future endeavors.</p>
+      `;
+    } else if (l.templateType === 'salary_certificate') {
+      bodyHTML = `
+        <p>This certificate is issued upon the request of <strong>Mr./Ms. ${emp.fullName}</strong> for the purpose of <strong>${l.purpose}</strong>.</p>
+        <p>We confirm that Mr./Ms. ${emp.fullName} (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee ID: <code>${emp.empNo}</code>) is a permanent, full-time employee with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> since <strong>${Utils.formatDate(emp.joiningDate)}</strong>, currently serving as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department.</p>
+        <p>Their present monthly salary and compensation breakdown is as follows:</p>
+        <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+          <tr style="border-bottom:1px solid #ddd"><td style="padding:6px 0">Monthly Gross Basic Salary:</td><td style="text-align:right;font-weight:700">${Utils.formatCurrency(emp.salary || 70000)}</td></tr>
+          <tr style="border-bottom:1px solid #ddd"><td style="padding:6px 0">House Rent & Utility Allowance:</td><td style="text-align:right;font-weight:700">${Utils.formatCurrency(Math.round((emp.salary||70000)*0.25))}</td></tr>
+          <tr style="border-bottom:2px solid #333;font-weight:800"><td style="padding:8px 0">Total Gross Monthly Emoluments:</td><td style="text-align:right;color:#16a34a">${Utils.formatCurrency(Math.round((emp.salary||70000)*1.25))}</td></tr>
+        </table>
+        <p>To the best of our knowledge, their employment status is secure, active, and in good standing.</p>
+      `;
+    } else {
+      bodyHTML = `
+        <p>Following your successful performance review and the completion of your probationary service period, management is pleased to formally confirm your appointment as permanent <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> effective <strong>${l.issueDate}</strong>.</p>
+        <p>All other terms and conditions of your employment contract, including confidentiality, workplace code of conduct, and company benefits, shall remain applicable.</p>
+        <p>We congratulate you on this milestone and look forward to your continued dedication and success with the organization.</p>
+      `;
+    }
+
+    const printWin = window.open('', '_blank', 'width=900,height=950');
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${l.title} — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.6; }
+          .header { border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { text-align: center; margin: 30px 0 25px; font-size: 18px; font-weight: 800; text-decoration: underline; text-transform: uppercase; }
+          .content { font-size: 14.5px; text-align: justify; margin-bottom: 50px; }
+          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; }
+          .sig-line { width: 180px; border-top: 1.5px solid #111; padding-top: 6px; font-size: 13px; font-weight: 700; }
+          .seal { border: 2px dashed #2563eb; border-radius: 50%; width: 90px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2563eb; transform: rotate(-10deg); }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h1 style="margin:0;font-size:24px;color:#1e40af">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h1>
+            <div style="font-size:12px;color:#64748b">${settings.companyAddress || 'Corporate Plaza, Main Boulevard, Karachi, Pakistan'}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:12px;color:#64748b">Ref: <strong>${l.refNo}</strong></div>
+            <div style="font-size:12px;color:#64748b">Date: <strong>${l.issueDate}</strong></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;font-size:14px">
+          <div><strong>To:</strong></div>
+          <div style="font-size:15px;font-weight:700">${l.recipient}</div>
+        </div>
+
+        <div class="title">${l.title}</div>
+        <div class="content">${bodyHTML}</div>
+
+        <div class="sig-block">
+          <div>
+            <div class="sig-line">${l.issuedBy}</div>
+            <div style="font-size:11.5px;color:#64748b">Authorized Signatory</div>
+            <div style="font-size:11px;color:#64748b">${settings.companyName || 'HRM Pro Corporation'}</div>
+          </div>
+          <div class="seal">
+            <span style="font-size:9px;font-weight:800;text-transform:uppercase">HR DEPT</span>
+            <span style="font-size:8px">OFFICIAL SEAL</span>
+          </div>
+        </div>
+
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
   },
 
   printProfile(empId) {

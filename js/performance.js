@@ -952,18 +952,25 @@ const Recruitment = {
                       <div class="kc-meta">${job?.title||'—'} • Applied: ${Utils.formatDate(app.appliedOn)}</div>
                       ${app.cnic ? `<div style="font-size:10.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-id-card" style="margin-right:4px"></i>${app.cnic}</div>` : ''}
                       ${app.score ? `<div class="progress" style="margin-top:8px"><div class="progress-bar" style="width:${app.score}%;background:${stage.color}"></div></div><div style="font-size:10px;margin-top:3px;color:var(--text-muted)">Score: ${app.score}%</div>` : ''}
-                      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:10px">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:10px;flex-wrap:wrap">
                         <div style="display:flex;gap:4px">
                           ${stage.id !== 'hired' && stage.id !== 'rejected' ? `
                             <button class="btn btn-success btn-xs" onclick="event.stopPropagation();Recruitment.moveStage(${app.id},'${stages[stages.findIndex(s=>s.id===stage.id)+1]?.id}')" title="Advance Stage"><i class="fa fa-arrow-right"></i></button>
                             <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();Recruitment.moveStage(${app.id},'rejected')" title="Reject"><i class="fa fa-times"></i></button>
                           ` : ''}
                         </div>
-                        ${isHR && (stage.id === 'interview' || stage.id === 'offer') ? `
-                          <button class="btn btn-primary btn-xs" onclick="event.stopPropagation();Recruitment.showGenerateOfferLetterModal(${app.id})" title="Generate Formal Offer Letter">
-                            <i class="fa fa-file-signature"></i> Offer Letter
-                          </button>
-                        ` : ''}
+                        <div style="display:flex;gap:4px">
+                          ${isHR && (stage.id === 'interview' || stage.id === 'offer') ? `
+                            <button class="btn btn-primary btn-xs" onclick="event.stopPropagation();Recruitment.showGenerateOfferLetterModal(${app.id})" title="Generate Formal Offer Letter">
+                              <i class="fa fa-file-signature"></i> Offer Letter
+                            </button>
+                          ` : ''}
+                          ${isHR && (stage.id === 'offer' || stage.id === 'hired') ? `
+                            <button class="btn btn-success btn-xs" onclick="event.stopPropagation();Recruitment.onboardCandidateDirectly(${app.id})" title="Onboard as Employee">
+                              <i class="fa fa-user-plus"></i> Onboard
+                            </button>
+                          ` : ''}
+                        </div>
                       </div>
                     </div>
                   `;
@@ -2191,6 +2198,52 @@ const Recruitment = {
         });
       }
       Toast.show(`Registering ${offer.candidateName}`, 'info', 'Details pre-filled from accepted Offer Letter. Configure role & login credentials.');
+    }, 200);
+  },
+
+  onboardCandidateDirectly(appId) {
+    if (!this.isHROrAdmin()) return;
+    const apps = DB.get('applications') || [];
+    const app = apps.find(a => a.id === appId);
+    if (!app) return;
+
+    const emps = DB.get('employees') || [];
+    // Check if already onboarded (by email or cnic or name)
+    const existing = emps.find(e => (app.email && e.email === app.email) || (app.cnic && e.cnic === app.cnic));
+    if (existing) {
+      Toast.show(`Candidate already exists as employee (${existing.empNo})!`, 'info');
+      App.navigate('employees');
+      setTimeout(() => Employees.renderProfile(existing.id), 200);
+      return;
+    }
+
+    const job = DB.find('recruitment', app.jobId) || {};
+    const offers = DB.get('offer_letters') || [];
+    const offer = offers.find(o => o.applicationId === app.id);
+
+    const parts = (app.name || 'New Employee').trim().split(' ');
+    const firstName = parts[0] || 'Employee';
+    const lastName = parts.slice(1).join(' ') || 'Joiner';
+
+    App.navigate('employees');
+    setTimeout(() => {
+      if (typeof Employees !== 'undefined' && Employees.showAddForm) {
+        Employees.showAddForm({
+          firstName,
+          lastName,
+          email: app.email || '',
+          phone: app.phone || '',
+          cnic: app.cnic || '',
+          departmentId: job.departmentId || 1,
+          designationName: job.title || '',
+          joiningDate: offer?.joiningDate || Utils.today(),
+          salary: offer?.grossSalary || job.salary || 65000,
+          empType: 'Probation',
+          applicantId: app.id,
+          offerId: offer?.id || null
+        });
+      }
+      Toast.show(`Onboarding ${app.name}`, 'info', 'Candidate details prefilled into employee registration form.');
     }, 200);
   },
 
