@@ -216,6 +216,7 @@
 11. **Assets & Equipment Lifecycle**: Enterprise hardware tracking, valuation, check-out/check-in audits, warranty tracking, custody history, digital handover signing, and printable equipment undertaking certificates.
 12. **Expense Claims & Travel Reimbursements**: Multi-category claims, digital tax invoice receipt viewer, manager endorsement and finance final authorization, and 1-click direct bridge to payroll payout.
 13. **Employee Helpdesk & Grievance Redressal**: Multi-department support ticketing, live resolution workspace, SLA timers, and confidential anti-harassment / whistleblower redressal conforming to workplace protection acts with cryptographic anonymity tokens.
+14. **Digital ID Badges, Corporate Policies & Executive Action Center**: Photorealistic CR-80 PVC printable employee smart badges with vector QR tokens, formal Corporate Policy Repository with employee digital signatures, and unified Executive Priority Action Inbox on the main Dashboard.
 
 ---
 
@@ -235,6 +236,7 @@
 - [x] **Batch 3: Time, Attendance & Field Operations**: Multi-shift roster calendar, automated rotational schedule generator, peer-to-peer shift swaps, GPS geo-fencing (Haversine perimeter verification), corporate IP whitelisting, and ZKTeco biometric machine log parser *(Completed in Batch 3)*.
 - [x] **Batch 4: Talent, LMS & Performance Management**: 360-degree multi-rater peer reviews & competency radar, Corporate LMS & Training Center with skill gap matrix & CPD credits, and 9-box talent matrix with executive succession planning *(Completed in Batch 4)*.
 - [x] **Batch 5: Employee Engagement & Culture**: Company asset inventory lifecycle, expense & travel requisition reimbursement, internal helpdesk / grievance redressal ticketing *(Completed in Batch 5)*.
+- [x] **Batch 6: ESS Smart Badges, Policy Hub & Executive Action Center**: Photorealistic digital smart ID badges with vector QR codes, corporate policies repository with digital signature audit, and unified Dashboard Executive Action Center Inbox *(Completed in Batch 6)*.
 
 ---
 

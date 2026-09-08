@@ -513,6 +513,9 @@ const Employees = {
               <button class="btn btn-ghost btn-sm w-full" onclick="Employees.printProfile(${emp.id})">
                 <i class="fa fa-print"></i> Print Profile
               </button>
+              <button class="btn btn-outline btn-sm w-full" style="color:var(--primary)" onclick="Employees.showDigitalBadge(${emp.id})">
+                <i class="fa fa-id-card"></i> Digital Smart Badge (QR)
+              </button>
             </div>
           </div>
 
@@ -5695,5 +5698,130 @@ const Employees = {
   printProfile(empId) {
     window.print();
   },
+
+  showDigitalBadge(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const settings = DB.getObj('settings') || { companyName: 'HRM Pro Enterprise' };
+    const empCode = emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
+    const bloodGroup = emp.bloodGroup || 'B+';
+    const dept = Utils.getDeptName(emp.departmentId);
+    const desig = Utils.getDesigName(emp.designationId);
+    const branch = Utils.getBranchName(emp.branchId);
+
+    const qrSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="90" height="90" viewBox="0 0 25 25" shape-rendering="crispEdges">
+      <rect width="25" height="25" fill="#ffffff"/>
+      <path d="M2 2h7v7H2zM3 3v5h5V3zm1 1h3v3H4zm7-2h3v1h-1v2h-1v-2h-1zm4 0h7v7h-7zm1 1v5h5V4zm1 1h3v3h-3zm-6 2h1v1h-1zm1 1h2v1h-2zm-8 3h1v1H3zm2 0h1v2H5zm2 0h2v1H7zm5 0h1v1h-1zm3 0h1v2h-1zm3 0h2v1h-2zm-9 1h1v1h-1zm4 0h1v1h-1zm3 0h1v2h-1zm-13 1h1v1H2zm3 0h1v1H5zm6 0h2v2h-1v-1h-1zm5 0h1v1h-1zm-14 1h1v1H2zm4 0h1v1H6zm5 0h1v1h-1zm3 0h1v1h-1zm-14 2h7v7H2zm1 1v5h5v-5zm1 1h3v3H4zm6-2h1v1h-1zm4 0h1v1h-1zm3 0h1v1h-1zm-6 1h2v1h-1v1h-1zm4 0h1v2h-1zm-3 1h1v1h-1zm2 0h1v2h-2v-1zm-4 1h1v1h-1zm-1 1h2v1h-2z" fill="#0f172a"/>
+    </svg>`;
+
+    Modal.show('Corporate Employee Digital Smart Badge', `
+      <div style="display:flex;justify-content:center;margin-bottom:16px">
+        <div id="smart-badge-card" style="width:300px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,0.18);border:1px solid #cbd5e1;font-family:'Segoe UI',sans-serif;position:relative;text-align:center">
+          <div style="width:36px;height:7px;background:#94a3b8;border-radius:10px;margin:10px auto 4px"></div>
+          <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);padding:14px 16px 36px;color:#ffffff;position:relative">
+            <div style="font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase">${settings.companyName}</div>
+            <div style="font-size:10px;letter-spacing:1.5px;color:#a5b4fc;text-transform:uppercase;margin-top:2px">Verified Employee Credential</div>
+          </div>
+          <div style="margin-top:-32px;display:flex;justify-content:center;position:relative">
+            <div style="width:84px;height:84px;border-radius:50%;border:3px solid #ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;background:${Utils.avatarColor(emp.id)}">
+              ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `<div style="font-size:28px;line-height:84px;color:#ffffff;font-weight:700">${Utils.avatarInitials(emp.fullName)}</div>`}
+            </div>
+          </div>
+          <div style="padding:10px 20px 20px">
+            <div style="font-size:17px;font-weight:800;color:#0f172a;margin-top:2px">${emp.fullName}</div>
+            <div style="font-size:12.5px;font-weight:600;color:#4f46e5;margin-top:2px">${desig}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:1px">${dept} • ${branch}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin:14px 0 12px;font-size:11px">
+              <div>
+                <span style="color:#94a3b8;font-size:9.5px;text-transform:uppercase;display:block">EMP ID</span>
+                <b style="color:#0f172a;font-family:monospace;font-size:12px">${empCode}</b>
+              </div>
+              <div>
+                <span style="color:#94a3b8;font-size:9.5px;text-transform:uppercase;display:block">BLOOD GROUP</span>
+                <b style="color:#dc2626;font-size:12px">${bloodGroup}</b>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;margin-top:6px">
+              <div style="padding:6px;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05)">
+                ${qrSvg}
+              </div>
+              <div style="font-size:9px;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-top:4px">
+                Scan for Access Authorization
+              </div>
+            </div>
+          </div>
+          <div style="background:#0f172a;color:#94a3b8;font-size:9px;padding:6px;letter-spacing:1px;text-transform:uppercase">
+            PROPERTY OF ${settings.companyName.toUpperCase()}
+          </div>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-primary" onclick="Employees.printDigitalBadge(${emp.id})"><i class="fa fa-print"></i> Print Standard PVC Badge</button>
+      `
+    });
+  },
+
+  printDigitalBadge(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const settings = DB.getObj('settings') || { companyName: 'HRM Pro Enterprise' };
+    const empCode = emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
+    const bloodGroup = emp.bloodGroup || 'B+';
+    const dept = Utils.getDeptName(emp.departmentId);
+    const desig = Utils.getDesigName(emp.designationId);
+    const branch = Utils.getBranchName(emp.branchId);
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>PVC Employee Badge - ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 20px; display: flex; justify-content: center; background: #f1f5f9; }
+          .card { width: 54mm; height: 86mm; background: #ffffff; border: 1px solid #94a3b8; border-radius: 4mm; overflow: hidden; position: relative; text-align: center; box-sizing: border-box; }
+          .lanyard { width: 12mm; height: 2.5mm; background: #cbd5e1; border-radius: 2mm; margin: 2mm auto 1mm; }
+          .header { background: #1e1b4b; padding: 3mm 2mm 8mm; color: #ffffff; }
+          .photo { width: 22mm; height: 22mm; border-radius: 50%; border: 1.5mm solid #ffffff; margin: -10mm auto 1mm; overflow: hidden; background: #4f46e5; display: flex; align-items: center; justify-content: center; color: #ffffff; font-weight: 700; font-size: 14pt; }
+          .photo img { width: 100%; height: 100%; object-fit: cover; }
+          .name { font-size: 11pt; font-weight: 800; color: #0f172a; margin-top: 1mm; }
+          .desig { font-size: 8pt; font-weight: 700; color: #4f46e5; }
+          .meta { font-size: 6.5pt; color: #64748b; margin-top: 0.5mm; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm; background: #f8fafc; border: 0.5mm solid #e2e8f0; border-radius: 2mm; margin: 2mm 3mm; padding: 1mm; font-size: 7pt; }
+          .footer { position: absolute; bottom: 0; width: 100%; background: #0f172a; color: #ffffff; font-size: 5.5pt; padding: 1.5mm 0; letter-spacing: 0.5px; }
+          @media print { body { background: transparent; padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="lanyard"></div>
+          <div class="header">
+            <div style="font-size: 8pt; font-weight: 800; text-transform: uppercase;">${settings.companyName}</div>
+            <div style="font-size: 5.5pt; color: #a5b4fc; text-transform: uppercase;">Employee Access Credential</div>
+          </div>
+          <div class="photo">
+            ${emp.photo ? `<img src="${emp.photo}">` : Utils.avatarInitials(emp.fullName)}
+          </div>
+          <div class="name">${emp.fullName}</div>
+          <div class="desig">${desig}</div>
+          <div class="meta">${dept} • ${branch}</div>
+          <div class="grid">
+            <div><span style="font-size:5pt;color:#94a3b8;display:block">EMP ID</span><b>${empCode}</b></div>
+            <div><span style="font-size:5pt;color:#94a3b8;display:block">BLOOD GRP</span><b style="color:#dc2626">${bloodGroup}</b></div>
+          </div>
+          <div style="font-size: 6pt; color: #64748b; margin-top: 1mm">
+            CNIC: ${emp.cnic || 'Verified on file'}<br>
+            Emergency: ${emp.phone || '+92 300 0000000'}
+          </div>
+          <div class="footer">OFFICIAL IDENTITY CARD • CR-80 COMPLIANT</div>
+        </div>
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  }
 };
 

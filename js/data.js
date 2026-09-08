@@ -19,6 +19,7 @@ const DB = {
       this.ensureRosterAndGeofenceData();
       this.ensureTalentAndLMSData();
       this.ensureEngagementData();
+      this.ensureCompanyPolicies();
       return;
     }
     this.seed();
@@ -34,6 +35,7 @@ const DB = {
     this.ensureRosterAndGeofenceData();
     this.ensureTalentAndLMSData();
     this.ensureEngagementData();
+    this.ensureCompanyPolicies();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -1571,6 +1573,118 @@ const DB = {
         }
       ];
       this.set('helpdesk_tickets', tickets);
+    }
+  },
+
+  ensureCompanyPolicies() {
+    let policies = this.get('company_policies');
+    if (!policies || !policies.length) {
+      policies = [
+        {
+          id: 1,
+          code: 'POL-001',
+          title: 'Corporate Code of Business Conduct & Professional Ethics',
+          category: 'Governance & Integrity',
+          version: 'v2.4 (2026 Revision)',
+          effectiveDate: '2026-01-01',
+          summary: 'Universal standards of corporate integrity, prevention of bribery, full conflict of interest disclosures, and fair dealing across all corporate stakeholders.',
+          clauses: [
+            '1. Mandatory honesty in books, financial records, client billings, and statutory FBR declarations.',
+            '2. Immediate disclosure of personal, familial, or financial conflicts of interest to the Board/HR.',
+            '3. Zero acceptance of gifts, commissions, or hospitality exceeding nominal cultural tokens (PKR 5,000 threshold).',
+            '4. Strict confidentiality covering client architecture, proprietary algorithms, and internal employee compensation.'
+          ],
+          acknowledgments: [
+            { employeeId: 1, signedAt: '2026-01-05 09:30', ip: '192.168.1.10' },
+            { employeeId: 2, signedAt: '2026-01-06 10:15', ip: '192.168.1.12' },
+            { employeeId: 3, signedAt: '2026-01-06 11:45', ip: '192.168.1.15' },
+            { employeeId: 4, signedAt: '2026-01-07 14:20', ip: '192.168.1.20' }
+          ]
+        },
+        {
+          id: 2,
+          code: 'POL-002',
+          title: 'Workplace Dignity, Anti-Harassment & Whistleblower Protection',
+          category: 'Statutory Compliance',
+          version: 'v3.1 (2026 Statutory Update)',
+          effectiveDate: '2026-01-01',
+          summary: 'Statutory framework conforming to the Protection Against Harassment of Women at the Workplace Act. Zero tolerance for intimidation, discriminatory conduct, or retaliation against whistleblowers.',
+          clauses: [
+            '1. Complete prohibition of verbal, physical, psychological, or digital harassment across office premises and corporate communication platforms.',
+            '2. Provision of anonymous, cryptographic grievance filing channels with direct ombudsperson triage.',
+            '3. Investigation hearings completed within 14 calendar days by an impartial 3-member inquiry committee.',
+            '4. Immediate termination penalty for any manager or colleague found engaging in retaliatory behavior against complainants.'
+          ],
+          acknowledgments: [
+            { employeeId: 1, signedAt: '2026-01-05 09:30', ip: '192.168.1.10' },
+            { employeeId: 2, signedAt: '2026-01-06 10:15', ip: '192.168.1.12' },
+            { employeeId: 3, signedAt: '2026-01-06 11:45', ip: '192.168.1.15' },
+            { employeeId: 4, signedAt: '2026-01-07 14:20', ip: '192.168.1.20' }
+          ]
+        },
+        {
+          id: 3,
+          code: 'POL-003',
+          title: 'Information Security, ISO 27001 Data Privacy & BYOD Rules',
+          category: 'IT & Cyber Security',
+          version: 'v2.2 (2026 Revision)',
+          effectiveDate: '2026-01-01',
+          summary: 'Protocols for securing customer data, strict clean-desk policies, mandatory hardware encryption, multi-factor authentication, and safe usage of AI engineering copilots.',
+          clauses: [
+            '1. Mandatory full-disk encryption (FileVault / BitLocker) and screensaver auto-lock after 3 minutes of inactivity.',
+            '2. Absolute ban on uploading unredacted client production database dumps, credentials, or PII to unauthorized public LLMs.',
+            '3. Multi-Factor Authentication (MFA/TOTP) enforcement across all corporate email, Git, VPN, and cloud consoles.',
+            '4. Immediate notification to IT Security (it-sec@company.com) within 1 hour of any suspected phishing attempt or lost device.'
+          ],
+          acknowledgments: [
+            { employeeId: 1, signedAt: '2026-01-05 09:30', ip: '192.168.1.10' },
+            { employeeId: 2, signedAt: '2026-01-06 10:15', ip: '192.168.1.12' },
+            { employeeId: 3, signedAt: '2026-01-06 11:45', ip: '192.168.1.15' },
+            { employeeId: 4, signedAt: '2026-01-07 14:20', ip: '192.168.1.20' }
+          ]
+        },
+        {
+          id: 4,
+          code: 'POL-004',
+          title: 'Flexible Hybrid & Remote Work Operational Standard',
+          category: 'Workplace Operations',
+          version: 'v1.8 (2026 Revision)',
+          effectiveDate: '2026-02-01',
+          summary: 'Guidelines governing work-from-home allowances, core synchronous overlap hours, attendance GPS regularizations, and remote ergonomics.',
+          clauses: [
+            '1. Core synchronous collaboration hours: 11:00 AM to 04:00 PM PKT required for team standups and client meetings.',
+            '2. High-speed home fiber internet stipend eligibility for verified remote engineering and on-call roles.',
+            '3. Weekly maximum of 2 remote workdays unless formal full-remote contract addendum is executed.',
+            '4. Mobile GPS attendance check-in permitted during authorized remote days subject to manager pre-approval.'
+          ],
+          acknowledgments: [
+            { employeeId: 1, signedAt: '2026-02-02 09:00', ip: '192.168.1.10' },
+            { employeeId: 3, signedAt: '2026-02-03 10:30', ip: '192.168.1.15' },
+            { employeeId: 4, signedAt: '2026-02-04 11:00', ip: '192.168.1.20' }
+          ]
+        },
+        {
+          id: 5,
+          code: 'POL-005',
+          title: 'Commercial Travel, Mileage & Hospitality Reimbursement Rules',
+          category: 'Finance & Compensation',
+          version: 'v2.0 (2026 Revision)',
+          effectiveDate: '2026-03-01',
+          summary: 'Per diem expenditure limits, client entertainment documentation rules, approved airlines/hotels, and monthly payroll settlement timelines.',
+          clauses: [
+            '1. Mandatory reporting manager pre-approval prior to booking inter-city flights or hotel stays.',
+            '2. Itemized receipts and NTN tax invoices required for all claims exceeding PKR 500.',
+            '3. Official per diem meal limit: PKR 3,500/day for domestic travel; client entertainment requires attendee itemization.',
+            '4. Final approved expense claims disbursed tax-free in the following calendar month payroll pay run.'
+          ],
+          acknowledgments: [
+            { employeeId: 1, signedAt: '2026-03-02 09:00', ip: '192.168.1.10' },
+            { employeeId: 2, signedAt: '2026-03-02 11:20', ip: '192.168.1.12' },
+            { employeeId: 3, signedAt: '2026-03-03 14:10', ip: '192.168.1.15' }
+          ]
+        }
+      ];
+      this.set('company_policies', policies);
     }
   },
 

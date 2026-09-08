@@ -251,6 +251,11 @@ const Dashboard = {
           </div>
         ` : ''}
 
+        <!-- ═══════════════════════════════════════════════
+             EXECUTIVE APPROVALS & PRIORITY ACTION INBOX
+        ═══════════════════════════════════════════════ -->
+        ${this.renderActionCenterInbox()}
+
         <!-- KPI Row 1: Employees -->
         <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Employee Overview</h3>
@@ -489,6 +494,199 @@ const Dashboard = {
 
     // Render charts after DOM is ready
     setTimeout(() => this.renderCharts(att, emps), 100);
+  },
+
+  renderActionCenterInbox() {
+    const role = Auth.role;
+    const isMgr = role === 'dept_manager';
+    const isAdmin = role === 'superadmin' || role === 'hr_manager';
+    const myId = Auth.employee?.id;
+
+    const leaves = DB.get('leave_requests') || [];
+    const expenses = DB.get('expense_claims') || [];
+    const tickets = DB.get('helpdesk_tickets') || [];
+    const assets = DB.get('assets') || [];
+    const policies = DB.get('company_policies') || [];
+    const emps = DB.get('employees') || [];
+
+    const actions = [];
+
+    // 1. Pending Leave Approvals
+    if (isMgr) {
+      const myDeptEmps = emps.filter(e => e.managerId === myId || e.reportingTo === myId).map(e => e.id);
+      leaves.filter(l => l.status === 'pending' && myDeptEmps.includes(l.employeeId)).forEach(l => {
+        const u = emps.find(e => e.id === l.employeeId);
+        actions.push({
+          type: 'leave',
+          tag: 'LEAVE APPROVAL',
+          icon: 'fa-calendar-xmark',
+          color: 'var(--warning)',
+          title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
+          sub: `${l.from} → ${l.to} • "${l.reason || 'Personal emergency'}"`,
+          actions: `
+            <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Approve</button>
+            <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
+          `
+        });
+      });
+    } else if (isAdmin) {
+      leaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').slice(0, 3).forEach(l => {
+        const u = emps.find(e => e.id === l.employeeId);
+        actions.push({
+          type: 'leave',
+          tag: l.status === 'manager_approved' ? 'HR FINAL APPROVAL' : 'LEAVE REQUEST',
+          icon: 'fa-calendar-check',
+          color: l.status === 'manager_approved' ? 'var(--info)' : 'var(--warning)',
+          title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
+          sub: `${l.from} → ${l.to} ${l.status === 'manager_approved' ? '(Endorsed by Dept Manager)' : ''}`,
+          actions: `
+            <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Final Approve</button>
+            <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
+          `
+        });
+      });
+    }
+
+    // 2. Pending Expense Claims
+    if (isMgr) {
+      expenses.filter(c => c.status === 'pending_manager' && c.employeeId !== myId).forEach(c => {
+        const u = emps.find(e => e.id === c.employeeId);
+        actions.push({
+          type: 'expense',
+          tag: 'EXPENSE ENDORSEMENT',
+          icon: 'fa-receipt',
+          color: 'var(--primary)',
+          title: `${u?.fullName || 'Staff'} claimed ${c.claimNumber}: ₨ ${(c.amount||0).toLocaleString()}`,
+          sub: `${c.title} • Merchant: ${c.merchant}`,
+          actions: `
+            <button class="btn btn-primary btn-xs" onclick="App.navigate('expenses');setTimeout(()=>Expenses.reviewClaim(${c.id},'manager'),100)"><i class="fa fa-stamp"></i> Review</button>
+          `
+        });
+      });
+    } else if (isAdmin) {
+      expenses.filter(c => c.status === 'pending_finance').slice(0, 3).forEach(c => {
+        const u = emps.find(e => e.id === c.employeeId);
+        actions.push({
+          type: 'expense',
+          tag: 'FINANCE PAYOUT AUDIT',
+          icon: 'fa-money-bill-transfer',
+          color: 'var(--success)',
+          title: `${c.claimNumber}: ₨ ${(c.amount||0).toLocaleString()} for ${u?.fullName}`,
+          sub: `${c.title} (Manager Endorsed)`,
+          actions: `
+            <button class="btn btn-success btn-xs" onclick="App.navigate('expenses');setTimeout(()=>Expenses.reviewClaim(${c.id},'finance'),100)"><i class="fa fa-check"></i> Authorize</button>
+          `
+        });
+      });
+    }
+
+    // 3. Urgent Helpdesk Tickets
+    if (isAdmin) {
+      tickets.filter(t => t.priority === 'urgent' && t.status !== 'closed' && t.status !== 'resolved').slice(0, 2).forEach(t => {
+        actions.push({
+          type: 'ticket',
+          tag: 'URGENT SLA INCIDENT',
+          icon: 'fa-bolt',
+          color: 'var(--danger)',
+          title: `${t.ticketNumber}: ${t.title}`,
+          sub: `Target SLA: ${t.slaHours}h • Department: ${t.department}`,
+          actions: `
+            <button class="btn btn-danger btn-xs" onclick="App.navigate('helpdesk');setTimeout(()=>Helpdesk.openTicketWorkspace(${t.id}),100)"><i class="fa fa-reply"></i> Open Workspace</button>
+          `
+        });
+      });
+    }
+
+    // 4. Unsigned Corporate Policies (for current user)
+    policies.filter(p => !(p.acknowledgments || []).some(a => a.employeeId === myId)).slice(0, 2).forEach(p => {
+      actions.push({
+        type: 'policy',
+        tag: 'COMPLIANCE MANDATE',
+        icon: 'fa-signature',
+        color: 'var(--primary)',
+        title: `Mandatory Compliance: ${p.code} - ${p.title}`,
+        sub: `Version: ${p.version} • Requires employee electronic acknowledgment`,
+        actions: `
+          <button class="btn btn-primary btn-xs" onclick="App.navigate('events');setTimeout(()=>{Events.switchView('policies');Events.showSignPolicyModal(${p.id});},100)"><i class="fa fa-pen"></i> Sign Now</button>
+        `
+      });
+    });
+
+    // 5. Unacknowledged Assets (for current user)
+    assets.filter(a => a.assignedTo === myId && !a.acknowledged).forEach(a => {
+      actions.push({
+        type: 'asset',
+        tag: 'HARDWARE HANDOVER',
+        icon: 'fa-laptop-file',
+        color: 'var(--secondary)',
+        title: `Pending Custody Signature: ${a.assetTag} (${a.name})`,
+        sub: `Serial: ${a.serialNumber} • Handed over to your custody`,
+        actions: `
+          <button class="btn btn-secondary btn-xs" onclick="App.navigate('assets');setTimeout(()=>Assets.acknowledgeCustody(${a.id}),100)"><i class="fa fa-file-signature"></i> Sign Handover</button>
+        `
+      });
+    });
+
+    if (actions.length === 0) {
+      return `
+        <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(99,102,241,0.05));border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.15);color:var(--success);display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-shield-check"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">All Clear — Zero Pending Approvals</div>
+              <div style="font-size:12px;color:var(--text-3)">Your operational approval pipeline is 100% up to date. No pending actions require your immediate triage.</div>
+            </div>
+          </div>
+          <span class="badge badge-success" style="font-size:11.5px;padding:5px 12px">Pipeline Up-to-Date</span>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="card" style="border:1.5px solid var(--primary);border-radius:14px;padding:18px 20px;margin-bottom:24px;background:var(--card);box-shadow:0 4px 16px rgba(99,102,241,0.08)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--primary);color:#ffffff;font-size:14px">
+              <i class="fa fa-inbox"></i>
+            </span>
+            <div style="font-size:15px;font-weight:800;color:var(--text)">
+              Executive Approvals &amp; Priority Action Inbox
+            </div>
+            <span class="badge badge-warning" style="font-size:11px;font-weight:700">
+              ${actions.length} Pending Actions
+            </span>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted)">
+            Quick triage deck for immediate operational approvals
+          </div>
+        </div>
+
+        <div style="display:grid;gap:10px">
+          ${actions.map(act => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;gap:10px">
+              <div style="display:flex;align-items:center;gap:12px">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.1);color:${act.color};font-size:13px">
+                  <i class="fa ${act.icon}"></i>
+                </span>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-secondary" style="font-size:9.5px;letter-spacing:0.5px;font-weight:700">${act.tag}</span>
+                    <span style="font-weight:700;font-size:13px;color:var(--text)">${act.title}</span>
+                  </div>
+                  <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">${act.sub}</div>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:6px">
+                ${act.actions}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
   },
 
   statCard(label, value, icon, color, sub, change, changeDir) {

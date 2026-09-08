@@ -45,6 +45,7 @@ const Events = {
             { id:'calendar',      label:'Company Calendar', icon:'fa-calendar' },
             { id:'events',        label:'Events List',      icon:'fa-calendar-days' },
             { id:'announcements', label:'Announcements',    icon:'fa-bullhorn' },
+            { id:'policies',      label:'Policies & Compliance', icon:'fa-book-bookmark' },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Events.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
@@ -76,6 +77,7 @@ const Events = {
     if (!container) return;
     if (this.currentView === 'calendar') this.renderCalendar(container);
     else if (this.currentView === 'events') this.renderEvents(container);
+    else if (this.currentView === 'policies') this.renderPolicies(container);
     else this.renderAnnouncements(container);
   },
 
@@ -702,6 +704,248 @@ const Events = {
     DB.update('announcements', id, { read: readArr });
     this.renderView();
   },
+
+  // ── CORPORATE POLICIES & COMPLIANCE HUB ──
+  renderPolicies(container) {
+    const policies = DB.get('company_policies') || [];
+    const allEmps = DB.get('employees') || [];
+    const myId = Auth.employee?.id || 1;
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    const mySignedCount = policies.filter(p => (p.acknowledgments || []).some(a => a.employeeId === myId)).length;
+    const myPendingCount = policies.length - mySignedCount;
+
+    // Overall compliance percentage across all employees
+    let totalSignaturesPossible = policies.length * allEmps.length;
+    let actualSignatures = policies.reduce((s, p) => s + (p.acknowledgments ? p.acknowledgments.length : 0), 0);
+    let overallRate = totalSignaturesPossible > 0 ? Math.round((actualSignatures / totalSignaturesPossible) * 100) : 100;
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h2 style="font-size:19px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary)">
+              <i class="fa fa-book-bookmark"></i>
+            </span>
+            Corporate Policies &amp; Compliance Hub
+          </h2>
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
+            Official employee handbooks, statutory anti-harassment regulations, code of ethics, and digital acknowledgments
+          </div>
+        </div>
+
+        ${isAdmin ? `
+          <button class="btn btn-outline btn-sm" onclick="Events.remindUnsignedPolicies()">
+            <i class="fa fa-bell"></i> Send Acknowledgment Reminder
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Standard Policies</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:4px">${policies.length} Formal Codes</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Legal &amp; Operational Framework</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Your Signed Standing</div>
+          <div style="font-size:22px;font-weight:800;color:${myPendingCount === 0 ? 'var(--success)' : 'var(--warning)'};margin-top:4px">
+            ${mySignedCount} / ${policies.length}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${myPendingCount === 0 ? 'Fully Compliant &amp; Signed' : myPendingCount + ' Policy Signature Pending'}</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Company Compliance Rate</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${overallRate}%</div>
+          <div style="font-size:11px;color:var(--success);margin-top:2px">Audited Active Workforce</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Last Policy Revision</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:6px">March 2026</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Annual Legal Review Completed</div>
+        </div>
+      </div>
+
+      <!-- Policy Cards Grid -->
+      <div style="display:grid;gap:18px;margin-bottom:30px">
+        ${policies.map(p => {
+          const isSigned = (p.acknowledgments || []).some(a => a.employeeId === myId);
+          const sigCount = (p.acknowledgments || []).length;
+          const pct = Math.round((sigCount / (allEmps.length || 1)) * 100);
+
+          return `
+            <div class="card" style="padding:22px;border:1px solid var(--border);border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="font-family:monospace;font-size:12px;font-weight:800;background:rgba(99,102,241,0.1);color:var(--primary);padding:4px 10px;border-radius:8px">
+                    ${p.code}
+                  </span>
+                  <span class="badge badge-secondary" style="font-size:11px">${p.category}</span>
+                  <span style="font-size:11px;color:var(--text-muted)">${p.version} • Effective ${p.effectiveDate}</span>
+                </div>
+
+                <div>
+                  ${isSigned ? `
+                    <span class="badge badge-success" style="font-size:11.5px;padding:6px 12px">
+                      <i class="fa fa-circle-check"></i> Acknowledged &amp; Signed
+                    </span>
+                  ` : `
+                    <button class="btn btn-primary btn-sm" onclick="Events.showSignPolicyModal(${p.id})">
+                      <i class="fa fa-signature"></i> Read &amp; Acknowledge Policy
+                    </button>
+                  `}
+                </div>
+              </div>
+
+              <h3 style="font-size:16px;font-weight:800;color:var(--text);margin:0 0 8px">${p.title}</h3>
+              <p style="font-size:13px;color:var(--text-2);line-height:1.5;margin:0 0 16px">${p.summary}</p>
+
+              <!-- Key Clauses Highlights -->
+              <div style="background:var(--surface);border-radius:10px;padding:14px;border:1px solid var(--border);margin-bottom:16px">
+                <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:8px">
+                  <i class="fa fa-scale-balanced" style="color:var(--primary);margin-right:6px"></i> Key Regulatory &amp; Behavioral Clauses:
+                </div>
+                <div style="display:grid;gap:6px">
+                  ${(p.clauses || []).map(c => `
+                    <div style="font-size:12px;color:var(--text-3);line-height:1.4">
+                      ${c}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <!-- Footer Controls & Audit Rate -->
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;border-top:1px solid var(--border);padding-top:14px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="width:140px;background:var(--surface);height:8px;border-radius:4px;overflow:hidden">
+                    <div style="width:${pct}%;background:var(--success);height:100%"></div>
+                  </div>
+                  <span style="font-size:11.5px;color:var(--text-3)"><b>${sigCount} / ${allEmps.length}</b> Employees Acknowledged (${pct}%)</span>
+                </div>
+
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-ghost btn-xs" onclick="Events.printPolicy(${p.id})" title="Print Corporate Policy">
+                    <i class="fa fa-print"></i> Print PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  },
+
+  showSignPolicyModal(policyId) {
+    const policy = DB.find('company_policies', policyId);
+    if (!policy) return;
+
+    Modal.show(`Acknowledge Policy: ${policy.code}`, `
+      <div style="background:var(--surface);padding:14px;border-radius:8px;margin-bottom:16px">
+        <div style="font-weight:800;font-size:15px;color:var(--text)">${policy.title}</div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${policy.version} • Mandated Compliance</div>
+      </div>
+
+      <div style="max-height:260px;overflow-y:auto;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:18px;font-size:12.5px;color:var(--text-2);line-height:1.6">
+        <p><b>Summary of Employee Commitment:</b> ${policy.summary}</p>
+        <p><b>Statutory Standard Clauses:</b></p>
+        <ul>
+          ${(policy.clauses || []).map(c => `<li>${c}</li>`).join('')}
+        </ul>
+      </div>
+
+      <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);padding:12px;border-radius:8px">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:0">
+          <input type="checkbox" id="policy-agree-check" style="width:16px;height:16px;margin-top:2px">
+          <div style="font-size:12px;color:var(--text)">
+            I, <b>${Auth.employee.fullName}</b> (Employee ID #${Auth.employee.id}), hereby confirm that I have carefully read, fully understood, and undertake to strictly comply with all terms stipulated in <b>${policy.title}</b>.
+          </div>
+        </label>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-success" onclick="Events.submitPolicyAcknowledgment(${policy.id})"><i class="fa fa-signature"></i> Sign &amp; Submit Undertaking</button>
+      `
+    });
+  },
+
+  submitPolicyAcknowledgment(policyId) {
+    const agreed = document.getElementById('policy-agree-check')?.checked;
+    if (!agreed) {
+      Toast.show('You must check the agreement declaration to proceed', 'warning');
+      return;
+    }
+
+    const policies = DB.get('company_policies') || [];
+    const policy = policies.find(p => p.id === policyId);
+    if (!policy) return;
+
+    if (!policy.acknowledgments) policy.acknowledgments = [];
+    const myId = Auth.employee.id;
+
+    if (!policy.acknowledgments.some(a => a.employeeId === myId)) {
+      policy.acknowledgments.push({
+        employeeId: myId,
+        signedAt: new Date().toISOString().replace('T', ' ').slice(0, 16),
+        ip: '192.168.1.' + (10 + (myId % 50))
+      });
+      DB.set('company_policies', policies);
+      DB.log('POLICY_ACK', 'Compliance', `Signed digital acknowledgment for ${policy.code} (${policy.title})`, Auth.user?.id);
+    }
+
+    Modal.close('dynamic-modal');
+    Toast.show(`Successfully signed compliance acknowledgment for ${policy.code}!`, 'success');
+    this.renderPolicies(document.getElementById('events-content'));
+  },
+
+  printPolicy(policyId) {
+    const policy = DB.find('company_policies', policyId);
+    if (!policy) return;
+    const settings = DB.getObj('settings') || { companyName: 'HRM Pro Enterprise' };
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Policy Document - ${policy.code}</title>
+        <style>
+          body { font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; color: #1e293b; line-height: 1.6; }
+          .header { border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 25px; text-align: center; }
+          .title { font-size: 22px; font-weight: 800; color: #0f172a; }
+          .meta { font-size: 12px; color: #64748b; margin-top: 6px; }
+          .summary { background: #f8fafc; border: 1px solid #e2e8f0; padding: 16px; border-radius: 8px; margin-bottom: 24px; font-size: 13.5px; }
+          .clause { margin-bottom: 12px; font-size: 13px; }
+          @media print { body { padding: 15mm; } button { display: none; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div style="font-size:14px;font-weight:700;letter-spacing:1px;color:#4f46e5;text-transform:uppercase">${settings.companyName}</div>
+          <div class="title">${policy.title}</div>
+          <div class="meta">Code: ${policy.code} | Version: ${policy.version} | Effective: ${policy.effectiveDate}</div>
+        </div>
+        <div class="summary"><b>POLICY PURPOSE:</b> ${policy.summary}</div>
+        <h3>STANDARD OPERATIONAL CLAUSES:</h3>
+        ${(policy.clauses || []).map(c => `<div class="clause">${c}</div>`).join('')}
+        <div style="margin-top:60px;border-top:1px solid #0f172a;padding-top:10px;font-size:11px;color:#64748b;text-align:center">
+          OFFICIAL CORPORATE COMPLIANCE DOCUMENT • MAINTAINED BY CORPORATE GOVERNANCE
+        </div>
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  },
+
+  remindUnsignedPolicies() {
+    Toast.show('Broadcast reminder sent to all employees with pending policy acknowledgments!', 'success');
+  }
 };
 
 // ============================================================
