@@ -30,6 +30,10 @@ const DB = {
       this.ensureRBACData();
       this.ensureTravelAndExpenseData();
       this.ensureSalaryStructureData();
+      this.ensureHierarchyData();
+      this.ensureExitLifecycleData();
+      this.ensureAssetCatalogData();
+      this.ensureTelemetryData();
       return;
     }
     this.seed();
@@ -56,6 +60,10 @@ const DB = {
     this.ensureRBACData();
     this.ensureTravelAndExpenseData();
     this.ensureSalaryStructureData();
+    this.ensureHierarchyData();
+    this.ensureExitLifecycleData();
+    this.ensureAssetCatalogData();
+    this.ensureTelemetryData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -3293,6 +3301,356 @@ const DB = {
     }
   },
 
+  ensureHierarchyData() {
+    let orgs = this.get('organizations');
+    if (!orgs || !orgs.length) {
+      orgs = [
+        {
+          id: 1,
+          name: 'Apex Global Enterprises (Pvt) Ltd',
+          code: 'APEX-GRP',
+          taxId: 'TRN-998822-PK',
+          currency: 'PKR',
+          fiscalYearStart: '07-01',
+          website: 'https://apexglobal.example.com',
+          logoUrl: null,
+          email: 'corp@apexglobal.example.com',
+          phone: '+92 21 3581 9000',
+          address: 'Plot 14-C, Khayaban-e-Shahbaz, Phase 6 DHA, Karachi'
+        }
+      ];
+      this.set('organizations', orgs);
+    }
+
+    let bus = this.get('business_units');
+    if (!bus || !bus.length) {
+      bus = [
+        { id: 1, orgId: 1, name: 'Digital Solutions & Enterprise Platforms', code: 'BU-DSEP', headEmployeeId: 1, description: 'Core software engineering, cloud architecture, and SaaS product engineering' },
+        { id: 2, orgId: 1, name: 'Corporate Advisory & FinTech Services', code: 'BU-CAFS', headEmployeeId: 2, description: 'Financial consulting, risk compliance, and B2B billing solutions' },
+        { id: 3, orgId: 1, name: 'Shared Services & Human Capital', code: 'BU-SSHC', headEmployeeId: 2, description: 'Enterprise HR, talent development, facilities, and administration' }
+      ];
+      this.set('business_units', bus);
+    }
+
+    let divs = this.get('divisions');
+    if (!divs || !divs.length) {
+      divs = [
+        { id: 1, businessUnitId: 1, name: 'Cloud & Infrastructure Architecture', code: 'DIV-CIA', headEmployeeId: 3, description: 'Public cloud deployments, DevOps pipelines, and cybersecurity' },
+        { id: 2, businessUnitId: 1, name: 'Product Engineering & Full-Stack Apps', code: 'DIV-PEFA', headEmployeeId: 4, description: 'Web application frontend, backend services, and mobile APIs' },
+        { id: 3, businessUnitId: 2, name: 'Treasury & Statutory Audit', code: 'DIV-TSA', headEmployeeId: 2, description: 'Corporate taxation, payroll accounting, and statutory ledger' },
+        { id: 4, businessUnitId: 3, name: 'Talent Acquisition & Employee Experience', code: 'DIV-TAEE', headEmployeeId: 2, description: 'Recruitment pipelines, onboarding dossiers, and employee welfare' }
+      ];
+      this.set('divisions', divs);
+    }
+
+    let depts = this.get('departments') || [];
+    let deptsUpdated = false;
+    depts.forEach(d => {
+      if (!d.divisionId) {
+        deptsUpdated = true;
+        if (d.id === 1) { d.divisionId = 4; d.businessUnitId = 3; }
+        else if (d.id === 2) { d.divisionId = 2; d.businessUnitId = 1; }
+        else if (d.id === 3) { d.divisionId = 3; d.businessUnitId = 2; }
+        else if (d.id === 4) { d.divisionId = 2; d.businessUnitId = 1; }
+        else { d.divisionId = 4; d.businessUnitId = 3; }
+      }
+    });
+    if (deptsUpdated) {
+      this.set('departments', depts);
+    }
+
+    let countries = this.get('countries');
+    if (!countries || !countries.length) {
+      countries = [
+        { id: 1, name: 'Pakistan', code: 'PAK', iso2: 'PK', phoneCode: '+92', currency: 'PKR', status: 'active' },
+        { id: 2, name: 'United Arab Emirates', code: 'ARE', iso2: 'AE', phoneCode: '+971', currency: 'AED', status: 'active' },
+        { id: 3, name: 'United Kingdom', code: 'GBR', iso2: 'GB', phoneCode: '+44', currency: 'GBP', status: 'active' },
+        { id: 4, name: 'United States', code: 'USA', iso2: 'US', phoneCode: '+1', currency: 'USD', status: 'active' }
+      ];
+      this.set('countries', countries);
+    }
+
+    let states = this.get('states');
+    if (!states || !states.length) {
+      states = [
+        { id: 1, countryId: 1, name: 'Sindh', code: 'SD' },
+        { id: 2, countryId: 1, name: 'Punjab', code: 'PB' },
+        { id: 3, countryId: 1, name: 'Federal Capital Islamabad', code: 'ICT' },
+        { id: 4, countryId: 2, name: 'Dubai', code: 'DXB' }
+      ];
+      this.set('states', states);
+    }
+
+    let cities = this.get('cities');
+    if (!cities || !cities.length) {
+      cities = [
+        { id: 1, stateId: 1, name: 'Karachi', postalCode: '75500' },
+        { id: 2, stateId: 2, name: 'Lahore', postalCode: '54000' },
+        { id: 3, stateId: 3, name: 'Islamabad', postalCode: '44000' },
+        { id: 4, stateId: 4, name: 'Dubai Downtown', postalCode: '00000' }
+      ];
+      this.set('cities', cities);
+    }
+
+    let locs = this.get('locations') || [];
+    let locsUpdated = false;
+    locs.forEach(l => {
+      if (!l.cityId) {
+        locsUpdated = true;
+        if (l.id === 1) { l.cityId = 1; l.stateId = 1; l.countryId = 1; l.address = 'Plot 12, Block B, PECHS, Karachi'; }
+        else if (l.id === 2) { l.cityId = 2; l.stateId = 2; l.countryId = 1; l.address = 'Gulberg III, Main Boulevard, Lahore'; }
+        else if (l.id === 3) { l.cityId = 3; l.stateId = 3; l.countryId = 1; l.address = 'Blue Area, Sector F-7, Islamabad'; }
+        else { l.cityId = 1; l.stateId = 1; l.countryId = 1; l.address = 'Metropolitan Office'; }
+      }
+    });
+    if (locsUpdated) {
+      this.set('locations', locs);
+    }
+
+    let brs = this.get('branches') || [];
+    let brsUpdated = false;
+    brs.forEach(b => {
+      if (!b.locationId) {
+        brsUpdated = true;
+        b.locationId = b.id <= 3 ? b.id : 1;
+      }
+    });
+    if (brsUpdated) {
+      this.set('branches', brs);
+    }
+  },
+
+  ensureExitLifecycleData() {
+    let reasons = this.get('exit_reasons');
+    if (!reasons || !reasons.length) {
+      reasons = [
+        { id: 1, code: 'BETTER_OFFER', reason: 'Better Compensation / Career Opportunity', category: 'voluntary', isActive: true },
+        { id: 2, code: 'RELOCATION', reason: 'Geographical Relocation / Family Relocation', category: 'voluntary', isActive: true },
+        { id: 3, code: 'HIGHER_STUDIES', reason: 'Higher Education / Post-Graduate Studies', category: 'voluntary', isActive: true },
+        { id: 4, code: 'HEALTH_PERSONAL', reason: 'Health / Personal / Family Reasons', category: 'voluntary', isActive: true },
+        { id: 5, code: 'CONTRACT_END', reason: 'End of Employment Contract / Project Completion', category: 'involuntary', isActive: true },
+        { id: 6, code: 'PERFORMANCE', reason: 'Performance Incompatibility / PIP Failure', category: 'involuntary', isActive: true }
+      ];
+      this.set('exit_reasons', reasons);
+    }
+
+    let resignations = this.get('resignations');
+    if (!resignations || !resignations.length) {
+      resignations = [
+        {
+          id: 1,
+          resignationNo: 'RES-2026-001',
+          employeeId: 9, // Tariq Hussain
+          submissionDate: '2026-08-15',
+          proposedLastDay: '2026-09-15',
+          actualLastDay: '2026-09-15',
+          reasonId: 1,
+          reasonDetails: 'Secured international Senior Cloud Architect engagement in UAE.',
+          status: 'approved',
+          noticePeriodDays: 30,
+          noticeWaivedDays: 0,
+          managerApproved: true,
+          hrApproved: true,
+          remarks: 'Smooth handover in progress. Asset return and knowledge transfer scheduled.'
+        }
+      ];
+      this.set('resignations', resignations);
+    }
+
+    let interviews = this.get('exit_interviews');
+    if (!interviews || !interviews.length) {
+      interviews = [
+        {
+          id: 1,
+          resignationId: 1,
+          employeeId: 9,
+          interviewerId: 2, // Sara Malik
+          interviewDate: '2026-09-02',
+          primaryReason: 'Better Compensation & Overseas Relocation',
+          companyCultureRating: 4,
+          managementRating: 4,
+          compensationRating: 3,
+          workLifeBalanceRating: 4,
+          wouldRecommend: true,
+          feedbackPros: 'Great technical culture, highly collaborative engineering peers, and transparent leadership.',
+          feedbackCons: 'Compensation benchmarks could be updated more frequently to reflect international parity.',
+          suggestions: 'Introduce remote work allowances and foreign currency pegged bonuses.',
+          status: 'completed'
+        }
+      ];
+      this.set('exit_interviews', interviews);
+    }
+
+    let clearances = this.get('clearances');
+    if (!clearances || !clearances.length) {
+      clearances = [
+        { id: 1, resignationId: 1, employeeId: 9, department: 'IT & Security', clearedBy: 3, clearanceDate: '2026-09-05', status: 'cleared', assetReturned: true, handoverNotes: 'GitHub repository rights, AWS IAM access revoked, and company laptop checked.', duesPending: 0 },
+        { id: 2, resignationId: 1, employeeId: 9, department: 'Finance & Accounts', clearedBy: 1, clearanceDate: '2026-09-06', status: 'cleared', assetReturned: false, handoverNotes: 'Travel expense advances fully cleared. No company credit balance outstanding.', duesPending: 0 },
+        { id: 3, resignationId: 1, employeeId: 9, department: 'Human Resources', clearedBy: 2, clearanceDate: '2026-09-07', status: 'cleared', assetReturned: true, handoverNotes: 'Medical insurance card returned, employee ID access badge surrendered.', duesPending: 0 },
+        { id: 4, resignationId: 1, employeeId: 9, department: 'Administration & Facilities', clearedBy: 2, clearanceDate: '2026-09-07', status: 'cleared', assetReturned: true, handoverNotes: 'Office locker keys surrendered and parking permit cancelled.', duesPending: 0 }
+      ];
+      this.set('clearances', clearances);
+    }
+
+    let settlements = this.get('final_settlements');
+    if (!settlements || !settlements.length) {
+      settlements = [
+        {
+          id: 1,
+          settlementNo: 'FNF-2026-001',
+          resignationId: 1,
+          employeeId: 9,
+          settlementDate: '2026-09-08',
+          payableDays: 15,
+          basicDue: 90000,
+          allowancesDue: 35000,
+          leaveEncashment: 24000,
+          gratuityAmount: 180000,
+          bonusAmount: 0,
+          noticePeriodPay: 0,
+          totalEarnings: 329000,
+          deductionsDue: 18500,
+          taxDeduction: 22000,
+          totalDeductions: 40500,
+          netSettlement: 288500,
+          paymentStatus: 'approved',
+          disbursementDate: '2026-09-15',
+          preparedBy: 2,
+          approvedBy: 1,
+          notes: 'Full and Final settlement processed in accordance with employment contract and Pakistan labor laws.'
+        }
+      ];
+      this.set('final_settlements', settlements);
+    }
+  },
+
+  ensureAssetCatalogData() {
+    let categories = this.get('asset_categories');
+    if (!categories || !categories.length) {
+      categories = [
+        { id: 1, name: 'IT Hardware & Compute', code: 'CAT-IT', description: 'Laptops, workstations, servers, monitors, and docks' },
+        { id: 2, name: 'Mobile Devices & Telephony', code: 'CAT-MOB', description: 'Smartphones, iPads, SIM cards, and VoIP hardware' },
+        { id: 3, name: 'Office Ergonomic Furniture', code: 'CAT-FURN', description: 'Standing desks, ergonomic chairs, and filing units' },
+        { id: 4, name: 'Vehicles & Fleet Assets', code: 'CAT-VEH', description: 'Executive pool cars, transport vans, and delivery bikes' }
+      ];
+      this.set('asset_categories', categories);
+    }
+
+    let statuses = this.get('asset_statuses');
+    if (!statuses || !statuses.length) {
+      statuses = [
+        { id: 1, name: 'In Stock / Available', code: 'AVAILABLE', color: '#10b981' },
+        { id: 2, name: 'Assigned to Staff', code: 'ASSIGNED', color: '#3b82f6' },
+        { id: 3, name: 'In Repair / Maintenance', code: 'MAINTENANCE', color: '#f59e0b' },
+        { id: 4, name: 'Decommissioned / Disposed', code: 'RETIRED', color: '#ef4444' }
+      ];
+      this.set('asset_statuses', statuses);
+    }
+
+    let assetList = this.get('assets') || [];
+    let assetUpdated = false;
+    assetList.forEach(a => {
+      if (!a.categoryId) {
+        assetUpdated = true;
+        if (a.category === 'IT Equipment') { a.categoryId = 1; }
+        else if (a.category === 'Mobile') { a.categoryId = 2; }
+        else if (a.category === 'Furniture') { a.categoryId = 3; }
+        else { a.categoryId = 1; }
+
+        a.statusId = a.status === 'assigned' ? 2 : (a.status === 'maintenance' ? 3 : 1);
+        if (!a.serialNo) a.serialNo = `SN-${a.code}-${1000 + a.id}`;
+        if (!a.purchaseDate) a.purchaseDate = '2023-01-15';
+        if (!a.purchaseCost) a.purchaseCost = a.categoryId === 1 ? 180000 : (a.categoryId === 2 ? 120000 : 35000);
+        if (!a.warrantyExpires) a.warrantyExpires = '2026-12-31';
+        if (!a.vendor) a.vendor = a.categoryId === 1 ? 'Dell Technologies Direct' : (a.categoryId === 2 ? 'Apple Authorized Reseller' : 'Habitt Office Solutions');
+      }
+    });
+    if (assetUpdated) {
+      this.set('assets', assetList);
+    }
+
+    let assignments = this.get('asset_assignments');
+    if (!assignments || !assignments.length) {
+      assignments = [
+        { id: 1, assetId: 1, employeeId: 3, assignedDate: '2019-06-15', returnDate: null, conditionAssigned: 'New / Sealed', conditionReturned: null, status: 'active', notes: 'Issued for DevOps & Infrastructure management.' },
+        { id: 2, assetId: 2, employeeId: 8, assignedDate: '2023-01-01', returnDate: null, conditionAssigned: 'Good', conditionReturned: null, status: 'active', notes: 'Corporate SIM & phone for regional recruitment coordination.' },
+        { id: 3, assetId: 3, employeeId: 4, assignedDate: '2021-02-01', returnDate: null, conditionAssigned: 'Excellent', conditionReturned: null, status: 'active', notes: 'High-performance M-series laptop for frontend & full-stack development.' },
+        { id: 4, assetId: 4, employeeId: 1, assignedDate: '2020-01-01', returnDate: null, conditionAssigned: 'Good', conditionReturned: null, status: 'active', notes: 'Ergonomic executive workstation chair.' }
+      ];
+      this.set('asset_assignments', assignments);
+    }
+
+    let maintenances = this.get('asset_maintenances');
+    if (!maintenances || !maintenances.length) {
+      maintenances = [
+        { id: 1, assetId: 1, maintenanceType: 'Hardware Upgrade', provider: 'Dell Authorized Service Center', cost: 18500, scheduledDate: '2025-11-10', completedDate: '2025-11-12', notes: 'NVMe SSD upgraded to 1TB and RAM expanded to 32GB.', status: 'completed' },
+        { id: 2, assetId: 5, maintenanceType: 'Toner & Drum Replacement', provider: 'HP Enterprise Support', cost: 12000, scheduledDate: '2026-08-15', completedDate: '2026-08-16', notes: 'Scheduled roller cleaning and high-yield toner cartridge replacement.', status: 'completed' }
+      ];
+      this.set('asset_maintenances', maintenances);
+    }
+
+    let logs = this.get('asset_logs');
+    if (!logs || !logs.length) {
+      logs = [
+        { id: 1, assetId: 1, action: 'assignment', performedBy: 1, notes: 'Asset assigned to Usman Baig', timestamp: '2019-06-15T09:00:00.000Z' },
+        { id: 2, assetId: 3, action: 'assignment', performedBy: 1, notes: 'Asset assigned to Fatima Raza', timestamp: '2021-02-01T10:30:00.000Z' },
+        { id: 3, assetId: 1, action: 'maintenance', performedBy: 2, notes: 'Asset RAM & SSD upgrade completed', timestamp: '2025-11-12T14:00:00.000Z' }
+      ];
+      this.set('asset_logs', logs);
+    }
+  },
+
+  ensureTelemetryData() {
+    let notifs = this.get('notifications');
+    if (!notifs || !notifs.length) {
+      notifs = [
+        { id: 1, employeeId: 4, title: 'Travel Request Approved', message: 'Your business travel request TRV-2026-001 to Islamabad has been approved.', type: 'travel', isRead: true, createdAt: '2026-09-08T10:05:00.000Z' },
+        { id: 2, employeeId: 9, title: 'Exit Clearance Required', message: 'Please complete departmental clearance checkouts before September 15, 2026.', type: 'exit', isRead: false, createdAt: '2026-09-02T11:00:00.000Z' },
+        { id: 3, employeeId: 3, title: 'Asset Maintenance Completed', message: 'Your primary workstation Dell Laptop maintenance has been successfully signed off.', type: 'asset', isRead: true, createdAt: '2025-11-12T15:00:00.000Z' }
+      ];
+      this.set('notifications', notifs);
+    }
+
+    let emails = this.get('email_logs');
+    if (!emails || !emails.length) {
+      emails = [
+        { id: 1, recipient: 'fatima.raza@company.com', subject: 'Travel Request TRV-2026-001 Approved', templateCode: 'TRAVEL_APPROVED', status: 'sent', provider: 'Corporate SMTP / SendGrid', sentAt: '2026-09-08T10:05:00.000Z', errorMessage: null },
+        { id: 2, recipient: 'usman.baig@company.com', subject: 'Disciplinary Inquiry Resolution - CASE-2026-001', templateCode: 'DISCIPLINE_NOTICE', status: 'sent', provider: 'Corporate SMTP / SendGrid', sentAt: '2026-09-06T14:30:00.000Z', errorMessage: null },
+        { id: 3, recipient: 'tariq.hussain@company.com', subject: 'Exit Clearance Procedures & Checklist', templateCode: 'EXIT_CLEARANCE', status: 'sent', provider: 'Corporate SMTP / SendGrid', sentAt: '2026-09-02T11:00:00.000Z', errorMessage: null }
+      ];
+      this.set('email_logs', emails);
+    }
+
+    let sms = this.get('sms_logs');
+    if (!sms || !sms.length) {
+      sms = [
+        { id: 1, recipientPhone: '+923212345678', message: 'ApexHRM Alert: Monthly payroll generation initiated for August 2026.', provider: 'Telenor Enterprise SMS', status: 'delivered', sentAt: '2026-08-31T17:00:00.000Z', cost: 1.25 },
+        { id: 2, recipientPhone: '+923001234567', message: 'ApexHRM Security: 2FA One-Time Passcode is 782190. Valid for 5 minutes.', provider: 'Telenor Enterprise SMS', status: 'delivered', sentAt: '2026-09-09T08:15:00.000Z', cost: 1.25 }
+      ];
+      this.set('sms_logs', sms);
+    }
+
+    let acts = this.get('activity_logs');
+    if (!acts || !acts.length) {
+      acts = [
+        { id: 1, userId: 1, userName: 'Ahmed Khan', userRole: 'superadmin', action: 'CREATE', entityType: 'Organization', entityId: 1, details: 'Initialized enterprise organization Apex Global Enterprises', ipAddress: '192.168.10.1', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', createdAt: '2026-09-09T08:00:00.000Z' },
+        { id: 2, userId: 2, userName: 'Sara Malik', userRole: 'hr_manager', action: 'APPROVE', entityType: 'Resignation', entityId: 1, details: 'Approved resignation request RES-2026-001 for Tariq Hussain', ipAddress: '192.168.10.15', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', createdAt: '2026-09-02T10:30:00.000Z' },
+        { id: 3, userId: 1, userName: 'Ahmed Khan', userRole: 'superadmin', action: 'UPDATE', entityType: 'SalaryStructure', entityId: 1, details: 'Updated executive grade compensation allowances', ipAddress: '192.168.10.1', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', createdAt: '2026-09-08T16:45:00.000Z' }
+      ];
+      this.set('activity_logs', acts);
+    }
+
+    let tokens = this.get('api_tokens');
+    if (!tokens || !tokens.length) {
+      tokens = [
+        { id: 1, name: 'Biometric Attendance Sync Daemon', tokenHash: 'tok_live_bio_9f83a84b12c8e309d', permissions: '["attendance.create", "attendance.view"]', lastUsedAt: '2026-09-09T08:30:00.000Z', expiresAt: '2027-12-31T23:59:59.000Z', isActive: true, createdBy: 1, createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 2, name: 'SAP ERP Financials Connector', tokenHash: 'tok_live_erp_72cba012ef44810a', permissions: '["payroll.view", "travel_expenses.view", "expense_settlements.create"]', lastUsedAt: '2026-09-08T22:00:00.000Z', expiresAt: '2027-06-30T23:59:59.000Z', isActive: true, createdBy: 1, createdAt: '2026-02-15T00:00:00.000Z' },
+        { id: 3, name: 'Mobile App Gateway Service', tokenHash: 'tok_live_mob_55aa8823190cb47e', permissions: '["employees.view", "leaves.create", "travel_expenses.create", "notifications.view"]', lastUsedAt: '2026-09-09T08:45:00.000Z', expiresAt: '2028-01-01T00:00:00.000Z', isActive: true, createdBy: 1, createdAt: '2026-03-01T00:00:00.000Z' }
+      ];
+      this.set('api_tokens', tokens);
+    }
+  },
+
   reset() {
     Object.keys(localStorage).filter(k => k.startsWith('hrm_')).forEach(k => localStorage.removeItem(k));
     this.seed();
@@ -4345,6 +4703,15 @@ const Utils = {
   getBranchName(id) { return DB.find('branches', id)?.name || '—'; },
   getEmpName(id) { return DB.find('employees', id)?.fullName || '—'; },
   getLeaveTypeName(id) { return DB.find('leave_types', id)?.name || '—'; },
+  getOrgName(id) { return DB.find('organizations', id)?.name || '—'; },
+  getBusinessUnitName(id) { return DB.find('business_units', id)?.name || '—'; },
+  getDivisionName(id) { return DB.find('divisions', id)?.name || '—'; },
+  getCountryName(id) { return DB.find('countries', id)?.name || '—'; },
+  getStateName(id) { return DB.find('states', id)?.name || '—'; },
+  getCityName(id) { return DB.find('cities', id)?.name || '—'; },
+  getLocationName(id) { return DB.find('locations', id)?.name || '—'; },
+  getAssetCategoryName(id) { return DB.find('asset_categories', id)?.name || '—'; },
+  getAssetStatusName(id) { return DB.find('asset_statuses', id)?.name || '—'; },
   statusBadge(status, map = {}) {
     const defaults = {
       active: 'badge-success', inactive: 'badge-danger', pending: 'badge-warning',

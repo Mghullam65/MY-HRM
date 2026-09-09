@@ -20,6 +20,10 @@ model Department {
   employees   Employee[]
   designations Designation[]
   jobPostings JobPosting[]
+  divisionId   Int?
+  division     Division?     @relation(fields: [divisionId], references: [id])
+  businessUnitId Int?
+  businessUnit BusinessUnit? @relation(fields: [businessUnitId], references: [id])
 }
 
 model Designation {
@@ -44,6 +48,8 @@ model Branch {
   email        String?
   isHeadOffice Boolean     @default(false)
   employees    Employee[]
+  locationId   Int?
+  location     Location?   @relation(fields: [locationId], references: [id])
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 }
@@ -123,6 +129,12 @@ model Employee {
   expenseClaims        ExpenseClaim[]
   salaries             EmployeeSalary[]
   salaryReviews        SalaryReview[]
+  resignations         Resignation[]
+  exitInterviews       ExitInterview[]
+  clearances           Clearance[]
+  finalSettlements     FinalSettlement[]
+  assetAssignments     AssetAssignment[]
+  notifications        Notification[]
 
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -825,4 +837,341 @@ model SalaryReview {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 }
+
+// ==========================================
+// PHASE 3: MULTI-ENTITY GEO & BUSINESS HIERARCHY (7 Models)
+// ==========================================
+
+model Organization {
+  id            Int            @id @default(autoincrement())
+  code          String         @unique
+  name          String
+  legalName     String?
+  taxNumber     String?
+  website       String?
+  currency      String         @default("PKR")
+  businessUnits BusinessUnit[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model BusinessUnit {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  code           String       @unique
+  name           String
+  headOfUnit     String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  divisions      Division[]
+  departments    Department[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Division {
+  id             Int          @id @default(autoincrement())
+  businessUnitId Int
+  code           String       @unique
+  name           String
+  headOfDivision String?
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+  departments    Department[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model Country {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique // PK, AE, UK, US
+  name      String
+  phoneCode String?
+  currency  String?
+  states    State[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model State {
+  id        Int      @id @default(autoincrement())
+  countryId Int
+  code      String
+  name      String
+  country   Country  @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  cities    City[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([countryId, code])
+}
+
+model City {
+  id        Int        @id @default(autoincrement())
+  stateId   Int
+  name      String
+  state     State      @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  locations Location[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Location {
+  id        Int      @id @default(autoincrement())
+  cityId    Int
+  code      String   @unique
+  name      String
+  address   String?
+  zipCode   String?
+  city      City     @relation(fields: [cityId], references: [id], onDelete: Cascade)
+  branches  Branch[]
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// PHASE 3: EXIT & SEPARATION LIFECYCLE (5 Models)
+// ==========================================
+
+model ExitReason {
+  id           Int           @id @default(autoincrement())
+  code         String        @unique
+  title        String
+  category     String        @default("Voluntary") // Voluntary, Involuntary, Retirement, Health
+  description  String?
+  resignations Resignation[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Resignation {
+  id                     Int               @id @default(autoincrement())
+  employeeId             Int
+  exitReasonId           Int?
+  noticeDate             String            // YYYY-MM-DD
+  requestedRelievingDate String            // YYYY-MM-DD
+  approvedRelievingDate  String?           // YYYY-MM-DD
+  reasonDetails          String
+  status                 String            @default("submitted") // submitted, approved, rejected, withdrawn, completed
+  approvedBy             Int?
+  approvedAt             DateTime?
+  remarks                String?
+  employee               Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  exitReason             ExitReason?       @relation(fields: [exitReasonId], references: [id])
+  exitInterviews         ExitInterview[]
+  clearances             Clearance[]
+  finalSettlements       FinalSettlement[]
+  createdAt              DateTime          @default(now())
+  updatedAt              DateTime          @updatedAt
+}
+
+model ExitInterview {
+  id                    Int         @id @default(autoincrement())
+  resignationId         Int
+  employeeId            Int
+  conductedBy           Int
+  interviewDate         String      // YYYY-MM-DD
+  ratingWorkEnvironment Int         @default(3)
+  ratingManagement      Int         @default(3)
+  ratingCompensation    Int         @default(3)
+  feedbackBestPart      String?
+  feedbackImprovement   String?
+  wouldRehire           Boolean     @default(true)
+  notes                 String?
+  resignation           Resignation @relation(fields: [resignationId], references: [id], onDelete: Cascade)
+  employee              Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model Clearance {
+  id            Int         @id @default(autoincrement())
+  resignationId Int
+  employeeId    Int
+  department    String      // IT, Finance, Administration, HR
+  status        String      @default("pending") // pending, cleared, rejected
+  clearedBy     Int?
+  clearedAt     DateTime?
+  remarks       String?
+  resignation   Resignation @relation(fields: [resignationId], references: [id], onDelete: Cascade)
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model FinalSettlement {
+  id                    Int         @id @default(autoincrement())
+  resignationId         Int
+  employeeId            Int
+  settlementDate        String      // YYYY-MM-DD
+  leaveEncashmentDays   Float       @default(0)
+  leaveEncashmentAmount Float       @default(0)
+  gratuityAmount        Float       @default(0)
+  noticePeriodPayable   Float       @default(0)
+  pendingSalary         Float       @default(0)
+  deductionsAmount      Float       @default(0)
+  netPayableAmount      Float       @default(0)
+  status                String      @default("pending") // pending, approved, disbursed
+  disbursedDate         String?
+  paymentMethod         String      @default("Bank Transfer")
+  resignation           Resignation @relation(fields: [resignationId], references: [id], onDelete: Cascade)
+  employee              Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+// ==========================================
+// PHASE 3: ASSET & HARDWARE LIFECYCLE (6 Models)
+// ==========================================
+
+model AssetCategory {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  name             String
+  depreciationRate Float    @default(20.0) // % per annum
+  description      String?
+  assets           Asset[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model AssetStatus {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique // available, assigned, maintenance, retired, lost
+  label     String
+  color     String   @default("#10b981")
+  assets    Asset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Asset {
+  id             Int                @id @default(autoincrement())
+  assetTag       String             @unique // AST-2026-001
+  name           String
+  categoryId     Int
+  statusId       Int?
+  serialNo       String?
+  model          String?
+  manufacturer   String?
+  purchaseDate   String?            // YYYY-MM-DD
+  purchasePrice  Float              @default(0)
+  warrantyExpiry String?            // YYYY-MM-DD
+  locationId     Int?
+  category       AssetCategory      @relation(fields: [categoryId], references: [id])
+  status         AssetStatus?       @relation(fields: [statusId], references: [id])
+  location       Location?          @relation(fields: [locationId], references: [id])
+  assignments    AssetAssignment[]
+  maintenances   AssetMaintenance[]
+  logs           AssetLog[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model AssetAssignment {
+  id                Int       @id @default(autoincrement())
+  assetId           Int
+  employeeId        Int
+  assignedDate      String    // YYYY-MM-DD
+  returnDate        String?   // YYYY-MM-DD
+  conditionOnAssign String    @default("Brand New / Excellent")
+  conditionOnReturn String?
+  handoverSigned    Boolean   @default(false)
+  handoverSignedAt  DateTime?
+  asset             Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  employee          Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model AssetMaintenance {
+  id               Int       @id @default(autoincrement())
+  assetId          Int
+  maintenanceDate  String    // YYYY-MM-DD
+  serviceProvider  String
+  issueDescription String
+  resolutionNotes  String?
+  cost             Float     @default(0)
+  nextServiceDate  String?
+  asset            Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model AssetLog {
+  id          Int      @id @default(autoincrement())
+  assetId     Int
+  action      String   // REGISTERED, ASSIGNED, RETURNED, SERVICED, AUDITED
+  performedBy Int?
+  details     String
+  timestamp   DateTime @default(now())
+  asset       Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+}
+
+// ==========================================
+// PHASE 3: COMMUNICATION & TELEMETRY (5 Models)
+// ==========================================
+
+model Notification {
+  id            Int       @id @default(autoincrement())
+  recipientId   Int?
+  recipientRole String    @default("all")
+  title         String
+  message       String
+  type          String    @default("system") // system, travel, compliance, letter, attendance
+  priority      String    @default("normal") // normal, high, urgent
+  link          String?
+  isRead        Boolean   @default(false)
+  readAt        DateTime?
+  employee      Employee? @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model EmailLog {
+  id             Int      @id @default(autoincrement())
+  recipientEmail String
+  subject        String
+  templateCode   String?
+  status         String   @default("sent") // sent, failed, queued
+  errorMessage   String?
+  sentAt         DateTime @default(now())
+}
+
+model SMSLog {
+  id             Int      @id @default(autoincrement())
+  recipientPhone String
+  message        String
+  gateway        String   @default("Twilio / Telenor Gateway")
+  status         String   @default("delivered") // sent, delivered, failed
+  providerRef    String?
+  sentAt         DateTime @default(now())
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  userRole    String?
+  action      String   // LOGIN, CREATE_REQUISITION, APPROVE_LEAVE, MODIFY_SALARY
+  module      String   // Auth, Employees, Payroll, Travel, Governance
+  entityId    String?
+  description String
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+}
+
+model ApiToken {
+  id          Int       @id @default(autoincrement())
+  name        String
+  tokenPrefix String
+  tokenHash   String    @unique
+  scopes      String    // comma-separated scopes e.g. read:employees,write:attendance
+  userId      Int
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
 

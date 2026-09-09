@@ -16,6 +16,7 @@ const Settings = {
       { id: 'payroll_config', label: 'Payroll Config', icon: 'fa-money-bill-wave' },
       { id: 'notifications', label: 'Notifications', icon: 'fa-bell' },
       { id: 'webhooks', label: 'Webhooks & Integrations', icon: 'fa-network-wired' },
+      { id: 'security_telemetry', label: 'Security & API Tokens', icon: 'fa-key' },
       { id: 'appearance', label: 'Appearance', icon: 'fa-palette' },
       { id: 'backup', label: 'Backup & Restore', icon: 'fa-database' },
       { id: 'system', label: 'System', icon: 'fa-server' },
@@ -49,17 +50,18 @@ const Settings = {
     const c = document.getElementById('settings-content');
     if (!c) return;
     switch (this.currentSection) {
-      case 'company':          this.renderCompany(c); break;
-      case 'general':          this.renderGeneral(c); break;
-      case 'roles_permissions': this.renderRolesPermissions(c); break;
-      case 'attendance_rules': this.renderAttendanceRules(c); break;
-      case 'leave_policy':     this.renderLeavePolicy(c); break;
-      case 'payroll_config':   this.renderPayrollConfig(c); break;
-      case 'notifications':    this.renderNotifications(c); break;
-      case 'webhooks':         this.renderWebhooks(c); break;
-      case 'appearance':       this.renderAppearance(c); break;
-      case 'backup':           this.renderBackup(c); break;
-      case 'system':           this.renderSystem(c); break;
+      case 'company':            this.renderCompany(c); break;
+      case 'general':            this.renderGeneral(c); break;
+      case 'roles_permissions':  this.renderRolesPermissions(c); break;
+      case 'attendance_rules':   this.renderAttendanceRules(c); break;
+      case 'leave_policy':       this.renderLeavePolicy(c); break;
+      case 'payroll_config':     this.renderPayrollConfig(c); break;
+      case 'notifications':      this.renderNotifications(c); break;
+      case 'webhooks':           this.renderWebhooks(c); break;
+      case 'security_telemetry': this.renderSecurityTelemetry(c); break;
+      case 'appearance':         this.renderAppearance(c); break;
+      case 'backup':             this.renderBackup(c); break;
+      case 'system':             this.renderSystem(c); break;
     }
   },
 
@@ -1047,6 +1049,374 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
       w.lastStatus = 200;
     });
     DB.set('webhooks', webhooks);
+  },
+
+  // ─── Security & Communication Telemetry ──────────
+  renderSecurityTelemetry(c) {
+    const tokens = DB.get('api_tokens') || [];
+    const activeTokens = tokens.filter(t => t.isActive);
+    const emails = DB.get('email_logs') || [];
+    const sms = DB.get('sms_logs') || [];
+    const activities = DB.get('activity_logs') || [];
+
+    c.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:18px">
+        <!-- Header Card -->
+        <div class="card" style="padding:18px 24px;background:linear-gradient(135deg, rgba(30,41,59,0.7) 0%, rgba(15,23,42,0.9) 100%);border:1px solid rgba(255,255,255,0.08);border-radius:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg, #6366f1, #a855f7);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px">
+                <i class="fa fa-shield-halved"></i>
+              </div>
+              <div>
+                <div style="font-size:17px;font-weight:700;color:var(--text)">Enterprise Security & Communication Telemetry</div>
+                <div style="font-size:12px;color:var(--text-3);margin-top:2px">Cryptographic API bearer tokens, multi-channel transactional dispatches, and immutable forensic event audit trail</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary btn-sm" onclick="Settings.simulateTelemetryPing()">
+                <i class="fa fa-paper-plane"></i> Test Gateway Dispatch
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="Settings.showApiTokenModal()">
+                <i class="fa fa-key"></i> Generate API Bearer Key
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI Strip -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;margin-top:20px">
+            <div style="background:var(--surface-2);border-radius:10px;padding:12px 16px;border:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Active API Tokens</div>
+              <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${activeTokens.length} / ${tokens.length}</div>
+            </div>
+            <div style="background:var(--surface-2);border-radius:10px;padding:12px 16px;border:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Dispatched Emails</div>
+              <div style="font-size:22px;font-weight:800;color:var(--info);margin-top:4px">${emails.length}</div>
+            </div>
+            <div style="background:var(--surface-2);border-radius:10px;padding:12px 16px;border:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">SMS Notifications</div>
+              <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:4px">${sms.length}</div>
+            </div>
+            <div style="background:var(--surface-2);border-radius:10px;padding:12px 16px;border:1px solid var(--border)">
+              <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Forensic Logs</div>
+              <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:4px">${activities.length}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: API Bearer Keys -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">API Bearer Access Tokens</span>
+              <span style="margin-left:8px;font-size:12px;color:var(--text-3)">Machine-to-machine integrations (Biometric, SAP, Mobile)</span>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="Settings.showApiTokenModal()"><i class="fa fa-plus"></i> New Token</button>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Client / Service Name</th>
+                  <th>Bearer Token Key</th>
+                  <th>Scope Permissions</th>
+                  <th>Last Used</th>
+                  <th>Expiration</th>
+                  <th>Status</th>
+                  <th style="text-align:right">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tokens.map(t => {
+                  let perms = [];
+                  try { perms = typeof t.permissions === 'string' ? JSON.parse(t.permissions) : t.permissions; } catch {}
+                  return `<tr>
+                    <td style="font-weight:700">
+                      <i class="fa fa-server" style="color:var(--primary);margin-right:6px"></i>${t.name}
+                    </td>
+                    <td>
+                      <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px;font-size:11.5px;color:var(--primary)">${t.tokenHash.substring(0, 14)}••••••••</code>
+                    </td>
+                    <td>
+                      <div style="display:flex;flex-wrap:wrap;gap:4px">
+                        ${perms.map(p => `<span class="badge badge-secondary" style="font-size:10px">${p}</span>`).join('')}
+                      </div>
+                    </td>
+                    <td style="font-size:12px;color:var(--text-2)">${t.lastUsedAt ? Utils.formatDate(t.lastUsedAt) : 'Never'}</td>
+                    <td style="font-size:12px;color:var(--text-2)">${t.expiresAt ? Utils.formatDate(t.expiresAt) : 'Permanent'}</td>
+                    <td>${t.isActive ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Revoked</span>'}</td>
+                    <td style="text-align:right">
+                      <div class="tbl-actions" style="justify-content:flex-end">
+                        ${t.isActive ? `
+                          <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Settings.revokeApiToken(${t.id})" title="Revoke Token">
+                            <i class="fa fa-ban"></i>
+                          </button>
+                        ` : `
+                          <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--success)" onclick="Settings.reactivateApiToken(${t.id})" title="Reactivate Token">
+                            <i class="fa fa-rotate-right"></i>
+                          </button>
+                        `}
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 2: Communication Telemetry (Email & SMS Logs) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+          <!-- Email Logs -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+              <span style="font-size:14px;font-weight:700">Transactional Email Dispatches</span>
+              <span style="margin-left:8px;font-size:12px;color:var(--text-3)">${emails.length} logs</span>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Recipient</th>
+                    <th>Subject</th>
+                    <th>Provider</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${emails.map(e => `<tr>
+                    <td style="font-size:12px;font-weight:600">${e.recipient}</td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600">${e.subject}</div>
+                      <div style="font-size:10px;color:var(--text-3)">Template: ${e.templateCode}</div>
+                    </td>
+                    <td style="font-size:11px;color:var(--text-2)">${e.provider}</td>
+                    <td><span class="badge badge-success">${e.status}</span></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SMS Logs -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+              <span style="font-size:14px;font-weight:700">Enterprise SMS Delivery Logs</span>
+              <span style="margin-left:8px;font-size:12px;color:var(--text-3)">${sms.length} logs</span>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Phone</th>
+                    <th>Message</th>
+                    <th>Gateway</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${sms.map(s => `<tr>
+                    <td style="font-size:12px;font-family:monospace;font-weight:600">${s.recipientPhone}</td>
+                    <td style="font-size:11.5px;color:var(--text-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.message}">${s.message}</td>
+                    <td style="font-size:11px;color:var(--text-2)">${s.provider}</td>
+                    <td><span class="badge badge-success">${s.status}</span></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Forensic Activity Trail -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">Forensic Activity & Telemetry Trail</span>
+              <span style="margin-left:8px;font-size:12px;color:var(--text-3)">Live audit trace</span>
+            </div>
+          </div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Operator</th>
+                  <th>Action</th>
+                  <th>Entity</th>
+                  <th>Forensic Details</th>
+                  <th>Client IP</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${activities.map(a => `<tr>
+                  <td style="font-size:11.5px;color:var(--text-3);white-space:nowrap">${Utils.formatDate(a.createdAt)}</td>
+                  <td>
+                    <span style="font-weight:600;font-size:12.5px">${a.userName}</span>
+                    <span class="badge badge-secondary" style="margin-left:4px;font-size:9px">${a.userRole}</span>
+                  </td>
+                  <td>
+                    <span class="badge ${a.action==='CREATE'?'badge-success':a.action==='UPDATE'?'badge-warning':a.action==='APPROVE'?'badge-info':'badge-primary'}" style="font-size:10px;font-weight:700">
+                      ${a.action}
+                    </span>
+                  </td>
+                  <td><span class="chip" style="font-size:11px">${a.entityType} #${a.entityId || 1}</span></td>
+                  <td style="font-size:12px;color:var(--text-2)">${a.details}</td>
+                  <td><code style="font-size:11px">${a.ipAddress}</code></td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showApiTokenModal() {
+    Modal.show('Generate New API Bearer Token', `
+      <div class="form-group">
+        <label class="form-label required">Integration / Service Name</label>
+        <input class="form-control" id="token-name" placeholder="e.g. HR Mobile App or Biometric Device Gateway">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Granted Scope Permissions</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;background:var(--surface-2);padding:12px;border-radius:8px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="employees.view" checked> Read Employees
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="attendance.create" checked> Record Attendance
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="leaves.create"> File Leaves
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="payroll.view"> Inspect Payroll
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="travel_expenses.create"> Submit Expenses
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <input type="checkbox" class="token-scope-chk" value="notifications.view" checked> Read Notifications
+          </label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Key Validity Period</label>
+        <select class="form-control" id="token-expiry">
+          <option value="90">90 Days</option>
+          <option value="180">180 Days (6 Months)</option>
+          <option value="365" selected>1 Year (365 Days)</option>
+          <option value="730">2 Years</option>
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Settings.saveApiToken()"><i class="fa fa-key"></i> Generate Token</button>
+      `
+    });
+  },
+
+  saveApiToken() {
+    const name = document.getElementById('token-name').value.trim();
+    if (!name) { Toast.show('Please enter service name', 'error'); return; }
+    const scopes = Array.from(document.querySelectorAll('.token-scope-chk:checked')).map(c => c.value);
+    const days = parseInt(document.getElementById('token-expiry').value);
+    const expDate = new Date();
+    expDate.setDate(expDate.getDate() + days);
+
+    const randomHex = Array.from({length: 32}, () => Math.floor(Math.random()*16).toString(16)).join('');
+    const rawKey = `tok_live_${randomHex}`;
+
+    DB.add('api_tokens', {
+      id: DB.nextId('api_tokens'),
+      name,
+      tokenHash: rawKey,
+      permissions: JSON.stringify(scopes),
+      lastUsedAt: null,
+      expiresAt: expDate.toISOString(),
+      isActive: true,
+      createdBy: Auth.user?.id || 1,
+      createdAt: new Date().toISOString()
+    });
+
+    DB.log('ADD', 'Settings', `API Bearer Token generated for ${name}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+
+    Modal.show('API Token Created Successfully', `
+      <div style="text-align:center;padding:12px 0">
+        <i class="fa fa-circle-check" style="font-size:42px;color:var(--success);margin-bottom:12px"></i>
+        <h4 style="margin:0 0 6px 0">API Bearer Token Ready</h4>
+        <p style="font-size:12px;color:var(--text-3);margin:0 0 16px 0">Copy your API token now. For security purposes, it will not be displayed in full again.</p>
+        <div style="background:var(--surface-2);border:1px dashed var(--primary);padding:10px 14px;border-radius:8px;font-family:monospace;font-size:12.5px;color:var(--primary);word-break:break-all;user-select:all">
+          ${rawKey}
+        </div>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">I Have Saved This Key</button>`
+    });
+
+    this.renderSection();
+  },
+
+  revokeApiToken(id) {
+    const token = DB.find('api_tokens', id);
+    Modal.confirm('Revoke API Token', `Are you sure you want to revoke API token <strong>${token?.name}</strong>? Any connected daemon will immediately receive HTTP 401 Unauthorized.`, () => {
+      DB.update('api_tokens', id, { isActive: false });
+      DB.log('UPDATE', 'Settings', `API Token ${token?.name} revoked`, Auth.user?.id);
+      Toast.show('API Token revoked!', 'warning');
+      this.renderSection();
+    }, 'danger');
+  },
+
+  reactivateApiToken(id) {
+    DB.update('api_tokens', id, { isActive: true });
+    Toast.show('API Token reactivated!', 'success');
+    this.renderSection();
+  },
+
+  simulateTelemetryPing() {
+    Toast.show('Dispatching multi-channel telemetry ping to SendGrid & Telenor SMS...', 'info');
+    setTimeout(() => {
+      const now = new Date().toISOString();
+      DB.add('email_logs', {
+        id: DB.nextId('email_logs'),
+        recipient: 'admin@company.com',
+        subject: 'Live Security Telemetry Ping Confirmation',
+        templateCode: 'SYS_PING',
+        status: 'sent',
+        provider: 'Corporate SMTP / SendGrid',
+        sentAt: now,
+        errorMessage: null
+      });
+
+      DB.add('sms_logs', {
+        id: DB.nextId('sms_logs'),
+        recipientPhone: '+923001234567',
+        message: 'ApexHRM Telemetry: Multi-channel gateway broadcast test successfully verified.',
+        provider: 'Telenor Enterprise SMS',
+        status: 'delivered',
+        sentAt: now,
+        cost: 1.25
+      });
+
+      DB.add('activity_logs', {
+        id: DB.nextId('activity_logs'),
+        userId: Auth.user?.id || 1,
+        userName: Auth.user?.name || 'Ahmed Khan',
+        userRole: Auth.role || 'superadmin',
+        action: 'TEST',
+        entityType: 'TelemetryGateway',
+        entityId: 1,
+        details: 'Dispatched simulated multi-channel telemetry ping',
+        ipAddress: '192.168.10.1',
+        userAgent: navigator.userAgent || 'Enterprise Browser',
+        createdAt: now
+      });
+
+      Toast.show('Telemetry dispatches successfully logged!', 'success');
+      this.renderSection();
+    }, 400);
   },
 
   // ─── Appearance ───────────────────────────────────

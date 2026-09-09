@@ -16,6 +16,8 @@ const Administration = {
 
     const sections = [
       { id:'departments', label:'Departments', icon:'fa-building-user' },
+      { id:'business_units', label:'Business Units & Divisions', icon:'fa-sitemap' },
+      { id:'geo_locations', label:'Geo & Country Hierarchy', icon:'fa-earth-asia' },
       { id:'designations', label:'Designations', icon:'fa-id-badge' },
       { id:'branches', label:'Branches', icon:'fa-building' },
       { id:'shifts', label:'Shifts & Windows', icon:'fa-clock' },
@@ -67,22 +69,24 @@ const Administration = {
     if (!container) return;
 
     switch(this.currentSection) {
-      case 'departments':   this.renderDepartments(container); break;
-      case 'designations':  this.renderDesignations(container); break;
-      case 'branches':      this.renderBranches(container); break;
-      case 'shifts':        this.renderShifts(container); break;
-      case 'discrepancies': this.renderDiscrepancies(container); break;
-      case 'banks':         this.renderBanks(container); break;
-      case 'salary_grades': this.renderSalaryGrades(container); break;
-      case 'skills':        this.renderSkills(container); break;
-      case 'projects':      this.renderProjects(container); break;
-      case 'teams':         this.renderTeams(container); break;
-      case 'assets':        this.renderAssets(container); break;
-      case 'users':         this.renderUsers(container); break;
-      case 'roles':         this.renderRoles(container); break;
-      case 'audit':         this.renderAuditLog(container); break;
-      case 'holidays':      this.renderHolidays(container); break;
-      default:              container.innerHTML = '<div class="empty-state"><i class="fa fa-construction"></i><h3>Coming Soon</h3></div>';
+      case 'departments':    this.renderDepartments(container); break;
+      case 'business_units': this.renderBusinessUnits(container); break;
+      case 'geo_locations':  this.renderGeoLocations(container); break;
+      case 'designations':   this.renderDesignations(container); break;
+      case 'branches':       this.renderBranches(container); break;
+      case 'shifts':         this.renderShifts(container); break;
+      case 'discrepancies':  this.renderDiscrepancies(container); break;
+      case 'banks':          this.renderBanks(container); break;
+      case 'salary_grades':  this.renderSalaryGrades(container); break;
+      case 'skills':         this.renderSkills(container); break;
+      case 'projects':       this.renderProjects(container); break;
+      case 'teams':          this.renderTeams(container); break;
+      case 'assets':         this.renderAssets(container); break;
+      case 'users':          this.renderUsers(container); break;
+      case 'roles':          this.renderRoles(container); break;
+      case 'audit':          this.renderAuditLog(container); break;
+      case 'holidays':       this.renderHolidays(container); break;
+      default:               container.innerHTML = '<div class="empty-state"><i class="fa fa-construction"></i><h3>Coming Soon</h3></div>';
     }
   },
 
@@ -777,6 +781,576 @@ const Administration = {
       `<button class="btn btn-primary btn-sm" onclick="Administration.showAddHoliday()"><i class="fa fa-plus"></i> Add Holiday</button>`,
       ['Holiday Name','Date','Type','Mandatory','Actions'], rows, holidays.length
     );
+  },
+
+  renderBusinessUnits(container) {
+    const org = DB.get('organizations')[0] || { name: 'Apex Global Enterprises (Pvt) Ltd', code: 'APEX-GRP', taxId: 'TRN-998822-PK', currency: 'PKR', fiscalYearStart: '07-01' };
+    const bus = DB.get('business_units');
+    const divs = DB.get('divisions');
+    const depts = DB.get('departments');
+
+    const buRows = bus.map(b => {
+      const buDivs = divs.filter(d => d.businessUnitId === b.id);
+      return `<tr>
+        <td style="font-weight:700">${b.name}</td>
+        <td><span class="chip" style="font-weight:600">${b.code}</span></td>
+        <td>${Utils.getEmpName(b.headEmployeeId)}</td>
+        <td><span class="badge badge-info">${buDivs.length} Divisions</span></td>
+        <td style="font-size:12px;color:var(--text-2);max-width:280px">${b.description || '—'}</td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editBusinessUnit(${b.id})"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteBusinessUnit(${b.id})"><i class="fa fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const divRows = divs.map(d => {
+      const parentBU = bus.find(b => b.id === d.businessUnitId);
+      const mappedDepts = depts.filter(dp => dp.divisionId === d.id);
+      return `<tr>
+        <td style="font-weight:700">${d.name}</td>
+        <td><span class="chip" style="font-weight:600">${d.code}</span></td>
+        <td><span style="font-weight:600;color:var(--primary)">${parentBU ? parentBU.name : '—'}</span></td>
+        <td>${Utils.getEmpName(d.headEmployeeId)}</td>
+        <td>${mappedDepts.map(dp => `<span class="badge badge-secondary" style="margin-right:4px">${dp.name}</span>`).join('') || '<span class="text-muted">None</span>'}</td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editDivision(${d.id})"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteDivision(${d.id})"><i class="fa fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <!-- Organization Header Banner -->
+        <div class="card" style="padding:18px 24px;background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.05) 100%);border:1px solid rgba(99,102,241,0.2);border-radius:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:40px;height:40px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">
+                  <i class="fa fa-building-flag"></i>
+                </div>
+                <div>
+                  <h3 style="margin:0;font-size:17px;font-weight:700">${org.name}</h3>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                    Entity Code: <strong>${org.code}</strong> | Tax ID: <strong>${org.taxId}</strong> | Currency: <strong>${org.currency}</strong> | Fiscal Start: <strong>${org.fiscalYearStart}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:16px">
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Business Units</div>
+                <div style="font-size:18px;font-weight:800;color:var(--primary)">${bus.length}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Operating Divisions</div>
+                <div style="font-size:18px;font-weight:800;color:var(--success)">${divs.length}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Departments</div>
+                <div style="font-size:18px;font-weight:800;color:var(--info)">${depts.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Business Units Table -->
+        ${this.tableCard('Enterprise Business Units',
+          Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddBusinessUnit()"><i class="fa fa-plus"></i> Add Business Unit</button>` : '',
+          ['Business Unit Name','Code','Head of Unit','Divisions','Description','Actions'], buRows, bus.length
+        )}
+
+        <!-- Divisions Table -->
+        ${this.tableCard('Corporate Operating Divisions',
+          Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddDivision()"><i class="fa fa-plus"></i> Add Division</button>` : '',
+          ['Division Name','Code','Business Unit','Division Head','Mapped Departments','Actions'], divRows, divs.length
+        )}
+      </div>
+    `;
+  },
+
+  renderGeoLocations(container) {
+    const countries = DB.get('countries');
+    const states = DB.get('states');
+    const cities = DB.get('cities');
+    const locations = DB.get('locations');
+
+    const countryRows = countries.map(c => `<tr>
+      <td style="font-weight:700">${c.name}</td>
+      <td><span class="chip">${c.code}</span> <span class="badge badge-secondary">${c.iso2}</span></td>
+      <td>${c.phoneCode}</td>
+      <td><strong>${c.currency}</strong></td>
+      <td>${Utils.statusBadge(c.status || 'active')}</td>
+      <td>
+        <div class="tbl-actions">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editCountry(${c.id})"><i class="fa fa-pen"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteCountry(${c.id})"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+
+    const stateRows = states.map(s => {
+      const parentCountry = countries.find(c => c.id === s.countryId);
+      return `<tr>
+        <td style="font-weight:700">${s.name}</td>
+        <td>${parentCountry ? parentCountry.name : '—'}</td>
+        <td><span class="chip">${s.code}</span></td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editState(${s.id})"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteState(${s.id})"><i class="fa fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const cityRows = cities.map(ci => {
+      const parentState = states.find(s => s.id === ci.stateId);
+      return `<tr>
+        <td style="font-weight:700">${ci.name}</td>
+        <td>${parentState ? parentState.name : '—'}</td>
+        <td><span class="chip">${ci.postalCode || '—'}</span></td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editCity(${ci.id})"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteCity(${ci.id})"><i class="fa fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const locRows = locations.map(l => {
+      const city = cities.find(ci => ci.id === l.cityId);
+      const state = states.find(s => s.id === l.stateId);
+      return `<tr>
+        <td style="font-weight:700">${l.name}</td>
+        <td>${city ? city.name : (l.country || '—')} ${state ? '(' + state.name + ')' : ''}</td>
+        <td style="font-size:12px;color:var(--text-2)">${l.address || 'Corporate Facility'}</td>
+        <td>${Utils.statusBadge(l.status || 'active')}</td>
+        <td>
+          <div class="tbl-actions">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="Administration.editLocation(${l.id})"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" style="color:var(--danger)" onclick="Administration.deleteLocation(${l.id})"><i class="fa fa-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <!-- Quick stats -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px">
+          <div class="card" style="padding:16px;display:flex;align-items:center;gap:14px">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fa fa-globe"></i></div>
+            <div><div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Countries</div><div style="font-size:20px;font-weight:800">${countries.length}</div></div>
+          </div>
+          <div class="card" style="padding:16px;display:flex;align-items:center;gap:14px">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(16,185,129,0.12);color:var(--success);display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fa fa-map"></i></div>
+            <div><div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Provinces / States</div><div style="font-size:20px;font-weight:800">${states.length}</div></div>
+          </div>
+          <div class="card" style="padding:16px;display:flex;align-items:center;gap:14px">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(245,158,11,0.12);color:var(--warning);display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fa fa-city"></i></div>
+            <div><div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Cities</div><div style="font-size:20px;font-weight:800">${cities.length}</div></div>
+          </div>
+          <div class="card" style="padding:16px;display:flex;align-items:center;gap:14px">
+            <div style="width:42px;height:42px;border-radius:10px;background:rgba(59,130,246,0.12);color:var(--info);display:flex;align-items:center;justify-content:center;font-size:18px"><i class="fa fa-location-dot"></i></div>
+            <div><div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Campuses / Sites</div><div style="font-size:20px;font-weight:800">${locations.length}</div></div>
+          </div>
+        </div>
+
+        <!-- Countries Table -->
+        ${this.tableCard('Operating Countries & Jurisdictions',
+          Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddCountry()"><i class="fa fa-plus"></i> Add Country</button>` : '',
+          ['Country Name','Codes','Dialing Prefix','Currency','Status','Actions'], countryRows, countries.length
+        )}
+
+        <!-- States & Provinces Table -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          ${this.tableCard('Provinces & States',
+            Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddState()"><i class="fa fa-plus"></i> Add State</button>` : '',
+            ['State Name','Country','Code','Actions'], stateRows, states.length
+          )}
+
+          ${this.tableCard('Cities & Metropolitans',
+            Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddCity()"><i class="fa fa-plus"></i> Add City</button>` : '',
+            ['City Name','State','Postal Code','Actions'], cityRows, cities.length
+          )}
+        </div>
+
+        <!-- Campuses & Physical Locations -->
+        ${this.tableCard('Enterprise Campus & Facility Locations',
+          Auth.role==='superadmin' ? `<button class="btn btn-primary btn-sm" onclick="Administration.showAddLocation()"><i class="fa fa-plus"></i> Add Location</button>` : '',
+          ['Location Name','City / State','Physical Address','Status','Actions'], locRows, locations.length
+        )}
+      </div>
+    `;
+  },
+
+  // ── Business Units Handlers ──
+  showAddBusinessUnit() {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    this._genericForm('Add Business Unit', [
+      { id: 'bu-name', label: 'Business Unit Name', required: true, placeholder: 'e.g. Enterprise Platforms' },
+      { id: 'bu-code', label: 'BU Code', required: true, placeholder: 'e.g. BU-EP', maxlength: 10 },
+      { id: 'bu-head', label: 'Unit Head', type: 'select', options: emps.map(e => ({ value: e.id, label: e.fullName })) },
+      { id: 'bu-desc', label: 'Description', type: 'textarea', placeholder: 'Operational mandate...' }
+    ], 'Administration.saveBusinessUnit()');
+  },
+
+  saveBusinessUnit() {
+    const name = document.getElementById('bu-name').value.trim();
+    const code = document.getElementById('bu-code').value.trim().toUpperCase();
+    const headEmployeeId = parseInt(document.getElementById('bu-head').value);
+    const description = document.getElementById('bu-desc').value.trim();
+    if (!name || !code) { Toast.show('Please fill required fields', 'error'); return; }
+    DB.add('business_units', { id: DB.nextId('business_units'), orgId: 1, name, code, headEmployeeId, description });
+    DB.log('ADD', 'Administration', `Business Unit ${name} (${code}) created`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Business Unit added!', 'success');
+    this.renderSection();
+  },
+
+  editBusinessUnit(id) {
+    const bu = DB.find('business_units', id);
+    if (!bu) return;
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    this._genericForm(`Edit — ${bu.name}`, [
+      { id: 'bu-ename', label: 'Business Unit Name', required: true, value: bu.name },
+      { id: 'bu-ecode', label: 'BU Code', required: true, value: bu.code, maxlength: 10 },
+      { id: 'bu-ehead', label: 'Unit Head', type: 'select', value: bu.headEmployeeId, options: emps.map(e => ({ value: e.id, label: e.fullName })) },
+      { id: 'bu-edesc', label: 'Description', type: 'textarea', value: bu.description || '' }
+    ], `Administration.updateBusinessUnit(${id})`);
+  },
+
+  updateBusinessUnit(id) {
+    DB.update('business_units', id, {
+      name: document.getElementById('bu-ename').value.trim(),
+      code: document.getElementById('bu-ecode').value.trim().toUpperCase(),
+      headEmployeeId: parseInt(document.getElementById('bu-ehead').value),
+      description: document.getElementById('bu-edesc').value.trim()
+    });
+    Modal.close('dynamic-modal');
+    DB.log('UPDATE', 'Administration', `Business Unit updated`, Auth.user?.id);
+    Toast.show('Business Unit updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteBusinessUnit(id) {
+    const bu = DB.find('business_units', id);
+    Modal.confirm('Delete Business Unit', `Are you sure you want to delete <strong>${bu?.name}</strong>?`,
+      () => {
+        DB.delete('business_units', id);
+        DB.log('DELETE', 'Administration', `Business Unit ${bu?.name} deleted`, Auth.user?.id);
+        Toast.show('Business Unit deleted!', 'warning');
+        this.renderSection();
+      }, 'danger');
+  },
+
+  // ── Divisions Handlers ──
+  showAddDivision() {
+    const bus = DB.get('business_units');
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    this._genericForm('Add Operating Division', [
+      { id: 'div-name', label: 'Division Name', required: true, placeholder: 'e.g. Cloud Architecture' },
+      { id: 'div-code', label: 'Division Code', required: true, placeholder: 'e.g. DIV-CA', maxlength: 10 },
+      { id: 'div-bu', label: 'Parent Business Unit', type: 'select', options: bus.map(b => ({ value: b.id, label: b.name })) },
+      { id: 'div-head', label: 'Division Head', type: 'select', options: emps.map(e => ({ value: e.id, label: e.fullName })) },
+      { id: 'div-desc', label: 'Description', type: 'textarea', placeholder: 'Division objectives...' }
+    ], 'Administration.saveDivision()');
+  },
+
+  saveDivision() {
+    const name = document.getElementById('div-name').value.trim();
+    const code = document.getElementById('div-code').value.trim().toUpperCase();
+    const businessUnitId = parseInt(document.getElementById('div-bu').value);
+    const headEmployeeId = parseInt(document.getElementById('div-head').value);
+    const description = document.getElementById('div-desc').value.trim();
+    if (!name || !code) { Toast.show('Please fill required fields', 'error'); return; }
+    DB.add('divisions', { id: DB.nextId('divisions'), businessUnitId, name, code, headEmployeeId, description });
+    DB.log('ADD', 'Administration', `Division ${name} (${code}) created`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Division added!', 'success');
+    this.renderSection();
+  },
+
+  editDivision(id) {
+    const div = DB.find('divisions', id);
+    if (!div) return;
+    const bus = DB.get('business_units');
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    this._genericForm(`Edit — ${div.name}`, [
+      { id: 'div-ename', label: 'Division Name', required: true, value: div.name },
+      { id: 'div-ecode', label: 'Division Code', required: true, value: div.code, maxlength: 10 },
+      { id: 'div-ebu', label: 'Parent Business Unit', type: 'select', value: div.businessUnitId, options: bus.map(b => ({ value: b.id, label: b.name })) },
+      { id: 'div-ehead', label: 'Division Head', type: 'select', value: div.headEmployeeId, options: emps.map(e => ({ value: e.id, label: e.fullName })) },
+      { id: 'div-edesc', label: 'Description', type: 'textarea', value: div.description || '' }
+    ], `Administration.updateDivision(${id})`);
+  },
+
+  updateDivision(id) {
+    DB.update('divisions', id, {
+      name: document.getElementById('div-ename').value.trim(),
+      code: document.getElementById('div-ecode').value.trim().toUpperCase(),
+      businessUnitId: parseInt(document.getElementById('div-ebu').value),
+      headEmployeeId: parseInt(document.getElementById('div-ehead').value),
+      description: document.getElementById('div-edesc').value.trim()
+    });
+    Modal.close('dynamic-modal');
+    DB.log('UPDATE', 'Administration', `Division updated`, Auth.user?.id);
+    Toast.show('Division updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteDivision(id) {
+    const div = DB.find('divisions', id);
+    Modal.confirm('Delete Division', `Are you sure you want to delete <strong>${div?.name}</strong>?`,
+      () => {
+        DB.delete('divisions', id);
+        DB.log('DELETE', 'Administration', `Division ${div?.name} deleted`, Auth.user?.id);
+        Toast.show('Division deleted!', 'warning');
+        this.renderSection();
+      }, 'danger');
+  },
+
+  // ── Countries Handlers ──
+  showAddCountry() {
+    this._genericForm('Add Operating Country', [
+      { id: 'cnt-name', label: 'Country Name', required: true, placeholder: 'e.g. Saudi Arabia' },
+      { id: 'cnt-code', label: 'ISO-3 Code', required: true, placeholder: 'e.g. SAU', maxlength: 3 },
+      { id: 'cnt-iso2', label: 'ISO-2 Code', required: true, placeholder: 'e.g. SA', maxlength: 2 },
+      { id: 'cnt-phone', label: 'Dialing Code', required: true, placeholder: 'e.g. +966' },
+      { id: 'cnt-curr', label: 'Currency', required: true, placeholder: 'e.g. SAR' }
+    ], 'Administration.saveCountry()');
+  },
+
+  saveCountry() {
+    const name = document.getElementById('cnt-name').value.trim();
+    const code = document.getElementById('cnt-code').value.trim().toUpperCase();
+    const iso2 = document.getElementById('cnt-iso2').value.trim().toUpperCase();
+    const phoneCode = document.getElementById('cnt-phone').value.trim();
+    const currency = document.getElementById('cnt-curr').value.trim().toUpperCase();
+    if (!name || !code) { Toast.show('Please fill required fields', 'error'); return; }
+    DB.add('countries', { id: DB.nextId('countries'), name, code, iso2, phoneCode, currency, status: 'active' });
+    DB.log('ADD', 'Administration', `Country ${name} added`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Country added!', 'success');
+    this.renderSection();
+  },
+
+  editCountry(id) {
+    const c = DB.find('countries', id);
+    if (!c) return;
+    this._genericForm(`Edit — ${c.name}`, [
+      { id: 'cnt-ename', label: 'Country Name', required: true, value: c.name },
+      { id: 'cnt-ecode', label: 'ISO-3 Code', required: true, value: c.code, maxlength: 3 },
+      { id: 'cnt-eiso2', label: 'ISO-2 Code', required: true, value: c.iso2, maxlength: 2 },
+      { id: 'cnt-ephone', label: 'Dialing Code', required: true, value: c.phoneCode },
+      { id: 'cnt-ecurr', label: 'Currency', required: true, value: c.currency }
+    ], `Administration.updateCountry(${id})`);
+  },
+
+  updateCountry(id) {
+    DB.update('countries', id, {
+      name: document.getElementById('cnt-ename').value.trim(),
+      code: document.getElementById('cnt-ecode').value.trim().toUpperCase(),
+      iso2: document.getElementById('cnt-eiso2').value.trim().toUpperCase(),
+      phoneCode: document.getElementById('cnt-phone').value.trim(),
+      currency: document.getElementById('cnt-ecurr').value.trim().toUpperCase()
+    });
+    Modal.close('dynamic-modal');
+    Toast.show('Country updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteCountry(id) {
+    const c = DB.find('countries', id);
+    Modal.confirm('Delete Country', `Delete country <strong>${c?.name}</strong>?`, () => {
+      DB.delete('countries', id);
+      Toast.show('Country deleted!', 'warning');
+      this.renderSection();
+    }, 'danger');
+  },
+
+  // ── States Handlers ──
+  showAddState() {
+    const countries = DB.get('countries');
+    this._genericForm('Add State / Province', [
+      { id: 'st-name', label: 'State / Province Name', required: true, placeholder: 'e.g. Khyber Pakhtunkhwa' },
+      { id: 'st-code', label: 'State Code', required: true, placeholder: 'e.g. KP', maxlength: 5 },
+      { id: 'st-country', label: 'Country', type: 'select', options: countries.map(c => ({ value: c.id, label: c.name })) }
+    ], 'Administration.saveState()');
+  },
+
+  saveState() {
+    const name = document.getElementById('st-name').value.trim();
+    const code = document.getElementById('st-code').value.trim().toUpperCase();
+    const countryId = parseInt(document.getElementById('st-country').value);
+    if (!name || !code) { Toast.show('Please fill required fields', 'error'); return; }
+    DB.add('states', { id: DB.nextId('states'), countryId, name, code });
+    Modal.close('dynamic-modal');
+    Toast.show('State added!', 'success');
+    this.renderSection();
+  },
+
+  editState(id) {
+    const s = DB.find('states', id);
+    if (!s) return;
+    const countries = DB.get('countries');
+    this._genericForm(`Edit — ${s.name}`, [
+      { id: 'st-ename', label: 'State Name', required: true, value: s.name },
+      { id: 'st-ecode', label: 'State Code', required: true, value: s.code, maxlength: 5 },
+      { id: 'st-ecountry', label: 'Country', type: 'select', value: s.countryId, options: countries.map(c => ({ value: c.id, label: c.name })) }
+    ], `Administration.updateState(${id})`);
+  },
+
+  updateState(id) {
+    DB.update('states', id, {
+      name: document.getElementById('st-ename').value.trim(),
+      code: document.getElementById('st-ecode').value.trim().toUpperCase(),
+      countryId: parseInt(document.getElementById('st-ecountry').value)
+    });
+    Modal.close('dynamic-modal');
+    Toast.show('State updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteState(id) {
+    const s = DB.find('states', id);
+    Modal.confirm('Delete State', `Delete <strong>${s?.name}</strong>?`, () => {
+      DB.delete('states', id);
+      Toast.show('State deleted!', 'warning');
+      this.renderSection();
+    }, 'danger');
+  },
+
+  // ── Cities Handlers ──
+  showAddCity() {
+    const states = DB.get('states');
+    this._genericForm('Add City', [
+      { id: 'ci-name', label: 'City Name', required: true, placeholder: 'e.g. Rawalpindi' },
+      { id: 'ci-state', label: 'State / Province', type: 'select', options: states.map(s => ({ value: s.id, label: s.name })) },
+      { id: 'ci-postal', label: 'Postal Code', placeholder: 'e.g. 46000' }
+    ], 'Administration.saveCity()');
+  },
+
+  saveCity() {
+    const name = document.getElementById('ci-name').value.trim();
+    const stateId = parseInt(document.getElementById('ci-state').value);
+    const postalCode = document.getElementById('ci-postal').value.trim();
+    if (!name) { Toast.show('City name is required', 'error'); return; }
+    DB.add('cities', { id: DB.nextId('cities'), stateId, name, postalCode });
+    Modal.close('dynamic-modal');
+    Toast.show('City added!', 'success');
+    this.renderSection();
+  },
+
+  editCity(id) {
+    const ci = DB.find('cities', id);
+    if (!ci) return;
+    const states = DB.get('states');
+    this._genericForm(`Edit — ${ci.name}`, [
+      { id: 'ci-ename', label: 'City Name', required: true, value: ci.name },
+      { id: 'ci-estate', label: 'State / Province', type: 'select', value: ci.stateId, options: states.map(s => ({ value: s.id, label: s.name })) },
+      { id: 'ci-epostal', label: 'Postal Code', value: ci.postalCode || '' }
+    ], `Administration.updateCity(${id})`);
+  },
+
+  updateCity(id) {
+    DB.update('cities', id, {
+      name: document.getElementById('ci-ename').value.trim(),
+      stateId: parseInt(document.getElementById('ci-estate').value),
+      postalCode: document.getElementById('ci-epostal').value.trim()
+    });
+    Modal.close('dynamic-modal');
+    Toast.show('City updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteCity(id) {
+    const ci = DB.find('cities', id);
+    Modal.confirm('Delete City', `Delete <strong>${ci?.name}</strong>?`, () => {
+      DB.delete('cities', id);
+      Toast.show('City deleted!', 'warning');
+      this.renderSection();
+    }, 'danger');
+  },
+
+  // ── Locations Handlers ──
+  showAddLocation() {
+    const cities = DB.get('cities');
+    const states = DB.get('states');
+    const countries = DB.get('countries');
+    this._genericForm('Add Campus Location', [
+      { id: 'loc-name', label: 'Location Name', required: true, placeholder: 'e.g. Islamabad Innovation Hub' },
+      { id: 'loc-city', label: 'City', type: 'select', options: cities.map(ci => ({ value: ci.id, label: ci.name })) },
+      { id: 'loc-state', label: 'State', type: 'select', options: states.map(s => ({ value: s.id, label: s.name })) },
+      { id: 'loc-country', label: 'Country', type: 'select', options: countries.map(c => ({ value: c.id, label: c.name })) },
+      { id: 'loc-address', label: 'Physical Street Address', type: 'textarea', placeholder: 'Street address...' }
+    ], 'Administration.saveLocation()');
+  },
+
+  saveLocation() {
+    const name = document.getElementById('loc-name').value.trim();
+    const cityId = parseInt(document.getElementById('loc-city').value);
+    const stateId = parseInt(document.getElementById('loc-state').value);
+    const countryId = parseInt(document.getElementById('loc-country').value);
+    const address = document.getElementById('loc-address').value.trim();
+    const countryObj = DB.find('countries', countryId);
+    if (!name) { Toast.show('Location name is required', 'error'); return; }
+    DB.add('locations', {
+      id: DB.nextId('locations'),
+      name,
+      country: countryObj ? countryObj.name : 'Pakistan',
+      cityId, stateId, countryId, address, status: 'active'
+    });
+    Modal.close('dynamic-modal');
+    Toast.show('Campus Location added!', 'success');
+    this.renderSection();
+  },
+
+  editLocation(id) {
+    const loc = DB.find('locations', id);
+    if (!loc) return;
+    const cities = DB.get('cities');
+    const states = DB.get('states');
+    const countries = DB.get('countries');
+    this._genericForm(`Edit — ${loc.name}`, [
+      { id: 'loc-ename', label: 'Location Name', required: true, value: loc.name },
+      { id: 'loc-ecity', label: 'City', type: 'select', value: loc.cityId, options: cities.map(ci => ({ value: ci.id, label: ci.name })) },
+      { id: 'loc-estate', label: 'State', type: 'select', value: loc.stateId, options: states.map(s => ({ value: s.id, label: s.name })) },
+      { id: 'loc-ecountry', label: 'Country', type: 'select', value: loc.countryId, options: countries.map(c => ({ value: c.id, label: c.name })) },
+      { id: 'loc-eaddress', label: 'Physical Street Address', type: 'textarea', value: loc.address || '' }
+    ], `Administration.updateLocation(${id})`);
+  },
+
+  updateLocation(id) {
+    const countryId = parseInt(document.getElementById('loc-ecountry').value);
+    const countryObj = DB.find('countries', countryId);
+    DB.update('locations', id, {
+      name: document.getElementById('loc-ename').value.trim(),
+      cityId: parseInt(document.getElementById('loc-ecity').value),
+      stateId: parseInt(document.getElementById('loc-estate').value),
+      countryId,
+      country: countryObj ? countryObj.name : 'Pakistan',
+      address: document.getElementById('loc-eaddress').value.trim()
+    });
+    Modal.close('dynamic-modal');
+    Toast.show('Location updated!', 'success');
+    this.renderSection();
+  },
+
+  deleteLocation(id) {
+    const loc = DB.find('locations', id);
+    Modal.confirm('Delete Location', `Delete campus <strong>${loc?.name}</strong>?`, () => {
+      DB.delete('locations', id);
+      Toast.show('Location deleted!', 'warning');
+      this.renderSection();
+    }, 'danger');
   },
 
   // ── Form handlers ──
