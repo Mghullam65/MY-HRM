@@ -44,6 +44,7 @@ const Events = {
           ${[
             { id:'calendar',      label:'Company Calendar', icon:'fa-calendar' },
             { id:'events',        label:'Events List',      icon:'fa-calendar-days' },
+            { id:'trainings',     label:'Training & LMS',   icon:'fa-graduation-cap' },
             { id:'announcements', label:'Announcements',    icon:'fa-bullhorn' },
             { id:'policies',      label:'Policies & Compliance', icon:'fa-book-bookmark' },
           ].map(t => `
@@ -77,6 +78,7 @@ const Events = {
     if (!container) return;
     if (this.currentView === 'calendar') this.renderCalendar(container);
     else if (this.currentView === 'events') this.renderEvents(container);
+    else if (this.currentView === 'trainings') this.renderTrainings(container);
     else if (this.currentView === 'policies') this.renderPolicies(container);
     else this.renderAnnouncements(container);
   },
@@ -1706,4 +1708,309 @@ const Reports = {
     Toast.show('Opening print dialogue for PDF generation...', 'info');
     window.print();
   },
+
+  // ============================================================
+  // PHASE 1: TRAINING & LEARNING MANAGEMENT SYSTEM (LMS)
+  // ============================================================
+  renderTrainings(container) {
+    const sessions = DB.get('training_sessions') || [];
+    const attendees = DB.get('training_attendees') || [];
+    const certs = DB.get('training_certificates') || [];
+    const employees = DB.get('employees') || [];
+    const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const totalCPDHours = sessions.reduce((acc, s) => acc + (s.creditHours || 8), 0);
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;margin-bottom:20px">
+          <div class="card" style="padding:16px 20px;border-left:4px solid var(--primary)">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Course Catalog</div>
+            <div style="font-size:26px;font-weight:800;color:var(--primary);margin-top:4px">${sessions.length} Sessions</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Corporate training modules</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid #10b981">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Enrolled Learners</div>
+            <div style="font-size:26px;font-weight:800;color:#10b981;margin-top:4px">${attendees.length} Attendees</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Upskilling across departments</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid #f59e0b">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">CPD Certificates</div>
+            <div style="font-size:26px;font-weight:800;color:#f59e0b;margin-top:4px">${certs.length} Issued</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Verifiable completion credentials</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid #6366f1">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Total CPD Hours</div>
+            <div style="font-size:26px;font-weight:800;color:#6366f1;margin-top:4px">${totalCPDHours} Hours</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Professional learning delivered</div>
+          </div>
+        </div>
+
+        <!-- Management Header & Controls -->
+        <div class="card mb-20" style="padding:16px 20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <h3 style="font-size:17.5px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-graduation-cap" style="color:var(--primary)"></i> Enterprise Learning & Talent Development (LMS)
+              </h3>
+              <div style="font-size:12.5px;color:var(--text-3)">
+                Schedule corporate workshops, track employee attendance and pre/post test evaluations, and issue cryptographically verifiable CPD credentials.
+              </div>
+            </div>
+            ${isHR ? `
+              <button class="btn btn-primary btn-sm" onclick="Events.showAddTrainingModal()">
+                <i class="fa fa-plus"></i> Schedule Training Session
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Sessions Catalog Cards Grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(360px, 1fr));gap:18px">
+          ${sessions.length === 0 ? `
+            <div class="card" style="grid-column: 1 / -1;text-align:center;padding:40px">
+              <i class="fa fa-graduation-cap" style="font-size:36px;color:var(--primary);opacity:0.6;margin-bottom:10px"></i>
+              <h3>No Training Sessions Scheduled</h3>
+              <p style="font-size:13px;color:var(--text-3)">Click "Schedule Training Session" to create an enterprise workshop.</p>
+            </div>
+          ` : sessions.map(s => {
+            const sessionAttendees = attendees.filter(a => a.sessionId === s.id);
+            const sessionCerts = certs.filter(c => c.sessionId === s.id);
+            const fillPct = Math.min(100, Math.round((sessionAttendees.length / (s.maxCapacity || 25)) * 100));
+
+            return `
+              <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--border);border-radius:10px;padding:20px;transition:transform .2s">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <code style="font-size:11.5px;font-weight:700;color:var(--primary)">${s.sessionCode}</code>
+                    <span class="badge ${s.status==='completed'?'badge-success':'badge-primary'}" style="text-transform:capitalize">
+                      ${s.status}
+                    </span>
+                  </div>
+
+                  <h4 style="font-size:16px;font-weight:700;color:var(--text);margin:0 0 6px 0;line-height:1.3">
+                    ${s.title}
+                  </h4>
+                  <div style="font-size:12.5px;color:var(--text-2);line-height:1.5;margin-bottom:12px">
+                    ${s.description}
+                  </div>
+
+                  <!-- Details Pill Grid -->
+                  <div style="background:var(--surface);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:flex;flex-direction:column;gap:6px">
+                    <div><i class="fa fa-chalkboard-user" style="width:18px;color:var(--primary)"></i> Trainer: <strong>${s.trainerName}</strong></div>
+                    <div><i class="fa fa-calendar" style="width:18px;color:var(--primary)"></i> Duration: <strong>${Utils.formatDate(s.startDate)}</strong> to <strong>${Utils.formatDate(s.endDate)}</strong></div>
+                    <div><i class="fa fa-clock" style="width:18px;color:var(--primary)"></i> Credit: <strong>${s.creditHours || 8} CPD Credit Hours</strong></div>
+                    <div>
+                      <i class="fa ${s.mode==='online'?'fa-video':'fa-building'}" style="width:18px;color:var(--primary)"></i> 
+                      Mode: <strong>${s.mode === 'online' ? 'Virtual / Video Conference' : 'On-Premise'}</strong> • <em>${s.venue || 'Karachi Campus'}</em>
+                    </div>
+                  </div>
+
+                  <!-- Enrollment Progress -->
+                  <div style="margin-bottom:16px">
+                    <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:4px">
+                      <span>Enrollment Capacity</span>
+                      <span>${sessionAttendees.length} / ${s.maxCapacity || 25} seats (${fillPct}%)</span>
+                    </div>
+                    <div class="progress" style="height:6px;background:var(--border)"><div class="progress-bar" style="width:${fillPct}%;background:var(--primary)"></div></div>
+                  </div>
+
+                  <!-- Attendee Avatars -->
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+                    <span style="font-size:11px;color:var(--text-3);margin-right:4px">Learners:</span>
+                    ${sessionAttendees.slice(0, 5).map(a => {
+                      const emp = employees.find(e => e.id === a.employeeId) || {};
+                      return `
+                        <div class="avatar avatar-xs" title="${emp.fullName || 'Employee'}" style="background:${Utils.avatarColor(emp.id||1)};font-size:9px">
+                          ${Utils.avatarInitials(emp.fullName || 'E')}
+                        </div>
+                      `;
+                    }).join('')}
+                    ${sessionAttendees.length > 5 ? `<span style="font-size:10px;color:var(--text-3)">+${sessionAttendees.length - 5} more</span>` : ''}
+                  </div>
+                </div>
+
+                <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)">
+                  ${isHR ? `
+                    <button class="btn btn-secondary btn-xs flex-1" onclick="Events.showEnrollModal(${s.id})">
+                      <i class="fa fa-user-plus"></i> Enroll Staff
+                    </button>
+                  ` : ''}
+                  ${sessionCerts.length > 0 ? `
+                    <button class="btn btn-ghost btn-xs flex-1" onclick="Employees.previewTrainingCertificateModal(${sessionCerts[0].id})">
+                      <i class="fa fa-award"></i> View Certificate
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  },
+
+  showAddTrainingModal() {
+    Modal.show('Schedule Enterprise Training Session', `
+      <form onsubmit="Events.saveTrainingSession(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Course Title</label>
+            <input type="text" class="form-control" id="trn-title" placeholder="e.g. Advanced System Architecture & Microservices" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Session Code</label>
+            <input type="text" class="form-control" id="trn-code" value="TRN-2026-${String(Math.floor(Math.random()*900)+100)}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Trainer / Faculty Name</label>
+            <input type="text" class="form-control" id="trn-trainer" placeholder="e.g. Dr. Ayesha Siddiqui" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Delivery Mode</label>
+            <select class="form-control" id="trn-mode" required>
+              <option value="in_person">In-Person (Auditorium / Training Hall)</option>
+              <option value="online">Virtual / Online Webinar</option>
+              <option value="hybrid">Hybrid (Classroom + Zoom)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Start Date</label>
+            <input type="date" class="form-control" id="trn-start" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">End Date</label>
+            <input type="date" class="form-control" id="trn-end" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">CPD Credit Hours</label>
+            <input type="number" class="form-control" id="trn-cpd" min="1" max="80" value="16" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Maximum Capacity</label>
+            <input type="number" class="form-control" id="trn-cap" min="5" max="200" value="30" required>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Course Description & Learning Outcomes</label>
+          <textarea class="form-control" id="trn-desc" rows="3" placeholder="Summary of curriculum, target competencies and certification criteria..." required></textarea>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-calendar-check"></i> Schedule Session</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveTrainingSession(e) {
+    e.preventDefault();
+    const title = document.getElementById('trn-title').value.trim();
+    const sessionCode = document.getElementById('trn-code').value.trim();
+    const trainerName = document.getElementById('trn-trainer').value.trim();
+    const mode = document.getElementById('trn-mode').value;
+    const startDate = document.getElementById('trn-start').value;
+    const endDate = document.getElementById('trn-end').value;
+    const creditHours = parseInt(document.getElementById('trn-cpd').value) || 8;
+    const maxCapacity = parseInt(document.getElementById('trn-cap').value) || 30;
+    const description = document.getElementById('trn-desc').value.trim();
+
+    const sessions = DB.get('training_sessions') || [];
+    sessions.unshift({
+      id: DB.nextId('training_sessions'),
+      title,
+      sessionCode,
+      trainerName,
+      mode,
+      venue: mode === 'online' ? 'Zoom Live Webinar' : 'Executive Training Auditorium',
+      startDate,
+      endDate,
+      creditHours,
+      maxCapacity,
+      description,
+      status: 'scheduled',
+      createdAt: new Date().toISOString()
+    });
+    DB.set('training_sessions', sessions);
+
+    Toast.show(`Training session ${sessionCode} scheduled successfully!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderTrainings(document.getElementById('events-content'));
+  },
+
+  showEnrollModal(sessionId) {
+    const sessions = DB.get('training_sessions') || [];
+    const session = sessions.find(s => s.id === sessionId);
+    if (!session) return;
+    const employees = DB.get('employees') || [];
+    const attendees = (DB.get('training_attendees') || []).filter(a => a.sessionId === sessionId);
+    const enrolledEmpIds = attendees.map(a => a.employeeId);
+    const availableEmps = employees.filter(e => !enrolledEmpIds.includes(e.id));
+
+    Modal.show(`Enroll Staff — ${session.title}`, `
+      <form onsubmit="Events.enrollEmployeeInTraining(event, ${sessionId})">
+        <div class="form-group mb-14">
+          <label class="form-label required">Select Employee to Enroll</label>
+          <select class="form-control" id="trn-enroll-emp" required>
+            ${availableEmps.length === 0 ? '<option value="">All employees already enrolled</option>' : availableEmps.map(e => `
+              <option value="${e.id}">${e.fullName} (${e.empNo}) - ${Utils.getDeptName(e.departmentId)}</option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" ${availableEmps.length === 0 ? 'disabled' : ''}>
+            <i class="fa fa-user-plus"></i> Confirm Enrollment
+          </button>
+        </div>
+      </form>
+    `);
+  },
+
+  enrollEmployeeInTraining(e, sessionId) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('trn-enroll-emp').value);
+    if (!empId) return;
+
+    const attendees = DB.get('training_attendees') || [];
+    attendees.push({
+      id: DB.nextId('training_attendees'),
+      sessionId,
+      employeeId: empId,
+      attendanceStatus: 'enrolled',
+      preTestScore: null,
+      postTestScore: null,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('training_attendees', attendees);
+
+    const emp = DB.find('employees', empId);
+    const session = (DB.get('training_sessions') || []).find(s => s.id === sessionId);
+
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch({
+        recipientEmpId: empId,
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: 'LMS Training Desk',
+        type: 'training_enrollment',
+        priority: 'normal',
+        title: `🎓 Enrolled in Course: ${session?.title || 'Training'}`,
+        message: `You have been enrolled in ${session?.title} (${session?.sessionCode}). Scheduled: ${Utils.formatDate(session?.startDate)}.`,
+        actionUrl: 'events',
+        subView: 'trainings',
+        actionLabel: 'View Workshop'
+      });
+    }
+
+    Toast.show(`${emp?.fullName} enrolled in training session!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderTrainings(document.getElementById('events-content'));
+  }
 };

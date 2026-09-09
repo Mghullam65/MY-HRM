@@ -14,7 +14,7 @@ const Employees = {
     const myEmpId = Auth.employee?.id;
 
     // Staff role subtab access guard: redirect unallowed admin subtabs
-    const staffAllowedViews = ['hr_letters', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
+    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
     if (isStaff && !staffAllowedViews.includes(this.currentView)) {
       this.currentView = 'hr_letters';
     }
@@ -29,9 +29,13 @@ const Employees = {
       return days <= 30;
     }).length;
     const pendingExits = isStaff ? 0 : (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress').length;
+    const pendingDiscipline = isStaff 
+      ? (DB.get('warning_letters')||[]).filter(w=>w.employeeId===myEmpId && !w.acknowledged).length 
+      : (DB.get('disciplinary_actions')||[]).filter(a=>a.status==='under_investigation').length;
 
     const tabs = isStaff ? [
       { id:'hr_letters', label:'My Official HR Letters', icon:'fa-file-signature', badge: (DB.get('hr_letters')||[]).filter(l=>l.employeeId===myEmpId && !l.acknowledged).length },
+      { id:'discipline', label:'My Discipline & Notices', icon:'fa-gavel', badge: pendingDiscipline },
       { id:'doc_expiry', label:'My Document Expiries', icon:'fa-id-card-clip', badge: urgentDocs },
       { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.employeeId===myEmpId && d.verificationStatus==='pending').length },
       { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof' },
@@ -45,6 +49,7 @@ const Employees = {
       { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
       { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
       { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
+      { id:'discipline', label:'Discipline & Compliance', icon:'fa-gavel', badge: pendingDiscipline },
       { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
       { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
       { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
@@ -57,12 +62,12 @@ const Employees = {
           ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
-              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'||t.id==='hr_letters'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'||t.id==='hr_letters'||t.id==='discipline'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
           `).join('')}
         </div>
 
-        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms'].includes(this.currentView) ? `
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms','discipline'].includes(this.currentView) ? `
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="search-box">
@@ -169,6 +174,10 @@ const Employees = {
     }
     if (this.currentView === 'edms') {
       this.renderDocumentVault(container);
+      return;
+    }
+    if (this.currentView === 'discipline') {
+      this.renderDiscipline(container);
       return;
     }
 
@@ -703,18 +712,34 @@ const Employees = {
       }
 
       case 'emergency-contacts': {
+        const normContacts = (DB.get('emergency_contacts') || []).filter(c => c.employeeId === emp.id);
         const ec = emp.emergencyContact || {};
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+        const addBtn = canEdit ? `<button class="btn btn-primary btn-sm" onclick="Employees.showAddEmergencyContactModal(${emp.id})"><i class="fa fa-plus"></i> Add Contact</button>` : '';
+
         return `
-          ${sectionHeader('Emergency Contacts', 'Immediate relatives and next-of-kin for critical notifications', '')}
+          ${sectionHeader('Emergency Contacts', 'Immediate relatives and next-of-kin for critical notifications', addBtn)}
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.5px">
-                <i class="fa fa-user-shield" style="margin-right:6px"></i> Primary Emergency Contact
+                <i class="fa fa-user-shield" style="margin-right:6px"></i> ${normContacts.length ? `Registered Emergency Contacts (${normContacts.length})` : 'Primary Emergency Contact'}
               </div>
-              ${row('Contact Name', ec.name || 'Not Provided')}
-              ${row('Relationship', ec.relation || '—')}
-              ${row('Emergency Phone', ec.phone || '—')}
-              ${row('Residence', emp.address || '—')}
+              ${normContacts.length ? normContacts.map(c => `
+                <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span style="font-weight:700;font-size:13.5px">${c.name}</span>
+                    ${c.isPrimary ? '<span class="badge badge-primary" style="font-size:9.5px"><i class="fa fa-star"></i> Primary</span>' : '<span class="badge badge-secondary" style="font-size:9.5px">Secondary</span>'}
+                  </div>
+                  <div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:2px">${c.relation}</div>
+                  <div style="font-size:12px;color:var(--text);margin-top:3px"><i class="fa fa-phone" style="width:14px;color:var(--text-3)"></i>${c.phone}</div>
+                  ${c.altPhone ? `<div style="font-size:11.5px;color:var(--text-3)"><i class="fa fa-mobile" style="width:14px"></i>${c.altPhone}</div>` : ''}
+                </div>
+              `).join('') : `
+                ${row('Contact Name', ec.name || 'Not Provided')}
+                ${row('Relationship', ec.relation || '—')}
+                ${row('Emergency Phone', ec.phone || '—')}
+                ${row('Residence', emp.address || '—')}
+              `}
             </div>
             <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
               <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px;letter-spacing:0.5px">
@@ -1321,20 +1346,34 @@ const Employees = {
       }
 
       case 'skills': {
-        const skillsList = emp.skillsList || [
-          { name: 'Technical Architecture & Coding', pct: 90, cat: 'Technical' },
-          { name: 'Problem Solving & Debugging', pct: 85, cat: 'Technical' },
-          { name: 'Agile Team Collaboration', pct: 80, cat: 'Management' },
-          { name: 'Quality Assurance & Delivery', pct: 85, cat: 'Technical' }
-        ];
+        const normSkills = (DB.get('employee_skills') || []).filter(s => s.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+        const addBtn = canEdit ? `<button class="btn btn-primary btn-sm" onclick="Employees.showAddSkillModal(${emp.id})"><i class="fa fa-plus"></i> Add Skill</button>` : '';
+
+        const skillsList = normSkills.length > 0 ? normSkills.map(s => ({
+          name: s.skillName,
+          cat: s.category || 'Technical',
+          pct: s.proficiency === 'expert' ? 95 : (s.proficiency === 'advanced' ? 85 : (s.proficiency === 'intermediate' ? 65 : 40)),
+          level: s.proficiency,
+          yrs: s.yearsOfExperience
+        })) : (emp.skillsList || [
+          { name: 'Technical Architecture & Coding', pct: 90, cat: 'Technical', level: 'expert' },
+          { name: 'Problem Solving & Debugging', pct: 85, cat: 'Technical', level: 'advanced' },
+          { name: 'Agile Team Collaboration', pct: 80, cat: 'Management', level: 'advanced' },
+          { name: 'Quality Assurance & Delivery', pct: 85, cat: 'Technical', level: 'advanced' }
+        ]);
+
         return `
-          ${sectionHeader('Skills & Core Competencies', 'Technical proficiencies, operational capabilities and soft skills', '')}
+          ${sectionHeader('Skills & Core Competencies', 'Technical proficiencies, operational capabilities and soft skills', addBtn)}
           <div style="display:flex;flex-direction:column;gap:14px">
             ${skillsList.map(s => `
               <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
                   <span style="font-weight:600;font-size:13.5px">${s.name} <span class="chip" style="margin-left:6px">${s.cat}</span></span>
-                  <span style="font-weight:700;color:var(--primary);font-size:13px">${s.pct}%</span>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    ${s.level ? `<span class="badge badge-secondary" style="font-size:10px;text-transform:capitalize">${s.level}</span>` : ''}
+                    <span style="font-weight:700;color:var(--primary);font-size:13px">${s.pct}%</span>
+                  </div>
                 </div>
                 <div class="progress" style="height:7px"><div class="progress-bar" style="width:${s.pct}%;background:var(--primary)"></div></div>
               </div>
@@ -2144,11 +2183,41 @@ const Employees = {
         ${row('Account No.', emp.accountNo)}
         ${row('IBAN', emp.iban)}
       `;
-      case 'Emergency Contact': return `
-        ${row('Contact Name', emp.emergencyContact?.name)}
-        ${row('Relation', emp.emergencyContact?.relation)}
-        ${row('Phone', emp.emergencyContact?.phone)}
-      `;
+      case 'Emergency Contact': {
+        const normContacts = (DB.get('emergency_contacts') || []).filter(c => c.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+        if (normContacts.length > 0) {
+          return `
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+              <div style="font-size:13px;font-weight:700;color:var(--text)"><i class="fa fa-phone-volume" style="color:var(--primary);margin-right:6px"></i>Registered Emergency Contacts (${normContacts.length})</div>
+              ${canEdit ? `<button class="btn btn-primary btn-xs" onclick="Employees.showAddEmergencyContactModal(${emp.id})"><i class="fa fa-plus"></i> Add Emergency Contact</button>` : ''}
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px">
+              ${normContacts.map(c => `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;position:relative">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-weight:700;font-size:14px;color:var(--text)">${c.name}</span>
+                    ${c.isPrimary ? '<span class="badge badge-primary" style="font-size:10px"><i class="fa fa-star"></i> Primary</span>' : '<span class="badge badge-secondary" style="font-size:10px">Secondary</span>'}
+                  </div>
+                  <div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:6px"><i class="fa fa-people-arrows" style="margin-right:4px"></i>${c.relation}</div>
+                  <div style="font-size:12.5px;color:var(--text);margin-bottom:3px"><i class="fa fa-phone" style="width:16px;color:var(--text-3)"></i><strong>${c.phone}</strong></div>
+                  ${c.altPhone ? `<div style="font-size:12px;color:var(--text-3);margin-bottom:3px"><i class="fa fa-mobile" style="width:16px"></i>${c.altPhone}</div>` : ''}
+                  ${c.address ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:6px"><i class="fa fa-location-dot" style="width:16px"></i>${c.address}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div style="font-size:13px;font-weight:700;color:var(--text)"><i class="fa fa-phone-volume" style="color:var(--primary);margin-right:6px"></i>Primary Emergency Contact</div>
+            ${canEdit ? `<button class="btn btn-primary btn-xs" onclick="Employees.showAddEmergencyContactModal(${emp.id})"><i class="fa fa-plus"></i> Add Emergency Contact</button>` : ''}
+          </div>
+          ${row('Contact Name', emp.emergencyContact?.name)}
+          ${row('Relation', emp.emergencyContact?.relation)}
+          ${row('Phone', emp.emergencyContact?.phone)}
+        `;
+      }
       case 'Employment': return `
         ${row('Employee #', emp.empNo)}
         ${row('Department', Utils.getDeptName(emp.departmentId))}
@@ -2329,19 +2398,135 @@ const Employees = {
           </div>
         `;
       }
-      case 'Qualification': return emp.qualifications?.length ? emp.qualifications.map(q => `
-        <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px">
-          <div style="font-weight:600;font-size:14px">${q.degree}</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:4px">${q.institution} • ${q.year} • Grade: ${q.grade}</div>
-        </div>
-      `).join('') : '<div class="text-muted text-sm">No qualifications recorded.</div>';
-      case 'Experience': return emp.experience?.length ? emp.experience.map(ex => `
-        <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px">
-          <div style="font-weight:600;font-size:14px">${ex.designation}</div>
-          <div style="font-size:12px;color:var(--primary);margin-top:3px">${ex.company}</div>
-          <div style="font-size:12px;color:var(--text-3);margin-top:3px">${ex.from} — ${ex.to}</div>
-        </div>
-      `).join('') : '<div class="text-muted text-sm">No experience recorded.</div>';
+      case 'Qualification': {
+        const educations = (DB.get('educations') || []).filter(e => e.employeeId === emp.id);
+        const certs = (DB.get('employee_certificates') || []).filter(c => c.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:700;color:var(--text)"><i class="fa fa-user-graduate" style="color:var(--primary);margin-right:6px"></i>Academic Degrees & Education</div>
+            ${canEdit ? `<button class="btn btn-primary btn-xs" onclick="Employees.showAddEducationModal(${emp.id})"><i class="fa fa-plus"></i> Add Degree / Education</button>` : ''}
+          </div>
+
+          ${educations.length > 0 ? `
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+              ${educations.map(ed => `
+                <div style="padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+                  <div>
+                    <div style="font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px">
+                      ${ed.degree} ${ed.fieldOfStudy ? `<span style="font-weight:500;color:var(--text-2)">— in ${ed.fieldOfStudy}</span>` : ''}
+                      ${ed.verified ? '<span class="badge badge-success" style="font-size:10px"><i class="fa fa-check-double"></i> Verified</span>' : ''}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-3);margin-top:4px">
+                      <i class="fa fa-building-columns" style="margin-right:4px"></i>${ed.institution} • Passed: <strong>${ed.year}</strong> ${ed.grade ? `• Grade/CGPA: <strong>${ed.grade}</strong>` : ''}
+                    </div>
+                  </div>
+                  <span class="chip" style="font-size:11px"><i class="fa fa-certificate"></i> Higher Education</span>
+                </div>
+              `).join('')}
+            </div>
+          ` : (emp.qualifications?.length ? emp.qualifications.map(q => `
+            <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px">
+              <div style="font-weight:600;font-size:14px">${q.degree}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:4px">${q.institution} • ${q.year} • Grade: ${q.grade}</div>
+            </div>
+          `).join('') : '<div class="text-muted text-sm mb-16">No formal degrees recorded.</div>')}
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-top:12px;border-top:1px solid var(--border)">
+            <div style="font-size:14px;font-weight:700;color:var(--text)"><i class="fa fa-award" style="color:var(--accent);margin-right:6px"></i>Professional Certifications & Licenses</div>
+            ${canEdit ? `<button class="btn btn-secondary btn-xs" onclick="Employees.showAddCertificateModal(${emp.id})"><i class="fa fa-plus"></i> Add Certification</button>` : ''}
+          </div>
+
+          ${certs.length > 0 ? `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px">
+              ${certs.map(c => `
+                <div style="padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                    <span style="font-weight:700;font-size:13.5px;color:var(--text)">${c.title}</span>
+                    <span class="badge ${c.verificationStatus==='verified'?'badge-success':'badge-warning'}" style="font-size:10px">${c.verificationStatus.toUpperCase()}</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--primary);font-weight:600;margin-bottom:4px"><i class="fa fa-landmark" style="margin-right:4px"></i>${c.issuingOrg}</div>
+                  <div style="font-size:11.5px;color:var(--text-3)">Issued: ${Utils.formatDate(c.issueDate)} ${c.expiryDate ? `• Expires: ${Utils.formatDate(c.expiryDate)}` : '• No Expiry'}</div>
+                  ${c.credentialId ? `<div style="font-size:10.5px;font-family:monospace;color:var(--text-3);margin-top:4px">ID: ${c.credentialId}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : '<div class="text-muted text-sm">No professional certifications on file.</div>'}
+        `;
+      }
+      case 'Experience': {
+        const experiences = (DB.get('work_experiences') || []).filter(w => w.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:700;color:var(--text)"><i class="fa fa-briefcase" style="color:var(--primary);margin-right:6px"></i>Prior Employment & Work History</div>
+            ${canEdit ? `<button class="btn btn-primary btn-xs" onclick="Employees.showAddExperienceModal(${emp.id})"><i class="fa fa-plus"></i> Add Work Experience</button>` : ''}
+          </div>
+
+          ${experiences.length > 0 ? `
+            <div style="display:flex;flex-direction:column;gap:12px">
+              ${experiences.map(ex => `
+                <div style="padding:16px;background:var(--surface);border:1px solid var(--border);border-radius:8px">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+                    <div>
+                      <div style="font-weight:700;font-size:14.5px;color:var(--text)">${ex.jobTitle || ex.designation}</div>
+                      <div style="font-size:13px;color:var(--primary);font-weight:600;margin-top:2px"><i class="fa fa-building" style="margin-right:4px"></i>${ex.company}</div>
+                      ${ex.location ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-location-dot" style="margin-right:4px"></i>${ex.location}</div>` : ''}
+                    </div>
+                    <div style="text-align:right">
+                      <span class="chip" style="font-size:11px">
+                        ${Utils.formatDate(ex.from)} — ${ex.isCurrent ? '<span class="badge badge-success" style="padding:2px 6px">Current</span>' : Utils.formatDate(ex.to)}
+                      </span>
+                    </div>
+                  </div>
+                  ${ex.responsibilities ? `<div style="font-size:12.5px;color:var(--text-2);margin-top:10px;line-height:1.5;padding-top:8px;border-top:1px dashed var(--border)">${ex.responsibilities}</div>` : ''}
+                </div>
+              `).join('')}
+            </div>
+          ` : (emp.experience?.length ? emp.experience.map(ex => `
+            <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px">
+              <div style="font-weight:600;font-size:14px">${ex.designation}</div>
+              <div style="font-size:12px;color:var(--primary);margin-top:3px">${ex.company}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:3px">${ex.from} — ${ex.to}</div>
+            </div>
+          `).join('') : '<div class="text-muted text-sm">No prior work experience recorded.</div>')}
+        `;
+      }
+      case 'Skills': {
+        const skills = (DB.get('employee_skills') || []).filter(s => s.employeeId === emp.id);
+        const canEdit = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.employee?.id === emp.id;
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:700;color:var(--text)"><i class="fa fa-bolt" style="color:var(--warning);margin-right:6px"></i>Skill Matrix & Core Competencies</div>
+            ${canEdit ? `<button class="btn btn-primary btn-xs" onclick="Employees.showAddSkillModal(${emp.id})"><i class="fa fa-plus"></i> Add Skill</button>` : ''}
+          </div>
+
+          ${skills.length > 0 ? `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:12px">
+              ${skills.map(s => {
+                const pct = s.proficiency === 'expert' ? 95 : (s.proficiency === 'advanced' ? 85 : (s.proficiency === 'intermediate' ? 65 : 40));
+                const badgeColor = s.proficiency === 'expert' ? 'badge-primary' : (s.proficiency === 'advanced' ? 'badge-success' : 'badge-info');
+                return `
+                  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                      <span style="font-weight:700;font-size:13.5px;color:var(--text)">${s.skillName}</span>
+                      <span class="badge ${badgeColor}" style="font-size:10px;text-transform:capitalize">${s.proficiency}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--text-3);margin-bottom:8px">
+                      <span><i class="fa fa-tag" style="margin-right:4px"></i>${s.category || 'General'}</span>
+                      <span>${s.yearsOfExperience ? `${s.yearsOfExperience} yrs exp` : ''}</span>
+                    </div>
+                    <div class="progress" style="height:6px;background:var(--border)"><div class="progress-bar" style="width:${pct}%;background:var(--primary)"></div></div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : '<div class="text-muted text-sm">No skills recorded yet. Click "Add Skill" to register competencies.</div>'}
+        `;
+      }
       case 'Attendance': {
         const attRec = DB.get('attendance').filter(a => a.employeeId === emp.id).slice(-15);
         if (!attRec.length) return '<div class="text-muted text-sm">No attendance records.</div>';
@@ -2436,17 +2621,74 @@ const Employees = {
         `).join('');
       }
       case 'Training': {
-        const trainings = DB.get('trainings').filter(t => t.employeeId === emp.id);
-        return trainings.length === 0 ? '<div class="text-muted text-sm">No training records.</div>' : trainings.map(t => `
-          <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
-            <div>
-              <div style="font-weight:600">${t.title}</div>
-              <div style="font-size:12px;color:var(--text-3)">${t.provider} • ${Utils.formatDate(t.from)} to ${Utils.formatDate(t.to)}</div>
-              <div style="font-size:12px;color:var(--text-3)">Cost: ${Utils.formatCurrency(t.cost)} ${t.certificate ? '• 🎓 Certificate Earned' : ''}</div>
-            </div>
-            ${Utils.statusBadge(t.status)}
+        const attendees = (DB.get('training_attendees') || []).filter(a => a.employeeId === emp.id);
+        const tCerts = (DB.get('training_certificates') || []).filter(c => c.employeeId === emp.id);
+        const sessions = DB.get('training_sessions') || [];
+
+        return `
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <div style="font-size:14px;font-weight:700;color:var(--text)"><i class="fa fa-graduation-cap" style="color:var(--primary);margin-right:6px"></i>LMS Training Sessions & Enrollment History</div>
           </div>
-        `).join('');
+
+          ${attendees.length > 0 ? `
+            <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
+              ${attendees.map(a => {
+                const s = sessions.find(x => x.id === a.sessionId) || {};
+                return `
+                  <div style="padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+                    <div>
+                      <div style="font-weight:700;font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px">
+                        ${s.title || 'Corporate Training Session'}
+                        <code style="font-size:11px;color:var(--primary)">${s.sessionCode || ''}</code>
+                      </div>
+                      <div style="font-size:12px;color:var(--text-3);margin-top:4px">
+                        <i class="fa fa-chalkboard-user" style="margin-right:4px"></i>Trainer: <strong>${s.trainerName || 'Corporate Faculty'}</strong> • 
+                        <i class="fa fa-clock" style="margin-left:6px;margin-right:4px"></i>${s.creditHours || 8} CPD Hours • 
+                        ${s.mode === 'online' ? '<i class="fa fa-video" style="color:var(--info)"></i> Virtual' : '<i class="fa fa-building" style="color:var(--primary)"></i> On-Premise'}
+                      </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span class="badge ${a.attendanceStatus==='completed'?'badge-success':'badge-warning'}" style="text-transform:capitalize">${a.attendanceStatus}</span>
+                      ${a.postTestScore ? `<span class="badge badge-info">${a.postTestScore}%</span>` : ''}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          ` : (DB.get('trainings').filter(t => t.employeeId === emp.id).length > 0 ? DB.get('trainings').filter(t => t.employeeId === emp.id).map(t => `
+            <div style="padding:14px;background:var(--surface);border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:600">${t.title}</div>
+                <div style="font-size:12px;color:var(--text-3)">${t.provider} • ${Utils.formatDate(t.from)} to ${Utils.formatDate(t.to)}</div>
+                <div style="font-size:12px;color:var(--text-3)">Cost: ${Utils.formatCurrency(t.cost)} ${t.certificate ? '• 🎓 Certificate Earned' : ''}</div>
+              </div>
+              ${Utils.statusBadge(t.status)}
+            </div>
+          `).join('') : '<div class="text-muted text-sm mb-16">No training session enrollments on record.</div>')}
+
+          <!-- Verified Training Certificates -->
+          <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:14px;padding-top:14px;border-top:1px solid var(--border)">
+            <i class="fa fa-certificate" style="color:var(--warning);margin-right:6px"></i>Earned CPD Training Certificates (${tCerts.length})
+          </div>
+
+          ${tCerts.length > 0 ? `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:14px">
+              ${tCerts.map(tc => `
+                <div style="background:var(--surface);border:1.5px solid var(--primary);border-radius:10px;padding:16px;position:relative">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                    <span style="font-weight:800;font-size:13.5px;color:var(--primary)"><i class="fa fa-award" style="margin-right:6px"></i>${tc.title}</span>
+                    <span class="badge badge-success" style="font-size:10px">VERIFIED</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text);margin-bottom:4px">Credential ID: <code>${tc.certificateNo}</code></div>
+                  <div style="font-size:11.5px;color:var(--text-3);margin-bottom:10px">Issued: ${Utils.formatDate(tc.issuedDate)} • Score: <strong>${tc.score}%</strong></div>
+                  <button class="btn btn-outline btn-xs w-full" onclick="Employees.previewTrainingCertificateModal(${tc.id})">
+                    <i class="fa fa-eye"></i> View & Print CPD Certificate
+                  </button>
+                </div>
+              `).join('')}
+            </div>
+          ` : '<div class="text-muted text-sm">No verified training certificates issued yet.</div>'}
+        `;
       }
       case 'Assets': {
         const assets = DB.get('assets').filter(a => a.assignedTo === emp.id);
@@ -7477,6 +7719,1395 @@ const Employees = {
     `, {
       footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Preview</button>`
     });
+  },
+
+  // ============================================================
+  // PHASE 1: DISCIPLINE & LEGAL COMPLIANCE MODULE
+  // ============================================================
+  disciplinarySubTab: 'inquiries',
+
+  renderDiscipline(container) {
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const myEmpId = Auth.employee?.id;
+    const allEmps = DB.get('employees') || [];
+    const types = DB.get('disciplinary_types') || [];
+    const actions = DB.get('disciplinary_actions') || [];
+    const warningLetters = DB.get('warning_letters') || [];
+    const suspensions = DB.get('suspensions') || [];
+    const terminations = DB.get('terminations') || [];
+
+    // Helper for warning severity badge
+    const warningBadge = (level) => {
+      switch(level) {
+        case 'verbal': return '<span class="badge badge-info"><i class="fa fa-comment-dots"></i> Verbal Warning</span>';
+        case 'first_written': return '<span class="badge badge-warning" style="background:#f59e0b;color:#fff"><i class="fa fa-file-pen"></i> First Written Warning</span>';
+        case 'second_written': return '<span class="badge badge-warning" style="background:#ea580c;color:#fff"><i class="fa fa-triangle-exclamation"></i> Second Written Warning</span>';
+        case 'final_written': return '<span class="badge badge-danger"><i class="fa fa-circle-exclamation"></i> Final Written Warning</span>';
+        case 'show_cause': return '<span class="badge badge-primary"><i class="fa fa-scale-balanced"></i> Show Cause Notice</span>';
+        default: return `<span class="badge badge-secondary">${level}</span>`;
+      }
+    };
+
+    const statusBadge = (status) => {
+      switch(status) {
+        case 'under_investigation': return '<span class="badge badge-warning" style="background:#f59e0b;color:#fff"><i class="fa fa-magnifying-glass"></i> Under Investigation</span>';
+        case 'hearing_scheduled': return '<span class="badge badge-info"><i class="fa fa-calendar-check"></i> Hearing Scheduled</span>';
+        case 'action_taken': return '<span class="badge badge-danger"><i class="fa fa-gavel"></i> Sanction Issued</span>';
+        case 'closed': return '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Inquiry Closed</span>';
+        default: return `<span class="badge badge-secondary">${status}</span>`;
+      }
+    };
+
+    if (isStaff) {
+      // ──────────────────────────────────────────────────────────
+      // EMPLOYEE PORTAL: Strictly Scoped Personal Notices & Legal Acknowledgment
+      // ──────────────────────────────────────────────────────────
+      const myLetters = warningLetters.filter(w => w.employeeId === myEmpId);
+      const myInquiries = actions.filter(a => a.employeeId === myEmpId);
+      const pendingAck = myLetters.filter(w => !w.acknowledged).length;
+
+      container.innerHTML = `
+        <div class="animate-fade-in">
+          <!-- Compliance Header Banner -->
+          <div class="card mb-20" style="background:linear-gradient(135deg, rgba(239,68,68,0.08) 0%, rgba(99,102,241,0.04) 100%);border-left:4px solid var(--danger)">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+              <div>
+                <h3 style="font-size:17px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+                  <i class="fa fa-gavel" style="color:var(--danger)"></i> Legal & Disciplinary Compliance Portal
+                </h3>
+                <div style="font-size:12.5px;color:var(--text-3)">
+                  Formal corporate disciplinary notices, inquiry hearings, and corrective remediation directives. Review official documents and formally sign receipt acknowledgment.
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                ${pendingAck > 0 ? `
+                  <span class="badge badge-warning" style="font-size:12px;padding:5px 12px;background:#f59e0b;color:#fff">
+                    <i class="fa fa-bell"></i> ${pendingAck} Pending Acknowledgment${pendingAck>1?'s':''}
+                  </span>
+                ` : `
+                  <span class="badge badge-success" style="font-size:12px;padding:5px 12px">
+                    <i class="fa fa-circle-check"></i> Fully Compliant & Acknowledged
+                  </span>
+                `}
+                <span class="chip" style="font-size:11px"><i class="fa fa-shield-halved"></i> Corporate Legal Records</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Warning Letters Table for Employee -->
+          <div class="card mb-20" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <h4 style="font-size:14.5px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-triangle-exclamation" style="color:var(--warning)"></i> Official Warning Letters & Corrective Directives (${myLetters.length})
+              </h4>
+              <span style="font-size:12px;color:var(--text-3)">Confidential official correspondence issued to you</span>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Notice Ref #</th>
+                  <th>Warning Classification</th>
+                  <th>Subject & Details</th>
+                  <th>Issue Date</th>
+                  <th>Remediation Period</th>
+                  <th>Acknowledgment Status</th>
+                  <th style="text-align:right">Actions</th>
+                </tr></thead>
+                <tbody>
+                  ${myLetters.length === 0 ? `
+                    <tr><td colspan="7"><div class="empty-state" style="padding:40px"><i class="fa fa-circle-check" style="color:var(--success);font-size:36px;margin-bottom:10px;display:block"></i><h3>No Disciplinary Notices</h3><p style="color:var(--text-3);font-size:13px">Your personnel record is clean with zero active disciplinary actions or warnings.</p></div></td></tr>
+                  ` : myLetters.map(w => `
+                    <tr style="${!w.acknowledged ? 'background:rgba(245,158,11,0.03)' : ''}">
+                      <td><code style="font-family:monospace;font-weight:700;color:var(--primary)">${w.warningLetterNo}</code></td>
+                      <td>${warningBadge(w.warningLevel)}</td>
+                      <td>
+                        <div style="font-weight:600;font-size:13px;color:var(--text)">${w.title}</div>
+                        <div style="font-size:11.5px;color:var(--text-3);margin-top:2px;max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${w.remediationPlan || 'Adherence to corporate standard operating procedures.'}</div>
+                      </td>
+                      <td style="font-size:12px">${Utils.formatDate(w.issueDate)}</td>
+                      <td style="font-size:12px">
+                        <span class="chip" style="font-size:10.5px">${w.remediationDays ? `${w.remediationDays} Days` : 'Immediate'}</span>
+                      </td>
+                      <td>
+                        ${w.acknowledged ? `
+                          <span class="badge badge-success" style="font-size:11px;padding:3px 8px">
+                            <i class="fa fa-circle-check"></i> Acknowledged on ${Utils.formatDate(w.acknowledgedAt)}
+                          </span>
+                        ` : `
+                          <span class="badge badge-warning" style="font-size:11px;padding:3px 8px;background:#f59e0b;color:#fff;animation:pulse 2s infinite">
+                            <i class="fa fa-clock"></i> Action Required: Sign Receipt
+                          </span>
+                        `}
+                      </td>
+                      <td style="text-align:right">
+                        <div style="display:flex;justify-content:flex-end;gap:6px">
+                          <button class="btn btn-ghost btn-xs" onclick="Employees.previewWarningLetterModal(${w.id})">
+                            <i class="fa fa-eye"></i> View Notice
+                          </button>
+                          ${!w.acknowledged ? `
+                            <button class="btn btn-success btn-xs" onclick="Employees.acknowledgeWarningLetter(${w.id})" title="Sign and acknowledge receipt of this official notice">
+                              <i class="fa fa-signature"></i> Sign Receipt
+                            </button>
+                          ` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Formal Disciplinary Inquiries Section for Employee -->
+          ${myInquiries.length > 0 ? `
+            <div class="card" style="padding:0">
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+                <h4 style="font-size:14px;font-weight:700;margin:0">Active or Resolved Inquiry Cases (${myInquiries.length})</h4>
+              </div>
+              <div class="table-wrapper" style="border:none;border-radius:0">
+                <table>
+                  <thead><tr>
+                    <th>Case #</th>
+                    <th>Allegation Category</th>
+                    <th>Summary</th>
+                    <th>Incident Date</th>
+                    <th>Hearing Date</th>
+                    <th>Investigation Status</th>
+                  </tr></thead>
+                  <tbody>
+                    ${myInquiries.map(a => {
+                      const typeObj = types.find(t => t.id === a.typeId);
+                      return `
+                        <tr>
+                          <td><code style="font-weight:700;color:var(--danger)">${a.caseNo}</code></td>
+                          <td><span class="chip">${typeObj?.name || 'General Inquiry'}</span></td>
+                          <td>
+                            <div style="font-weight:600;font-size:13px">${a.title}</div>
+                            <div style="font-size:11.5px;color:var(--text-3);max-width:350px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.description}</div>
+                          </td>
+                          <td style="font-size:12px">${Utils.formatDate(a.incidentDate)}</td>
+                          <td style="font-size:12px">${a.hearingDate ? Utils.formatDate(a.hearingDate) : 'Not Scheduled'}</td>
+                          <td>${statusBadge(a.status)}</td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+      return;
+    }
+
+    // ──────────────────────────────────────────────────────────
+    // HR MANAGEMENT & SUPERADMIN: Corporate Disciplinary Dashboard & Case Registry
+    // ──────────────────────────────────────────────────────────
+    const activeInquiries = actions.filter(a => a.status === 'under_investigation' || a.status === 'hearing_scheduled').length;
+    const totalWarnings = warningLetters.length;
+    const pendingAckCount = warningLetters.filter(w => !w.acknowledged).length;
+    const totalSanctions = suspensions.length + terminations.length;
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Statistics Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:20px">
+          <div class="card" style="padding:16px 20px;border-left:4px solid #f59e0b">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Active Inquiries</div>
+            <div style="font-size:26px;font-weight:800;color:#f59e0b;margin-top:4px">${activeInquiries}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Under investigation / hearing</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid var(--primary)">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Warnings Issued</div>
+            <div style="font-size:26px;font-weight:800;color:var(--primary);margin-top:4px">${totalWarnings}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Formal written directives</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid ${pendingAckCount>0?'#ea580c':'#16a34a'}">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Pending Signatures</div>
+            <div style="font-size:26px;font-weight:800;color:${pendingAckCount>0?'#ea580c':'#16a34a'};margin-top:4px">${pendingAckCount}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Employee acknowledgments</div>
+          </div>
+          <div class="card" style="padding:16px 20px;border-left:4px solid var(--danger)">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Severe Escalations</div>
+            <div style="font-size:26px;font-weight:800;color:var(--danger);margin-top:4px">${totalSanctions}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Suspensions & Terminations</div>
+          </div>
+        </div>
+
+        <!-- Management Header & Actions Bar -->
+        <div class="card mb-20" style="padding:16px 20px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <h3 style="font-size:17.5px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-scale-balanced" style="color:var(--primary)"></i> Corporate Legal & Disciplinary Management
+              </h3>
+              <div style="font-size:12.5px;color:var(--text-3)">
+                Manage formal inquiries, schedule hearings, issue corporate warning notices, and audit compliance trails.
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-secondary btn-sm" onclick="Employees.showIssueWarningLetterModal()">
+                <i class="fa fa-file-pen"></i> Issue Warning Letter
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="Employees.showAddDisciplinaryActionModal()">
+                <i class="fa fa-plus"></i> Log Disciplinary Inquiry
+              </button>
+            </div>
+          </div>
+
+          <!-- Internal Sub-navigation Tabs -->
+          <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+            <button class="btn btn-xs ${this.disciplinarySubTab==='inquiries'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='inquiries';Employees.renderDiscipline(document.getElementById('emp-content'))">
+              <i class="fa fa-magnifying-glass"></i> Inquiry Cases (${actions.length})
+            </button>
+            <button class="btn btn-xs ${this.disciplinarySubTab==='warnings'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='warnings';Employees.renderDiscipline(document.getElementById('emp-content'))">
+              <i class="fa fa-triangle-exclamation"></i> Warning Letters Registry (${warningLetters.length})
+            </button>
+            <button class="btn btn-xs ${this.disciplinarySubTab==='types'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='types';Employees.renderDiscipline(document.getElementById('emp-content'))">
+              <i class="fa fa-book-bookmark"></i> Violation Policies (${types.length})
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Inquiries Table -->
+        ${this.disciplinarySubTab === 'inquiries' ? `
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <h4 style="font-size:14px;font-weight:700;margin:0">Active & Historical Disciplinary Cases</h4>
+              <span style="font-size:12px;color:var(--text-3)">Standard inquiry hearings and evidence repository</span>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Case Ref #</th>
+                  <th>Employee</th>
+                  <th>Violation Type</th>
+                  <th>Allegation Title</th>
+                  <th>Incident Date</th>
+                  <th>Hearing Date</th>
+                  <th>Investigator</th>
+                  <th>Status</th>
+                  <th style="text-align:right">Actions</th>
+                </tr></thead>
+                <tbody>
+                  ${actions.length === 0 ? `
+                    <tr><td colspan="9"><div class="empty-state" style="padding:30px"><h3>No Disciplinary Cases Logged</h3><p>Click "Log Disciplinary Inquiry" to create a new formal investigation.</p></div></td></tr>
+                  ` : actions.map(a => {
+                    const emp = allEmps.find(e => e.id === a.employeeId) || {};
+                    const typeObj = types.find(t => t.id === a.typeId);
+                    return `
+                      <tr>
+                        <td><code style="font-family:monospace;font-weight:700;color:var(--danger)">${a.caseNo}</code></td>
+                        <td>
+                          <div style="font-weight:700;font-size:13px;color:var(--primary);cursor:pointer" onclick="Employees.renderProfile(${emp.id})">${emp.fullName || 'Unknown'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo || ''} • ${Utils.getDeptName(emp.departmentId)}</div>
+                        </td>
+                        <td><span class="chip" style="font-size:11px">${typeObj?.name || 'General'}</span></td>
+                        <td>
+                          <div style="font-weight:600;font-size:13px">${a.title}</div>
+                          <div style="font-size:11px;color:var(--text-3);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.description}</div>
+                        </td>
+                        <td style="font-size:12px">${Utils.formatDate(a.incidentDate)}</td>
+                        <td style="font-size:12px">${a.hearingDate ? Utils.formatDate(a.hearingDate) : 'TBD'}</td>
+                        <td style="font-size:12px">${a.investigatorName || 'HR Directorate'}</td>
+                        <td>${statusBadge(a.status)}</td>
+                        <td style="text-align:right">
+                          <div style="display:flex;justify-content:flex-end;gap:6px">
+                            <button class="btn btn-secondary btn-xs" onclick="Employees.showIssueWarningLetterModal(${a.id})" title="Issue warning notice linked to this case">
+                              <i class="fa fa-gavel"></i> Sanction
+                            </button>
+                            ${a.status !== 'closed' ? `
+                              <button class="btn btn-ghost btn-xs" onclick="Employees.closeDisciplinaryAction(${a.id})" title="Mark inquiry case resolved and closed">
+                                <i class="fa fa-check"></i> Close
+                              </button>
+                            ` : ''}
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Section 2: Warning Letters Registry Table -->
+        ${this.disciplinarySubTab === 'warnings' ? `
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <h4 style="font-size:14px;font-weight:700;margin:0">Official Warning Letters & Directives Registry</h4>
+              <span style="font-size:12px;color:var(--text-3)">Audited corporate notices with digital receipt signatures</span>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Warning Ref #</th>
+                  <th>Employee</th>
+                  <th>Notice Level</th>
+                  <th>Subject & Allegation</th>
+                  <th>Issue Date</th>
+                  <th>Remediation</th>
+                  <th>Issued By</th>
+                  <th>Acknowledgment</th>
+                  <th style="text-align:right">Actions</th>
+                </tr></thead>
+                <tbody>
+                  ${warningLetters.length === 0 ? `
+                    <tr><td colspan="9"><div class="empty-state" style="padding:30px"><h3>No Warning Letters Issued</h3><p>Click "Issue Warning Letter" to generate a formal corporate notice.</p></div></td></tr>
+                  ` : warningLetters.map(w => {
+                    const emp = allEmps.find(e => e.id === w.employeeId) || {};
+                    return `
+                      <tr>
+                        <td><code style="font-family:monospace;font-weight:700;color:var(--primary)">${w.warningLetterNo}</code></td>
+                        <td>
+                          <div style="font-weight:700;font-size:13px;color:var(--text)">${emp.fullName || 'Unknown'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo || ''}</div>
+                        </td>
+                        <td>${warningBadge(w.warningLevel)}</td>
+                        <td>
+                          <div style="font-weight:600;font-size:13px">${w.title}</div>
+                        </td>
+                        <td style="font-size:12px">${Utils.formatDate(w.issueDate)}</td>
+                        <td style="font-size:12px">
+                          <span class="chip" style="font-size:11px">${w.remediationDays ? `${w.remediationDays} Days` : '30 Days'}</span>
+                        </td>
+                        <td style="font-size:12px">${w.authorizedBy || 'HR Management'}</td>
+                        <td>
+                          ${w.acknowledged ? `
+                            <span class="badge badge-success" style="font-size:11px;padding:3px 8px">
+                              <i class="fa fa-circle-check"></i> Signed (${Utils.formatDate(w.acknowledgedAt)})
+                            </span>
+                          ` : `
+                            <span class="badge badge-warning" style="font-size:11px;padding:3px 8px;background:#f59e0b;color:#fff">
+                              <i class="fa fa-clock"></i> Pending Signature
+                            </span>
+                          `}
+                        </td>
+                        <td style="text-align:right">
+                          <button class="btn btn-ghost btn-xs" onclick="Employees.previewWarningLetterModal(${w.id})">
+                            <i class="fa fa-print"></i> View & Print
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Section 3: Disciplinary Types Catalog -->
+        ${this.disciplinarySubTab === 'types' ? `
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
+              <h4 style="font-size:14px;font-weight:700;margin:0">Standard Disciplinary Violation Types & Policy Matrix</h4>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Code</th>
+                  <th>Policy Name</th>
+                  <th>Default Severity</th>
+                  <th>Description & Policy Guidelines</th>
+                  <th>Standard Protocol</th>
+                </tr></thead>
+                <tbody>
+                  ${types.map(t => `
+                    <tr>
+                      <td><code style="font-weight:700;font-size:12px">${t.code}</code></td>
+                      <td style="font-weight:600;font-size:13px">${t.name}</td>
+                      <td>
+                        <span class="badge ${t.severity==='severe'?'badge-danger':(t.severity==='major'?'badge-warning':'badge-info')}">
+                          ${t.severity.toUpperCase()}
+                        </span>
+                      </td>
+                      <td style="font-size:12.5px;color:var(--text-2);max-width:380px">${t.description}</td>
+                      <td style="font-size:12px;color:var(--text-3)">Formal investigation + Written notice</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  },
+
+  // Modal: Create Disciplinary Action Inquiry
+  showAddDisciplinaryActionModal() {
+    const emps = DB.get('employees') || [];
+    const types = DB.get('disciplinary_types') || [];
+
+    Modal.show('Log Formal Disciplinary Inquiry', `
+      <form onsubmit="Employees.createDisciplinaryAction(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Subject Employee</label>
+            <select class="form-control" id="da-emp" required>
+              ${emps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo}) - ${Utils.getDeptName(e.departmentId)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Violation Category</label>
+            <select class="form-control" id="da-type" required>
+              ${types.map(t => `<option value="${t.id}">${t.name} (${t.code})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Incident Date</label>
+            <input type="date" class="form-control" id="da-date" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hearing Date (Optional)</label>
+            <input type="date" class="form-control" id="da-hearing" value="${Utils.today()}">
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Allegation / Case Title</label>
+          <input type="text" class="form-control" id="da-title" placeholder="e.g. Unexcused absence from duty without prior line management notice" required>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Detailed Incident Description & Factual Circumstances</label>
+          <textarea class="form-control" id="da-desc" rows="3" placeholder="Provide factual particulars of the incident, witness accounts, and impacts on business operations..." required></textarea>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label">Reported By</label>
+            <input type="text" class="form-control" id="da-reported-by" value="Department Manager">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assigned Hearing Officer / Investigator</label>
+            <input type="text" class="form-control" id="da-investigator" value="HR Operations Directorate">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Register Formal Case</button>
+        </div>
+      </form>
+    `);
+  },
+
+  createDisciplinaryAction(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('da-emp').value);
+    const typeId = parseInt(document.getElementById('da-type').value);
+    const incidentDate = document.getElementById('da-date').value;
+    const hearingDate = document.getElementById('da-hearing').value || null;
+    const title = document.getElementById('da-title').value.trim();
+    const description = document.getElementById('da-desc').value.trim();
+    const reportedBy = document.getElementById('da-reported-by').value.trim();
+    const investigatorName = document.getElementById('da-investigator').value.trim();
+
+    const actions = DB.get('disciplinary_actions') || [];
+    const caseNo = `DIS-2026-${String(actions.length + 1).padStart(3, '0')}`;
+
+    const newAction = {
+      id: DB.nextId('disciplinary_actions'),
+      caseNo,
+      employeeId: empId,
+      typeId,
+      incidentDate,
+      hearingDate,
+      title,
+      description,
+      status: 'under_investigation',
+      reportedBy,
+      investigatorName,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    actions.unshift(newAction);
+    DB.set('disciplinary_actions', actions);
+
+    // Notify employee of formal investigation hearing
+    const emp = DB.find('employees', empId);
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch({
+        recipientEmpId: empId,
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: 'HR Legal Directorate',
+        type: 'legal_compliance',
+        priority: 'high',
+        title: `⚖️ Notice of Formal Disciplinary Inquiry (${caseNo})`,
+        message: `An inquiry case (${caseNo}: ${title}) has been registered regarding incident on ${Utils.formatDate(incidentDate)}. Please review via your portal.`,
+        actionUrl: 'employees',
+        subView: 'discipline',
+        actionLabel: 'View Notice'
+      });
+    }
+
+    Toast.show(`Disciplinary inquiry ${caseNo} registered successfully!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+  },
+
+  closeDisciplinaryAction(actionId) {
+    const actions = DB.get('disciplinary_actions') || [];
+    const a = actions.find(x => x.id === actionId);
+    if (!a) return;
+    if (!confirm(`Are you sure you want to mark disciplinary inquiry ${a.caseNo} as officially resolved and closed?`)) return;
+
+    a.status = 'closed';
+    a.resolvedAt = new Date().toISOString();
+    a.updatedAt = new Date().toISOString();
+    DB.set('disciplinary_actions', actions);
+    Toast.show(`Case ${a.caseNo} has been marked as closed.`, 'info');
+    this.renderDiscipline(document.getElementById('emp-content'));
+  },
+
+  // Modal: Issue Formal Warning Letter
+  showIssueWarningLetterModal(actionId = null) {
+    const emps = DB.get('employees') || [];
+    const actions = DB.get('disciplinary_actions') || [];
+    const targetAction = actionId ? actions.find(a => a.id === actionId) : null;
+    const defaultEmpId = targetAction ? targetAction.employeeId : (emps[0]?.id || 1);
+
+    Modal.show('Issue Official Corporate Warning Letter', `
+      <form onsubmit="Employees.issueWarningLetter(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Employee</label>
+            <select class="form-control" id="wl-emp" required>
+              ${emps.map(e => `<option value="${e.id}" ${e.id===defaultEmpId?'selected':''}>${e.fullName} (${e.empNo})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Warning Classification</label>
+            <select class="form-control" id="wl-level" required>
+              <option value="first_written">First Written Warning</option>
+              <option value="second_written">Second Written Warning</option>
+              <option value="final_written">Final Written Warning</option>
+              <option value="verbal">Documented Verbal Warning</option>
+              <option value="show_cause">Formal Show Cause Notice</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Issue Date</label>
+            <input type="date" class="form-control" id="wl-date" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Remediation Period</label>
+            <select class="form-control" id="wl-days" required>
+              <option value="30">30 Days Remediation</option>
+              <option value="60">60 Days Remediation</option>
+              <option value="90">90 Days Remediation</option>
+              <option value="15">15 Days Immediate</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Warning Subject Title</label>
+          <input type="text" class="form-control" id="wl-title" value="${targetAction ? targetAction.title : 'First Written Warning — Violation of Workplace Standards'}" required>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Statement of Violation & Corrective Action Required</label>
+          <textarea class="form-control" id="wl-plan" rows="3" required>${targetAction ? `With reference to inquiry ${targetAction.caseNo}: ${targetAction.description}. You are hereby instructed to strictly rectify performance and adhere to corporate guidelines.` : 'You are hereby directed to strictly observe official work timings, line manager reporting, and code of conduct obligations.'}</textarea>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Authorized Signatory</label>
+          <input type="text" class="form-control" id="wl-auth" value="Director of Human Resources & Legal Compliance" required>
+        </div>
+
+        <input type="hidden" id="wl-action-id" value="${actionId || ''}">
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-stamp"></i> Issue & Dispatch Warning Notice</button>
+        </div>
+      </form>
+    `);
+  },
+
+  issueWarningLetter(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('wl-emp').value);
+    const warningLevel = document.getElementById('wl-level').value;
+    const issueDate = document.getElementById('wl-date').value;
+    const remediationDays = parseInt(document.getElementById('wl-days').value) || 30;
+    const title = document.getElementById('wl-title').value.trim();
+    const remediationPlan = document.getElementById('wl-plan').value.trim();
+    const authorizedBy = document.getElementById('wl-auth').value.trim();
+    const actionIdVal = document.getElementById('wl-action-id').value;
+    const actionId = actionIdVal ? parseInt(actionIdVal) : null;
+
+    const letters = DB.get('warning_letters') || [];
+    const warningLetterNo = `WRN/2026/${String(letters.length + 1).padStart(3, '0')}`;
+
+    const newLetter = {
+      id: DB.nextId('warning_letters'),
+      warningLetterNo,
+      employeeId: empId,
+      disciplinaryActionId: actionId,
+      warningLevel,
+      title,
+      issueDate,
+      remediationPlan,
+      remediationDays,
+      acknowledged: false,
+      acknowledgedAt: null,
+      acknowledgedBy: null,
+      signatureNotes: null,
+      authorizedBy,
+      createdAt: new Date().toISOString()
+    };
+
+    letters.unshift(newLetter);
+    DB.set('warning_letters', letters);
+
+    // If associated with a disciplinary action, update its status
+    if (actionId) {
+      const actions = DB.get('disciplinary_actions') || [];
+      const act = actions.find(a => a.id === actionId);
+      if (act) {
+        act.status = 'action_taken';
+        act.updatedAt = new Date().toISOString();
+        DB.set('disciplinary_actions', actions);
+      }
+    }
+
+    // Dispatch targeted live notification to employee
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch({
+        recipientEmpId: empId,
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: authorizedBy || 'HR Legal Compliance',
+        type: 'legal_compliance',
+        priority: 'high',
+        title: `⚠️ Formal Warning Notice Issued (${warningLetterNo})`,
+        message: `You have been issued a formal ${warningLevel.replace(/_/g, ' ')} (${warningLetterNo}: ${title}). A formal electronic acknowledgment of receipt is required.`,
+        actionUrl: 'employees',
+        subView: 'discipline',
+        actionLabel: 'Sign Notice'
+      });
+    }
+
+    Toast.show(`Official warning notice ${warningLetterNo} issued and dispatched to employee!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+    this.previewWarningLetterModal(newLetter.id);
+  },
+
+  previewWarningLetterModal(letterId) {
+    const letters = DB.get('warning_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return;
+    const emp = DB.find('employees', l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', departmentId: 1, designationId: 1 };
+    const settings = DB.getObj('settings') || {};
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+
+    Modal.show('Corporate Legal Notice & Letterhead Preview', `
+      <div id="print-warning-letter-area" style="background:#fff;color:#111;padding:34px 38px;border-radius:8px;border:1.5px solid #cbd5e1;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
+        <!-- Corporate Header -->
+        <div style="border-bottom:3px solid #dc2626;padding-bottom:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end">
+          <div>
+            <h2 style="margin:0;font-size:22px;color:#991b1b;font-weight:800;letter-spacing:0.5px">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
+            <div style="font-size:11.5px;color:#64748b">Directorate of Legal Affairs, Governance & Human Capital</div>
+            <div style="font-size:11px;color:#64748b">Confidential Personnel Document • Ref: <strong>${l.warningLetterNo}</strong></div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge badge-danger" style="font-size:11px;padding:4px 10px;text-transform:uppercase;letter-spacing:1px">STRICTLY CONFIDENTIAL</span>
+            <div style="font-size:11.5px;color:#64748b;margin-top:6px">Date: <strong>${l.issueDate}</strong></div>
+          </div>
+        </div>
+
+        <!-- Addressee Information -->
+        <div style="margin-bottom:20px;font-size:13px;background:#f8fafc;padding:12px 16px;border-radius:6px;border-left:3px solid #64748b">
+          <div><strong>To:</strong> Mr./Ms. ${emp.fullName}</div>
+          <div><strong>Designation:</strong> ${Utils.getDesigName(emp.designationId)} | <strong>Employee ID:</strong> <code>${emp.empNo}</code></div>
+          <div><strong>Department:</strong> ${Utils.getDeptName(emp.departmentId)} | <strong>CNIC:</strong> ${emp.cnic || 'N/A'}</div>
+        </div>
+
+        <!-- Document Subject -->
+        <div style="text-align:center;margin-bottom:22px">
+          <h3 style="display:inline-block;margin:0;font-size:16.5px;font-weight:800;text-decoration:underline;text-transform:uppercase;color:#991b1b;letter-spacing:0.5px">
+            OFFICIAL NOTICE: ${l.title}
+          </h3>
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-top:4px">
+            CLASSIFICATION: ${(l.warningLevel || '').replace(/_/g, ' ').toUpperCase()}
+          </div>
+        </div>
+
+        <!-- Letter Body Content -->
+        <div style="font-size:13.5px;color:#334155;text-align:justify;line-height:1.7;margin-bottom:30px">
+          <p>This formal written notice serves as an official reprimand and corrective remediation directive under the Employment Regulations and Code of Professional Conduct of <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong>.</p>
+          
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 16px;margin:14px 0">
+            <strong style="color:#991b1b">Statement of Violation & Directive:</strong>
+            <p style="margin:4px 0 0 0;font-size:13px;color:#7f1d1d">${l.remediationPlan || 'Compliance with company standards and line management instructions is strictly mandated.'}</p>
+          </div>
+
+          <p>You are hereby granted a formal Remediation Period of <strong>${l.remediationDays || 30} calendar days</strong> from the receipt of this notice to demonstrate sustained, measurable improvement in your conduct and responsibilities.</p>
+
+          <p style="font-size:12.5px;color:#64748b"><strong>Consequences of Non-Compliance:</strong> Failure to comply with the stipulated remediation directives or any recurrence of similar misconduct during or following this period shall result in escalated disciplinary sanctions, up to and including suspension without emoluments or summary termination of your contract of employment under corporate policy and applicable labor laws.</p>
+        </div>
+
+        <!-- Dual Signature & Acknowledgment Block -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0">
+          <div>
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:20px">Issued By Management:</div>
+            <div style="width:160px;height:40px;border-bottom:1.5px solid #334155;margin-bottom:6px"></div>
+            <div style="font-size:13px;font-weight:700">${l.authorizedBy || 'HR Operations Directorate'}</div>
+            <div style="font-size:11px;color:#64748b">Authorized Signatory • Legal Affairs</div>
+          </div>
+
+          <div>
+            <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:20px">Employee Receipt Acknowledgment:</div>
+            ${l.acknowledged ? `
+              <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 12px">
+                <div style="font-size:12px;font-weight:700;color:#166534">
+                  <i class="fa fa-circle-check"></i> Digitally Signed & Acknowledged
+                </div>
+                <div style="font-size:11px;color:#15803d;margin-top:2px">
+                  Acknowledged by: <strong>${l.acknowledgedBy || emp.fullName}</strong>
+                </div>
+                <div style="font-size:10.5px;color:#15803d">
+                  Timestamp: ${Utils.formatDate(l.acknowledgedAt)} (Portal E-Sign)
+                </div>
+              </div>
+            ` : `
+              <div style="width:160px;height:40px;border-bottom:1.5px dashed #dc2626;margin-bottom:6px"></div>
+              <div style="font-size:12px;font-weight:700;color:#dc2626"><i class="fa fa-clock"></i> Pending Employee Acknowledgment</div>
+              <div style="font-size:11px;color:#64748b">Must be confirmed via employee workspace</div>
+            `}
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <span style="font-size:12px;color:var(--text-3)">Confidential personnel record stored in audit vault</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${!l.acknowledged && (isStaff || Auth.employee?.id === l.employeeId) ? `
+            <button type="button" class="btn btn-success" onclick="Employees.acknowledgeWarningLetter(${l.id}); Modal.close('dynamic-modal')">
+              <i class="fa fa-signature"></i> Sign & Acknowledge Receipt
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+          <button type="button" class="btn btn-primary" onclick="Employees.printWarningLetter(${l.id})">
+            <i class="fa fa-print"></i> Print Official Notice
+          </button>
+        </div>
+      </div>
+    `);
+  },
+
+  acknowledgeWarningLetter(letterId) {
+    const letters = DB.get('warning_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return;
+
+    const emp = DB.find('employees', l.employeeId) || {};
+    l.acknowledged = true;
+    l.acknowledgedAt = new Date().toISOString();
+    l.acknowledgedBy = (typeof Auth !== 'undefined' && Auth.employee?.fullName) ? Auth.employee.fullName : (emp.fullName || 'Employee');
+    l.signatureNotes = 'Formally signed and acknowledged via secure employee portal session.';
+    DB.set('warning_letters', letters);
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch({
+        recipientRole: 'hr_manager',
+        senderEmpId: l.employeeId,
+        senderName: emp.fullName || 'Employee',
+        type: 'legal_compliance',
+        priority: 'high',
+        title: `⚖️ Notice Acknowledged: ${emp.fullName}`,
+        message: `${emp.fullName} has formally acknowledged receipt and signed disciplinary warning notice ${l.warningLetterNo}.`,
+        actionUrl: 'employees',
+        subView: 'discipline',
+        actionLabel: 'View Audit'
+      });
+    }
+
+    Toast.show('Disciplinary notice receipt formally signed and recorded in corporate audit archive!', 'success');
+    this.render();
+  },
+
+  printWarningLetter(letterId) {
+    const letters = DB.get('warning_letters') || [];
+    const l = letters.find(x => x.id === letterId);
+    if (!l) return;
+    const emp = DB.find('employees', l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', departmentId: 1, designationId: 1 };
+    const settings = DB.getObj('settings') || {};
+
+    const printWin = window.open('', '_blank', 'width=900,height=950');
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>DISCIPLINARY NOTICE ${l.warningLetterNo} — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.6; }
+          .header { border-bottom: 3px solid #dc2626; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { text-align: center; margin: 25px 0 20px; font-size: 17px; font-weight: 800; text-decoration: underline; color: #991b1b; text-transform: uppercase; }
+          .content { font-size: 14px; text-align: justify; margin-bottom: 40px; }
+          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; padding-top: 20px; border-top: 1px solid #cbd5e1; }
+          .sig-line { width: 180px; border-top: 1.5px solid #111; padding-top: 6px; font-size: 13px; font-weight: 700; }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <h2 style="margin:0;font-size:22px;color:#991b1b">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
+            <div style="font-size:12px;color:#64748b">Directorate of Legal Affairs, Governance & Human Capital</div>
+            <div style="font-size:11px;color:#64748b">Ref: ${l.warningLetterNo}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:800;color:#dc2626;font-size:12px">STRICTLY CONFIDENTIAL</div>
+            <div style="font-size:12px;color:#64748b">Date: ${l.issueDate}</div>
+          </div>
+        </div>
+
+        <div style="background:#f8fafc;padding:12px;margin-bottom:20px;border-left:3px solid #64748b;font-size:13px">
+          <div><strong>To:</strong> Mr./Ms. ${emp.fullName} (EMP ID: ${emp.empNo})</div>
+          <div><strong>Designation:</strong> ${Utils.getDesigName(emp.designationId)} | <strong>Department:</strong> ${Utils.getDeptName(emp.departmentId)}</div>
+        </div>
+
+        <div class="title">${l.title}</div>
+
+        <div class="content">
+          <p>This formal notice constitutes an official reprimand and corrective remediation directive under the Employment Regulations and Code of Conduct of <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong>.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;padding:12px;margin:15px 0">
+            <strong>Statement of Violation:</strong>
+            <p style="margin:4px 0 0 0">${l.remediationPlan}</p>
+          </div>
+          <p>You are granted a formal Remediation Period of <strong>${l.remediationDays || 30} days</strong> from receipt hereof to rectify compliance and adhere to company operating standards.</p>
+          <p>Failure to satisfy these directives may result in escalated disciplinary sanctions up to contract termination under corporate rules and employment regulations.</p>
+        </div>
+
+        <div class="sig-block">
+          <div>
+            <div class="sig-line">${l.authorizedBy || 'HR Directorate'}</div>
+            <div style="font-size:11px;color:#64748b">Authorized Corporate Officer</div>
+          </div>
+          <div style="text-align:right">
+            <div class="sig-line" style="margin-left:auto">${l.acknowledged ? `Acknowledged by ${l.acknowledgedBy}` : 'Employee Receipt Acknowledgment'}</div>
+            <div style="font-size:11px;color:#64748b">${l.acknowledged ? `Acknowledged: ${Utils.formatDate(l.acknowledgedAt)}` : 'Pending Employee Signature'}</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
+  },
+
+  // ============================================================
+  // NORMALIZED PROFILE MODALS (Education, Experience, Skills, Contacts)
+  // ============================================================
+  showAddEducationModal(empId) {
+    Modal.show('Add Academic Degree / Qualification', `
+      <form onsubmit="Employees.saveEducation(event, ${empId})">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Degree / Certificate</label>
+            <input type="text" class="form-control" id="ed-degree" placeholder="e.g. Master of Science (MS / MPhil)" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Field of Study / Specialization</label>
+            <input type="text" class="form-control" id="ed-field" placeholder="e.g. Computer Science, Finance, HR" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Institution / University</label>
+            <input type="text" class="form-control" id="ed-inst" placeholder="e.g. FAST-NUCES, LUMS, IBA" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Passing Year</label>
+            <input type="number" class="form-control" id="ed-year" min="1970" max="2030" value="2022" required>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label">Grade / CGPA</label>
+            <input type="text" class="form-control" id="ed-grade" placeholder="e.g. 3.82 CGPA or A+">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Verification Status</label>
+            <select class="form-control" id="ed-verified">
+              <option value="true">Verified Genuine</option>
+              <option value="false">Pending Verification</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-plus"></i> Save Education</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveEducation(e, empId) {
+    e.preventDefault();
+    const degree = document.getElementById('ed-degree').value.trim();
+    const fieldOfStudy = document.getElementById('ed-field').value.trim();
+    const institution = document.getElementById('ed-inst').value.trim();
+    const year = parseInt(document.getElementById('ed-year').value) || 2024;
+    const grade = document.getElementById('ed-grade').value.trim() || 'A';
+    const verified = document.getElementById('ed-verified').value === 'true';
+
+    const educations = DB.get('educations') || [];
+    educations.push({
+      id: DB.nextId('educations'),
+      employeeId: empId,
+      degree,
+      fieldOfStudy,
+      institution,
+      year,
+      grade,
+      verified,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('educations', educations);
+
+    Toast.show('Educational degree added successfully!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderProfile(empId);
+  },
+
+  showAddCertificateModal(empId) {
+    Modal.show('Add Professional Certification', `
+      <form onsubmit="Employees.saveCertificate(event, ${empId})">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Certification Title</label>
+            <input type="text" class="form-control" id="cert-title" placeholder="e.g. AWS Certified Solutions Architect" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Issuing Organization / Body</label>
+            <input type="text" class="form-control" id="cert-org" placeholder="e.g. Amazon Web Services, Scrum.org" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Issue Date</label>
+            <input type="date" class="form-control" id="cert-issue" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiry Date (Optional)</label>
+            <input type="date" class="form-control" id="cert-expiry">
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Credential ID / Verification URL</label>
+          <input type="text" class="form-control" id="cert-cred-id" placeholder="e.g. CERT-AWS-883921">
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-plus"></i> Save Certification</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveCertificate(e, empId) {
+    e.preventDefault();
+    const title = document.getElementById('cert-title').value.trim();
+    const issuingOrg = document.getElementById('cert-org').value.trim();
+    const issueDate = document.getElementById('cert-issue').value;
+    const expiryDate = document.getElementById('cert-expiry').value || null;
+    const credentialId = document.getElementById('cert-cred-id').value.trim();
+
+    const certs = DB.get('employee_certificates') || [];
+    certs.push({
+      id: DB.nextId('employee_certificates'),
+      employeeId: empId,
+      title,
+      issuingOrg,
+      issueDate,
+      expiryDate,
+      credentialId,
+      verificationStatus: 'verified',
+      createdAt: new Date().toISOString()
+    });
+    DB.set('employee_certificates', certs);
+
+    Toast.show('Professional certification saved!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderProfile(empId);
+  },
+
+  showAddExperienceModal(empId) {
+    Modal.show('Add Prior Employment Experience', `
+      <form onsubmit="Employees.saveExperience(event, ${empId})">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Designation / Role</label>
+            <input type="text" class="form-control" id="exp-role" placeholder="e.g. Senior Software Engineer" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Company / Employer</label>
+            <input type="text" class="form-control" id="exp-company" placeholder="e.g. TechLogix Systems Pvt. Ltd." required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">From Date</label>
+            <input type="date" class="form-control" id="exp-from" value="2022-01-01" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">To Date</label>
+            <input type="date" class="form-control" id="exp-to" value="${Utils.today()}">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label">Location / City</label>
+            <input type="text" class="form-control" id="exp-loc" placeholder="e.g. Karachi, Pakistan">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;margin-top:24px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+              <input type="checkbox" id="exp-current"> Currently Employed Here
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Key Responsibilities & Deliverables</label>
+          <textarea class="form-control" id="exp-resp" rows="3" placeholder="Brief summary of projects, technologies and accomplishments..."></textarea>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-plus"></i> Save Experience</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveExperience(e, empId) {
+    e.preventDefault();
+    const designation = document.getElementById('exp-role').value.trim();
+    const company = document.getElementById('exp-company').value.trim();
+    const from = document.getElementById('exp-from').value;
+    const isCurrent = document.getElementById('exp-current').checked;
+    const to = isCurrent ? null : (document.getElementById('exp-to').value || null);
+    const location = document.getElementById('exp-loc').value.trim();
+    const responsibilities = document.getElementById('exp-resp').value.trim();
+
+    const exps = DB.get('work_experiences') || [];
+    exps.push({
+      id: DB.nextId('work_experiences'),
+      employeeId: empId,
+      designation,
+      jobTitle: designation,
+      company,
+      from,
+      to,
+      isCurrent,
+      location,
+      responsibilities,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('work_experiences', exps);
+
+    Toast.show('Work experience saved!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderProfile(empId);
+  },
+
+  showAddEmergencyContactModal(empId) {
+    Modal.show('Add Emergency Contact', `
+      <form onsubmit="Employees.saveEmergencyContact(event, ${empId})">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Contact Full Name</label>
+            <input type="text" class="form-control" id="ec-name" placeholder="e.g. Asad Raza" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Relationship</label>
+            <input type="text" class="form-control" id="ec-rel" placeholder="e.g. Spouse, Brother, Father" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Primary Mobile / Phone</label>
+            <input type="text" class="form-control" id="ec-phone" placeholder="e.g. +92 300 1234567" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Alternate Phone</label>
+            <input type="text" class="form-control" id="ec-alt-phone" placeholder="e.g. 021-34567890">
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Residential Address</label>
+          <input type="text" class="form-control" id="ec-addr" placeholder="e.g. House 45, Block 6, Gulshan, Karachi">
+        </div>
+
+        <div class="form-group mb-14">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ec-primary" checked> Set as Primary Emergency Contact
+          </label>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-plus"></i> Save Contact</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveEmergencyContact(e, empId) {
+    e.preventDefault();
+    const name = document.getElementById('ec-name').value.trim();
+    const relation = document.getElementById('ec-rel').value.trim();
+    const phone = document.getElementById('ec-phone').value.trim();
+    const altPhone = document.getElementById('ec-alt-phone').value.trim() || null;
+    const address = document.getElementById('ec-addr').value.trim() || null;
+    const isPrimary = document.getElementById('ec-primary').checked;
+
+    let contacts = DB.get('emergency_contacts') || [];
+    if (isPrimary) {
+      contacts.forEach(c => {
+        if (c.employeeId === empId) c.isPrimary = false;
+      });
+    }
+
+    contacts.push({
+      id: DB.nextId('emergency_contacts'),
+      employeeId: empId,
+      name,
+      relation,
+      phone,
+      altPhone,
+      address,
+      isPrimary,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('emergency_contacts', contacts);
+
+    Toast.show('Emergency contact registered!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderProfile(empId);
+  },
+
+  showAddSkillModal(empId) {
+    Modal.show('Add Core Competency / Skill', `
+      <form onsubmit="Employees.saveSkill(event, ${empId})">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Skill Name</label>
+            <input type="text" class="form-control" id="sk-name" placeholder="e.g. Node.js Architecture, Risk Analysis" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Category</label>
+            <select class="form-control" id="sk-cat" required>
+              <option value="Technical">Technical</option>
+              <option value="Management">Management</option>
+              <option value="Soft Skills">Soft Skills</option>
+              <option value="Operational">Operational</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Proficiency Level</label>
+            <select class="form-control" id="sk-prof" required>
+              <option value="beginner">Beginner (Foundational)</option>
+              <option value="intermediate">Intermediate (Working)</option>
+              <option value="advanced" selected>Advanced (Proficient)</option>
+              <option value="expert">Expert (Mastery / Lead)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Years of Experience</label>
+            <input type="number" class="form-control" id="sk-yrs" min="1" max="40" value="4">
+          </div>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-plus"></i> Save Skill</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveSkill(e, empId) {
+    e.preventDefault();
+    const skillName = document.getElementById('sk-name').value.trim();
+    const category = document.getElementById('sk-cat').value;
+    const proficiency = document.getElementById('sk-prof').value;
+    const yearsOfExperience = parseInt(document.getElementById('sk-yrs').value) || 2;
+
+    const skills = DB.get('employee_skills') || [];
+    skills.push({
+      id: DB.nextId('employee_skills'),
+      employeeId: empId,
+      skillName,
+      category,
+      proficiency,
+      yearsOfExperience,
+      createdAt: new Date().toISOString()
+    });
+    DB.set('employee_skills', skills);
+
+    Toast.show('Competency skill saved to employee matrix!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderProfile(empId);
+  },
+
+  // ============================================================
+  // TRAINING CERTIFICATE MODAL & PRINTING
+  // ============================================================
+  previewTrainingCertificateModal(certId) {
+    const certs = DB.get('training_certificates') || [];
+    const cert = certs.find(c => c.id === certId);
+    if (!cert) return;
+    const emp = DB.find('employees', cert.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+    const session = (DB.get('training_sessions') || []).find(s => s.id === cert.sessionId) || {};
+    const settings = DB.getObj('settings') || {};
+
+    Modal.show('Corporate CPD Training Certificate', `
+      <div id="print-cpd-cert-area" style="background:#fff;color:#0f172a;padding:36px;border:3px double #d97706;border-radius:12px;font-family:'Georgia',serif;text-align:center;position:relative;box-shadow:0 10px 25px rgba(0,0,0,0.08)">
+        <!-- Security Watermark / Crest -->
+        <div style="font-size:12px;letter-spacing:3px;font-weight:700;color:#92400e;text-transform:uppercase;margin-bottom:6px">
+          ${settings.companyName || 'HRM PRO ENTERPRISE CORP'} • TALENT ACADEMY
+        </div>
+        <h1 style="font-size:26px;color:#1e3a8a;font-weight:800;margin:0 0 16px 0;letter-spacing:1px;font-family:'Segoe UI',sans-serif">
+          CERTIFICATE OF ACHIEVEMENT
+        </h1>
+        <div style="font-size:13px;color:#64748b;font-style:italic;margin-bottom:18px">
+          Continuing Professional Development (CPD) & Competency Certification
+        </div>
+
+        <div style="font-size:14px;color:#334155;margin-bottom:10px">This is to proudly certify that</div>
+        <div style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:14px;border-bottom:2px solid #e2e8f0;display:inline-block;padding:0 30px 4px 30px;font-family:'Segoe UI',sans-serif">
+          ${emp.fullName}
+        </div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:20px">Employee Number: <code>${emp.empNo}</code></div>
+
+        <div style="font-size:14.5px;color:#334155;max-width:540px;margin:0 auto 20px auto;line-height:1.6">
+          has successfully attended, completed all coursework, and demonstrated professional competence in
+          <div style="font-size:17px;font-weight:800;color:#1e3a8a;margin-top:6px;font-family:'Segoe UI',sans-serif">
+            ${cert.title}
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-top:4px">
+            Course Ref: <strong>${session.sessionCode || 'TRN-2026'}</strong> • ${session.creditHours || 8} Verified CPD Credit Hours
+          </div>
+        </div>
+
+        <div style="display:inline-flex;gap:20px;background:#f8fafc;padding:10px 24px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:28px;font-family:'Segoe UI',sans-serif">
+          <div style="font-size:12px"><strong>Credential ID:</strong> <code>${cert.certificateNo}</code></div>
+          <div style="font-size:12px"><strong>Assessment Score:</strong> <span style="color:#16a34a;font-weight:700">${cert.score}%</span></div>
+          <div style="font-size:12px"><strong>Issue Date:</strong> ${Utils.formatDate(cert.issuedDate)}</div>
+        </div>
+
+        <!-- Verification Hash -->
+        <div style="font-size:10px;font-family:monospace;color:#64748b;margin-bottom:26px">
+          VERIFICATION HASH: <strong>SHA256:${cert.verificationHash || 'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855'}</strong>
+        </div>
+
+        <!-- Signatures & Seal -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;padding:0 30px;font-family:'Segoe UI',sans-serif">
+          <div style="text-align:center">
+            <div style="width:140px;border-bottom:1.5px solid #334155;margin:0 auto 6px auto"></div>
+            <div style="font-size:12px;font-weight:700">${session.trainerName || 'Corporate Master Trainer'}</div>
+            <div style="font-size:10.5px;color:#64748b">Lead Instructor</div>
+          </div>
+          <div style="border:2px dashed #d97706;border-radius:50%;width:74px;height:74px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#d97706">
+            <i class="fa fa-award" style="font-size:16px"></i>
+            <span style="font-size:7px;font-weight:800;text-transform:uppercase;margin-top:2px">CPD VERIFIED</span>
+          </div>
+          <div style="text-align:center">
+            <div style="width:140px;border-bottom:1.5px solid #334155;margin:0 auto 6px auto"></div>
+            <div style="font-size:12px;font-weight:700">Directorate of HR</div>
+            <div style="font-size:10.5px;color:#64748b">Learning & Development</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--text-3)">Cryptographically auditable CPD qualification credential</span>
+        <div style="display:flex;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+          <button type="button" class="btn btn-primary" onclick="Employees.printTrainingCertificate(${cert.id})">
+            <i class="fa fa-print"></i> Print Official Certificate
+          </button>
+        </div>
+      </div>
+    `);
+  },
+
+  printTrainingCertificate(certId) {
+    const certs = DB.get('training_certificates') || [];
+    const cert = certs.find(c => c.id === certId);
+    if (!cert) return;
+    const emp = DB.find('employees', cert.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+    const session = (DB.get('training_sessions') || []).find(s => s.id === cert.sessionId) || {};
+    const settings = DB.getObj('settings') || {};
+
+    const printWin = window.open('', '_blank', 'width=950,height=750');
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>CPD CERTIFICATE ${cert.certificateNo} — ${emp.fullName}</title>
+        <style>
+          @page { size: landscape; margin: 10mm; }
+          body { font-family: 'Georgia', serif; padding: 30px; text-align: center; color: #0f172a; }
+          .border-box { border: 3px double #d97706; padding: 40px; border-radius: 12px; position: relative; }
+          h1 { font-family: 'Segoe UI', Arial, sans-serif; font-size: 28px; color: #1e3a8a; margin: 10px 0; font-weight: 800; }
+          .recipient { font-family: 'Segoe UI', Arial, sans-serif; font-size: 26px; font-weight: 800; border-bottom: 2px solid #e2e8f0; display: inline-block; padding: 0 30px 4px 30px; margin: 15px 0; }
+          .course { font-family: 'Segoe UI', Arial, sans-serif; font-size: 20px; font-weight: 800; color: #1e3a8a; margin: 10px 0; }
+          .sig-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; padding: 0 40px; font-family: 'Segoe UI', Arial, sans-serif; }
+          .sig-line { width: 160px; border-top: 1.5px solid #111; padding-top: 6px; font-size: 13px; font-weight: 700; }
+        </style>
+      </head>
+      <body>
+        <div class="border-box">
+          <div style="font-size:12px;letter-spacing:3px;font-weight:700;color:#92400e;text-transform:uppercase">${settings.companyName || 'HRM PRO ENTERPRISE CORP'} • TALENT ACADEMY</div>
+          <h1>CERTIFICATE OF ACHIEVEMENT</h1>
+          <div style="font-size:14px;color:#64748b;font-style:italic">Continuing Professional Development (CPD) & Competency Certification</div>
+          
+          <div style="margin-top:20px;font-size:15px">This is to proudly certify that</div>
+          <div class="recipient">${emp.fullName}</div>
+          <div style="font-size:12px;color:#64748b">Employee ID: ${emp.empNo}</div>
+
+          <p style="font-size:15px;max-width:600px;margin:15px auto;line-height:1.6">
+            has successfully completed all requirements and passed formal competency evaluation for
+          </p>
+          <div class="course">${cert.title}</div>
+          <div style="font-size:13px;color:#64748b">Course Ref: ${session.sessionCode || 'TRN-2026'} • ${session.creditHours || 8} Verified CPD Hours</div>
+
+          <div style="margin:20px auto;display:inline-block;padding:8px 20px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-family:'Segoe UI',sans-serif;font-size:12px">
+            Credential ID: <strong>${cert.certificateNo}</strong> • Assessment Score: <strong>${cert.score}%</strong> • Issued: ${Utils.formatDate(cert.issuedDate)}
+          </div>
+          <div style="font-size:9.5px;font-family:monospace;color:#64748b">VERIFICATION HASH: SHA256:${cert.verificationHash || 'GENUINE-CPD-VERIFIED'}</div>
+
+          <div class="sig-row">
+            <div>
+              <div class="sig-line">${session.trainerName || 'Corporate Master Trainer'}</div>
+              <div style="font-size:11px;color:#64748b">Lead Instructor</div>
+            </div>
+            <div style="border:2px dashed #d97706;border-radius:50%;width:70px;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#d97706">
+              <span style="font-size:7px;font-weight:800">CPD CERT</span>
+            </div>
+            <div>
+              <div class="sig-line">Director of HR</div>
+              <div style="font-size:11px;color:#64748b">Learning & Development</div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
   }
 
 };

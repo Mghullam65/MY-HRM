@@ -101,15 +101,27 @@ model Employee {
   branch           Branch?             @relation(fields: [branchId], references: [id])
   shift            Shift?              @relation(fields: [shiftId], references: [id])
   user             User?
-  attendances      Attendance[]
-  leaveBalances    LeaveBalance[]
-  leaveRequests    LeaveRequest[]
-  payrolls         Payroll[]
-  reviewsReceived  PerformanceReview[] @relation("Reviewee")
-  reviewsGiven     PerformanceReview[] @relation("Reviewer")
+  attendances          Attendance[]
+  leaveBalances        LeaveBalance[]
+  leaveRequests        LeaveRequest[]
+  payrolls             Payroll[]
+  reviewsReceived      PerformanceReview[]   @relation("Reviewee")
+  reviewsGiven         PerformanceReview[]   @relation("Reviewer")
+  educations           Education[]
+  workExperiences      WorkExperience[]
+  emergencyContacts    EmergencyContact[]
+  skills               Skill[]
+  certificates         Certificate[]
+  disciplinaryActions  DisciplinaryAction[]
+  warningLetters       WarningLetter[]
+  suspensions          Suspension[]
+  terminations         TerminationRecord[]
+  trainingAttendees    TrainingAttendee[]
+  trainingCertificates TrainingCertificate[]
+  trainingFeedbacks    TrainingFeedback[]
 
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 }
 
 model User {
@@ -315,4 +327,234 @@ model SystemSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ─── DISCIPLINE & LEGAL COMPLIANCE (5 Models) ──────────────────
+
+model DisciplinaryType {
+  id                  Int                  @id @default(autoincrement())
+  code                String               @unique // ABSENT, MISCONDUCT, INSUBORDINATION, BREACH, HARASSMENT, NEGLIGENCE
+  name                String
+  severity            String               @default("medium") // low, medium, high, critical
+  description         String?
+  actions             DisciplinaryAction[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model DisciplinaryAction {
+  id                  Int                  @id @default(autoincrement())
+  caseNumber          String               @unique // e.g. DIS-2026-001
+  employeeId          Int
+  typeId              Int
+  title               String
+  reportedBy          String
+  incidentDate        String               // YYYY-MM-DD
+  hearingDate         String?              // YYYY-MM-DD
+  committeeMembers    String?              // comma-separated or JSON
+  allegationDetails   String
+  findings            String?
+  status              String               @default("under_investigation") // under_investigation, hearing_scheduled, resolved, dismissed
+  outcome             String?              // warning, suspension, termination, exonerated
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  disciplinaryType    DisciplinaryType     @relation(fields: [typeId], references: [id])
+  warningLetters      WarningLetter[]
+  suspensions         Suspension[]
+  terminations        TerminationRecord[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model WarningLetter {
+  id                  Int                  @id @default(autoincrement())
+  refNo               String               @unique // e.g. WRN/2026/004
+  actionId            Int?
+  employeeId          Int
+  warningLevel        String               // show_cause, first_written, second_written, final_warning
+  title               String
+  subject             String
+  details             String
+  penaltyDetails      String?
+  issuedDate          String               // YYYY-MM-DD
+  issuedBy            String
+  acknowledged        Boolean              @default(false)
+  acknowledgedAt      DateTime?
+  employeeRemarks     String?
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  disciplinaryAction  DisciplinaryAction?  @relation(fields: [actionId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Suspension {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  actionId            Int?
+  startDate           String               // YYYY-MM-DD
+  endDate             String               // YYYY-MM-DD
+  isWithPay           Boolean              @default(false)
+  reason              String
+  approvedBy          String
+  status              String               @default("active") // active, revoked, completed
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  disciplinaryAction  DisciplinaryAction?  @relation(fields: [actionId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model TerminationRecord {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  actionId            Int?
+  terminationDate     String               // YYYY-MM-DD
+  terminationType     String               // with_cause, summary_dismissal, performance
+  legalGrounds        String
+  severancePayable    Float                @default(0)
+  noticePeriodWaived  Boolean              @default(false)
+  approvedBy          String
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  disciplinaryAction  DisciplinaryAction?  @relation(fields: [actionId], references: [id])
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+// ─── RELATIONAL EMPLOYEE PROFILE (5 Models) ────────────────────
+
+model Education {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  degree              String               // BS, MS, PhD, Matric, Intermediate, Diploma
+  fieldOfStudy        String?              // Computer Science, Software Engineering, etc.
+  institution         String               // University / Board
+  passingYear         Int
+  grade               String?              // A+, 3.8 GPA, 1st Division
+  verificationStatus  String               @default("verified") // pending, verified, rejected
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model WorkExperience {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  company             String
+  designation         String
+  startDate           String               // YYYY-MM-DD
+  endDate             String?              // YYYY-MM-DD (null for current)
+  responsibilities    String?
+  leavingReason       String?
+  referenceContact    String?
+  verificationStatus  String               @default("verified")
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model EmergencyContact {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  name                String
+  relationship        String               // Spouse, Father, Mother, Brother, Sister, Guardian
+  primaryPhone        String
+  secondaryPhone      String?
+  address             String?
+  isPrimary           Boolean              @default(true)
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Skill {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  name                String               // JavaScript, Node.js, Financial Modeling, HR Auditing
+  category            String               @default("technical") // technical, management, soft_skill, language
+  proficiency         String               @default("Intermediate") // Beginner, Intermediate, Advanced, Expert
+  yearsOfExperience   Float?               @default(1.0)
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model Certificate {
+  id                  Int                  @id @default(autoincrement())
+  employeeId          Int
+  title               String               // PMP, AWS Certified, ACCA, Cisco CCNA
+  issuingBody         String               // Project Management Institute, Amazon, etc.
+  issueDate           String               // YYYY-MM-DD
+  expiryDate          String?              // YYYY-MM-DD
+  credentialId        String?
+  credentialUrl       String?
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+// ─── TRAINING & LMS (4 Models) ─────────────────────────────────
+
+model TrainingSession {
+  id                  Int                  @id @default(autoincrement())
+  sessionCode         String               @unique // TRN-SES-2026-001
+  title               String
+  category            String               // Technical, Compliance, Leadership, Safety
+  trainerName         String
+  venueOrUrl          String               // Karachi Training Hall / Zoom meeting URL
+  startDate           String               // YYYY-MM-DD
+  endDate             String               // YYYY-MM-DD
+  durationHours       Float                @default(4)
+  cpdCredits          Int                  @default(2)
+  maxCapacity         Int                  @default(30)
+  status              String               @default("scheduled") // scheduled, in_progress, completed, cancelled
+  attendees           TrainingAttendee[]
+  certificates        TrainingCertificate[]
+  feedbacks           TrainingFeedback[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model TrainingAttendee {
+  id                  Int                  @id @default(autoincrement())
+  sessionId           Int
+  employeeId          Int
+  attendanceStatus    String               @default("registered") // registered, attended, completed, absent
+  preAssessmentScore  Float?               @default(0)
+  postAssessmentScore Float?               @default(0)
+  session             TrainingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([sessionId, employeeId])
+}
+
+model TrainingCertificate {
+  id                  Int                  @id @default(autoincrement())
+  certificateNo       String               @unique // CPD-2026-98124
+  sessionId           Int
+  employeeId          Int
+  title               String
+  issuedDate          String               // YYYY-MM-DD
+  validityYears       Int                  @default(2)
+  verificationHash    String               // Cryptographic SHA-256 validation stamp
+  cpdCredits          Int                  @default(2)
+  session             TrainingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+}
+
+model TrainingFeedback {
+  id                  Int                  @id @default(autoincrement())
+  sessionId           Int
+  employeeId          Int
+  rating              Int                  @default(5) // 1 to 5
+  trainerRating       Int                  @default(5)
+  contentRelevance    Int                  @default(5)
+  comments            String?
+  session             TrainingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  employee            Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@unique([sessionId, employeeId])
 }

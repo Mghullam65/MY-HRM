@@ -24,6 +24,9 @@ const DB = {
       this.ensureWebhooksAndTemplates();
       this.ensureBatch9Data();
       this.ensureUserNotifications();
+      this.ensureDisciplinaryData();
+      this.ensureNormalizedProfileData();
+      this.ensureTrainingAndCertificates();
       return;
     }
     this.seed();
@@ -43,6 +46,10 @@ const DB = {
     this.ensureLifeEventsAndDependents();
     this.ensureWebhooksAndTemplates();
     this.ensureBatch9Data();
+    this.ensureUserNotifications();
+    this.ensureDisciplinaryData();
+    this.ensureNormalizedProfileData();
+    this.ensureTrainingAndCertificates();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -2714,6 +2721,258 @@ const DB = {
     }
 
     this.set('user_notifications', notifs);
+  },
+
+  ensureDisciplinaryData() {
+    let types = this.get('disciplinary_types');
+    if (!types || !types.length) {
+      types = [
+        { id: 1, code: 'ABSENT', name: 'Unauthorized Absenteeism & Habitual Late Attendance', severity: 'medium', description: 'Continuous absence without sanctioned leave or prior intimation under Standing Order 12.' },
+        { id: 2, code: 'MISCONDUCT', name: 'Gross Workplace Misconduct & Insubordination', severity: 'high', description: 'Disregard of lawful orders, abusive language, or disruptive workplace behavior.' },
+        { id: 3, code: 'DATA_BREACH', name: 'Information Security & Client Confidentiality Violation', severity: 'critical', description: 'Unauthorized extraction, disclosure, or transmission of proprietary source code or client data.' },
+        { id: 4, code: 'NEGLIGENCE', name: 'Gross Negligence in Performance of Duties', severity: 'medium', description: 'Persistent substandard delivery causing severe project delays or financial damage.' },
+        { id: 5, code: 'HARASSMENT', name: 'Workplace Harassment & Dignity Violation', severity: 'critical', description: 'Any behavior violating the Protection Against Harassment of Women at the Workplace Act.' },
+        { id: 6, code: 'POLICY_BREACH', name: 'Company Policy & Code of Conduct Non-Compliance', severity: 'low', description: 'Breach of asset usage, conflict of interest, or dress code guidelines.' }
+      ];
+      this.set('disciplinary_types', types);
+    }
+
+    let actions = this.get('disciplinary_actions');
+    if (!actions || !actions.length) {
+      actions = [
+        {
+          id: 1,
+          caseNo: 'DIS-2026-001',
+          caseNumber: 'DIS-2026-001',
+          employeeId: 7, // Hassan Qureshi
+          typeId: 1,
+          title: 'Inquiry into Habitual Unsanctioned Absence',
+          reportedBy: 'Usman Baig (Tech Lead)',
+          incidentDate: '2026-08-18',
+          hearingDate: '2026-08-22',
+          committeeMembers: 'Sara Malik (Head of HR), Usman Baig (Dept Manager)',
+          description: 'Employee accumulated 6 consecutive days of unexcused absence without communication during sprint milestone.',
+          allegationDetails: 'Employee accumulated 6 consecutive days of unexcused absence without communication during sprint milestone.',
+          findings: 'Employee admitted family emergency but failed to notify supervisor. First written warning recommended.',
+          status: 'closed',
+          investigatorName: 'Sara Malik (Head of HR)',
+          outcome: 'warning'
+        },
+        {
+          id: 2,
+          caseNo: 'DIS-2026-002',
+          caseNumber: 'DIS-2026-002',
+          employeeId: 1, // Ahmed Khan
+          typeId: 6,
+          title: 'Compliance Verification: Corporate Asset Security Review',
+          reportedBy: 'Internal Audit & Governance',
+          incidentDate: '2026-08-28',
+          hearingDate: '2026-09-02',
+          description: 'Routine executive compliance review for hardware token migration and remote repository security standards.',
+          allegationDetails: 'Routine executive compliance review for hardware token migration and remote repository security standards.',
+          findings: 'Formal written directive issued to re-authenticate hardware security keys.',
+          status: 'action_taken',
+          investigatorName: 'Director of Legal Affairs',
+          outcome: 'written_directive'
+        }
+      ];
+      this.set('disciplinary_actions', actions);
+    }
+
+    let warnings = this.get('warning_letters');
+    if (!warnings || !warnings.length) {
+      warnings = [
+        {
+          id: 1,
+          refNo: 'WRN/2026/001',
+          warningLetterNo: 'WRN/2026/001',
+          actionId: 1,
+          disciplinaryActionId: 1,
+          employeeId: 7, // Hassan Qureshi
+          warningLevel: 'first_written',
+          title: 'Official First Written Warning — Unsanctioned Absence',
+          subject: 'Non-compliance with Corporate Attendance & Leave Policies',
+          details: 'You are hereby formally cautioned regarding 6 days of unexcused absence recorded between August 12 and August 18, 2026.',
+          remediationPlan: 'Strict adherence to daily biometric attendance and prior intimation of absence.',
+          remediationDays: 30,
+          issuedDate: '2026-08-24',
+          issueDate: '2026-08-24',
+          issuedBy: 'Sara Malik (HR Operations)',
+          authorizedBy: 'Director of Human Resources',
+          acknowledged: true,
+          acknowledgedAt: '2026-08-25T11:00:00.000Z',
+          acknowledgedBy: 'Hassan Qureshi',
+          signatureNotes: 'I have noted the warning and will ensure prior intimation in the future.'
+        },
+        {
+          id: 2,
+          refNo: 'WRN/2026/002',
+          warningLetterNo: 'WRN/2026/002',
+          actionId: 2,
+          disciplinaryActionId: 2,
+          employeeId: 1, // Ahmed Khan
+          warningLevel: 'first_written',
+          title: 'Formal Compliance Directive — Hardware Security Token Migration',
+          subject: 'Mandatory Information Security Policy Adherence',
+          details: 'Executive notification to complete hardware 2FA token validation by close of business.',
+          remediationPlan: 'Enroll and verify primary hardware token via internal IT security desk.',
+          remediationDays: 15,
+          issuedDate: '2026-09-01',
+          issueDate: '2026-09-01',
+          issuedBy: 'Director of Legal Affairs',
+          authorizedBy: 'Director of Legal Affairs & Governance',
+          acknowledged: false,
+          acknowledgedAt: null,
+          acknowledgedBy: null,
+          signatureNotes: null
+        }
+      ];
+      this.set('warning_letters', warnings);
+    }
+
+    if (!this.get('suspensions')) this.set('suspensions', []);
+    if (!this.get('terminations')) this.set('terminations', []);
+    if (!this.get('termination_records')) this.set('termination_records', []);
+  },
+
+  ensureNormalizedProfileData() {
+    let educations = this.get('educations');
+    if (!educations || !educations.length) {
+      educations = [
+        { id: 1, employeeId: 1, degree: 'Master of Business Administration (MBA)', fieldOfStudy: 'Executive Management & Strategy', institution: 'LUMS (Lahore University of Management Sciences)', year: 2014, passingYear: 2014, grade: '3.85 CGPA', verified: true, verificationStatus: 'verified' },
+        { id: 2, employeeId: 1, degree: 'BS Computer Science', fieldOfStudy: 'Software Engineering', institution: 'FAST-NUCES Karachi', year: 2011, passingYear: 2011, grade: '3.70 CGPA', verified: true, verificationStatus: 'verified' },
+        { id: 3, employeeId: 4, degree: 'BS Software Engineering', fieldOfStudy: 'Cloud Computing & Enterprise Systems', institution: 'NED University of Engineering & Technology, Karachi', year: 2022, passingYear: 2022, grade: '3.91 CGPA', verified: true, verificationStatus: 'verified' },
+        { id: 4, employeeId: 4, degree: 'Higher Secondary Certificate (HSC)', fieldOfStudy: 'Pre-Engineering', institution: 'Aga Khan Higher Secondary School, Karachi', year: 2018, passingYear: 2018, grade: 'A-1 Grade (88%)', verified: true, verificationStatus: 'verified' },
+        { id: 5, employeeId: 3, degree: 'BS Computer Engineering', fieldOfStudy: 'Embedded Systems & Software Architectures', institution: 'GIKI (Ghulam Ishaq Khan Institute)', year: 2017, passingYear: 2017, grade: '3.65 CGPA', verified: true, verificationStatus: 'verified' },
+        { id: 6, employeeId: 2, degree: 'Master of Human Resource Management (MHRM)', fieldOfStudy: 'Organizational Psychology & Labor Laws', institution: 'IBA Karachi', year: 2016, passingYear: 2016, grade: '3.80 CGPA', verified: true, verificationStatus: 'verified' },
+        { id: 7, employeeId: 2, degree: 'BBA (Hons) Human Resources', fieldOfStudy: 'HR & Business Administration', institution: 'Karachi University Business School', year: 2014, passingYear: 2014, grade: '3.75 CGPA', verified: true, verificationStatus: 'verified' }
+      ];
+      this.set('educations', educations);
+    }
+
+    let workExperiences = this.get('work_experiences');
+    if (!workExperiences || !workExperiences.length) {
+      workExperiences = [
+        { id: 1, employeeId: 4, company: 'Systems Limited', designation: 'Associate Software Engineer', jobTitle: 'Associate Software Engineer', from: '2022-07-01', to: '2024-05-31', startDate: '2022-07-01', endDate: '2024-05-31', isCurrent: false, location: 'Karachi, Pakistan', responsibilities: 'Full-stack development with React, Node.js, and PostgreSQL for multinational banking clients.', leavingReason: 'Career advancement at HRM Pro', referenceContact: 'Tariq Mehmood (VP Eng, Systems Ltd)', verificationStatus: 'verified' },
+        { id: 2, employeeId: 3, company: 'NetSol Technologies', designation: 'Senior Software Engineer', jobTitle: 'Senior Software Engineer', from: '2017-09-01', to: '2021-08-31', startDate: '2017-09-01', endDate: '2021-08-31', isCurrent: false, location: 'Lahore, Pakistan', responsibilities: 'Core leasing and asset finance enterprise modules engineering.', leavingReason: 'Joined HRM Pro as Lead Engineer', referenceContact: 'Asim Raza (Director Eng, NetSol)', verificationStatus: 'verified' },
+        { id: 3, employeeId: 1, company: 'Oracle Corporation PK', designation: 'Principal Solutions Architect', jobTitle: 'Principal Solutions Architect', from: '2014-06-01', to: '2019-12-31', startDate: '2014-06-01', endDate: '2019-12-31', isCurrent: false, location: 'Karachi, Pakistan', responsibilities: 'Enterprise ERP deployments, database performance engineering, and cloud migrations.', leavingReason: 'Founded HRM Pro Platform', referenceContact: 'Country Director, Oracle PK', verificationStatus: 'verified' },
+        { id: 4, employeeId: 1, company: 'Techlogix Pvt. Ltd.', designation: 'Senior Consultant', jobTitle: 'Senior Consultant', from: '2011-08-01', to: '2014-05-31', startDate: '2011-08-01', endDate: '2014-05-31', isCurrent: false, location: 'Karachi, Pakistan', responsibilities: 'Business process management, core banking transformations and enterprise integration.', leavingReason: 'Joined Oracle Corporation', referenceContact: 'Engagement Manager', verificationStatus: 'verified' }
+      ];
+      this.set('work_experiences', workExperiences);
+    }
+
+    let emergencyContacts = this.get('emergency_contacts');
+    if (!emergencyContacts || !emergencyContacts.length) {
+      emergencyContacts = [
+        { id: 1, employeeId: 4, name: 'Muhammad Raza', relation: 'Father', relationship: 'Father', phone: '0300-9876543', primaryPhone: '0300-9876543', altPhone: '021-34567890', secondaryPhone: '021-34567890', address: 'House # 42, Block 5, Clifton, Karachi', isPrimary: true },
+        { id: 2, employeeId: 4, name: 'Amina Raza', relation: 'Mother', relationship: 'Mother', phone: '0333-1122334', primaryPhone: '0333-1122334', altPhone: '', secondaryPhone: '', address: 'House # 42, Block 5, Clifton, Karachi', isPrimary: false },
+        { id: 3, employeeId: 1, name: 'Zainab Ahmed', relation: 'Spouse', relationship: 'Spouse', phone: '0321-7654321', primaryPhone: '0321-7654321', altPhone: '021-35890123', secondaryPhone: '021-35890123', address: 'DHA Phase 6, Karachi', isPrimary: true },
+        { id: 4, employeeId: 3, name: 'Rashid Baig', relation: 'Brother', relationship: 'Brother', phone: '0345-9988776', primaryPhone: '0345-9988776', altPhone: '', secondaryPhone: '', address: 'Gulshan-e-Iqbal Block 13, Karachi', isPrimary: true },
+        { id: 5, employeeId: 2, name: 'Tariq Malik', relation: 'Spouse', relationship: 'Spouse', phone: '0302-5544332', primaryPhone: '0302-5544332', altPhone: '021-34981122', secondaryPhone: '021-34981122', address: 'PECHS Block 2, Karachi', isPrimary: true }
+      ];
+      this.set('emergency_contacts', emergencyContacts);
+    }
+
+    let employeeSkills = this.get('employee_skills');
+    if (!employeeSkills || !employeeSkills.length) {
+      employeeSkills = [
+        { id: 1, employeeId: 4, name: 'React.js & Single Page Applications', skillName: 'React.js & Single Page Applications', category: 'Technical', proficiency: 'expert', yearsOfExperience: 3.5 },
+        { id: 2, employeeId: 4, name: 'Node.js & Express REST APIs', skillName: 'Node.js & Express REST APIs', category: 'Technical', proficiency: 'advanced', yearsOfExperience: 3.0 },
+        { id: 3, employeeId: 4, name: 'PostgreSQL & Relational DB Architecture', skillName: 'PostgreSQL & Relational DB Architecture', category: 'Technical', proficiency: 'advanced', yearsOfExperience: 2.5 },
+        { id: 4, employeeId: 4, name: 'Agile Scrum & Sprint Execution', skillName: 'Agile Scrum & Sprint Execution', category: 'Management', proficiency: 'intermediate', yearsOfExperience: 2.0 },
+        { id: 5, employeeId: 4, name: 'Technical Writing & Architecture Specs', skillName: 'Technical Writing & Architecture Specs', category: 'Soft Skills', proficiency: 'advanced', yearsOfExperience: 3.0 },
+        { id: 6, employeeId: 1, name: 'Enterprise Architecture & Cloud Strategy', skillName: 'Enterprise Architecture & Cloud Strategy', category: 'Management', proficiency: 'expert', yearsOfExperience: 12.0 },
+        { id: 7, employeeId: 1, name: 'PostgreSQL, Oracle DB & Performance Tuning', skillName: 'PostgreSQL, Oracle DB & Performance Tuning', category: 'Technical', proficiency: 'expert', yearsOfExperience: 10.0 },
+        { id: 8, employeeId: 3, name: 'Microservices & Distributed Systems', skillName: 'Microservices & Distributed Systems', category: 'Technical', proficiency: 'expert', yearsOfExperience: 7.0 },
+        { id: 9, employeeId: 3, name: 'DevOps, Docker & CI/CD Automation', skillName: 'DevOps, Docker & CI/CD Automation', category: 'Technical', proficiency: 'advanced', yearsOfExperience: 5.0 },
+        { id: 10, employeeId: 2, name: 'Talent Acquisition & Headhunting', skillName: 'Talent Acquisition & Headhunting', category: 'Management', proficiency: 'expert', yearsOfExperience: 9.0 },
+        { id: 11, employeeId: 2, name: 'Pakistan Labor Laws & Legal Compliance', skillName: 'Pakistan Labor Laws & Legal Compliance', category: 'Management', proficiency: 'expert', yearsOfExperience: 8.0 },
+        { id: 12, employeeId: 2, name: 'Employee Engagement & Mediation', skillName: 'Employee Engagement & Mediation', category: 'Soft Skills', proficiency: 'expert', yearsOfExperience: 8.5 }
+      ];
+      this.set('employee_skills', employeeSkills);
+    }
+
+    let certificates = this.get('employee_certificates');
+    if (!certificates || !certificates.length) {
+      certificates = [
+        { id: 1, employeeId: 4, title: 'AWS Certified Solutions Architect – Associate', issuingBody: 'Amazon Web Services', issueDate: '2024-03-15', expiryDate: '2027-03-15', credentialId: 'AWS-SAA-8899214', credentialUrl: 'https://aws.amazon.com/verification' },
+        { id: 2, employeeId: 4, title: 'Professional Scrum Master I (PSM I)', issuingBody: 'Scrum.org', issueDate: '2023-11-20', expiryDate: null, credentialId: 'SM-ORG-554210', credentialUrl: 'https://scrum.org/certificates' },
+        { id: 3, employeeId: 1, title: 'Project Management Professional (PMP)', issuingBody: 'Project Management Institute (PMI)', issueDate: '2018-05-10', expiryDate: '2027-05-10', credentialId: 'PMP-994412', credentialUrl: 'https://pmi.org/verify' }
+      ];
+      this.set('employee_certificates', certificates);
+    }
+  },
+
+  ensureTrainingAndCertificates() {
+    let sessions = this.get('training_sessions');
+    if (!sessions || !sessions.length) {
+      sessions = [
+        {
+          id: 1,
+          sessionCode: 'TRN-2026-001',
+          title: 'Advanced OWASP Top 10 & Enterprise Application Security',
+          category: 'Technical',
+          trainerName: 'Farhan Zaidi (Principal Infosec Lead)',
+          venueOrUrl: 'Karachi Tech Hub & Zoom Room 402',
+          startDate: '2026-09-15',
+          endDate: '2026-09-16',
+          durationHours: 8,
+          cpdCredits: 4,
+          maxCapacity: 25,
+          status: 'scheduled'
+        },
+        {
+          id: 2,
+          sessionCode: 'TRN-2026-002',
+          title: 'Pakistani Salaried Taxation & Finance Act 2024–2026 Compliance',
+          category: 'Compliance',
+          trainerName: 'Bilal Ahmed (Finance & Tax Director)',
+          venueOrUrl: 'Auditorium Level 2 & Hybrid Stream',
+          startDate: '2026-08-20',
+          endDate: '2026-08-20',
+          durationHours: 4,
+          cpdCredits: 2,
+          maxCapacity: 40,
+          status: 'completed'
+        }
+      ];
+      this.set('training_sessions', sessions);
+    }
+
+    let attendees = this.get('training_attendees');
+    if (!attendees || !attendees.length) {
+      attendees = [
+        { id: 1, sessionId: 2, employeeId: 4, attendanceStatus: 'completed', preAssessmentScore: 72, postAssessmentScore: 94 },
+        { id: 2, sessionId: 2, employeeId: 3, attendanceStatus: 'completed', preAssessmentScore: 68, postAssessmentScore: 90 },
+        { id: 3, sessionId: 1, employeeId: 4, attendanceStatus: 'registered', preAssessmentScore: 0, postAssessmentScore: 0 }
+      ];
+      this.set('training_attendees', attendees);
+    }
+
+    let certificates = this.get('training_certificates');
+    if (!certificates || !certificates.length) {
+      certificates = [
+        {
+          id: 1,
+          certificateNo: 'CPD-2026-TAX-014',
+          sessionId: 2,
+          employeeId: 4,
+          title: 'Corporate Certificate in Salaried Tax Compliance & FBR Regulations',
+          issuedDate: '2026-08-22',
+          validityYears: 2,
+          verificationHash: '9e8a71c841b53e8d2e8b64e9a0c1f58273b4291845f0962d7c184029381ea2bb',
+          cpdCredits: 2,
+          score: 94
+        }
+      ];
+      this.set('training_certificates', certificates);
+    }
+
+    if (!this.get('training_feedbacks') || !this.get('training_feedbacks').length) {
+      this.set('training_feedbacks', [
+        { id: 1, sessionId: 2, employeeId: 4, rating: 5, feedbackText: 'Exceptional coverage of corporate tax compliance and deductions under Finance Act 2026.', createdAt: '2026-08-21T10:00:00.000Z' }
+      ]);
+    }
   },
 
   reset() {
