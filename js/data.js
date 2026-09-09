@@ -27,6 +27,9 @@ const DB = {
       this.ensureDisciplinaryData();
       this.ensureNormalizedProfileData();
       this.ensureTrainingAndCertificates();
+      this.ensureRBACData();
+      this.ensureTravelAndExpenseData();
+      this.ensureSalaryStructureData();
       return;
     }
     this.seed();
@@ -50,6 +53,9 @@ const DB = {
     this.ensureDisciplinaryData();
     this.ensureNormalizedProfileData();
     this.ensureTrainingAndCertificates();
+    this.ensureRBACData();
+    this.ensureTravelAndExpenseData();
+    this.ensureSalaryStructureData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -2972,6 +2978,318 @@ const DB = {
       this.set('training_feedbacks', [
         { id: 1, sessionId: 2, employeeId: 4, rating: 5, feedbackText: 'Exceptional coverage of corporate tax compliance and deductions under Finance Act 2026.', createdAt: '2026-08-21T10:00:00.000Z' }
       ]);
+    }
+  },
+
+  ensureRBACData() {
+    let modules = this.get('system_modules');
+    if (!modules || !modules.length) {
+      modules = [
+        { id: 1, code: 'dashboard', name: 'Executive Dashboard & Telemetry', category: 'General', icon: 'fa-gauge-high', sortOrder: 1, isActive: true },
+        { id: 2, code: 'employees', name: 'Personnel & Employee Dossiers', category: 'Human Resources', icon: 'fa-users', sortOrder: 2, isActive: true },
+        { id: 3, code: 'attendance', name: 'Time & Attendance Roster', category: 'Operations', icon: 'fa-clock', sortOrder: 3, isActive: true },
+        { id: 4, code: 'leaves', name: 'Leave Allocations & Quotas', category: 'Operations', icon: 'fa-calendar-xmark', sortOrder: 4, isActive: true },
+        { id: 5, code: 'payroll', name: 'Compensation, Tax & Payroll', category: 'Finance', icon: 'fa-money-bill-wave', sortOrder: 5, isActive: true },
+        { id: 6, code: 'travel_expenses', name: 'Business Travel & Expense Claims', category: 'Finance', icon: 'fa-plane-departure', sortOrder: 6, isActive: true },
+        { id: 7, code: 'performance', name: 'Performance Appraisals & KPIs', category: 'Talent', icon: 'fa-chart-line', sortOrder: 7, isActive: true },
+        { id: 8, code: 'recruitment', name: 'Talent Acquisition & Pipeline', category: 'Talent', icon: 'fa-briefcase', sortOrder: 8, isActive: true },
+        { id: 9, code: 'discipline', name: 'Legal Inquiries & Disciplinary Notices', category: 'Compliance', icon: 'fa-gavel', sortOrder: 9, isActive: true },
+        { id: 10, code: 'assets', name: 'Corporate Asset Inventory', category: 'Operations', icon: 'fa-laptop-file', sortOrder: 10, isActive: true },
+        { id: 11, code: 'settings', name: 'Governance, RBAC & Configurations', category: 'Administration', icon: 'fa-sliders', sortOrder: 11, isActive: true }
+      ];
+      this.set('system_modules', modules);
+    }
+
+    let roles = this.get('roles');
+    if (!roles || !roles.length) {
+      roles = [
+        { id: 1, code: 'superadmin', name: 'Super Administrator', description: 'Full sovereign authorization across all enterprise models and configurations', isSystem: true, priority: 1 },
+        { id: 2, code: 'hr_manager', name: 'HR Manager', description: 'Complete human capital administration, legal letters, inquiries, and recruitment', isSystem: true, priority: 2 },
+        { id: 3, code: 'dept_manager', name: 'Department Manager', description: 'Team supervisory management, attendance approvals, and travel endorsements', isSystem: true, priority: 3 },
+        { id: 4, code: 'payroll_accountant', name: 'Corporate Payroll & Tax Accountant', description: 'Salary processing, statutory tax slabs, and expense claim settlements', isSystem: false, priority: 4 },
+        { id: 5, code: 'employee', name: 'Regular Staff / Associate', description: 'Standard self-service profile, expense filing, travel requests, and leave booking', isSystem: true, priority: 5 }
+      ];
+      this.set('roles', roles);
+    }
+
+    let permissions = this.get('permissions');
+    if (!permissions || !permissions.length) {
+      permissions = [];
+      let permId = 1;
+      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+      modules.forEach(m => {
+        actions.forEach(a => {
+          permissions.push({
+            id: permId++,
+            code: `${m.code}.${a}`,
+            name: `${a.toUpperCase()} ${m.name}`,
+            moduleId: m.id,
+            action: a,
+            description: `Permission to ${a} within ${m.name}`
+          });
+        });
+      });
+      this.set('permissions', permissions);
+    }
+
+    let rolePermissions = this.get('role_permissions');
+    if (!rolePermissions || !rolePermissions.length) {
+      rolePermissions = [];
+      let rpId = 1;
+      permissions.forEach(p => {
+        // Superadmin has everything
+        rolePermissions.push({ id: rpId++, roleId: 1, permissionId: p.id, isGranted: true });
+
+        // HR Manager: everything except settings.delete and settings.export
+        const isHrGranted = !p.code.startsWith('settings.delete') && !p.code.startsWith('settings.export');
+        rolePermissions.push({ id: rpId++, roleId: 2, permissionId: p.id, isGranted: isHrGranted });
+
+        // Dept Manager: view, approve team items
+        const isDeptGranted = p.action === 'view' || p.action === 'approve' || (['travel_expenses', 'attendance', 'leaves'].some(k => p.code.startsWith(k)) && (p.action === 'create' || p.action === 'edit'));
+        rolePermissions.push({ id: rpId++, roleId: 3, permissionId: p.id, isGranted: isDeptGranted });
+
+        // Payroll Accountant: payroll + travel_expenses + dashboard
+        const isPayrollGranted = p.code.startsWith('payroll.') || p.code.startsWith('travel_expenses.') || p.code.startsWith('dashboard.view');
+        rolePermissions.push({ id: rpId++, roleId: 4, permissionId: p.id, isGranted: isPayrollGranted });
+
+        // Employee: self-service view, create on travel/leaves/expenses
+        const isEmpGranted = (p.action === 'view' && !['settings', 'discipline'].includes(p.code.split('.')[0])) ||
+                             (['leaves.create', 'travel_expenses.create', 'attendance.create'].includes(p.code));
+        rolePermissions.push({ id: rpId++, roleId: 5, permissionId: p.id, isGranted: isEmpGranted });
+      });
+      this.set('role_permissions', rolePermissions);
+    }
+
+    let userRoles = this.get('user_roles');
+    if (!userRoles || !userRoles.length) {
+      userRoles = [
+        { id: 1, userId: 1, roleId: 1, assignedAt: '2026-01-01T00:00:00.000Z' }, // Ahmed Khan -> Super Admin
+        { id: 2, userId: 2, roleId: 2, assignedAt: '2026-01-01T00:00:00.000Z' }, // Sara Malik -> HR Manager
+        { id: 3, userId: 3, roleId: 3, assignedAt: '2026-01-01T00:00:00.000Z' }, // Usman Baig -> Dept Manager
+        { id: 4, userId: 4, roleId: 5, assignedAt: '2026-01-01T00:00:00.000Z' }  // Fatima Raza -> Employee
+      ];
+      this.set('user_roles', userRoles);
+    }
+
+    if (!this.get('user_permissions')) {
+      this.set('user_permissions', []);
+    }
+  },
+
+  ensureTravelAndExpenseData() {
+    let categories = this.get('expense_categories');
+    if (!categories || !categories.length) {
+      categories = [
+        { id: 1, name: 'Airfare & Commercial Flights', code: 'TRV-AIR', maxDailyLimit: 150000, requiresReceipt: true, isPerDiem: false, description: 'Domestic & International flight bookings, baggage fees, and taxes' },
+        { id: 2, name: 'Hotel Lodging & Accommodation', code: 'TRV-HOTEL', maxDailyLimit: 25000, requiresReceipt: true, isPerDiem: false, description: 'Standard business class hotel bookings with tax invoice' },
+        { id: 3, name: 'Daily Per-Diem Meal Allowance', code: 'TRV-MEAL', maxDailyLimit: 4500, requiresReceipt: false, isPerDiem: true, description: 'Standard corporate per-diem sustenance allowance (PKR 4,500/day)' },
+        { id: 4, name: 'Inter-City & Local Transport / Cab', code: 'TRV-CAB', maxDailyLimit: 8000, requiresReceipt: true, isPerDiem: false, description: 'Airport transfers, Uber/Careem rides, and inter-city car rentals' },
+        { id: 5, name: 'Client Hospitality & Business Dinners', code: 'TRV-HOSP', maxDailyLimit: 20000, requiresReceipt: true, isPerDiem: false, description: 'Official stakeholder entertainment with itemized receipts' }
+      ];
+      this.set('expense_categories', categories);
+    }
+
+    let travelRequests = this.get('travel_requests');
+    if (!travelRequests || !travelRequests.length) {
+      travelRequests = [
+        {
+          id: 1,
+          requestNo: 'TRV-2026-001',
+          employeeId: 4, // Fatima Raza
+          purpose: 'Client Architecture Discovery & ERP Integration Kickoff',
+          travelType: 'domestic',
+          departureDate: '2026-09-18',
+          returnDate: '2026-09-20',
+          originCity: 'Karachi',
+          destinationCity: 'Islamabad',
+          destinationCountry: 'Pakistan',
+          travelMode: 'Flight',
+          estimatedBudget: 85000,
+          advanceAmount: 40000,
+          advanceStatus: 'approved',
+          status: 'approved',
+          approvedBy: 1,
+          approvedAt: '2026-09-08T10:00:00.000Z',
+          notes: 'Mandatory technical architecture alignment with client Ministry stakeholders.'
+        },
+        {
+          id: 2,
+          requestNo: 'TRV-2026-002',
+          employeeId: 3, // Usman Baig
+          purpose: 'Regional Data Center Infrastructure & Security Audit',
+          travelType: 'domestic',
+          departureDate: '2026-09-24',
+          returnDate: '2026-09-26',
+          originCity: 'Karachi',
+          destinationCity: 'Lahore',
+          destinationCountry: 'Pakistan',
+          travelMode: 'Flight',
+          estimatedBudget: 72000,
+          advanceAmount: 35000,
+          advanceStatus: 'requested',
+          status: 'pending',
+          approvedBy: null,
+          approvedAt: null,
+          notes: 'Physical node verification and failover switch testing.'
+        }
+      ];
+      this.set('travel_requests', travelRequests);
+    }
+
+    let travelExpenses = this.get('travel_expenses');
+    if (!travelExpenses || !travelExpenses.length) {
+      travelExpenses = [
+        {
+          id: 1,
+          travelRequestId: 1,
+          categoryId: 1,
+          expenseDate: '2026-09-18',
+          title: 'Serene Air Roundtrip KHI-ISB-KHI',
+          amount: 38500,
+          currency: 'PKR',
+          merchant: 'Serene Air Aviation',
+          receiptUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="220" viewBox="0 0 300 220"><rect width="300" height="220" fill="%23f0f9ff" stroke="%230284c7" stroke-width="2"/><text x="150" y="36" font-family="Arial" font-size="14" font-weight="bold" fill="%230369a1" text-anchor="middle">AIRLINE E-TICKET RECEIPT</text><text x="20" y="70" font-family="Arial" font-size="11" fill="%23334155">Serene Air Flight ER-502</text><text x="20" y="95" font-family="Arial" font-size="11" fill="%23334155">Passenger: Fatima Raza</text><text x="20" y="120" font-family="Arial" font-size="11" fill="%23334155">Sector: KHI - ISB (Roundtrip)</text><line x1="20" y1="140" x2="280" y2="140" stroke="%23bae6fd"/><text x="20" y="170" font-family="Arial" font-size="13" font-weight="bold" fill="%230f172a">Total Paid: PKR 38,500</text><text x="20" y="195" font-family="Arial" font-size="10" fill="%230284c7">Status: Confirmed E-Ticket</text></svg>',
+          receiptNo: 'SER-98124',
+          isBillable: true,
+          status: 'approved'
+        },
+        {
+          id: 2,
+          travelRequestId: 1,
+          categoryId: 3,
+          expenseDate: '2026-09-18',
+          title: 'Day 1 Per-Diem Meal Allowance',
+          amount: 4500,
+          currency: 'PKR',
+          merchant: 'Official Corporate Per-Diem Entitlement',
+          receiptUrl: null,
+          receiptNo: 'DIEM-2026-01',
+          isBillable: false,
+          status: 'approved'
+        }
+      ];
+      this.set('travel_expenses', travelExpenses);
+    }
+
+    let travelApprovals = this.get('travel_approvals');
+    if (!travelApprovals || !travelApprovals.length) {
+      travelApprovals = [
+        {
+          id: 1,
+          travelRequestId: 1,
+          approverId: 1, // Ahmed Khan
+          step: 'manager',
+          status: 'approved',
+          comments: 'Business travel confirmed. Advance of PKR 40,000 sanctioned for disbursement.',
+          actionAt: '2026-09-08T10:30:00.000Z'
+        }
+      ];
+      this.set('travel_approvals', travelApprovals);
+    }
+
+    let expenseSettlements = this.get('expense_settlements');
+    if (!expenseSettlements || !expenseSettlements.length) {
+      expenseSettlements = [
+        {
+          id: 1,
+          claimId: 1,
+          settlementRef: 'SET-2026-001',
+          settlementMethod: 'Payroll',
+          payoutAmount: 48500,
+          disbursementDate: '2026-08-31',
+          financeOfficerId: 2
+        }
+      ];
+      this.set('expense_settlements', expenseSettlements);
+    }
+  },
+
+  ensureSalaryStructureData() {
+    let structures = this.get('salary_structures');
+    if (!structures || !structures.length) {
+      structures = [
+        {
+          id: 1,
+          name: 'Executive Leadership Scale (Grade E-1)',
+          code: 'EXEC-E1',
+          description: 'C-Suite, VP, and Director level grade compensation package',
+          basePercentage: 45.0,
+          hraPercentage: 30.0,
+          medicalPercentage: 15.0,
+          conveyancePercentage: 10.0,
+          isActive: true
+        },
+        {
+          id: 2,
+          name: 'Senior Engineering & Technical Scale (Grade S-3)',
+          code: 'TECH-S3',
+          description: 'Principal Architects, Lead Engineers, and Department Managers',
+          basePercentage: 50.0,
+          hraPercentage: 25.0,
+          medicalPercentage: 15.0,
+          conveyancePercentage: 10.0,
+          isActive: true
+        },
+        {
+          id: 3,
+          name: 'Professional Associate Scale (Grade G-2)',
+          code: 'ASSOC-G2',
+          description: 'Specialists, Software Developers, and Human Resource Officers',
+          basePercentage: 50.0,
+          hraPercentage: 25.0,
+          medicalPercentage: 15.0,
+          conveyancePercentage: 10.0,
+          isActive: true
+        }
+      ];
+      this.set('salary_structures', structures);
+    }
+
+    let components = this.get('salary_components');
+    if (!components || !components.length) {
+      components = [
+        { id: 1, name: 'Basic Salary', code: 'BASIC', type: 'earning', calculationType: 'percentage', isTaxable: true, isStatutory: true, defaultValue: 50.0 },
+        { id: 2, name: 'House Rent Allowance (HRA)', code: 'HRA', type: 'earning', calculationType: 'percentage', isTaxable: true, isStatutory: false, defaultValue: 25.0 },
+        { id: 3, name: 'Medical Allowance', code: 'MED', type: 'earning', calculationType: 'percentage', isTaxable: false, isStatutory: false, defaultValue: 15.0 },
+        { id: 4, name: 'Conveyance / Transport Allowance', code: 'CONV', type: 'earning', calculationType: 'percentage', isTaxable: true, isStatutory: false, defaultValue: 10.0 },
+        { id: 5, name: 'Employee Provident Fund (PF)', code: 'PF_DED', type: 'deduction', calculationType: 'percentage', isTaxable: false, isStatutory: true, defaultValue: 8.33 },
+        { id: 6, name: 'EOBI Contribution', code: 'EOBI', type: 'deduction', calculationType: 'fixed', isTaxable: false, isStatutory: true, defaultValue: 1300 },
+        { id: 7, name: 'Income Tax Withholding (FBR Slabs)', code: 'TAX_WITHHOLD', type: 'deduction', calculationType: 'fixed', isTaxable: false, isStatutory: true, defaultValue: 0 }
+      ];
+      this.set('salary_components', components);
+    }
+
+    let empSalaries = this.get('employee_salaries');
+    if (!empSalaries || !empSalaries.length) {
+      empSalaries = [
+        { id: 1, employeeId: 1, structureId: 1, basicSalary: 180000, grossSalary: 400000, currency: 'PKR', effectiveDate: '2026-01-01' },
+        { id: 2, employeeId: 2, structureId: 2, basicSalary: 125000, grossSalary: 250000, currency: 'PKR', effectiveDate: '2026-01-01' },
+        { id: 3, employeeId: 3, structureId: 2, basicSalary: 110000, grossSalary: 220000, currency: 'PKR', effectiveDate: '2026-01-01' },
+        { id: 4, employeeId: 4, structureId: 3, basicSalary: 75000, grossSalary: 150000, currency: 'PKR', effectiveDate: '2026-01-01' }
+      ];
+      this.set('employee_salaries', empSalaries);
+    }
+
+    let reviews = this.get('salary_reviews');
+    if (!reviews || !reviews.length) {
+      reviews = [
+        {
+          id: 1,
+          employeeId: 4,
+          oldGross: 130000,
+          newGross: 150000,
+          incrementPercentage: 15.38,
+          reviewDate: '2026-06-30',
+          effectiveDate: '2026-07-01',
+          approvedBy: 1,
+          remarks: 'Mid-year performance appraisal adjustment for outstanding contributions to modern frontend architecture.'
+        }
+      ];
+      this.set('salary_reviews', reviews);
+    }
+
+    if (!this.get('salary_slip_items')) {
+      this.set('salary_slip_items', []);
     }
   },
 

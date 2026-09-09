@@ -46,6 +46,7 @@ const Payroll = {
       { id:'statutory', label:'Statutory Ledgers', icon:'fa-landmark-dome' },
       { id:'allowances', label:'Allowances', icon:'fa-circle-plus' },
       { id:'deductions', label:'Deductions', icon:'fa-circle-minus' },
+      { id:'structures', label:'Salary Structures', icon:'fa-layer-group' },
       { id:'loans', label:'Loans', icon:'fa-hand-holding-dollar' },
       { id:'slips', label:'Payslips', icon:'fa-file-invoice-dollar' },
       { id:'pf', label:'Provident Fund', icon:'fa-piggy-bank' },
@@ -106,6 +107,7 @@ const Payroll = {
       case 'statutory':   this.renderStatutoryLedgers(container); break;
       case 'allowances':  this.renderAllowances(container); break;
       case 'deductions':  this.renderDeductions(container); break;
+      case 'structures':  this.renderSalaryStructures(container); break;
       case 'loans':       this.renderLoans(container); break;
       case 'slips':       this.renderSlips(container); break;
       case 'pf':          this.renderProvidentFund(container); break;
@@ -3670,6 +3672,445 @@ const Payroll = {
       footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
                <button class="btn btn-primary" onclick="window.print()"><i class="fa fa-print"></i> Print Social Security Advice</button>`
     });
-  }
+  },
 
+  // ============================================================
+  // SALARY STRUCTURES & GRADE COMPENSATION SCALES (Phase 2)
+  // ============================================================
+
+  renderSalaryStructures(container) {
+    if (typeof DB.ensureSalaryStructureData === 'function') DB.ensureSalaryStructureData();
+    const structures = DB.get('salary_structures') || [];
+    const components = DB.get('salary_components') || [];
+    const empSalaries = DB.get('employee_salaries') || [];
+    const emps = DB.get('employees') || [];
+
+    const totalAllocatedSalary = empSalaries.reduce((sum, es) => sum + (es.grossSalary || 0), 0);
+
+    container.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h3 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary)">
+              <i class="fa fa-layer-group"></i>
+            </span>
+            Salary Structures, Grade Scales &amp; Component Matrix
+          </h3>
+          <div style="font-size:13px;color:var(--text-3);margin-top:4px">
+            Transparent enterprise compensation packages, standardized allowance percentages, and statutory deduction rules
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" onclick="Payroll.showAddStructureModal()">
+          <i class="fa fa-plus"></i> Create Salary Structure
+        </button>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Defined Grade Scales</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:4px">${structures.length} Scales</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Active Enterprise Packages</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Salary Components</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${components.length} Items</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Basic, HRA, Medical, PF, Tax</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Assigned Staff</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:4px">${empSalaries.length} Employees</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Bound to Compensation Scales</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Allocated Monthly Gross</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:4px">₨ ${(totalAllocatedSalary).toLocaleString()}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Under Standard Structure</div>
+        </div>
+      </div>
+
+      <!-- Salary Breakdown Calculator Simulator -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px">
+        <h4 style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+          <i class="fa fa-calculator" style="color:var(--primary)"></i> Interactive Structure Breakdown Simulator
+        </h4>
+        <div style="display:grid;grid-template-columns:1fr 1fr 120px;gap:14px;align-items:end;margin-bottom:16px">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Select Grade Scale / Structure</label>
+            <select id="sim-structure-id" class="form-control" onchange="Payroll.updateSimulator()">
+              ${structures.map(s => `<option value="${s.id}">${s.name} (${s.code})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Enter Monthly Gross Salary (PKR)</label>
+            <input type="number" id="sim-gross-input" class="form-control" value="200000" step="5000" min="20000" oninput="Payroll.updateSimulator()">
+          </div>
+          <button class="btn btn-outline" style="height:38px" onclick="Payroll.updateSimulator()">
+            <i class="fa fa-rotate"></i> Recalculate
+          </button>
+        </div>
+
+        <div id="sim-results-box" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
+          <!-- Dynamically populated by updateSimulator() -->
+        </div>
+      </div>
+
+      <!-- Grade Structure Cards Grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+        ${structures.map(s => {
+          const assigned = empSalaries.filter(es => es.structureId === s.id);
+          return `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;flex-direction:column;justify-content:space-between">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                  <div>
+                    <span style="font-family:monospace;font-size:11px;padding:2px 8px;border-radius:6px;background:rgba(99,102,241,0.1);color:var(--primary);font-weight:700">
+                      ${s.code}
+                    </span>
+                    <h4 style="margin:6px 0 2px 0;font-size:15px;font-weight:800;color:var(--text)">${s.name}</h4>
+                  </div>
+                  <span class="badge ${s.isActive ? 'badge-success' : 'badge-secondary'}">${s.isActive ? 'Active' : 'Inactive'}</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-3);margin-bottom:14px;line-height:1.4">${s.description || 'Standard corporate package'}</div>
+
+                <!-- Visual Distribution Bar -->
+                <div style="font-size:11.5px;font-weight:700;color:var(--text-3);margin-bottom:6px">Earnings Allocation Ratios:</div>
+                <div style="display:flex;height:12px;border-radius:6px;overflow:hidden;margin-bottom:10px">
+                  <div style="width:${s.basePercentage}%;background:#3b82f6" title="Basic Salary: ${s.basePercentage}%"></div>
+                  <div style="width:${s.hraPercentage}%;background:#6366f1" title="House Rent: ${s.hraPercentage}%"></div>
+                  <div style="width:${s.medicalPercentage}%;background:#10b981" title="Medical Allowance: ${s.medicalPercentage}%"></div>
+                  <div style="width:${s.conveyancePercentage}%;background:#f59e0b" title="Conveyance Allowance: ${s.conveyancePercentage}%"></div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11px;color:var(--text-2);margin-bottom:16px">
+                  <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b82f6;margin-right:4px"></span>Basic: <strong>${s.basePercentage}%</strong></div>
+                  <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6366f1;margin-right:4px"></span>House Rent: <strong>${s.hraPercentage}%</strong></div>
+                  <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px"></span>Medical: <strong>${s.medicalPercentage}%</strong></div>
+                  <div><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;margin-right:4px"></span>Conveyance: <strong>${s.conveyancePercentage}%</strong></div>
+                </div>
+
+                <!-- Assigned Personnel Snippets -->
+                <div style="border-top:1px solid var(--border);padding-top:10px;margin-bottom:14px">
+                  <div style="font-size:11.5px;font-weight:700;color:var(--text-3);margin-bottom:6px">
+                    Assigned Employees (${assigned.length}):
+                  </div>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap">
+                    ${assigned.map(as => {
+                      const emp = emps.find(e => e.id === as.employeeId);
+                      return `
+                        <span style="font-size:11px;padding:2px 8px;border-radius:12px;background:var(--surface);border:1px solid var(--border);color:var(--text);display:flex;align-items:center;gap:4px">
+                          <i class="fa fa-user" style="color:var(--primary);font-size:10px"></i>
+                          ${emp ? emp.fullName : 'Emp #' + as.employeeId}
+                        </span>
+                      `;
+                    }).join('') || '<span style="font-size:11px;color:var(--text-muted)">No employees assigned yet</span>'}
+                  </div>
+                </div>
+              </div>
+
+              <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border);padding-top:12px">
+                <button class="btn btn-outline btn-xs" onclick="Payroll.showAssignStructureModal(${s.id})">
+                  <i class="fa fa-user-plus"></i> Assign Staff
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+
+    this.updateSimulator();
+  },
+
+  updateSimulator() {
+    const box = document.getElementById('sim-results-box');
+    if (!box) return;
+
+    const structId = parseInt(document.getElementById('sim-structure-id')?.value) || 1;
+    const gross = parseFloat(document.getElementById('sim-gross-input')?.value) || 200000;
+    const structures = DB.get('salary_structures') || [];
+    const struct = structures.find(s => s.id === structId) || structures[0] || {
+      basePercentage: 50,
+      hraPercentage: 25,
+      medicalPercentage: 15,
+      conveyancePercentage: 10
+    };
+
+    const basic = gross * (struct.basePercentage / 100);
+    const hra = gross * (struct.hraPercentage / 100);
+    const med = gross * (struct.medicalPercentage / 100);
+    const conv = gross * (struct.conveyancePercentage / 100);
+
+    // Standard Deductions
+    const pf = basic * 0.0833; // 8.33% employee PF
+    const eobi = 1300; // Standard EOBI employee share
+    // Estimate simple annual tax based on FBR slab
+    const annualTaxable = (basic + hra + conv) * 12;
+    let annualTax = 0;
+    if (annualTaxable > 1200000 && annualTaxable <= 2200000) {
+      annualTax = (annualTaxable - 1200000) * 0.15;
+    } else if (annualTaxable > 2200000 && annualTaxable <= 3200000) {
+      annualTax = 150000 + (annualTaxable - 2200000) * 0.25;
+    } else if (annualTaxable > 3200000) {
+      annualTax = 400000 + (annualTaxable - 3200000) * 0.35;
+    }
+    const monthlyTax = Math.round(annualTax / 12);
+    const totalDeductions = Math.round(pf + eobi + monthlyTax);
+    const netPay = Math.round(gross - totalDeductions);
+
+    box.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:center">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">Earnings Breakdown</div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Basic Salary (${struct.basePercentage}%):</span> <strong>₨ ${Math.round(basic).toLocaleString()}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>House Rent Allowance (${struct.hraPercentage}%):</span> <strong>₨ ${Math.round(hra).toLocaleString()}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Medical Allowance (${struct.medicalPercentage}%):</span> <strong>₨ ${Math.round(med).toLocaleString()}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Conveyance Allowance (${struct.conveyancePercentage}%):</span> <strong>₨ ${Math.round(conv).toLocaleString()}</strong>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--primary);display:flex;justify-content:space-between;padding:6px 0">
+            <span>Total Gross Salary:</span> <span>₨ ${Math.round(gross).toLocaleString()}</span>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:8px">Statutory Deductions</div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Provident Fund (8.33% of Basic):</span> <strong style="color:var(--danger)">₨ ${Math.round(pf).toLocaleString()}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>EOBI Contribution:</span> <strong style="color:var(--danger)">₨ ${eobi.toLocaleString()}</strong>
+          </div>
+          <div style="font-size:12.5px;color:var(--text);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Est. FBR Income Tax:</span> <strong style="color:var(--danger)">₨ ${monthlyTax.toLocaleString()}</strong>
+          </div>
+          <div style="font-size:13px;font-weight:800;color:var(--danger);display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span>Total Deductions:</span> <span>₨ ${totalDeductions.toLocaleString()}</span>
+          </div>
+          <div style="font-size:15px;font-weight:900;color:var(--success);display:flex;justify-content:space-between;padding:8px 0;background:rgba(16,185,129,0.1);border-radius:6px;padding:6px 10px;margin-top:6px">
+            <span>Estimated Take-Home Net:</span> <span>₨ ${netPay.toLocaleString()}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddStructureModal() {
+    const modalHtml = `
+      <div class="modal-overlay animate-fade-in" id="add-structure-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:540px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-layer-group" style="color:var(--primary)"></i> Create Salary Grade Structure
+            </h3>
+            <button class="btn-icon" onclick="document.getElementById('add-structure-modal').remove()"><i class="fa fa-times"></i></button>
+          </div>
+          <form onsubmit="Payroll.saveSalaryStructure(event)" style="padding:20px">
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Grade Scale Name *</label>
+              <input type="text" id="struct-name" class="form-control" placeholder="e.g. Lead Technical Architect Scale (S-4)" required>
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Scale Code *</label>
+              <input type="text" id="struct-code" class="form-control" placeholder="e.g. TECH-S4" required style="font-family:monospace">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Basic Salary % *</label>
+                <input type="number" id="struct-base" class="form-control" value="50" min="10" max="80" required>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">House Rent (HRA) % *</label>
+                <input type="number" id="struct-hra" class="form-control" value="25" min="10" max="50" required>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Medical Allowance % *</label>
+                <input type="number" id="struct-med" class="form-control" value="15" min="0" max="30" required>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Conveyance Allowance % *</label>
+                <input type="number" id="struct-conv" class="form-control" value="10" min="0" max="30" required>
+              </div>
+            </div>
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Description / Eligibility Criteria</label>
+              <textarea id="struct-desc" class="form-control" rows="2" placeholder="Grade level, experience threshold, or department requirements"></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('add-structure-modal').remove()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-save"></i> Save Grade Structure</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    const existing = document.getElementById('add-structure-modal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  saveSalaryStructure(e) {
+    e.preventDefault();
+    const name = document.getElementById('struct-name')?.value.trim();
+    const code = document.getElementById('struct-code')?.value.trim().toUpperCase();
+    const base = parseFloat(document.getElementById('struct-base')?.value) || 50;
+    const hra = parseFloat(document.getElementById('struct-hra')?.value) || 25;
+    const med = parseFloat(document.getElementById('struct-med')?.value) || 15;
+    const conv = parseFloat(document.getElementById('struct-conv')?.value) || 10;
+    const desc = document.getElementById('struct-desc')?.value.trim();
+
+    if (!name || !code) return;
+
+    let structures = DB.get('salary_structures') || [];
+    if (structures.some(s => s.code === code)) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast(`Structure code '${code}' already exists!`, 'danger');
+      return;
+    }
+
+    const newStruct = {
+      id: Date.now(),
+      name: name,
+      code: code,
+      description: desc || `${name} structure`,
+      basePercentage: base,
+      hraPercentage: hra,
+      medicalPercentage: med,
+      conveyancePercentage: conv,
+      isActive: true
+    };
+
+    structures.push(newStruct);
+    DB.set('salary_structures', structures);
+
+    document.getElementById('add-structure-modal')?.remove();
+    DB.log('CREATE', 'Payroll', `Created salary structure '${name}' (${code})`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Salary structure '${name}' created!`, 'success');
+    }
+
+    const c = document.getElementById('payroll-content');
+    if (c) this.renderSalaryStructures(c);
+  },
+
+  showAssignStructureModal(structureId) {
+    const structures = DB.get('salary_structures') || [];
+    const struct = structures.find(s => s.id === structureId) || structures[0];
+    const emps = DB.get('employees') || [];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const modalHtml = `
+      <div class="modal-overlay animate-fade-in" id="assign-struct-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:500px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-user-plus" style="color:var(--primary)"></i> Assign Compensation Structure
+            </h3>
+            <button class="btn-icon" onclick="document.getElementById('assign-struct-modal').remove()"><i class="fa fa-times"></i></button>
+          </div>
+          <form onsubmit="Payroll.saveEmployeeSalaryAssignment(event)" style="padding:20px">
+            <input type="hidden" id="assign-struct-id" value="${struct?.id || 1}">
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Selected Salary Grade Scale</label>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-weight:700;color:var(--text)">
+                ${struct?.name} (${struct?.code})
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Select Employee *</label>
+              <select id="assign-emp-id" class="form-control" required>
+                ${emps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo || 'EMP-' + e.id})</option>`).join('')}
+              </select>
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Total Agreed Monthly Gross (PKR) *</label>
+              <input type="number" id="assign-gross-input" class="form-control" value="180000" step="5000" min="30000" required>
+            </div>
+
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Effective Start Date *</label>
+              <input type="date" id="assign-eff-date" class="form-control" value="${todayStr}" required>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('assign-struct-modal').remove()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-check"></i> Confirm Assignment</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    const existing = document.getElementById('assign-struct-modal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  saveEmployeeSalaryAssignment(e) {
+    e.preventDefault();
+    const structId = parseInt(document.getElementById('assign-struct-id')?.value) || 1;
+    const empId = parseInt(document.getElementById('assign-emp-id')?.value);
+    const gross = parseFloat(document.getElementById('assign-gross-input')?.value) || 0;
+    const effDate = document.getElementById('assign-eff-date')?.value;
+
+    if (!empId || !gross) return;
+
+    const structures = DB.get('salary_structures') || [];
+    const struct = structures.find(s => s.id === structId) || structures[0];
+    const basic = gross * ((struct?.basePercentage || 50) / 100);
+
+    let empSalaries = DB.get('employee_salaries') || [];
+    let existing = empSalaries.find(es => es.employeeId === empId);
+
+    if (existing) {
+      existing.structureId = structId;
+      existing.basicSalary = basic;
+      existing.grossSalary = gross;
+      existing.effectiveDate = effDate;
+    } else {
+      empSalaries.push({
+        id: Date.now(),
+        employeeId: empId,
+        structureId: structId,
+        basicSalary: basic,
+        grossSalary: gross,
+        currency: 'PKR',
+        effectiveDate: effDate
+      });
+    }
+    DB.set('employee_salaries', empSalaries);
+
+    // Also synchronize to employee record salary attribute
+    let emps = DB.get('employees') || [];
+    let emp = emps.find(e => e.id === empId);
+    if (emp) {
+      emp.salary = gross;
+      DB.set('employees', emps);
+    }
+
+    document.getElementById('assign-struct-modal')?.remove();
+    DB.log('UPDATE', 'Payroll', `Assigned salary structure '${struct?.name}' to employee #${empId}`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Salary scale successfully assigned to ${emp?.fullName || 'Employee'}!`, 'success');
+    }
+
+    const c = document.getElementById('payroll-content');
+    if (c) this.renderSalaryStructures(c);
+  }
 };
+

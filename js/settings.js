@@ -10,6 +10,7 @@ const Settings = {
     const sections = [
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
+      { id: 'roles_permissions', label: 'Roles & Permissions', icon: 'fa-user-shield' },
       { id: 'attendance_rules', label: 'Attendance Rules', icon: 'fa-clock' },
       { id: 'leave_policy', label: 'Leave Policy', icon: 'fa-calendar-xmark' },
       { id: 'payroll_config', label: 'Payroll Config', icon: 'fa-money-bill-wave' },
@@ -50,6 +51,7 @@ const Settings = {
     switch (this.currentSection) {
       case 'company':          this.renderCompany(c); break;
       case 'general':          this.renderGeneral(c); break;
+      case 'roles_permissions': this.renderRolesPermissions(c); break;
       case 'attendance_rules': this.renderAttendanceRules(c); break;
       case 'leave_policy':     this.renderLeavePolicy(c); break;
       case 'payroll_config':   this.renderPayrollConfig(c); break;
@@ -1290,4 +1292,339 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
       </div>
     `);
   },
+
+  // ─── Roles & Granular Permissions Matrix (Phase 2 RBAC) ────
+  selectedRoleId: 2, // Default to HR Manager for easy viewing & toggling
+
+  renderRolesPermissions(c) {
+    if (typeof DB.ensureRBACData === 'function') DB.ensureRBACData();
+    const roles = DB.get('roles') || [];
+    const modules = DB.get('system_modules') || [];
+    const permissions = DB.get('permissions') || [];
+    const rolePermissions = DB.get('role_permissions') || [];
+    const users = DB.get('users') || [];
+
+    const selectedRole = roles.find(r => r.id === this.selectedRoleId) || roles[0];
+    const isSuperAdmin = selectedRole.code === 'superadmin';
+
+    const totalPermsCount = permissions.length;
+    const grantedForSelected = isSuperAdmin
+      ? totalPermsCount
+      : rolePermissions.filter(rp => rp.roleId === selectedRole.id && rp.isGranted).length;
+
+    c.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h3 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary)">
+              <i class="fa fa-user-shield"></i>
+            </span>
+            Roles &amp; Granular Permissions Matrix
+          </h3>
+          <div style="font-size:13px;color:var(--text-3);margin-top:4px">
+            Configure enterprise role-based access control (RBAC), custom roles, and module-level CRUD authorizations
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-sm" onclick="Settings.showAddCustomRoleModal()">
+          <i class="fa fa-plus"></i> Create Custom Role
+        </button>
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:24px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Defined Roles</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:4px">${roles.length} Roles</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${roles.filter(r => !r.isSystem).length} Custom Defined</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Protected Modules</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${modules.length} Modules</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Granular Access Gateways</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Active Permissions</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:4px">${grantedForSelected} / ${totalPermsCount}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Granted to ${selectedRole.name}</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Assigned Users</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:4px">${users.filter(u => u.role === selectedRole.code).length} Users</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Bound to Current Role</div>
+        </div>
+      </div>
+
+      <!-- Role Selector Tabs -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:20px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">
+          Select Role to Inspect &amp; Configure Permissions:
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${roles.map(r => `
+            <button class="btn btn-sm ${r.id === selectedRole.id ? 'btn-primary' : 'btn-outline'}"
+              style="display:flex;align-items:center;gap:8px;border-radius:8px"
+              onclick="Settings.selectRole(${r.id})">
+              <span>${r.name}</span>
+              <span style="font-size:10px;padding:2px 6px;border-radius:6px;background:${r.id === selectedRole.id ? 'rgba(255,255,255,0.2)' : 'var(--surface)'};color:${r.id === selectedRole.id ? '#fff' : 'var(--text-3)'}">
+                ${r.isSystem ? 'System' : 'Custom'}
+              </span>
+            </button>
+          `).join('')}
+        </div>
+        <div style="margin-top:12px;font-size:12.5px;color:var(--text-2);background:var(--surface);padding:10px 14px;border-radius:8px;display:flex;align-items:center;gap:8px">
+          <i class="fa fa-circle-info" style="color:var(--primary)"></i>
+          <span><strong>${selectedRole.name} (${selectedRole.code}):</strong> ${selectedRole.description || 'Enterprise role'}</span>
+        </div>
+      </div>
+
+      <!-- Permissions Matrix Table -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <h4 style="margin:0;font-size:15px;font-weight:700;color:var(--text)">Module Access Permissions Matrix</h4>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Grant or revoke specific actions per submodule</div>
+          </div>
+          ${!isSuperAdmin ? `
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, true)">
+                <i class="fa fa-check-double"></i> Grant All
+              </button>
+              <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, false)">
+                <i class="fa fa-ban"></i> Revoke All
+              </button>
+            </div>
+          ` : `
+            <span class="badge badge-success" style="font-size:11px">
+              <i class="fa fa-lock"></i> Sovereign Access (Immutable)
+            </span>
+          `}
+        </div>
+
+        <div class="table-wrapper" style="margin:0">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--surface);text-align:center">
+                <th style="text-align:left;padding:12px 18px;font-size:12px;font-weight:700;color:var(--text-3)">Module</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">View</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Create</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Edit</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Delete</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Approve</th>
+                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Export</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${modules.map(m => {
+                const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+                return `
+                  <tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:14px 18px">
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:30px;height:30px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:14px">
+                          <i class="fa ${m.icon || 'fa-folder'}"></i>
+                        </div>
+                        <div>
+                          <div style="font-size:13px;font-weight:700;color:var(--text)">${m.name}</div>
+                          <div style="font-size:11px;color:var(--text-muted)">Category: ${m.category || 'General'} &bull; Code: <code>${m.code}</code></div>
+                        </div>
+                      </div>
+                    </td>
+                    ${actions.map(act => {
+                      const p = permissions.find(perm => perm.moduleId === m.id && perm.action === act);
+                      if (!p) return `<td style="text-align:center;color:var(--text-muted);font-size:11px">—</td>`;
+                      
+                      const isGranted = isSuperAdmin ? true : !!rolePermissions.find(rp => rp.roleId === selectedRole.id && rp.permissionId === p.id)?.isGranted;
+                      const disabled = isSuperAdmin ? 'disabled' : '';
+
+                      return `
+                        <td style="text-align:center;padding:10px 8px">
+                          <label style="cursor:${isSuperAdmin ? 'default' : 'pointer'};display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px">
+                            <input type="checkbox"
+                              ${isGranted ? 'checked' : ''}
+                              ${disabled}
+                              onchange="Settings.toggleRolePermission(${selectedRole.id}, ${p.id}, this.checked)"
+                              style="width:16px;height:16px;accent-color:var(--primary);cursor:${isSuperAdmin ? 'default' : 'pointer'}">
+                          </label>
+                        </td>
+                      `;
+                    }).join('')}
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  selectRole(roleId) {
+    this.selectedRoleId = roleId;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  toggleRolePermission(roleId, permissionId, isGranted) {
+    let rolePerms = DB.get('role_permissions') || [];
+    let binding = rolePerms.find(rp => rp.roleId === roleId && rp.permissionId === permissionId);
+    if (binding) {
+      binding.isGranted = isGranted;
+    } else {
+      rolePerms.push({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        roleId: roleId,
+        permissionId: permissionId,
+        isGranted: isGranted
+      });
+    }
+    DB.set('role_permissions', rolePerms);
+
+    const perm = (DB.get('permissions') || []).find(p => p.id === permissionId);
+    const role = (DB.get('roles') || []).find(r => r.id === roleId);
+    DB.log('UPDATE', 'Settings', `Permission '${perm?.code}' ${isGranted ? 'granted to' : 'revoked from'} role '${role?.name}'`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Permission ${isGranted ? 'granted' : 'revoked'} for ${role?.name}`, 'success');
+    }
+
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  bulkToggleRolePermissions(roleId, grant) {
+    let rolePerms = DB.get('role_permissions') || [];
+    const permissions = DB.get('permissions') || [];
+    const role = (DB.get('roles') || []).find(r => r.id === roleId);
+
+    permissions.forEach(p => {
+      let b = rolePerms.find(rp => rp.roleId === roleId && rp.permissionId === p.id);
+      if (b) {
+        b.isGranted = grant;
+      } else {
+        rolePerms.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          roleId: roleId,
+          permissionId: p.id,
+          isGranted: grant
+        });
+      }
+    });
+
+    DB.set('role_permissions', rolePerms);
+    DB.log('UPDATE', 'Settings', `All permissions ${grant ? 'granted to' : 'revoked from'} role '${role?.name}'`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`All permissions ${grant ? 'granted to' : 'revoked from'} ${role?.name}`, 'success');
+    }
+
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  showAddCustomRoleModal() {
+    const modalHtml = `
+      <div class="modal-overlay animate-fade-in" id="custom-role-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:500px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2)">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-user-shield" style="color:var(--primary)"></i> Create Custom Enterprise Role
+            </h3>
+            <button class="btn-icon" onclick="document.getElementById('custom-role-modal').remove()"><i class="fa fa-times"></i></button>
+          </div>
+          <form onsubmit="Settings.saveCustomRole(event)" style="padding:20px">
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Role Display Name *</label>
+              <input type="text" id="role-name-input" class="form-control" placeholder="e.g. Compliance Officer, Regional HR Executive" required>
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Role System Code *</label>
+              <input type="text" id="role-code-input" class="form-control" placeholder="e.g. compliance_officer" required style="font-family:monospace">
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Base Template to Inherit</label>
+              <select id="role-inherit-input" class="form-control">
+                <option value="employee">Standard Employee (Self-Service View)</option>
+                <option value="dept_manager">Department Manager (Team Approvals)</option>
+                <option value="hr_manager">HR Manager (Full Personnel Administration)</option>
+                <option value="none">Blank Template (Zero Initial Permissions)</option>
+              </select>
+            </div>
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Role Description</label>
+              <textarea id="role-desc-input" class="form-control" rows="2" placeholder="Responsibilities and functional scope of this role"></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('custom-role-modal').remove()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-save"></i> Save &amp; Configure Permissions</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    const existing = document.getElementById('custom-role-modal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  saveCustomRole(e) {
+    e.preventDefault();
+    const name = document.getElementById('role-name-input')?.value.trim();
+    const code = document.getElementById('role-code-input')?.value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+    const inherit = document.getElementById('role-inherit-input')?.value;
+    const desc = document.getElementById('role-desc-input')?.value.trim();
+
+    if (!name || !code) return;
+
+    let roles = DB.get('roles') || [];
+    if (roles.some(r => r.code === code)) {
+      if (typeof App !== 'undefined' && App.showToast) App.showToast(`Role with code '${code}' already exists!`, 'danger');
+      return;
+    }
+
+    const newRole = {
+      id: Date.now(),
+      name: name,
+      code: code,
+      description: desc || `${name} role`,
+      isSystem: false,
+      priority: roles.length + 1
+    };
+    roles.push(newRole);
+    DB.set('roles', roles);
+
+    // Bind initial permissions based on template
+    let rolePerms = DB.get('role_permissions') || [];
+    const permissions = DB.get('permissions') || [];
+    const templateRole = roles.find(r => r.code === inherit);
+
+    permissions.forEach(p => {
+      let isGranted = false;
+      if (templateRole) {
+        isGranted = !!rolePerms.find(rp => rp.roleId === templateRole.id && rp.permissionId === p.id)?.isGranted;
+      }
+      rolePerms.push({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        roleId: newRole.id,
+        permissionId: p.id,
+        isGranted: isGranted
+      });
+    });
+    DB.set('role_permissions', rolePerms);
+
+    document.getElementById('custom-role-modal')?.remove();
+    DB.log('CREATE', 'Settings', `Created custom role '${name}' (${code})`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Custom role '${name}' successfully created!`, 'success');
+    }
+
+    this.selectedRoleId = newRole.id;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  }
 };
+

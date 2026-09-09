@@ -247,8 +247,17 @@
   - **Discipline & Compliance Module**: Dual-perspective workflow with scoped employee portal for review and electronic sign-off of official warnings, and HR Management suite with formal inquiry logging (`DIS-2026-xxx`), hearings scheduling, official corporate letterhead warnings generator (`WRN/2026/xxx`), print layout, and targeted live notifications.
   - **Normalized Personnel Dossier**: Upgraded profile tabs (`Academic Qualifications & Degrees`, `Professional Certifications`, `Work History & Experience`, `Multi-Contact Emergency Registry with Primary Designation`, and `Categorized Skills Matrix with Proficiency Ratings`) backed by normalized data layer with fallback compatibility.
   - **Corporate LMS & CPD Certification**: Training catalog scheduling (`TRN-2026-xxx`), employee enrollment workflow, and cryptographic SHA-256 verified CPD completion certificates with print-ready certificate layout *(Completed)*.
+- [x] **Phase 2: Enterprise Architecture Expansion (Dynamic RBAC, Business Travel Operations & Compensation Architecture)**:
+  - **Prisma Schema & Backend (17 Models)**:
+    - **Governance & Dynamic RBAC (6 Models)**: `Role`, `SystemModule`, `Permission`, `RolePermission`, `UserRole`, `UserPermission`.
+    - **Travel & Expense Operations (6 Models)**: `TravelRequest`, `TravelExpense`, `TravelApproval`, `ExpenseCategory`, `ExpenseClaim`, `ExpenseSettlement`.
+    - **Compensation & Salary Structure (5 Models)**: `SalaryStructure`, `SalaryComponent`, `EmployeeSalary`, `SalarySlipItem`, `SalaryReview`.
+  - **Dynamic Roles & Permissions Matrix UI (`js/settings.js`)**: Real-time permission grid mapping roles against 11 modules and 6 granular actions (View, Create, Edit, Delete, Approve, Export); custom role creator with template inheritance; dynamic `Auth.can(permission)` query engine with instant local storage persistence.
+  - **Business Travel & Per-Diem Engine (`js/expenses.js`)**: Dedicated travel requisitions subtab; itinerary logging with origin/destination, dates, flight/rail/road travel modes, estimated budget, and cash advance requests; manager approval workflow; official printable **Travel Authorization & Per-Diem Order (TA/DA Order)** letterhead.
+  - **Salary Structures & Grade Scales (`js/payroll.js`)**: Standardized grade packages (Executive E-1, Senior Tech S-3, Associate G-2) with visual component allocation bars; interactive salary breakdown simulator calculating exact Basic, HRA, Medical, Conveyance, PF, EOBI, and FBR tax deductions; employee scale assignment with live employee record synchronization *(Completed)*.
 
 ---
 
 *File automatically maintained and synchronized with the repository.*
+
 

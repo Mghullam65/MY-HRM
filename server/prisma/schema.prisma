@@ -119,6 +119,10 @@ model Employee {
   trainingAttendees    TrainingAttendee[]
   trainingCertificates TrainingCertificate[]
   trainingFeedbacks    TrainingFeedback[]
+  travelRequests       TravelRequest[]
+  expenseClaims        ExpenseClaim[]
+  salaries             EmployeeSalary[]
+  salaryReviews        SalaryReview[]
 
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -132,9 +136,11 @@ model User {
   employeeId  Int       @unique
   status      String    @default("active")
   lastLogin   DateTime?
-  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  userRoles   UserRole[]
+  userPermissions UserPermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
 }
 
 model Attendance {
@@ -217,10 +223,11 @@ model Payroll {
   tax           Float     @default(0)
   paymentStatus String    @default("pending") // pending, paid, on_hold
   paymentDate   String?
-  paymentMethod String?   @default("Bank Transfer")
-  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  paymentMethod String?          @default("Bank Transfer")
+  employee      Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  slipItems     SalarySlipItem[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
 
   @@unique([employeeId, month, year])
 }
@@ -558,3 +565,264 @@ model TrainingFeedback {
 
   @@unique([sessionId, employeeId])
 }
+
+// ==========================================
+// PHASE 2: TRAVEL & EXPENSE REQUISITIONS (6 Models)
+// ==========================================
+
+model ExpenseCategory {
+  id              Int             @id @default(autoincrement())
+  name            String
+  code            String          @unique
+  maxDailyLimit   Float?          @default(0)
+  requiresReceipt Boolean         @default(true)
+  isPerDiem       Boolean         @default(false)
+  description     String?
+  travelExpenses  TravelExpense[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model TravelRequest {
+  id                 Int              @id @default(autoincrement())
+  requestNo          String           @unique // TRV-2026-001
+  employeeId         Int
+  purpose            String
+  travelType         String           @default("domestic") // domestic, international
+  departureDate      String           // YYYY-MM-DD
+  returnDate         String           // YYYY-MM-DD
+  originCity         String
+  destinationCity    String
+  destinationCountry String           @default("Pakistan")
+  travelMode         String           @default("Flight") // Flight, Train, Company Car, Personal Vehicle
+  estimatedBudget    Float            @default(0)
+  advanceAmount      Float            @default(0)
+  advanceStatus      String           @default("none") // none, requested, approved, disbursed
+  status             String           @default("pending") // pending, approved, rejected, completed, cancelled
+  approvedBy         Int?
+  approvedAt         DateTime?
+  notes              String?
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  expenses           TravelExpense[]
+  approvals          TravelApproval[]
+  claims             ExpenseClaim[]
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model TravelExpense {
+  id              Int             @id @default(autoincrement())
+  travelRequestId Int
+  categoryId      Int
+  expenseDate     String          // YYYY-MM-DD
+  title           String
+  amount          Float
+  currency        String          @default("PKR")
+  merchant        String?
+  receiptUrl      String?
+  receiptNo       String?
+  isBillable      Boolean         @default(false)
+  status          String          @default("pending") // pending, approved, rejected
+  travelRequest   TravelRequest   @relation(fields: [travelRequestId], references: [id], onDelete: Cascade)
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+}
+
+model TravelApproval {
+  id              Int           @id @default(autoincrement())
+  travelRequestId Int
+  approverId      Int
+  step            String        @default("manager") // manager, finance, director
+  status          String        // approved, rejected
+  comments        String?
+  actionAt        DateTime      @default(now())
+  travelRequest   TravelRequest @relation(fields: [travelRequestId], references: [id], onDelete: Cascade)
+}
+
+model ExpenseClaim {
+  id              Int                @id @default(autoincrement())
+  claimNo         String             @unique // CLM-2026-001
+  employeeId      Int
+  travelRequestId Int?
+  title           String
+  totalAmount     Float
+  approvedAmount  Float?
+  status          String             @default("submitted") // submitted, approved, reimbursed, rejected
+  submittedDate   String             // YYYY-MM-DD
+  employee        Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  travelRequest   TravelRequest?     @relation(fields: [travelRequestId], references: [id])
+  settlement      ExpenseSettlement?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+}
+
+model ExpenseSettlement {
+  id               Int          @id @default(autoincrement())
+  claimId          Int          @unique
+  settlementRef    String       @unique // SET-2026-001
+  settlementMethod String       @default("Payroll") // Payroll, Bank Transfer, Petty Cash
+  payoutAmount     Float
+  disbursementDate String       // YYYY-MM-DD
+  financeOfficerId Int?
+  claim            ExpenseClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+}
+
+// ==========================================
+// PHASE 2: GOVERNANCE & DYNAMIC RBAC (6 Models)
+// ==========================================
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        String
+  code        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  priority    Int              @default(1)
+  permissions RolePermission[]
+  userRoles   UserRole[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model SystemModule {
+  id          Int          @id @default(autoincrement())
+  code        String       @unique
+  name        String
+  category    String?
+  icon        String?
+  sortOrder   Int          @default(0)
+  isActive    Boolean      @default(true)
+  permissions Permission[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  code            String           @unique
+  name            String
+  moduleId        Int
+  action          String           // view, create, edit, delete, approve, export
+  description     String?
+  module          SystemModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  roleId       Int
+  permissionId Int
+  isGranted    Boolean    @default(true)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  roleId     Int
+  assignedAt DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model UserPermission {
+  id             Int        @id @default(autoincrement())
+  userId         Int
+  permissionId   Int
+  isGranted      Boolean    @default(true)
+  overrideReason String?
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission     Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@unique([userId, permissionId])
+}
+
+// ==========================================
+// PHASE 2: COMPENSATION & SALARY STRUCTURE (5 Models)
+// ==========================================
+
+model SalaryStructure {
+  id                   Int              @id @default(autoincrement())
+  name                 String
+  code                 String           @unique
+  description          String?
+  basePercentage       Float            @default(50.0)
+  hraPercentage        Float            @default(25.0)
+  medicalPercentage    Float            @default(15.0)
+  conveyancePercentage Float            @default(10.0)
+  isActive             Boolean          @default(true)
+  employeeSalaries     EmployeeSalary[]
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+}
+
+model SalaryComponent {
+  id              Int              @id @default(autoincrement())
+  name            String
+  code            String           @unique
+  type            String           // earning, deduction
+  calculationType String           @default("fixed") // fixed, percentage
+  isTaxable       Boolean          @default(true)
+  isStatutory     Boolean          @default(false)
+  defaultValue    Float            @default(0)
+  slipItems       SalarySlipItem[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model EmployeeSalary {
+  id            Int             @id @default(autoincrement())
+  employeeId    Int
+  structureId   Int
+  basicSalary   Float
+  grossSalary   Float
+  currency      String          @default("PKR")
+  effectiveDate String          // YYYY-MM-DD
+  employee      Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  structure     SalaryStructure @relation(fields: [structureId], references: [id])
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model SalarySlipItem {
+  id          Int              @id @default(autoincrement())
+  payrollId   Int
+  componentId Int?
+  name        String
+  type        String           // earning, deduction
+  amount      Float
+  payroll     Payroll          @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  component   SalaryComponent? @relation(fields: [componentId], references: [id])
+  createdAt   DateTime         @default(now())
+}
+
+model SalaryReview {
+  id                  Int      @id @default(autoincrement())
+  employeeId          Int
+  oldGross            Float
+  newGross            Float
+  incrementPercentage Float
+  reviewDate          String   // YYYY-MM-DD
+  effectiveDate       String   // YYYY-MM-DD
+  approvedBy          Int?
+  remarks             String?
+  employee            Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+

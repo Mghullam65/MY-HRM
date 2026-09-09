@@ -65,9 +65,15 @@ const Expenses = {
               <i class="fa fa-money-bill-transfer"></i> 1-Click Sync to Payroll
             </button>
           ` : ''}
-          <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateModal()">
-            <i class="fa fa-plus"></i> Submit Expense Claim
-          </button>
+          ${this.activeTab === 'travel_requests' ? `
+            <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateTravelModal()">
+              <i class="fa fa-plane-departure"></i> New Travel Requisition
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateModal()">
+              <i class="fa fa-plus"></i> Submit Expense Claim
+            </button>
+          `}
         </div>
       </div>
 
@@ -116,6 +122,10 @@ const Expenses = {
             <i class="fa fa-list-check" style="margin-right:6px"></i>Universal Ledger (${allClaims.length})
           </button>
         ` : ''}
+
+        <button class="tab-toggle-btn ${this.activeTab==='travel_requests'?'active':''}" onclick="Expenses.switchTab('travel_requests')">
+          <i class="fa fa-plane-departure" style="margin-right:6px"></i>Business Travel (${(DB.get('travel_requests')||[]).length})
+        </button>
       </div>
 
       <!-- Filter Toolbar -->
@@ -159,6 +169,11 @@ const Expenses = {
   renderTable() {
     const wrap = document.getElementById('expenses-table-wrap');
     if (!wrap) return;
+
+    if (this.activeTab === 'travel_requests') {
+      this.renderTravelRequestsTable(wrap);
+      return;
+    }
 
     const role = Auth.role;
     const isEmp = role === 'employee';
@@ -708,5 +723,523 @@ const Expenses = {
     const csvContent = [headers.join(','), ...rows].join('\n');
     Utils.downloadCSV(csvContent, `Expense_Claims_Export_${Utils.today()}.csv`);
     Toast.show('Expense claims CSV exported!', 'success');
+  },
+
+  // ============================================================
+  // BUSINESS TRAVEL & PER-DIEM ENGINE (Phase 2)
+  // ============================================================
+
+  renderTravelRequestsTable(wrap) {
+    if (typeof DB.ensureTravelAndExpenseData === 'function') DB.ensureTravelAndExpenseData();
+    const allTravel = DB.get('travel_requests') || [];
+    const emps = DB.get('employees') || [];
+    const depts = DB.get('departments') || [];
+    const isEmp = Auth.role === 'employee';
+    const myEmpId = Auth.employee?.id;
+
+    let list = allTravel;
+    if (isEmp) {
+      list = allTravel.filter(t => t.employeeId === myEmpId);
+    }
+
+    if (!list.length) {
+      wrap.innerHTML = `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center">
+          <div style="width:50px;height:50px;border-radius:50%;background:rgba(99,102,241,0.1);color:var(--primary);display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:22px">
+            <i class="fa fa-plane-departure"></i>
+          </div>
+          <h3 style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">No Travel Requisitions Found</h3>
+          <p style="font-size:13px;color:var(--text-3);max-width:400px;margin:0 auto 20px">
+            Submit an official business travel requisition to secure corporate travel authorization, airline tickets, and per-diem sustenance advances.
+          </p>
+          <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateTravelModal()">
+            <i class="fa fa-plus"></i> Submit New Travel Requisition
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+        <div class="table-wrapper" style="margin:0">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--surface);text-align:left">
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3)">Request #</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3)">Traveler</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3)">Sector &amp; Purpose</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3)">Dates &amp; Mode</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3);text-align:right">Budget &amp; Advance</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3);text-align:center">Status</th>
+                <th style="padding:12px 16px;font-size:12px;font-weight:700;color:var(--text-3);text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map(t => {
+                const emp = emps.find(e => e.id === t.employeeId) || { fullName: 'Employee #' + t.employeeId };
+                const dept = depts.find(d => d.id === emp.departmentId)?.name || 'General';
+                const statusBadge = t.status === 'approved' ? '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Approved</span>'
+                  : t.status === 'pending' ? '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Approval</span>'
+                  : t.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times-circle"></i> Rejected</span>'
+                  : '<span class="badge badge-secondary">Completed</span>';
+
+                const advanceBadge = t.advanceStatus === 'approved' ? '<span style="color:var(--success);font-weight:700">Sanctioned</span>'
+                  : t.advanceStatus === 'requested' ? '<span style="color:var(--warning);font-weight:600">Pending Review</span>'
+                  : '<span style="color:var(--text-muted)">None</span>';
+
+                const canApprove = !isEmp && t.status === 'pending';
+
+                return `
+                  <tr style="border-bottom:1px solid var(--border)">
+                    <td style="padding:14px 16px;font-weight:700;font-family:monospace;color:var(--primary);font-size:13px">
+                      ${t.requestNo}
+                    </td>
+                    <td style="padding:14px 16px">
+                      <div style="font-weight:700;color:var(--text);font-size:13px">${emp.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-muted)">${dept} &bull; ${t.travelType.toUpperCase()}</div>
+                    </td>
+                    <td style="padding:14px 16px">
+                      <div style="font-size:13px;font-weight:600;color:var(--text)">
+                        ${t.originCity} &rarr; ${t.destinationCity}
+                      </div>
+                      <div style="font-size:11.5px;color:var(--text-3);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.purpose}">
+                        ${t.purpose}
+                      </div>
+                    </td>
+                    <td style="padding:14px 16px">
+                      <div style="font-size:12.5px;color:var(--text);font-weight:600">
+                        ${Utils.formatDate(t.departureDate)} – ${Utils.formatDate(t.returnDate)}
+                      </div>
+                      <div style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:4px">
+                        <i class="fa ${t.travelMode === 'Flight' ? 'fa-plane' : t.travelMode === 'Train' ? 'fa-train' : 'fa-car'}"></i>
+                        <span>${t.travelMode}</span>
+                      </div>
+                    </td>
+                    <td style="padding:14px 16px;text-align:right">
+                      <div style="font-size:13px;font-weight:800;color:var(--text)">₨ ${(t.estimatedBudget || 0).toLocaleString()}</div>
+                      <div style="font-size:11px;color:var(--text-3)">Advance: ₨ ${(t.advanceAmount || 0).toLocaleString()} (${advanceBadge})</div>
+                    </td>
+                    <td style="padding:14px 16px;text-align:center">
+                      ${statusBadge}
+                    </td>
+                    <td style="padding:14px 16px;text-align:right">
+                      <div style="display:flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn-outline btn-xs" title="Print Official TA/DA Order" onclick="Expenses.previewTravelOrderModal(${t.id})">
+                          <i class="fa fa-print"></i> TA/DA Order
+                        </button>
+                        ${canApprove ? `
+                          <button class="btn btn-success btn-xs" title="Approve Requisition" onclick="Expenses.approveTravelRequest(${t.id})">
+                            <i class="fa fa-check"></i> Approve
+                          </button>
+                          <button class="btn btn-danger btn-xs" title="Reject Requisition" onclick="Expenses.rejectTravelRequest(${t.id})">
+                            <i class="fa fa-times"></i> Reject
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showCreateTravelModal() {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const isEmp = Auth.role === 'employee';
+    const emps = DB.get('employees') || [];
+
+    const modalHtml = `
+      <div class="modal-overlay animate-fade-in" id="travel-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;width:100%;max-width:580px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2);max-height:90vh;display:flex;flex-direction:column">
+          <div style="padding:18px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-plane-departure" style="color:var(--primary)"></i> Business Travel &amp; Per-Diem Requisition
+            </h3>
+            <button class="btn-icon" onclick="document.getElementById('travel-modal').remove()"><i class="fa fa-times"></i></button>
+          </div>
+          <form onsubmit="Expenses.saveTravelRequest(event)" style="padding:20px;overflow-y:auto;flex:1">
+            ${!isEmp ? `
+              <div style="margin-bottom:14px">
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Nominated Traveler *</label>
+                <select id="travel-emp-id" class="form-control" required>
+                  ${emps.map(e => `<option value="${e.id}" ${e.id === Auth.employee?.id ? 'selected' : ''}>${e.fullName} (${e.empNo || 'EMP-' + e.id})</option>`).join('')}
+                </select>
+              </div>
+            ` : `<input type="hidden" id="travel-emp-id" value="${Auth.employee?.id}">`}
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Purpose of Travel *</label>
+              <input type="text" id="travel-purpose" class="form-control" placeholder="e.g. Client Architecture Discovery, Regional Data Center Audit" required>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Origin City *</label>
+                <input type="text" id="travel-origin" class="form-control" value="Karachi" required>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Destination City *</label>
+                <input type="text" id="travel-destination" class="form-control" placeholder="e.g. Islamabad, Lahore" required>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Departure Date *</label>
+                <input type="date" id="travel-dep-date" class="form-control" value="${todayStr}" required>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Return Date *</label>
+                <input type="date" id="travel-ret-date" class="form-control" value="${todayStr}" required>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Mode of Travel</label>
+                <select id="travel-mode" class="form-control">
+                  <option value="Flight">Commercial Flight (Economy)</option>
+                  <option value="Train">Railway / Express Train</option>
+                  <option value="Company Car">Company Chauffeur / Fleet Car</option>
+                  <option value="Personal Vehicle">Personal Vehicle (Mileage Claim)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Estimated Budget (PKR) *</label>
+                <input type="number" id="travel-budget" class="form-control" placeholder="Total expected expenditure" required min="1000">
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">
+                Cash Advance Requested (PKR)
+                <span style="font-weight:normal;color:var(--text-muted)">(Sustenance &amp; Per-Diem Advance)</span>
+              </label>
+              <input type="number" id="travel-advance" class="form-control" placeholder="0" min="0">
+            </div>
+
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:12px;font-weight:700;color:var(--text-3);margin-bottom:6px">Notes / Stakeholders</label>
+              <textarea id="travel-notes" class="form-control" rows="2" placeholder="List meetings, project milestones, or specific stakeholder justification"></textarea>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('travel-modal').remove()">Cancel</button>
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fa fa-paper-plane"></i> Submit Requisition</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    const existing = document.getElementById('travel-modal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  saveTravelRequest(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('travel-emp-id')?.value) || Auth.employee?.id;
+    const purpose = document.getElementById('travel-purpose')?.value.trim();
+    const origin = document.getElementById('travel-origin')?.value.trim();
+    const destination = document.getElementById('travel-destination')?.value.trim();
+    const depDate = document.getElementById('travel-dep-date')?.value;
+    const retDate = document.getElementById('travel-ret-date')?.value;
+    const mode = document.getElementById('travel-mode')?.value;
+    const budget = parseFloat(document.getElementById('travel-budget')?.value) || 0;
+    const advance = parseFloat(document.getElementById('travel-advance')?.value) || 0;
+    const notes = document.getElementById('travel-notes')?.value.trim();
+
+    if (!purpose || !destination || !depDate || !retDate) return;
+
+    let travelList = DB.get('travel_requests') || [];
+    const year = new Date().getFullYear();
+    const reqNo = `TRV-${year}-${String(travelList.length + 1).padStart(3, '0')}`;
+
+    const newReq = {
+      id: Date.now(),
+      requestNo: reqNo,
+      employeeId: empId,
+      purpose: purpose,
+      travelType: 'domestic',
+      departureDate: depDate,
+      returnDate: retDate,
+      originCity: origin,
+      destinationCity: destination,
+      destinationCountry: 'Pakistan',
+      travelMode: mode,
+      estimatedBudget: budget,
+      advanceAmount: advance,
+      advanceStatus: advance > 0 ? 'requested' : 'none',
+      status: 'pending',
+      approvedBy: null,
+      approvedAt: null,
+      notes: notes
+    };
+
+    travelList.unshift(newReq);
+    DB.set('travel_requests', travelList);
+
+    document.getElementById('travel-modal')?.remove();
+    DB.log('CREATE', 'Travel', `Travel requisition ${reqNo} submitted by employee #${empId}`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Travel requisition ${reqNo} lodged for approval!`, 'success');
+    }
+
+    // Broadcast live notification to HR & Managers
+    if (typeof LiveNotifications !== 'undefined') {
+      const emp = (DB.get('employees') || []).find(e => e.id === empId);
+      LiveNotifications.dispatch({
+        title: 'New Business Travel Requisition',
+        message: `${emp?.fullName || 'Employee'} has submitted travel request ${reqNo} to ${destination} (Est: PKR ${budget.toLocaleString()}).`,
+        type: 'travel',
+        priority: 'high',
+        targetRole: 'dept_manager'
+      });
+    }
+
+    this.render();
+  },
+
+  approveTravelRequest(id) {
+    let list = DB.get('travel_requests') || [];
+    const req = list.find(t => t.id === id);
+    if (!req) return;
+
+    req.status = 'approved';
+    if (req.advanceStatus === 'requested') req.advanceStatus = 'approved';
+    req.approvedBy = Auth.employee?.id || 1;
+    req.approvedAt = new Date().toISOString();
+    DB.set('travel_requests', list);
+
+    let approvals = DB.get('travel_approvals') || [];
+    approvals.push({
+      id: Date.now(),
+      travelRequestId: req.id,
+      approverId: Auth.employee?.id || 1,
+      step: 'manager',
+      status: 'approved',
+      comments: `Requisition and PKR ${(req.advanceAmount || 0).toLocaleString()} advance approved.`,
+      actionAt: new Date().toISOString()
+    });
+    DB.set('travel_approvals', approvals);
+
+    DB.log('APPROVE', 'Travel', `Travel requisition ${req.requestNo} approved`, Auth.user?.id);
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Travel requisition ${req.requestNo} officially approved!`, 'success');
+    }
+
+    // Notify employee
+    if (typeof LiveNotifications !== 'undefined') {
+      LiveNotifications.dispatch({
+        title: 'Business Travel Approved',
+        message: `Your travel request ${req.requestNo} to ${req.destinationCity} has been approved with authorized advance.`,
+        type: 'travel',
+        priority: 'high',
+        targetRole: 'employee',
+        recipientEmpId: req.employeeId
+      });
+    }
+
+    this.render();
+  },
+
+  rejectTravelRequest(id) {
+    let list = DB.get('travel_requests') || [];
+    const req = list.find(t => t.id === id);
+    if (!req) return;
+
+    req.status = 'rejected';
+    if (req.advanceStatus === 'requested') req.advanceStatus = 'none';
+    DB.set('travel_requests', list);
+
+    DB.log('REJECT', 'Travel', `Travel requisition ${req.requestNo} rejected`, Auth.user?.id);
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`Travel requisition ${req.requestNo} rejected.`, 'danger');
+    }
+    this.render();
+  },
+
+  previewTravelOrderModal(id) {
+    const list = DB.get('travel_requests') || [];
+    const req = list.find(t => t.id === id);
+    if (!req) return;
+
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === req.employeeId) || { fullName: 'Employee #' + req.employeeId, designation: 'Specialist' };
+    const approver = emps.find(e => e.id === req.approvedBy) || { fullName: 'Executive Management' };
+
+    const modalHtml = `
+      <div class="modal-overlay animate-fade-in" id="ta-order-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px">
+        <div style="background:#fff;color:#0f172a;border-radius:12px;width:100%;max-width:700px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:92vh;display:flex;flex-direction:column">
+          <div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;background:#f8fafc">
+            <span style="font-weight:700;font-size:14px;color:#0f172a">Travel Authorization &amp; Per-Diem Order (TA/DA)</span>
+            <button class="btn-icon" onclick="document.getElementById('ta-order-modal').remove()"><i class="fa fa-times"></i></button>
+          </div>
+          
+          <div style="padding:32px;overflow-y:auto;flex:1;font-family:'Segoe UI',system-ui,sans-serif" id="ta-print-content">
+            <!-- Corporate Letterhead -->
+            <div style="text-align:center;border-bottom:2px solid #0f172a;padding-bottom:16px;margin-bottom:20px">
+              <h2 style="margin:0;font-size:22px;letter-spacing:1px;font-weight:900;color:#0f172a">HRM PRO ENTERPRISE SOLUTIONS</h2>
+              <div style="font-size:11.5px;color:#475569;margin-top:4px">CORPORATE GOVERNANCE &bull; FINANCE &amp; COMPLIANCE DIVISION</div>
+              <div style="display:inline-block;margin-top:10px;padding:4px 16px;background:#0f172a;color:#fff;font-size:12px;font-weight:800;letter-spacing:1px;border-radius:4px">
+                OFFICIAL TRAVEL AUTHORIZATION ORDER (TA/DA)
+              </div>
+            </div>
+
+            <!-- Order Meta Grid -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;font-size:12.5px;background:#f8fafc;padding:14px;border:1px solid #e2e8f0;border-radius:8px">
+              <div><strong>Order Reference:</strong> <span style="font-family:monospace;color:#0284c7;font-weight:700">${req.requestNo}</span></div>
+              <div><strong>Order Date:</strong> ${Utils.formatDate(req.approvedAt || req.departureDate)}</div>
+              <div><strong>Nominated Traveler:</strong> ${emp.fullName}</div>
+              <div><strong>Designation:</strong> ${emp.designation || 'Staff'}</div>
+              <div><strong>Authorized Sector:</strong> ${req.originCity} &rarr; ${req.destinationCity}</div>
+              <div><strong>Mode of Travel:</strong> ${req.travelMode}</div>
+              <div><strong>Itinerary Period:</strong> ${Utils.formatDate(req.departureDate)} to ${Utils.formatDate(req.returnDate)}</div>
+              <div><strong>Authorization Status:</strong> ${req.status.toUpperCase()}</div>
+            </div>
+
+            <div style="margin-bottom:18px">
+              <div style="font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;margin-bottom:4px">Mandatory Business Justification:</div>
+              <div style="font-size:13px;color:#1e293b;line-height:1.5;background:#fff;border:1px solid #e2e8f0;padding:10px 14px;border-radius:6px">
+                ${req.purpose}
+              </div>
+            </div>
+
+            <!-- Financial Sanction Table -->
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:12px">
+              <thead>
+                <tr style="background:#0f172a;color:#fff;text-align:left">
+                  <th style="padding:8px 12px">Expense Head / Component</th>
+                  <th style="padding:8px 12px">Corporate Entitlement / Limit</th>
+                  <th style="padding:8px 12px;text-align:right">Sanctioned Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid #e2e8f0">
+                  <td style="padding:8px 12px">Estimated Travel &amp; Logistics Budget</td>
+                  <td style="padding:8px 12px">Commercial Airfare / Transport Standard</td>
+                  <td style="padding:8px 12px;text-align:right;font-weight:700">PKR ${(req.estimatedBudget || 0).toLocaleString()}</td>
+                </tr>
+                <tr style="border-bottom:1px solid #e2e8f0">
+                  <td style="padding:8px 12px">Approved Sustenance &amp; Per-Diem Advance</td>
+                  <td style="padding:8px 12px">Disbursed via Direct Bank / Petty Cash</td>
+                  <td style="padding:8px 12px;text-align:right;font-weight:700;color:#059669">PKR ${(req.advanceAmount || 0).toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Legal Compliance Clauses -->
+            <div style="font-size:11px;color:#64748b;line-height:1.6;margin-bottom:28px">
+              <strong>Compliance Notice:</strong> Official travel claims must be submitted along with verified tax invoices/boarding passes within 5 business days of return. Unadjusted cash advances will automatically be scheduled for payroll reconciliation.
+            </div>
+
+            <!-- Signature Blocks -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;text-align:center;margin-top:20px;padding-top:14px;border-top:1px solid #e2e8f0">
+              <div>
+                <div style="font-weight:700;font-size:13px;color:#0f172a">${emp.fullName}</div>
+                <div style="font-size:11px;color:#64748b">Traveler / Recipient Signature</div>
+              </div>
+              <div>
+                <div style="font-weight:700;font-size:13px;color:#0f172a">${approver.fullName}</div>
+                <div style="font-size:11px;color:#64748b">Competent Financial Authority</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:14px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;gap:10px">
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('ta-order-modal').remove()">Close</button>
+            <button class="btn btn-primary btn-sm" onclick="Expenses.printTravelOrder(${req.id})"><i class="fa fa-print"></i> Print TA/DA Order</button>
+          </div>
+        </div>
+      </div>
+    `;
+    const existing = document.getElementById('ta-order-modal');
+    if (existing) existing.remove();
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  printTravelOrder(id) {
+    const list = DB.get('travel_requests') || [];
+    const req = list.find(t => t.id === id);
+    if (!req) return;
+
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === req.employeeId) || { fullName: 'Employee #' + req.employeeId, designation: 'Staff' };
+    const approver = emps.find(e => e.id === req.approvedBy) || { fullName: 'Executive Management' };
+
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>TA/DA Order — ${req.requestNo}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
+          .header { text-align: center; border-bottom: 2px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
+          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; font-size: 13px; }
+          table { width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 13px; }
+          th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+          th { background: #0f172a; color: #fff; }
+          .sig-row { display: flex; justify-content: space-between; margin-top: 60px; text-align: center; }
+          .sig-block { width: 220px; border-top: 1px solid #0f172a; padding-top: 8px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2 style="margin:0;font-size:22px">HRM PRO ENTERPRISE SOLUTIONS</h2>
+          <div style="font-size:12px;color:#475569">GOVERNANCE &amp; FINANCIAL OPERATIONS DIVISION</div>
+          <h3 style="margin-top:12px;font-size:15px;letter-spacing:1px">TRAVEL AUTHORIZATION &amp; PER-DIEM ORDER (TA/DA)</h3>
+        </div>
+
+        <div class="grid">
+          <div><strong>Order Ref:</strong> ${req.requestNo}</div>
+          <div><strong>Sanction Date:</strong> ${Utils.formatDate(req.approvedAt || req.departureDate)}</div>
+          <div><strong>Nominated Staff:</strong> ${emp.fullName} (${emp.designation || 'Staff'})</div>
+          <div><strong>Destination Sector:</strong> ${req.originCity} &rarr; ${req.destinationCity}</div>
+          <div><strong>Travel Dates:</strong> ${Utils.formatDate(req.departureDate)} to ${Utils.formatDate(req.returnDate)}</div>
+          <div><strong>Mode of Travel:</strong> ${req.travelMode}</div>
+        </div>
+
+        <div style="margin: 20px 0; font-size: 13px;">
+          <strong>Official Purpose:</strong><br>
+          ${req.purpose}
+        </div>
+
+        <table>
+          <thead>
+            <tr><th>Component Head</th><th>Description</th><th style="text-align:right">Sanctioned Limit (PKR)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Total Travel Budget</td><td>Commercial Logistics &amp; Accommodation</td><td style="text-align:right">${(req.estimatedBudget || 0).toLocaleString()}</td></tr>
+            <tr><td>Per-Diem Cash Advance</td><td>Disbursed for sustenance on-duty</td><td style="text-align:right;font-weight:bold">${(req.advanceAmount || 0).toLocaleString()}</td></tr>
+          </tbody>
+        </table>
+
+        <div style="font-size: 11px; color: #64748b; margin-top: 30px;">
+          This document serves as an authentic legal authorization for inter-city commercial transit on behalf of HRM Pro.
+        </div>
+
+        <div class="sig-row">
+          <div class="sig-block">
+            <strong>${emp.fullName}</strong><br>
+            Traveler Employee
+          </div>
+          <div class="sig-block">
+            <strong>${approver.fullName}</strong><br>
+            Authorizing Officer
+          </div>
+        </div>
+        <script>window.onload = () => window.print();</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
   }
 };
+

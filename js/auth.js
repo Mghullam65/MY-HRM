@@ -55,7 +55,30 @@ const Auth = {
 
   can(permission) {
     if (!this.role) return false;
-    const perms = permissions[this.role] || [];
+    if (this.role === 'superadmin') return true;
+
+    // Check dynamic DB role_permissions first if available
+    try {
+      if (typeof DB !== 'undefined' && DB.get) {
+        const roles = DB.get('roles') || [];
+        const currentRoleObj = roles.find(r => r.code === this.role);
+        if (currentRoleObj) {
+          const perms = DB.get('permissions') || [];
+          const rolePerms = DB.get('role_permissions') || [];
+          const matchedPerm = perms.find(p => p.code === permission || p.code.startsWith(permission + '.') || permission.startsWith(p.code));
+          if (matchedPerm) {
+            const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === matchedPerm.id);
+            if (binding !== undefined) {
+              return !!binding.isGranted;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fall through to static permissions
+    }
+
+    const perms = (typeof permissions !== 'undefined' && permissions[this.role]) ? permissions[this.role] : [];
     if (perms.includes('all')) return true;
     return perms.some(p => p === permission || p.startsWith(permission + '.') || permission.startsWith(p));
   },
