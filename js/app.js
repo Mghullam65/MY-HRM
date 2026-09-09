@@ -157,6 +157,10 @@ const App = {
         <div class="search-dropdown" id="search-dropdown"></div>
       </div>
       <div class="topbar-actions">
+        <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:6px">
+          <i class="fa fa-cubes"></i>
+          <span>103 Models</span>
+        </button>
         <button class="theme-toggle-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
           <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
