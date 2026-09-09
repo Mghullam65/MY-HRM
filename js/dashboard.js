@@ -4,6 +4,28 @@
 
 const Dashboard = {
   charts: {},
+  inboxCollapsed: typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_inbox_collapsed') === 'true' : false,
+  inboxFilter: 'all',
+
+  toggleInboxCollapse() {
+    this.inboxCollapsed = !this.inboxCollapsed;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('hrm_inbox_collapsed', this.inboxCollapsed ? 'true' : 'false');
+    }
+    this.refreshInbox();
+  },
+
+  setInboxFilter(filter) {
+    this.inboxFilter = filter;
+    this.refreshInbox();
+  },
+
+  refreshInbox() {
+    const container = document.getElementById('dashboard-action-inbox');
+    if (container) {
+      container.outerHTML = this.renderActionCenterInbox();
+    }
+  },
 
   render() {
     const content = document.getElementById('page-content');
@@ -701,57 +723,112 @@ const Dashboard = {
 
     if (actions.length === 0) {
       return `
-        <div class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(99,102,241,0.05));border:1px solid rgba(16,185,129,0.25);border-radius:14px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-          <div style="display:flex;align-items:center;gap:14px">
-            <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.15);color:var(--success);display:flex;align-items:center;justify-content:center;font-size:18px">
+        <div id="dashboard-action-inbox" class="card" style="background:linear-gradient(135deg,rgba(16,185,129,0.08),rgba(99,102,241,0.05));border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:34px;height:34px;border-radius:8px;background:rgba(16,185,129,0.15);color:var(--success);display:flex;align-items:center;justify-content:center;font-size:16px">
               <i class="fa fa-shield-check"></i>
             </div>
             <div>
-              <div style="font-weight:700;font-size:14px;color:var(--text)">All Clear — Zero Pending Approvals</div>
-              <div style="font-size:12px;color:var(--text-3)">Your operational approval pipeline is 100% up to date. No pending actions require your immediate triage.</div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--text)">All Clear — Zero Pending Approvals</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Your operational approval pipeline is 100% up to date. No pending actions require your immediate triage.</div>
             </div>
           </div>
-          <span class="badge badge-success" style="font-size:11.5px;padding:5px 12px">Pipeline Up-to-Date</span>
+          <span class="badge badge-success" style="font-size:11px;padding:4px 10px">Pipeline Up-to-Date</span>
         </div>
       `;
     }
 
+    const isCollapsed = this.inboxCollapsed;
+    const leaveCount = actions.filter(a => a.type === 'leave').length;
+    const expenseCount = actions.filter(a => a.type === 'expense').length;
+    const ticketCount = actions.filter(a => a.type === 'ticket').length;
+    const lifeCount = actions.filter(a => a.type === 'life_event').length;
+    const complianceCount = actions.filter(a => ['policy', 'doc_expiry', 'hr_letter', 'asset'].includes(a.type)).length;
+
+    const summaryParts = [];
+    if (leaveCount) summaryParts.push(`${leaveCount} Leave${leaveCount > 1 ? 's' : ''}`);
+    if (expenseCount) summaryParts.push(`${expenseCount} Finance Payout${expenseCount > 1 ? 's' : ''}`);
+    if (ticketCount) summaryParts.push(`${ticketCount} SLA Incident${ticketCount > 1 ? 's' : ''}`);
+    if (lifeCount) summaryParts.push(`${lifeCount} Life Event${lifeCount > 1 ? 's' : ''}`);
+    if (complianceCount) summaryParts.push(`${complianceCount} Compliance`);
+
+    const categories = [
+      { id: 'all', label: `All (${actions.length})` },
+      ...(leaveCount ? [{ id: 'leave', label: `Leaves (${leaveCount})` }] : []),
+      ...(expenseCount ? [{ id: 'expense', label: `Finance (${expenseCount})` }] : []),
+      ...(ticketCount ? [{ id: 'ticket', label: `SLA (${ticketCount})` }] : []),
+      ...(lifeCount ? [{ id: 'life_event', label: `Life Events (${lifeCount})` }] : []),
+      ...(complianceCount ? [{ id: 'compliance', label: `Compliance (${complianceCount})` }] : [])
+    ];
+
+    const currentFilter = this.inboxFilter || 'all';
+    let filteredActions = actions;
+    if (currentFilter !== 'all') {
+      if (currentFilter === 'compliance') {
+        filteredActions = actions.filter(a => ['policy', 'doc_expiry', 'hr_letter', 'asset'].includes(a.type));
+      } else {
+        filteredActions = actions.filter(a => a.type === currentFilter);
+      }
+    }
+
     return `
-      <div class="card" style="border:1.5px solid var(--primary);border-radius:14px;padding:18px 20px;margin-bottom:24px;background:var(--card);box-shadow:0 4px 16px rgba(99,102,241,0.08)">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:var(--primary);color:#ffffff;font-size:14px">
+      <div id="dashboard-action-inbox" class="card" style="border:1.5px solid rgba(99,102,241,0.25);border-radius:12px;padding:${isCollapsed ? '8px 14px' : '10px 14px'};margin-bottom:18px;background:var(--card);box-shadow:0 2px 10px rgba(99,102,241,0.06);transition:all .2s ease">
+        <!-- Compact Header Bar -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;${isCollapsed ? '' : 'margin-bottom:8px'}">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:var(--primary);color:#ffffff;font-size:11.5px">
               <i class="fa fa-inbox"></i>
             </span>
-            <div style="font-size:15px;font-weight:800;color:var(--text)">
+            <span style="font-size:13.5px;font-weight:800;color:var(--text)">
               Executive Approvals &amp; Priority Action Inbox
-            </div>
-            <span class="badge badge-warning" style="font-size:11px;font-weight:700">
+            </span>
+            <span class="badge badge-warning" style="font-size:10px;font-weight:700;padding:2px 7px">
               ${actions.length} Pending Actions
             </span>
+            ${isCollapsed ? `
+              <span style="font-size:11px;color:var(--text-3);margin-left:4px">
+                (${summaryParts.join(' &bull; ')})
+              </span>
+            ` : ''}
           </div>
-          <div style="font-size:11.5px;color:var(--text-muted)">
-            Quick triage deck for immediate operational approvals
+
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${!isCollapsed && categories.length > 2 ? `
+              <div style="display:flex;gap:3px;background:var(--surface);padding:2px 4px;border-radius:8px;border:1px solid var(--border)">
+                ${categories.map(c => `
+                  <button type="button" class="btn btn-xs ${currentFilter === c.id ? 'btn-primary' : 'btn-ghost'}" 
+                    style="padding:2px 7px;font-size:10.5px;border-radius:5px;${currentFilter === c.id ? 'font-weight:700;' : 'color:var(--text-3);'}" 
+                    onclick="Dashboard.setInboxFilter('${c.id}')">
+                    ${c.label}
+                  </button>
+                `).join('')}
+              </div>
+            ` : ''}
+            <button type="button" class="btn btn-ghost btn-xs" onclick="Dashboard.toggleInboxCollapse()" title="${isCollapsed ? 'Expand inbox to review approvals' : 'Minimize inbox to save space'}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px">
+              <i class="fa ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i>
+              <span>${isCollapsed ? `Expand (${actions.length})` : 'Minimize'}</span>
+            </button>
           </div>
         </div>
 
-        <div style="display:grid;gap:10px">
-          ${actions.map(act => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;gap:10px">
-              <div style="display:flex;align-items:center;gap:12px">
-                <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.1);color:${act.color};font-size:13px">
+        <!-- Items Container (hidden if collapsed, scrollable if expanded) -->
+        <div id="dashboard-inbox-items" style="${isCollapsed ? 'display:none;' : 'display:flex;flex-direction:column;gap:5px;max-height:175px;overflow-y:auto;padding-right:4px;'}">
+          ${filteredActions.length === 0 ? `
+            <div style="text-align:center;padding:12px;color:var(--text-3);font-size:12px">No pending items in this category.</div>
+          ` : filteredActions.map(act => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;gap:10px;transition:border-color .15s">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;min-width:24px;border-radius:6px;background:rgba(99,102,241,0.1);color:${act.color};font-size:11px">
                   <i class="fa ${act.icon}"></i>
                 </span>
-                <div>
-                  <div style="display:flex;align-items:center;gap:8px">
-                    <span class="badge badge-secondary" style="font-size:9.5px;letter-spacing:0.5px;font-weight:700">${act.tag}</span>
-                    <span style="font-weight:700;font-size:13px;color:var(--text)">${act.title}</span>
-                  </div>
-                  <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">${act.sub}</div>
+                <div style="min-width:0;flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                  <span class="badge badge-secondary" style="font-size:9px;letter-spacing:0.3px;font-weight:700;padding:1px 5px">${act.tag}</span>
+                  <span style="font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${act.title}">${act.title}</span>
+                  <span style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${act.sub}">• ${act.sub}</span>
                 </div>
               </div>
 
-              <div style="display:flex;gap:6px">
+              <div style="display:flex;gap:4px;flex-shrink:0">
                 ${act.actions}
               </div>
             </div>
