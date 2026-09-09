@@ -34,6 +34,11 @@ const DB = {
       this.ensureExitLifecycleData();
       this.ensureAssetCatalogData();
       this.ensureTelemetryData();
+      this.ensureRecruitmentPipelineData();
+      this.ensurePerformanceAppraisalData();
+      this.ensureRosterAndAttendanceData();
+      this.ensureProfileMastersData();
+      this.ensureGovernanceMastersData();
       return;
     }
     this.seed();
@@ -64,6 +69,11 @@ const DB = {
     this.ensureExitLifecycleData();
     this.ensureAssetCatalogData();
     this.ensureTelemetryData();
+    this.ensureRecruitmentPipelineData();
+    this.ensurePerformanceAppraisalData();
+    this.ensureRosterAndAttendanceData();
+    this.ensureProfileMastersData();
+    this.ensureGovernanceMastersData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -3648,6 +3658,327 @@ const DB = {
         { id: 3, name: 'Mobile App Gateway Service', tokenHash: 'tok_live_mob_55aa8823190cb47e', permissions: '["employees.view", "leaves.create", "travel_expenses.create", "notifications.view"]', lastUsedAt: '2026-09-09T08:45:00.000Z', expiresAt: '2028-01-01T00:00:00.000Z', isActive: true, createdBy: 1, createdAt: '2026-03-01T00:00:00.000Z' }
       ];
       this.set('api_tokens', tokens);
+    }
+  },
+
+  ensureRecruitmentPipelineData() {
+    let stages = this.get('recruitment_stages');
+    if (!stages || !stages.length) {
+      stages = [
+        { id: 1, name: 'Initial Screening', sequence: 1, isDefault: true },
+        { id: 2, name: 'Technical Assessment', sequence: 2, isDefault: false },
+        { id: 3, name: 'Architecture & System Design', sequence: 3, isDefault: false },
+        { id: 4, name: 'Leadership & Cultural Fit', sequence: 4, isDefault: false },
+        { id: 5, name: 'Partner / Executive Interview', sequence: 5, isDefault: false },
+        { id: 6, name: 'Offer Extended', sequence: 6, isDefault: false },
+        { id: 7, name: 'Hired & Onboarded', sequence: 7, isDefault: false }
+      ];
+      this.set('recruitment_stages', stages);
+    }
+
+    let applications = this.get('job_applications');
+    if (!applications || !applications.length) {
+      applications = [
+        { id: 1, jobId: 1, candidateId: 1, stage: 'interview', appliedDate: '2026-08-20', source: 'LinkedIn', notes: 'Strong full-stack portfolio with React & Node' },
+        { id: 2, jobId: 2, candidateId: 2, stage: 'screening', appliedDate: '2026-08-24', source: 'Referral', notes: 'Ex-Habib Bank Senior SRE engineer' }
+      ];
+      this.set('job_applications', applications);
+    }
+
+    let interviews = this.get('interviews');
+    if (!interviews || !interviews.length) {
+      interviews = [
+        { id: 1, candidateId: 1, interviewerId: 3, roundName: 'Technical Architecture & Coding', scheduledAt: '2026-09-12T11:00:00.000Z', durationMins: 60, meetingLink: 'https://meet.google.com/xyz-tech-1', status: 'scheduled' },
+        { id: 2, candidateId: 2, interviewerId: 1, roundName: 'Executive Leadership & Cultural Fit', scheduledAt: '2026-09-14T15:00:00.000Z', durationMins: 45, meetingLink: 'https://meet.google.com/abc-lead-2', status: 'scheduled' }
+      ];
+      this.set('interviews', interviews);
+    }
+
+    let feedbacks = this.get('interview_feedbacks');
+    if (!feedbacks || !feedbacks.length) {
+      feedbacks = [
+        { id: 1, interviewId: 1, recommendation: 'strong_hire', technicalScore: 4.8, culturalScore: 4.5, communicationScore: 4.6, strengths: 'Excellent understanding of distributed state management and caching tiers.', concerns: 'None notable.', summary: 'Highly recommended for Senior Frontend position.' }
+      ];
+      this.set('interview_feedbacks', feedbacks);
+    }
+
+    let offerLetters = this.get('offer_letters');
+    if (!offerLetters || !offerLetters.length) {
+      offerLetters = [
+        { id: 1, candidateId: 1, offeredSalary: 280000, designation: 'Senior Full-Stack Engineer', joiningDate: '2026-10-01', status: 'issued', letterContent: 'Formal offer of permanent employment at Apex Global Enterprises...', signedAt: null }
+      ];
+      this.set('offer_letters', offerLetters);
+    }
+
+    let talentPools = this.get('talent_pools');
+    if (!talentPools || !talentPools.length) {
+      talentPools = [
+        { id: 1, title: 'Senior Cloud & DevOps Architects', domain: 'Engineering', notes: 'Pre-vetted principal infrastructure candidates for Q4 expansion' },
+        { id: 2, title: 'FinTech Statutory Accountants', domain: 'Finance', notes: 'Qualified ICMA/CA finalists with ERP experience' }
+      ];
+      this.set('talent_pools', talentPools);
+    }
+
+    let refChecks = this.get('reference_checks');
+    if (!refChecks || !refChecks.length) {
+      refChecks = [
+        { id: 1, candidateId: 1, refereeName: 'Zubair Ahmed', organization: 'Techlogix Pvt Ltd', designation: 'VP of Technology', contactPhone: '+923001122334', contactEmail: 'zubair@example.com', status: 'verified', notes: 'Confirmed outstanding technical delivery and high integrity.' }
+      ];
+      this.set('reference_checks', refChecks);
+    }
+
+    let onboardings = this.get('onboardings');
+    if (!onboardings || !onboardings.length) {
+      onboardings = [
+        {
+          id: 1,
+          candidateId: 1,
+          status: 'in_progress',
+          checklist: JSON.stringify([
+            { task: 'CNIC & Degree Verification', completed: true },
+            { task: 'MacBook Pro & Corporate SIM Issuance', completed: true },
+            { task: 'AWS IAM & Corporate Slack Setup', completed: false },
+            { task: 'Bank Payout Account Registration', completed: false }
+          ]),
+          tasks: [
+            { task: 'CNIC & Degree Verification', completed: true },
+            { task: 'MacBook Pro & Corporate SIM Issuance', completed: true },
+            { task: 'AWS IAM & Corporate Slack Setup', completed: false },
+            { task: 'Bank Payout Account Registration', completed: false }
+          ],
+          joiningDate: '2026-09-15',
+          progress: 50,
+          buddyId: 3,
+          laptopAssigned: true,
+          badgeIssued: false,
+          completedAt: null
+        }
+      ];
+      this.set('onboardings', onboardings);
+    }
+  },
+
+  ensurePerformanceAppraisalData() {
+    let cycles = this.get('performance_cycles');
+    if (!cycles || !cycles.length) {
+      cycles = [
+        { id: 1, name: 'Annual Performance Appraisal 2025', startDate: '2025-01-01', endDate: '2025-12-31', status: 'closed' },
+        { id: 2, name: 'Mid-Year Review & OKR Cycle 2026', startDate: '2026-01-01', endDate: '2026-06-30', status: 'active' },
+        { id: 3, name: 'Q3 Sprint & KPI Review 2026', startDate: '2026-07-01', endDate: '2026-09-30', status: 'upcoming' }
+      ];
+      this.set('performance_cycles', cycles);
+    }
+
+    let criteria = this.get('performance_criteria');
+    if (!criteria || !criteria.length) {
+      criteria = [
+        { id: 1, category: 'Technical Excellence', title: 'Code Quality, Architecture & Delivery Reliability', weightage: 30.0 },
+        { id: 2, category: 'Leadership & Collaboration', title: 'Cross-Functional Peer Mentorship & Proactive Ownership', weightage: 25.0 },
+        { id: 3, category: 'Business Impact', title: 'Product Milestone Completion & Customer Value Creation', weightage: 25.0 },
+        { id: 4, category: 'Core Values & Compliance', title: 'Information Security Standards, Integrity & Transparency', weightage: 20.0 }
+      ];
+      this.set('performance_criteria', criteria);
+    }
+
+    let goals = this.get('performance_goals');
+    if (!goals || !goals.length) {
+      goals = [
+        { id: 1, employeeId: 4, title: 'Implement 103-Model Enterprise HRM Architecture', description: 'Deliver full schema normalization, real-time telemetry, and multi-entity hierarchy.', weight: 35.0, targetDate: '2026-09-30', progress: 85, status: 'in_progress' },
+        { id: 2, employeeId: 4, title: 'Zero-Downtime Microservices Migration', description: 'Containerize backend Node services with failover cluster.', weight: 35.0, targetDate: '2026-10-31', progress: 50, status: 'in_progress' },
+        { id: 3, employeeId: 3, title: 'ISO 27001 Information Security Audit Readiness', description: 'Audit all API bearer tokens, access logs, and role matrices.', weight: 30.0, targetDate: '2026-09-25', progress: 90, status: 'in_progress' }
+      ];
+      this.set('performance_goals', goals);
+    }
+
+    let appraisals = this.get('appraisals');
+    if (!appraisals || !appraisals.length) {
+      appraisals = [
+        { id: 1, employeeId: 4, cycleId: 2, overallScore: 4.6, finalRating: 'Exceeds Expectations', status: 'signed_off' },
+        { id: 2, employeeId: 3, cycleId: 2, overallScore: 4.4, finalRating: 'Exceeds Expectations', status: 'submitted' }
+      ];
+      this.set('appraisals', appraisals);
+    }
+
+    let scores = this.get('performance_scores');
+    if (!scores || !scores.length) {
+      scores = [
+        { id: 1, appraisalId: 1, criteriaId: 1, score: 4.8, comment: 'Exceptional architectural rigor and delivery speed.' },
+        { id: 2, appraisalId: 1, criteriaId: 2, score: 4.5, comment: 'Active collaborative peer mentorship across junior frontend engineers.' },
+        { id: 3, appraisalId: 1, criteriaId: 3, score: 4.7, comment: 'Delivered all milestone objectives ahead of schedule.' },
+        { id: 4, appraisalId: 1, criteriaId: 4, score: 4.5, comment: 'Full compliance with enterprise security standards.' }
+      ];
+      this.set('performance_scores', scores);
+    }
+
+    let histories = this.get('appraisal_histories');
+    if (!histories || !histories.length) {
+      histories = [
+        { id: 1, employeeId: 4, year: 2024, grade: 'Grade G-1', rating: 'Meets Expectations', incrementPct: 10.0 },
+        { id: 2, employeeId: 4, year: 2025, grade: 'Grade G-2', rating: 'Exceeds Expectations', incrementPct: 15.38 }
+      ];
+      this.set('appraisal_histories', histories);
+    }
+  },
+
+  ensureRosterAndAttendanceData() {
+    let attLogs = this.get('attendance_logs');
+    if (!attLogs || !attLogs.length) {
+      attLogs = [
+        { id: 1, employeeId: 4, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:55:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.22' },
+        { id: 2, employeeId: 3, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:48:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.15' },
+        { id: 3, employeeId: 1, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:35:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.1' }
+      ];
+      this.set('attendance_logs', attLogs);
+    }
+
+    let rosters = this.get('rosters');
+    if (!rosters || !rosters.length) {
+      rosters = [
+        { id: 1, employeeId: 4, shiftId: 1, date: '2026-09-09', isOffDay: false },
+        { id: 2, employeeId: 3, shiftId: 1, date: '2026-09-09', isOffDay: false },
+        { id: 3, employeeId: 9, shiftId: 1, date: '2026-09-09', isOffDay: false },
+        { id: 4, employeeId: 4, shiftId: 1, date: '2026-09-13', isOffDay: true }
+      ];
+      this.set('rosters', rosters);
+    }
+
+    let leaveReasons = this.get('leave_reasons');
+    if (!leaveReasons || !leaveReasons.length) {
+      leaveReasons = [
+        { id: 1, name: 'Medical Emergency / Acute Illness', code: 'MED-EMERG', category: 'sick' },
+        { id: 2, name: 'Annual Planned Family Vacation', code: 'ANN-VAC', category: 'annual' },
+        { id: 3, name: 'Urgent Personal / Domestic Obligation', code: 'URG-PERS', category: 'casual' },
+        { id: 4, name: 'Post-Graduate Academic Examination', code: 'ACAD-EXAM', category: 'special' },
+        { id: 5, name: 'Hajj / Umrah Religious Pilgrimage', code: 'REL-PILGRIM', category: 'special' }
+      ];
+      this.set('leave_reasons', leaveReasons);
+    }
+
+    let leavePolicies = this.get('leave_policies');
+    if (!leavePolicies || !leavePolicies.length) {
+      leavePolicies = [
+        { id: 1, leaveTypeId: 1, allowedDaysPerYear: 14, maxConsecutiveDays: 14, allowCarryForward: true, maxCarryForward: 5, encashmentAllowed: true },
+        { id: 2, leaveTypeId: 2, allowedDaysPerYear: 10, maxConsecutiveDays: 7, allowCarryForward: false, maxCarryForward: 0, encashmentAllowed: false },
+        { id: 3, leaveTypeId: 3, allowedDaysPerYear: 10, maxConsecutiveDays: 3, allowCarryForward: false, maxCarryForward: 0, encashmentAllowed: false }
+      ];
+      this.set('leave_policies', leavePolicies);
+    }
+  },
+
+  ensureProfileMastersData() {
+    let eduTypes = this.get('education_types');
+    if (!eduTypes || !eduTypes.length) {
+      eduTypes = [
+        { id: 1, name: 'Secondary School Certificate (Matric / O-Levels)', levelRank: 1 },
+        { id: 2, name: 'Higher Secondary Certificate (FSc / A-Levels)', levelRank: 2 },
+        { id: 3, name: 'Undergraduate Degree (Bachelors / BS / BBA)', levelRank: 3 },
+        { id: 4, name: 'Postgraduate Degree (Masters / MS / MBA)', levelRank: 4 },
+        { id: 5, name: 'Doctorate Degree (PhD / DPhil)', levelRank: 5 }
+      ];
+      this.set('education_types', eduTypes);
+    }
+
+    let institutes = this.get('institutes');
+    if (!institutes || !institutes.length) {
+      institutes = [
+        { id: 1, name: 'National University of Sciences and Technology (NUST)', country: 'Pakistan', city: 'Islamabad', website: 'https://nust.edu.pk' },
+        { id: 2, name: 'FAST National University of Computer and Emerging Sciences', country: 'Pakistan', city: 'Karachi', website: 'https://nu.edu.pk' },
+        { id: 3, name: 'Institute of Business Administration (IBA)', country: 'Pakistan', city: 'Karachi', website: 'https://iba.edu.pk' },
+        { id: 4, name: 'Lahore University of Management Sciences (LUMS)', country: 'Pakistan', city: 'Lahore', website: 'https://lums.edu.pk' }
+      ];
+      this.set('institutes', institutes);
+    }
+
+    let degrees = this.get('degrees');
+    if (!degrees || !degrees.length) {
+      degrees = [
+        { id: 1, name: 'BS Computer Science', field: 'Information Technology' },
+        { id: 2, name: 'BS Software Engineering', field: 'Information Technology' },
+        { id: 3, name: 'Master of Business Administration (Executive MBA)', field: 'Business Administration' },
+        { id: 4, name: 'Master of Human Resource Management (MHRM)', field: 'Human Resources' }
+      ];
+      this.set('degrees', degrees);
+    }
+
+    let dependants = this.get('dependants');
+    if (!dependants || !dependants.length) {
+      dependants = [
+        { id: 1, employeeId: 1, fullName: 'Fatima Khan', relationship: 'Spouse', dateOfBirth: '1988-06-12', cnicOrBForm: '42201-9988776-2', isTpaCovered: true },
+        { id: 2, employeeId: 1, fullName: 'Zayd Khan', relationship: 'Child', dateOfBirth: '2016-04-10', cnicOrBForm: '42201-1122334-5', isTpaCovered: true },
+        { id: 3, employeeId: 3, fullName: 'Asma Baig', relationship: 'Spouse', dateOfBirth: '1990-11-20', cnicOrBForm: '42201-5566778-4', isTpaCovered: true },
+        { id: 4, employeeId: 4, fullName: 'Mansoor Raza', relationship: 'Parent', dateOfBirth: '1960-03-01', cnicOrBForm: '42201-3344556-1', isTpaCovered: true }
+      ];
+      this.set('dependants', dependants);
+    }
+
+    let empDocs = this.get('employee_documents');
+    if (!empDocs || !empDocs.length) {
+      empDocs = [
+        { id: 1, employeeId: 4, category: 'CNIC', documentNo: '42201-4567890-4', fileUrl: 'docs/fatima_cnic_smart.pdf', expiryDate: '2026-09-28', isVerified: true },
+        { id: 2, employeeId: 4, category: 'Degree', documentNo: 'MHRM-IBA-2016', fileUrl: 'docs/fatima_mhrm_degree.pdf', expiryDate: null, isVerified: true },
+        { id: 3, employeeId: 1, category: 'Passport', documentNo: 'PK-99882211', fileUrl: 'docs/ahmed_passport.pdf', expiryDate: '2028-05-15', isVerified: true }
+      ];
+      this.set('employee_documents', empDocs);
+    }
+  },
+
+  ensureGovernanceMastersData() {
+    let subModules = this.get('sub_modules');
+    if (!subModules || !subModules.length) {
+      subModules = [
+        { id: 1, moduleId: 2, code: 'employees.onboarding', name: 'New Hire Onboarding Workflow', description: 'Dossier reviews and equipment setup' },
+        { id: 2, moduleId: 5, code: 'payroll.tax_withholding', name: 'FBR Tax Withholding Ledgers', description: 'Section 149 certificates and tax slabs' },
+        { id: 3, moduleId: 6, code: 'travel.per_diem', name: 'Per-Diem Sustenance Rates', description: 'Daily allowance scales for domestic & overseas trips' },
+        { id: 4, moduleId: 10, code: 'assets.custody_handover', name: 'Asset Custody Handover', description: 'Equipment sign-off and returns' }
+      ];
+      this.set('sub_modules', subModules);
+    }
+
+    let loginHist = this.get('login_history');
+    if (!loginHist || !loginHist.length) {
+      loginHist = [
+        { id: 1, userId: 1, ipAddress: '192.168.10.1', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', status: 'success', timestamp: '2026-09-09T08:00:00.000Z' },
+        { id: 2, userId: 2, ipAddress: '192.168.10.15', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', status: 'success', timestamp: '2026-09-09T08:15:00.000Z' },
+        { id: 3, userId: 4, ipAddress: '192.168.10.22', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', status: 'success', timestamp: '2026-09-09T08:30:00.000Z' }
+      ];
+      this.set('login_history', loginHist);
+    }
+
+    let trainCats = this.get('training_categories');
+    if (!trainCats || !trainCats.length) {
+      trainCats = [
+        { id: 1, name: 'Cloud & Infrastructure Architecture', code: 'TCAT-CLOUD', description: 'AWS, Kubernetes, Azure, DevOps' },
+        { id: 2, name: 'Statutory Taxation & Corporate Law', code: 'TCAT-TAX', description: 'FBR Income Tax, Corporate Governance, Labor Laws' },
+        { id: 3, name: 'Executive Leadership & People Ops', code: 'TCAT-LEAD', description: 'High-performance team management and mediation' },
+        { id: 4, name: 'Cybersecurity & Data Privacy', code: 'TCAT-SEC', description: 'ISO 27001, OWASP Top 10, Network hardening' }
+      ];
+      this.set('training_categories', trainCats);
+    }
+
+    let salaryRemarks = this.get('salary_review_remarks');
+    if (!salaryRemarks || !salaryRemarks.length) {
+      salaryRemarks = [
+        { id: 1, salaryReviewId: 1, authorId: 1, remark: 'Exceptional ownership on Enterprise Architecture Phase 1 to Phase 3.', createdAt: '2026-06-30T10:00:00.000Z' }
+      ];
+      this.set('salary_review_remarks', salaryRemarks);
+    }
+
+    let allowances = this.get('allowances');
+    if (!allowances || !allowances.length) {
+      allowances = [
+        { id: 1, employeeId: 4, title: 'High-Performance Technical Executive Allowance', amount: 25000, frequency: 'monthly', isTaxable: true, effectiveFrom: '2026-01-01' },
+        { id: 2, employeeId: 3, title: 'Critical On-Call Escalation Allowance', amount: 20000, frequency: 'monthly', isTaxable: true, effectiveFrom: '2026-01-01' }
+      ];
+      this.set('allowances', allowances);
+    }
+
+    let deductions = this.get('deductions');
+    if (!deductions || !deductions.length) {
+      deductions = [
+        { id: 1, employeeId: 4, title: 'Employee Benevolent Fund Contribution', amount: 1500, type: 'standard', effectiveFrom: '2026-01-01' },
+        { id: 2, employeeId: 3, title: 'Corporate Laptop Insurance Guarantee', amount: 2000, type: 'standard', effectiveFrom: '2026-01-01' }
+      ];
+      this.set('deductions', deductions);
     }
   },
 

@@ -50,6 +50,7 @@ const Performance = {
         <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;flex-wrap:wrap">
           ${[
             { id:'reviews', label:'Performance Reviews', icon:'fa-clipboard-list' },
+            { id:'cycles', label:'Appraisal Cycles & OKRs', icon:'fa-rotate' },
             { id:'feedback360', label:'360° Peer Feedback', icon:'fa-arrows-spin' },
             { id:'lms', label:'LMS & Skill Matrix', icon:'fa-graduation-cap' },
             { id:'succession', label:'9-Box & Succession', icon:'fa-sitemap' },
@@ -88,6 +89,7 @@ const Performance = {
     if (!container) return;
     switch(this.currentView) {
       case 'reviews':     this.renderReviews(container); break;
+      case 'cycles':      this.renderAppraisalCycles(container); break;
       case 'feedback360': this.render360Feedback(container); break;
       case 'lms':         this.renderLMSAndSkills(container); break;
       case 'succession':  this.renderSuccessionAnd9Box(container); break;
@@ -1683,6 +1685,396 @@ const Performance = {
       this.renderSuccessionAnd9Box(document.getElementById('perf-content'));
     }
   },
+
+  // ═══════════════════════════════════════════════
+  // PHASE 4: APPRAISAL CYCLES & OKRS
+  // ═══════════════════════════════════════════════
+
+  renderAppraisalCycles(container) {
+    const cycles = DB.get('performance_cycles') || [];
+    const criteria = DB.get('performance_criteria') || [];
+    const goals = DB.get('performance_goals') || [];
+    const appraisals = DB.get('appraisals') || [];
+    const activeCycle = cycles.find(c => c.status === 'active') || cycles[0];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Active Appraisal Cycle</div>
+            <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:4px">${activeCycle?.title || 'None Active'}</div>
+            <div style="font-size:11.5px;color:var(--primary);margin-top:2px"><i class="fa fa-calendar-check"></i> ${activeCycle ? `${activeCycle.startDate} to ${activeCycle.endDate}` : '—'}</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--info)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Evaluation Criteria</div>
+            <div style="font-size:24px;font-weight:800;color:var(--info);margin-top:4px">${criteria.length} Rubrics</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Weighted competency scorecards</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--warning)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Active Performance Goals</div>
+            <div style="font-size:24px;font-weight:800;color:var(--warning);margin-top:4px">${goals.length} Goals</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${goals.filter(g => g.status==='completed').length} completed, ${goals.filter(g => g.status==='in_progress').length} in-progress</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Appraisal Submissions</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:4px">${appraisals.length} Appraisals</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${appraisals.filter(a => a.status==='completed').length} finalized with merit actions</div>
+          </div>
+        </div>
+
+        <!-- Section 1: Appraisal Cycles & Criteria Master -->
+        <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:20px;margin-bottom:24px">
+          <!-- Cycles Card -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <span style="font-size:14px;font-weight:700">Appraisal Cycles</span>
+                <span class="badge badge-primary" style="margin-left:8px">${cycles.length} Cycles</span>
+              </div>
+              <button class="btn btn-primary btn-xs" onclick="Performance.showAddCycleModal()"><i class="fa fa-plus"></i> New Cycle</button>
+            </div>
+            <div class="table-wrapper" style="border:none">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Cycle Title</th>
+                    <th>Type</th>
+                    <th>Period</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${cycles.map(c => `
+                    <tr>
+                      <td style="font-weight:700">${c.title}</td>
+                      <td><span class="chip">${c.cycleType}</span></td>
+                      <td style="font-size:11.5px;color:var(--text-3)">${c.startDate} &rarr; ${c.endDate}</td>
+                      <td><span class="badge ${c.status==='active'?'badge-success':'badge-secondary'}">${c.status}</span></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Criteria Card -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <span style="font-size:14px;font-weight:700">Evaluation Rubric Criteria</span>
+                <span class="badge badge-info" style="margin-left:8px">${criteria.length} Criteria</span>
+              </div>
+              <button class="btn btn-ghost btn-xs" onclick="Toast.show('Standard criteria configured from Enterprise blueprint','info')"><i class="fa fa-info-circle"></i> Blueprint</button>
+            </div>
+            <div class="table-wrapper" style="border:none">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Criteria Name</th>
+                    <th>Category</th>
+                    <th>Weight</th>
+                    <th>Max</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${criteria.map(cr => `
+                    <tr>
+                      <td style="font-weight:600">${cr.name}</td>
+                      <td><span class="badge badge-secondary" style="font-size:10px">${cr.category}</span></td>
+                      <td><strong>${cr.weight}%</strong></td>
+                      <td>${cr.maxScore} pts</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Goals & OKRs Breakdown -->
+        <div class="card" style="padding:0;margin-bottom:24px">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">Strategic Performance Goals &amp; OKR Milestones</span>
+              <span class="badge badge-warning" style="margin-left:8px">${goals.length} Goals Registered</span>
+            </div>
+            <button class="btn btn-primary btn-xs" onclick="Performance.showAddOKRModal()"><i class="fa fa-plus"></i> New OKR Goal</button>
+          </div>
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Goal / Milestone</th>
+                  <th>Weight</th>
+                  <th>Target Metric</th>
+                  <th>Current Metric</th>
+                  <th>Progress</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${goals.map(g => {
+                  const emp = DB.find('employees', g.employeeId);
+                  const pct = Math.round((g.currentMetric / (g.targetMetric || 1)) * 100);
+                  const color = pct >= 90 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--primary)';
+                  return `
+                    <tr>
+                      <td style="font-weight:600">${emp?.fullName || 'Company Wide'}</td>
+                      <td><strong>${g.title}</strong></td>
+                      <td>${g.weight}%</td>
+                      <td>${g.targetMetric}</td>
+                      <td style="font-weight:700;color:${color}">${g.currentMetric}</td>
+                      <td style="width:140px">
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <div class="progress" style="flex:1"><div class="progress-bar" style="width:${Math.min(100, pct)}%;background:${color}"></div></div>
+                          <span style="font-size:11px;font-weight:700">${pct}%</span>
+                        </div>
+                      </td>
+                      <td>${Utils.statusBadge(g.status)}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 3: Appraisals & Scorecards -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">Appraisal Submissions &amp; Final Merit Outcomes</span>
+              <span class="badge badge-success" style="margin-left:8px">${appraisals.length} Finalized</span>
+            </div>
+          </div>
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Cycle</th>
+                  <th>Reviewer</th>
+                  <th>Final Score</th>
+                  <th>Merit Increment</th>
+                  <th>Promotion</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${appraisals.map(a => {
+                  const emp = DB.find('employees', a.employeeId);
+                  const rev = DB.find('employees', a.reviewerId);
+                  const cycle = cycles.find(c => c.id === a.cycleId);
+                  return `
+                    <tr>
+                      <td>
+                        <div style="font-weight:700">${emp?.fullName || '—'}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(emp?.designationId)}</div>
+                      </td>
+                      <td>${cycle?.title || 'Cycle #' + a.cycleId}</td>
+                      <td>${rev?.fullName || 'HR Manager'}</td>
+                      <td><span style="font-size:15px;font-weight:800;color:var(--warning)">★ ${a.finalScore} / 5.0</span></td>
+                      <td><span class="badge ${a.incrementRecommended?'badge-success':'badge-secondary'}">${a.incrementRecommended?'Recommended':'None'}</span></td>
+                      <td><span class="badge ${a.promotionRecommended?'badge-primary':'badge-secondary'}">${a.promotionRecommended?'Recommended':'None'}</span></td>
+                      <td>${Utils.statusBadge(a.status)}</td>
+                      <td>
+                        <button class="btn btn-ghost btn-xs" onclick="Performance.viewAppraisalDetails(${a.id})"><i class="fa fa-eye"></i> View Rubric</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddCycleModal() {
+    Modal.show('Initiate Performance Appraisal Cycle', `
+      <div class="form-group">
+        <label class="form-label required">Cycle Title</label>
+        <input class="form-control" id="pcy-title" placeholder="e.g. FY2026 Annual Performance Review">
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Cycle Type</label>
+          <select class="form-control" id="pcy-type">
+            <option value="annual">Annual Review</option>
+            <option value="semi_annual">Semi-Annual</option>
+            <option value="quarterly" selected>Quarterly Review</option>
+            <option value="probation">Probation Clearance</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Status</label>
+          <select class="form-control" id="pcy-status">
+            <option value="active" selected>Active</option>
+            <option value="upcoming">Upcoming</option>
+            <option value="completed">Completed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Start Date</label>
+          <input type="date" class="form-control" id="pcy-start" value="${Utils.today()}">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">End Date</label>
+          <input type="date" class="form-control" id="pcy-end" value="2026-12-31">
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.saveAppraisalCycle()"><i class="fa fa-save"></i> Save Cycle</button>
+      `
+    });
+  },
+
+  saveAppraisalCycle() {
+    const title = document.getElementById('pcy-title').value.trim();
+    if (!title) { Toast.show('Please enter cycle title', 'error'); return; }
+    const cycleType = document.getElementById('pcy-type').value;
+    const status = document.getElementById('pcy-status').value;
+    const startDate = document.getElementById('pcy-start').value;
+    const endDate = document.getElementById('pcy-end').value;
+
+    const cycles = DB.get('performance_cycles') || [];
+    const newCycle = {
+      id: cycles.length > 0 ? Math.max(...cycles.map(c => c.id)) + 1 : 1,
+      title, cycleType, startDate, endDate, status
+    };
+    cycles.push(newCycle);
+    DB.set('performance_cycles', cycles);
+    DB.log('CREATE', 'Performance', `Created Performance Cycle: ${title}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Performance Cycle created!', 'success');
+    this.renderView();
+  },
+
+  showAddOKRModal() {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    Modal.show('Register Performance OKR Goal', `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        <select class="form-control" id="okr-emp">
+          ${emps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Goal / OKR Title</label>
+        <input class="form-control" id="okr-title" placeholder="e.g. Reduce backend API latency to < 100ms">
+      </div>
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label required">Weight (%)</label>
+          <input type="number" class="form-control" id="okr-weight" value="25" min="1" max="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Target Metric</label>
+          <input type="number" class="form-control" id="okr-target" value="100">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Current Metric</label>
+          <input type="number" class="form-control" id="okr-current" value="0">
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Performance.saveOKRGoal()"><i class="fa fa-save"></i> Save OKR</button>
+      `
+    });
+  },
+
+  saveOKRGoal() {
+    const employeeId = parseInt(document.getElementById('okr-emp').value);
+    const title = document.getElementById('okr-title').value.trim();
+    if (!title) { Toast.show('Please enter OKR title', 'error'); return; }
+    const weight = parseInt(document.getElementById('okr-weight').value) || 20;
+    const targetMetric = parseFloat(document.getElementById('okr-target').value) || 100;
+    const currentMetric = parseFloat(document.getElementById('okr-current').value) || 0;
+
+    const goals = DB.get('performance_goals') || [];
+    const newGoal = {
+      id: goals.length > 0 ? Math.max(...goals.map(g => g.id)) + 1 : 1,
+      employeeId, title, weight, targetMetric, currentMetric,
+      status: currentMetric >= targetMetric ? 'completed' : 'in_progress'
+    };
+    goals.push(newGoal);
+    DB.set('performance_goals', goals);
+    DB.log('CREATE', 'Performance', `Created OKR Goal: ${title}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('OKR Goal registered!', 'success');
+    this.renderView();
+  },
+
+  viewAppraisalDetails(appraisalId) {
+    const appraisals = DB.get('appraisals') || [];
+    const a = appraisals.find(x => x.id === appraisalId);
+    if (!a) return;
+    const emp = DB.find('employees', a.employeeId);
+    const rev = DB.find('employees', a.reviewerId);
+    const scores = (DB.get('performance_scores') || []).filter(s => s.appraisalId === appraisalId);
+    const criteria = DB.get('performance_criteria') || [];
+
+    Modal.show(`Performance Scorecard — ${emp?.fullName || 'Employee'}`, `
+      <div style="margin-bottom:16px;background:var(--surface);padding:12px 16px;border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:16px;font-weight:800">${emp?.fullName}</div>
+          <div style="font-size:12px;color:var(--text-3)">Reviewer: ${rev?.fullName || 'Manager'} &bull; Status: ${a.status}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:var(--warning)">★ ${a.finalScore} / 5.0</div>
+          <div style="font-size:11px;color:var(--text-3)">Weighted Composite</div>
+        </div>
+      </div>
+      <div style="font-size:13px;font-weight:700;margin-bottom:8px">Evaluated Rubric Criteria Breakdown</div>
+      <div class="table-wrapper" style="margin-bottom:16px">
+        <table>
+          <thead>
+            <tr><th>Criteria</th><th>Category</th><th>Score</th><th>Max</th><th>Remarks</th></tr>
+          </thead>
+          <tbody>
+            ${scores.map(s => {
+              const cr = criteria.find(c => c.id === s.criteriaId);
+              return `
+                <tr>
+                  <td style="font-weight:600">${cr?.name || 'Criterion #' + s.criteriaId}</td>
+                  <td><span class="badge badge-secondary" style="font-size:10px">${cr?.category || 'General'}</span></td>
+                  <td><strong style="color:var(--primary)">${s.score}</strong></td>
+                  <td>${cr?.maxScore || 5}</td>
+                  <td style="font-size:12px;color:var(--text-3)">${s.remarks || '—'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-row form-row-2">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Merit Salary Increment</div>
+          <div style="font-size:14px;font-weight:700;color:${a.incrementRecommended?'var(--success)':'var(--text-3)'};margin-top:4px">
+            <i class="fa ${a.incrementRecommended?'fa-circle-check':'fa-circle-xmark'}"></i> ${a.incrementRecommended?'Recommended by Reviewer':'Not Recommended'}
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Role Promotion</div>
+          <div style="font-size:14px;font-weight:700;color:${a.promotionRecommended?'var(--primary)':'var(--text-3)'};margin-top:4px">
+            <i class="fa ${a.promotionRecommended?'fa-circle-check':'fa-circle-xmark'}"></i> ${a.promotionRecommended?'Recommended for Elevation':'Not Recommended'}
+          </div>
+        </div>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Scorecard</button>`
+    });
+  },
 };
 
 // ============================================================
@@ -1732,7 +2124,7 @@ const Recruitment = {
 
         <!-- Recruitment View Tabs -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content">
+          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap">
             <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')">
               <i class="fa fa-briefcase" style="margin-right:6px"></i>Job Postings
             </button>
@@ -1742,6 +2134,15 @@ const Recruitment = {
             </button>
             <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')">
               <i class="fa fa-list-check" style="margin-right:6px"></i>Applicant Pipeline
+            </button>
+            <button class="tab-toggle-btn ${this.currentView==='interviews'?'active':''}" onclick="Recruitment.switchView('interviews')">
+              <i class="fa fa-comments" style="margin-right:6px"></i>Interviews & Rubrics
+            </button>
+            <button class="tab-toggle-btn ${this.currentView==='talent_pools'?'active':''}" onclick="Recruitment.switchView('talent_pools')">
+              <i class="fa fa-users-viewfinder" style="margin-right:6px"></i>Talent Pools
+            </button>
+            <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')">
+              <i class="fa fa-user-plus" style="margin-right:6px"></i>Onboarding Checklists
             </button>
             ${isHR ? `
               <button class="tab-toggle-btn ${this.currentView==='offers'?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative">
@@ -1793,6 +2194,9 @@ const Recruitment = {
     else if (this.currentView === 'requisitions') this.renderRequisitions(container);
     else if (this.currentView === 'pipeline') this.renderPipeline(container);
     else if (this.currentView === 'offers') this.renderOfferLetters(container);
+    else if (this.currentView === 'interviews') this.renderInterviews(container);
+    else if (this.currentView === 'talent_pools') this.renderTalentPools(container);
+    else if (this.currentView === 'onboarding') this.renderOnboarding(container);
   },
 
   renderJobs(container) {
@@ -3815,5 +4219,491 @@ const Recruitment = {
     Toast.show(`Scorecard saved for ${app.name}! (Score: ${overallScore}/5.0)`, 'success');
     Modal.close('dynamic-modal');
     this.render();
+  },
+
+  // ═══════════════════════════════════════════════
+  // PHASE 4: INTERVIEWS, RUBRICS, TALENT POOLS & ONBOARDING
+  // ═══════════════════════════════════════════════
+
+  renderInterviews(container) {
+    const interviews = DB.get('interviews') || [];
+    const feedbacks = DB.get('interview_feedbacks') || [];
+    const stages = DB.get('recruitment_stages') || [];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Total Scheduled</div>
+            <div style="font-size:24px;font-weight:800;color:var(--primary);margin-top:4px">${interviews.length}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Across all active job requisitions</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Completed Rounds</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:4px">${interviews.filter(i=>i.status==='completed').length}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Evaluation scorecards filed</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--warning)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Upcoming Rounds</div>
+            <div style="font-size:24px;font-weight:800;color:var(--warning);margin-top:4px">${interviews.filter(i=>i.status==='scheduled').length}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Pending panel execution</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--accent)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Rubric Evaluations</div>
+            <div style="font-size:24px;font-weight:800;color:var(--accent);margin-top:4px">${feedbacks.length}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Multi-criteria feedback recorded</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:0;margin-bottom:24px">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">Interview Rounds &amp; Scheduling</span>
+              <span class="badge badge-primary" style="margin-left:8px">${interviews.length} Sessions</span>
+            </div>
+            <button class="btn btn-primary btn-xs" onclick="Recruitment.showScheduleInterviewModal()"><i class="fa fa-plus"></i> Schedule Interview</button>
+          </div>
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Candidate</th>
+                  <th>Round / Stage</th>
+                  <th>Interviewer Panel</th>
+                  <th>Scheduled Date &amp; Time</th>
+                  <th>Mode</th>
+                  <th>Status</th>
+                  <th>Evaluation</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${interviews.map(inv => {
+                  const candidate = (DB.get('applications')||[]).find(a => a.id === inv.candidateId);
+                  const interviewer = DB.find('employees', inv.interviewerId);
+                  const fb = feedbacks.find(f => f.interviewId === inv.id);
+                  return `
+                    <tr>
+                      <td>
+                        <div style="font-weight:700">${candidate?.name || 'Candidate #' + inv.candidateId}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${candidate?.email || '—'}</div>
+                      </td>
+                      <td><strong>${inv.roundName}</strong></td>
+                      <td>${interviewer?.fullName || 'Senior Panelist'}</td>
+                      <td><i class="fa fa-clock" style="color:var(--text-3);margin-right:4px"></i>${inv.scheduledAt ? inv.scheduledAt.replace('T',' ') : '—'}</td>
+                      <td><span class="chip"><i class="fa ${inv.mode==='Online Video'?'fa-video':'fa-building'}" style="margin-right:4px"></i>${inv.mode || 'In-Person'}</span></td>
+                      <td>${Utils.statusBadge(inv.status)}</td>
+                      <td>
+                        ${fb ? `
+                          <span class="badge badge-success" title="${fb.remarks}"><i class="fa fa-star"></i> ${fb.score}/5.0 (${fb.recommendation})</span>
+                        ` : `
+                          <button class="btn btn-warning btn-xs" onclick="Recruitment.showSubmitInterviewFeedbackModal(${inv.id})"><i class="fa fa-star-half-stroke"></i> Evaluate</button>
+                        `}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Recruitment Pipeline Stages Definition Master -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">Governance Pipeline Stages Master</span>
+              <span class="badge badge-secondary" style="margin-left:8px">${stages.length} Configured Stages</span>
+            </div>
+          </div>
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Stage Name</th>
+                  <th>Order</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${stages.map(st => `
+                  <tr>
+                    <td style="font-weight:700"><i class="fa fa-circle-dot" style="color:var(--primary);margin-right:6px"></i>${st.name}</td>
+                    <td><span class="chip">Stage #${st.order}</span></td>
+                    <td style="color:var(--text-3);font-size:12px">${st.description || 'Standard applicant progression stage'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showScheduleInterviewModal() {
+    const apps = DB.get('applications') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    Modal.show('Schedule Candidate Interview Round', `
+      <div class="form-group">
+        <label class="form-label required">Candidate Application</label>
+        <select class="form-control" id="inv-cand">
+          ${apps.map(a => `<option value="${a.id}">${a.name} (${a.role || 'Applicant'})</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Round Name</label>
+          <input class="form-control" id="inv-round" value="Technical Round 1" placeholder="e.g. Technical Round 1">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Lead Interviewer</label>
+          <select class="form-control" id="inv-panel">
+            ${emps.map(e => `<option value="${e.id}">${e.fullName} (${Utils.getDesigName(e.designationId)})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Scheduled Date &amp; Time</label>
+          <input type="datetime-local" class="form-control" id="inv-time" value="${Utils.today()}T10:00">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Interview Mode</label>
+          <select class="form-control" id="inv-mode">
+            <option value="Online Video">Online Video (Google Meet)</option>
+            <option value="In-Person">In-Person (HQ Conference Room)</option>
+            <option value="Phone Screen">Phone Screen</option>
+          </select>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveScheduledInterview()"><i class="fa fa-calendar-plus"></i> Schedule Round</button>
+      `
+    });
+  },
+
+  saveScheduledInterview() {
+    const candidateId = parseInt(document.getElementById('inv-cand').value);
+    const roundName = document.getElementById('inv-round').value.trim();
+    const interviewerId = parseInt(document.getElementById('inv-panel').value);
+    const scheduledAt = document.getElementById('inv-time').value;
+    const mode = document.getElementById('inv-mode').value;
+
+    const interviews = DB.get('interviews') || [];
+    const newInv = {
+      id: interviews.length > 0 ? Math.max(...interviews.map(i => i.id)) + 1 : 1,
+      candidateId, roundName, interviewerId, scheduledAt, mode, status: 'scheduled'
+    };
+    interviews.push(newInv);
+    DB.set('interviews', interviews);
+    DB.log('SCHEDULE', 'Recruitment', `Scheduled ${roundName} for candidate #${candidateId}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Interview scheduled successfully!', 'success');
+    this.renderView();
+  },
+
+  showSubmitInterviewFeedbackModal(interviewId) {
+    const inv = (DB.get('interviews') || []).find(i => i.id === interviewId);
+    if (!inv) return;
+    const candidate = (DB.get('applications')||[]).find(a => a.id === inv.candidateId);
+
+    Modal.show(`Interview Rubric Evaluation — ${candidate?.name || 'Candidate'}`, `
+      <div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">
+        Round: <strong>${inv.roundName}</strong> &bull; Scheduled: <strong>${inv.scheduledAt ? inv.scheduledAt.replace('T',' ') : ''}</strong>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Overall Score (out of 5.0)</label>
+          <input type="number" class="form-control" id="ifb-score" min="1" max="5" step="0.1" value="4.5">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Hiring Recommendation</label>
+          <select class="form-control" id="ifb-rec">
+            <option value="Strong Hire">Strong Hire</option>
+            <option value="Hire" selected>Hire</option>
+            <option value="Hold">Hold / Re-evaluate</option>
+            <option value="Reject">Reject</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Detailed Evaluator Rubric Remarks</label>
+        <textarea class="form-control" id="ifb-remarks" rows="3" placeholder="Assess technical competency, problem-solving, architectural depth, and cultural alignment...">Demonstrated strong system architecture comprehension, solid problem-solving skills, and proactive communication.</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveInterviewFeedback(${interviewId})"><i class="fa fa-save"></i> Save Feedback</button>
+      `
+    });
+  },
+
+  saveInterviewFeedback(interviewId) {
+    const score = parseFloat(document.getElementById('ifb-score').value) || 4.0;
+    const recommendation = document.getElementById('ifb-rec').value;
+    const remarks = document.getElementById('ifb-remarks').value.trim();
+
+    const feedbacks = DB.get('interview_feedbacks') || [];
+    const newFb = {
+      id: feedbacks.length > 0 ? Math.max(...feedbacks.map(f => f.id)) + 1 : 1,
+      interviewId, score, recommendation, remarks
+    };
+    feedbacks.push(newFb);
+    DB.set('interview_feedbacks', feedbacks);
+
+    // Mark interview as completed
+    const interviews = DB.get('interviews') || [];
+    const inv = interviews.find(i => i.id === interviewId);
+    if (inv) {
+      inv.status = 'completed';
+      DB.set('interviews', interviews);
+    }
+
+    DB.log('EVALUATE', 'Recruitment', `Submitted rubric feedback for Interview #${interviewId}: ${score}/5.0`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Evaluation feedback saved!', 'success');
+    this.renderView();
+  },
+
+  renderTalentPools(container) {
+    const pools = DB.get('talent_pools') || [];
+    const refChecks = DB.get('reference_checks') || [];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+          <!-- Talent Pools Card -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <span style="font-size:14px;font-weight:700">Talent Pools &amp; Candidate Sourcing</span>
+                <span class="badge badge-primary" style="margin-left:8px">${pools.length} Pools</span>
+              </div>
+              <button class="btn btn-primary btn-xs" onclick="Recruitment.showAddTalentPoolModal()"><i class="fa fa-plus"></i> New Pool</button>
+            </div>
+            <div class="table-wrapper" style="border:none">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Pool Title</th>
+                    <th>Functional Domain</th>
+                    <th>Strategic Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pools.map(p => `
+                    <tr>
+                      <td style="font-weight:700"><i class="fa fa-folder-open" style="color:var(--primary);margin-right:6px"></i>${p.title}</td>
+                      <td><span class="chip">${p.domain}</span></td>
+                      <td style="font-size:12px;color:var(--text-3)">${p.notes || '—'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Reference Checks Card -->
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <span style="font-size:14px;font-weight:700">Candidate Reference Checks</span>
+                <span class="badge badge-info" style="margin-left:8px">${refChecks.length} Verified</span>
+              </div>
+            </div>
+            <div class="table-wrapper" style="border:none">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Candidate</th>
+                    <th>Referee Name</th>
+                    <th>Company / Role</th>
+                    <th>Rating</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${refChecks.map(r => {
+                    const candidate = (DB.get('applications')||[]).find(a => a.id === r.candidateId);
+                    return `
+                      <tr>
+                        <td style="font-weight:600">${candidate?.name || 'Candidate #' + r.candidateId}</td>
+                        <td>${r.refereeName}</td>
+                        <td style="font-size:11.5px;color:var(--text-3)">${r.company} (${r.designation})</td>
+                        <td><span style="font-weight:700;color:var(--warning)">★ ${r.rating} / 5.0</span></td>
+                        <td><span class="badge ${r.status==='verified'?'badge-success':'badge-secondary'}">${r.status}</span></td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddTalentPoolModal() {
+    Modal.show('Create Talent Sourcing Pool', `
+      <div class="form-group">
+        <label class="form-label required">Pool Title</label>
+        <input class="form-control" id="tp-title" placeholder="e.g. Senior Machine Learning &amp; AI Engineers">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Functional Domain</label>
+        <input class="form-control" id="tp-domain" placeholder="e.g. AI / Machine Learning" value="Engineering">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Strategic Sourcing Notes</label>
+        <textarea class="form-control" id="tp-notes" rows="2" placeholder="Notes on talent pipeline, target companies, or upcoming hiring waves...">Pre-screened candidates identified for future expansion</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveTalentPool()"><i class="fa fa-save"></i> Save Talent Pool</button>
+      `
+    });
+  },
+
+  saveTalentPool() {
+    const title = document.getElementById('tp-title').value.trim();
+    if (!title) { Toast.show('Please enter talent pool title', 'error'); return; }
+    const domain = document.getElementById('tp-domain').value.trim() || 'General';
+    const notes = document.getElementById('tp-notes').value.trim();
+
+    const pools = DB.get('talent_pools') || [];
+    const newPool = {
+      id: pools.length > 0 ? Math.max(...pools.map(p => p.id)) + 1 : 1,
+      title, domain, notes
+    };
+    pools.push(newPool);
+    DB.set('talent_pools', pools);
+    DB.log('CREATE', 'Recruitment', `Created Talent Pool: ${title}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Talent Pool created!', 'success');
+    this.renderView();
+  },
+
+  getOnboardingTasks(ob) {
+    if (Array.isArray(ob.tasks) && ob.tasks.length > 0) return ob.tasks;
+    if (typeof ob.checklist === 'string') {
+      try { return JSON.parse(ob.checklist); } catch (e) { return []; }
+    }
+    if (Array.isArray(ob.checklist)) return ob.checklist;
+    return [];
+  },
+
+  renderOnboarding(container) {
+    const onboardings = DB.get('onboardings') || [];
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <span style="font-size:14px;font-weight:700">New Hire Onboarding Pipeline &amp; Task Checklists</span>
+              <span class="badge badge-success" style="margin-left:8px">${onboardings.length} In Onboarding</span>
+            </div>
+          </div>
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Candidate / New Hire</th>
+                  <th>Joining Date</th>
+                  <th>Assigned Buddy</th>
+                  <th>Checklist Progress</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${onboardings.map(ob => {
+                  const candidate = (DB.get('applications')||[]).find(a => a.id === ob.candidateId);
+                  const buddy = DB.find('employees', ob.buddyId);
+                  const tasks = this.getOnboardingTasks(ob);
+                  const completedTasks = tasks.filter(t => t.completed).length;
+                  const pct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : (ob.progress || 0);
+                  const color = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--primary)' : 'var(--warning)';
+                  return `
+                    <tr>
+                      <td>
+                        <div style="font-weight:700">${candidate?.name || 'Candidate #' + ob.candidateId}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${candidate?.role || 'New Employee'}</div>
+                      </td>
+                      <td><i class="fa fa-calendar-check" style="color:var(--primary);margin-right:4px"></i>${ob.joiningDate || '2026-09-15'}</td>
+                      <td><i class="fa fa-user-shield" style="color:var(--info);margin-right:4px"></i>${buddy?.fullName || 'Senior Buddy'}</td>
+                      <td style="width:180px">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+                          <span>${completedTasks}/${tasks.length} Tasks</span>
+                          <strong style="color:${color}">${pct}%</strong>
+                        </div>
+                        <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div>
+                      </td>
+                      <td><span class="badge ${ob.status==='completed'?'badge-success':'badge-primary'}">${ob.status}</span></td>
+                      <td>
+                        <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewOnboardingChecklist(${ob.id})"><i class="fa fa-list-check"></i> Checklist</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  viewOnboardingChecklist(onboardingId) {
+    const onboardings = DB.get('onboardings') || [];
+    const ob = onboardings.find(o => o.id === onboardingId);
+    if (!ob) return;
+    const candidate = (DB.get('applications')||[]).find(a => a.id === ob.candidateId);
+    const buddy = DB.find('employees', ob.buddyId);
+    const tasks = this.getOnboardingTasks(ob);
+
+    Modal.show(`Onboarding Checklist — ${candidate?.name || 'Candidate'}`, `
+      <div style="background:var(--surface);padding:12px 16px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:15px;font-weight:700">${candidate?.name}</div>
+          <div style="font-size:12px;color:var(--text-3)">Joining: ${ob.joiningDate || '2026-09-15'} &bull; Buddy: ${buddy?.fullName || 'Senior Buddy'}</div>
+        </div>
+        <div>
+          <span class="badge ${ob.status==='completed'?'badge-success':'badge-primary'}">${ob.status}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${tasks.map((t, idx) => `
+          <label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer">
+            <input type="checkbox" id="ob-task-${idx}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${idx}, this.checked)">
+            <span style="font-size:13px;font-weight:600;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${t.task}</span>
+          </label>
+        `).join('')}
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Done</button>`
+    });
+  },
+
+  toggleOnboardingTask(onboardingId, taskIdx, isCompleted) {
+    const onboardings = DB.get('onboardings') || [];
+    const ob = onboardings.find(o => o.id === onboardingId);
+    if (!ob) return;
+    const tasks = this.getOnboardingTasks(ob);
+    if (!tasks[taskIdx]) return;
+    tasks[taskIdx].completed = isCompleted;
+    ob.tasks = tasks;
+    ob.checklist = JSON.stringify(tasks);
+    const completedTasks = tasks.filter(t => t.completed).length;
+    ob.progress = Math.round((completedTasks / tasks.length) * 100);
+    if (ob.progress === 100) ob.status = 'completed';
+    else ob.status = 'in_progress';
+    DB.set('onboardings', onboardings);
+    DB.log('UPDATE', 'Recruitment', `Updated onboarding task #${taskIdx} for Onboarding #${onboardingId}`, Auth.user?.id);
+    this.renderView();
   },
 };
