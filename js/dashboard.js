@@ -1307,6 +1307,7 @@ const Dashboard = {
 
   renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today) {
     const myId = Auth.employee?.id;
+    const myEmp = Auth.employee || (myId ? DB.find('employees', myId) : null);
     const allAtt = DB.get('attendance') || [];
     const allLeaves = DB.get('leave_requests') || [];
     const allSalary = DB.get('salary') || [];
@@ -1463,7 +1464,7 @@ const Dashboard = {
                     <i class="fa fa-check-circle"></i> Shift Done
                   </span>
                 `}
-                <button class="btn btn-ghost btn-sm" onclick="Attendance.showMachinePunchDetail(${myEmp.id}, '${today}')" title="View Biometric Machine Swipes">
+                <button class="btn btn-ghost btn-sm" onclick="Attendance.showMachinePunchDetail(${myEmp?.id || myId || 4}, '${today}')" title="View Biometric Machine Swipes">
                   <i class="fa fa-fingerprint"></i> Logs
                 </button>
               </div>
