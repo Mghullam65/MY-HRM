@@ -954,41 +954,51 @@ const Leaves = {
             ${this.renderQuotaMatrixTable([myRow], true, false)}
           </div>
 
-          <!-- Per Leave Type Quota Cards -->
-          <div style="font-size:14px;font-weight:700;margin-bottom:12px;color:var(--text)">Leave Type Quota Breakdown</div>
-          <div class="grid-3 mb-20">
-            ${typeStats.map(s => {
-              const t = s.type;
-              const color = t.color || 'var(--primary)';
-              const isLow = s.rem <= s.allocated * 0.3;
-              const isExhausted = s.rem === 0;
-              return `
-                <div class="quota-card" style="border-top:4px solid ${color}">
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                    <span class="badge" style="background:${color}22;color:${color};font-size:12px;font-weight:700">${t.code}</span>
-                    <span class="badge ${isExhausted ? 'badge-danger' : isLow ? 'badge-warning' : 'badge-success'}">
-                      ${isExhausted ? 'Exhausted' : isLow ? 'Running Low' : 'Available'}
-                    </span>
-                  </div>
-                  <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">${t.name}</div>
-                  
-                  <div style="display:flex;align-items:baseline;gap:6px">
-                    <div style="font-size:32px;font-weight:800;color:${isExhausted?'var(--danger)':color}">${s.rem}</div>
-                    <div style="font-size:12px;color:var(--text-3)">days available</div>
-                  </div>
+          <!-- Compact Per Leave Type Quota Cards -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div style="font-size:13.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+              <i class="fa fa-layer-group" style="color:var(--primary);font-size:12px"></i>
+              Leave Type Quota Breakdown
+              <span class="badge badge-secondary" style="font-size:10px;padding:1px 6px">${typeStats.length} Types</span>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="Leaves.toggleTypeBreakdown()" id="btn-toggle-breakdown" style="font-size:11px;padding:2px 8px">
+              <i class="fa ${this.hideTypeBreakdown ? 'fa-chevron-down' : 'fa-chevron-up'}" style="margin-right:4px"></i>
+              ${this.hideTypeBreakdown ? 'Expand' : 'Collapse'}
+            </button>
+          </div>
 
-                  <div class="quota-progress-bar">
-                    <div class="quota-progress-fill" style="width:${s.pct}%;background:${color}"></div>
-                  </div>
+          <div id="leave-type-breakdown-container" style="${this.hideTypeBreakdown ? 'display:none;' : ''}margin-bottom:20px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(185px, 1fr));gap:8px">
+              ${typeStats.map(s => {
+                const t = s.type;
+                const color = t.color || 'var(--primary)';
+                const isLow = s.rem <= s.allocated * 0.3;
+                const isExhausted = s.rem === 0;
+                return `
+                  <div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${color};border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;justify-content:space-between;gap:3px;box-shadow:0 1px 3px rgba(0,0,0,0.02)">
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+                      <span style="font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.name}">
+                        <span class="badge" style="background:${color}18;color:${color};font-size:9.5px;padding:1px 4px;font-weight:700;margin-right:3px">${t.code}</span>
+                        ${t.name}
+                      </span>
+                      <span style="font-size:11px;font-weight:800;color:${isExhausted ? 'var(--danger)' : color};white-space:nowrap">
+                        ${s.rem}<span style="font-size:9.5px;font-weight:600;color:var(--text-3)">/${s.allocated}d</span>
+                      </span>
+                    </div>
 
-                  <div style="display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--text-3)">
-                    <span>${s.used} days used</span>
-                    <span>Quota: ${s.allocated} days</span>
+                    <!-- Slim Progress Bar -->
+                    <div style="height:3px;background:var(--surface-2);border-radius:2px;overflow:hidden;margin:2px 0">
+                      <div style="width:${s.pct}%;background:${color};height:100%;border-radius:2px"></div>
+                    </div>
+
+                    <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;color:var(--text-3)">
+                      <span>${s.used}d used</span>
+                      <span>${t.carryForward ? '<i class="fa fa-rotate-right" style="color:var(--accent);font-size:9px" title="Eligible for carry forward"></i> CF' : isExhausted ? '<span style="color:var(--danger);font-weight:700">Exhausted</span>' : '<span style="color:var(--success)">Available</span>'}</span>
+                    </div>
                   </div>
-                  ${t.carryForward ? '<div style="margin-top:8px;font-size:10.5px;color:var(--accent)"><i class="fa fa-rotate-right" style="margin-right:4px"></i>Eligible for carry forward</div>' : ''}
-                </div>
-              `;
-            }).join('')}
+                `;
+              }).join('')}
+            </div>
           </div>
 
           <!-- Approved Leaves History for this Employee -->
@@ -1295,6 +1305,16 @@ const Leaves = {
     DB.set('leave_balances', balances);
     Toast.show(`Standard 2026 quotas synchronized for ${count} employees!`, 'success');
     this.renderView();
+  },
+
+  toggleTypeBreakdown() {
+    this.hideTypeBreakdown = !this.hideTypeBreakdown;
+    const el = document.getElementById('leave-type-breakdown-container');
+    const btn = document.getElementById('btn-toggle-breakdown');
+    if (el) el.style.display = this.hideTypeBreakdown ? 'none' : 'block';
+    if (btn) {
+      btn.innerHTML = `<i class="fa ${this.hideTypeBreakdown ? 'fa-chevron-down' : 'fa-chevron-up'}" style="margin-right:4px"></i>${this.hideTypeBreakdown ? 'Expand' : 'Collapse'}`;
+    }
   },
 
   renderTypes(container) {
