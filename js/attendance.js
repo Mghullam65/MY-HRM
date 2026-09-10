@@ -749,59 +749,77 @@ const Attendance = {
 
     container.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.06));border:1px solid rgba(99,102,241,0.22);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:20px">
-              <i class="fa fa-users-line"></i>
+        <!-- Header & Dropdown Filter Control Bar -->
+        <div class="card" style="padding:16px 20px;margin-bottom:18px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+            
+            <!-- Title & Dropdown Filter -->
+            <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="width:38px;height:38px;border-radius:10px;background:rgba(79,128,247,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:18px">
+                  <i class="fa fa-users-line"></i>
+                </div>
+                <div>
+                  <div style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px">My Employees Attendance <span style="font-size:12px;font-weight:600;color:var(--text-3);margin-left:6px">• ${periodLabel}</span></div>
+                  <div style="font-size:11.5px;color:var(--text-3)">${emps.length} Team Members • ${Utils.getDeptName(emps[0]?.departmentId)} • View-only</div>
+                </div>
+              </div>
+
+              <div style="height:28px;width:1px;background:var(--border);margin:0 4px"></div>
+
+              <!-- Period View Dropdown Menu -->
+              <div style="display:flex;align-items:center;gap:8px">
+                <label for="myemp-att-period-select" style="font-size:12px;font-weight:700;color:var(--text-2);margin:0;display:flex;align-items:center;gap:4px">
+                  <i class="fa fa-filter" style="color:var(--primary);margin-right:4px"></i> Period View:
+                </label>
+                <select id="myemp-att-period-select" class="form-control" style="width:220px;font-weight:700;background:var(--surface);border-color:rgba(79,128,247,0.4)" onchange="Attendance.changeMyEmpAttPeriod(this.value)">
+                  <option value="daily"         ${period==='daily'        ?'selected':''}>📅 Daily (Single Date)</option>
+                  <option value="weekly"        ${period==='weekly'       ?'selected':''}>📆 Weekly (7-Day View)</option>
+                  <option value="monthly"       ${period==='monthly'      ?'selected':''}>🗓️ Monthly (Full Month)</option>
+                  <option value="employee_wise" ${period==='employee_wise'?'selected':''}>👤 Employee Wise (Summary)</option>
+                  <option value="dept_wise"     ${period==='dept_wise'    ?'selected':''}>🏢 Department Wise (Overview)</option>
+                  <option value="custom"        ${period==='custom'       ?'selected':''}>🔍 Custom Dates Range</option>
+                </select>
+              </div>
             </div>
-            <div>
-              <div style="font-weight:700;font-size:14px;color:var(--text)">My Employees Attendance</div>
-              <div style="font-size:12px;color:var(--text-3)">${emps.length} team member${emps.length!==1?'s':''} · View-only — Contact HR to edit records</div>
+
+            <!-- Dynamic Context Controls depending on selected period -->
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              ${periodControls}
             </div>
+
           </div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 10px;font-size:11.5px;font-weight:600">
-              <i class="fa fa-lock" style="margin-right:4px"></i>Read Only — Editing restricted to HR / Admin
-            </span>
+
+          <!-- Filter Sub-bar: Employee Filter + Status Filter + Read Only Badge + Export CSV -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Employee:</span>
+              <select class="filter-select" style="height:32px;min-width:170px" onchange="Attendance.setMyEmpAttEmpFilter(this.value)">
+                <option value="all" ${empFilter==='all'?'selected':''}>All Employees (${emps.length})</option>
+                ${emps.map(e => `<option value="${e.id}" ${empFilter==e.id?'selected':''}>${e.fullName}</option>`).join('')}
+              </select>
+
+              <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-left:6px">Status:</span>
+              ${['all', 'present', 'late', 'half_day', 'absent'].map(st => `
+                <button class="btn btn-sm ${statusFilter===st?'btn-primary':'btn-ghost'}" style="padding:4px 10px;font-size:11.5px;border-radius:20px" onclick="Attendance.setMyEmpAttStatusFilter('${st}')">
+                  ${st === 'all' ? 'All Records' : (st === 'half_day' ? 'Half Day' : (st.charAt(0).toUpperCase() + st.slice(1)))}
+                </button>
+              `).join('')}
+            </div>
+
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600">
+                <i class="fa fa-lock" style="margin-right:4px"></i>Read Only
+              </span>
+              <button class="btn btn-ghost btn-sm" style="height:32px" onclick="Attendance.exportMyEmpAttendance()">
+                <i class="fa fa-file-export"></i> Export CSV
+              </button>
+            </div>
           </div>
         </div>
-
-        <!-- Four-in-One Quick Pill Switcher (Daily | Monthly | Employee Wise | Department Wise | Weekly | Custom) -->
-        <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border);flex-wrap:wrap">
-            <button class="myemp-pill-btn ${period==='daily'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('daily')">
-              <i class="fa fa-calendar-day"></i> Daily
-            </button>
-            <button class="myemp-pill-btn ${period==='monthly'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('monthly')">
-              <i class="fa fa-calendar-days"></i> Monthly
-            </button>
-            <button class="myemp-pill-btn ${period==='employee_wise'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('employee_wise')">
-              <i class="fa fa-user-group"></i> Employee Wise
-            </button>
-            <button class="myemp-pill-btn ${period==='dept_wise'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('dept_wise')">
-              <i class="fa fa-building-user"></i> Department Wise
-            </button>
-            <button class="myemp-pill-btn ${period==='weekly'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('weekly')">
-              <i class="fa fa-calendar-week"></i> Weekly
-            </button>
-            <button class="myemp-pill-btn ${period==='custom'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('custom')">
-              <i class="fa fa-filter"></i> Custom Range
-            </button>
-          </div>
-          <div style="font-size:12px;color:var(--text-3)">
-            <span class="badge badge-primary" style="font-size:11px"><i class="fa fa-shield-halved"></i> Scoped to Your Department</span>
-          </div>
-        </div>
-
-        <style>
-          .myemp-pill-btn { padding:6px 14px;border:none;background:transparent;color:var(--text-3);font-size:12.5px;font-weight:600;border-radius:7px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px; }
-          .myemp-pill-btn.active { background:var(--primary);color:white;box-shadow:0 2px 6px rgba(99,102,241,0.3); }
-          .myemp-pill-btn:hover:not(.active) { background:var(--surface-2);color:var(--text); }
-        </style>
 
         <!-- KPI Strip -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px">
           ${[
             { label:'Present',  val:kpiPresent, color:'#10b981', icon:'fa-circle-check' },
             { label:'Late',     val:kpiLate,    color:'#f59e0b', icon:'fa-clock' },
@@ -816,41 +834,6 @@ const Attendance = {
                 <div style="font-size:11px;color:var(--text-3)">${s.label}</div>
               </div>
             </div>`).join('')}
-        </div>
-
-        <!-- Controls Row -->
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-          <!-- Left: Period dropdown + context date controls -->
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div style="position:relative">
-              <select class="filter-select" style="height:34px;min-width:180px;padding-left:30px;font-weight:600" onchange="Attendance.changeMyEmpAttPeriod(this.value)">
-                <option value="daily"         ${period==='daily'        ?'selected':''}>📅 Daily Attendance</option>
-                <option value="monthly"       ${period==='monthly'      ?'selected':''}>🗓️ Monthly Matrix</option>
-                <option value="employee_wise" ${period==='employee_wise'?'selected':''}>👤 Employee Wise Summary</option>
-                <option value="dept_wise"     ${period==='dept_wise'    ?'selected':''}>🏢 Department Wise Overview</option>
-                <option value="weekly"        ${period==='weekly'       ?'selected':''}>📆 Weekly View</option>
-                <option value="custom"        ${period==='custom'       ?'selected':''}>🔍 Custom Range</option>
-              </select>
-              <i class="fa fa-calendar-alt" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--primary);font-size:12px;pointer-events:none"></i>
-            </div>
-            ${periodControls}
-          </div>
-          <!-- Right: Employee filter + status filter + export -->
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <select class="filter-select" style="height:34px;min-width:160px" onchange="Attendance.setMyEmpAttEmpFilter(this.value)">
-              <option value="all" ${empFilter==='all'?'selected':''}>All Employees (${emps.length})</option>
-              ${emps.map(e => `<option value="${e.id}" ${empFilter==e.id?'selected':''}>${e.fullName}</option>`).join('')}
-            </select>
-            <select class="filter-select" style="height:34px;min-width:120px" onchange="Attendance.setMyEmpAttStatusFilter(this.value)">
-              <option value="all"       ${statusFilter==='all'      ?'selected':''}>All Status</option>
-              <option value="present"   ${statusFilter==='present'  ?'selected':''}>Present</option>
-              <option value="late"      ${statusFilter==='late'     ?'selected':''}>Late</option>
-              <option value="half_day"  ${statusFilter==='half_day' ?'selected':''}>Half Day</option>
-              <option value="absent"    ${statusFilter==='absent'   ?'selected':''}>Absent</option>
-              <option value="not_marked" ${statusFilter==='not_marked'?'selected':''}>Not Marked</option>
-            </select>
-            <button class="btn btn-ghost btn-sm" style="height:34px" onclick="Attendance.exportMyEmpAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
-          </div>
         </div>
 
         <!-- Attendance Table / Card View -->
