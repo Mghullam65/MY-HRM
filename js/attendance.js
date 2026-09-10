@@ -1319,11 +1319,11 @@ const Attendance = {
       </div>
 
       <!-- Main Content: Daily Single-Day Dossier OR Detailed Records Table -->
-      ${this.myAttPeriod === 'daily' ? this.renderMyAttDailyDossier(dateList[0], myAttList, myShift, holidays) : this.renderMyAttTable(filteredDates, myAttList, myShift, holidays)}
+      ${this.myAttPeriod === 'daily' ? this.renderMyAttDailyDossier(dateList[0], myAttList, myShift, holidays, empId) : this.renderMyAttTable(filteredDates, myAttList, myShift, holidays, empId)}
     `;
   },
 
-  renderMyAttDailyDossier(dStr, myAttList, myShift, holidays) {
+  renderMyAttDailyDossier(dStr, myAttList, myShift, holidays, empId = (Auth.employee?.id || 4)) {
     const rec = myAttList.find(a => a.date === dStr);
     const dt = new Date(dStr);
     const isToday = dStr === Utils.today();
@@ -1350,7 +1350,7 @@ const Attendance = {
               ${statusBadge}
             </div>
             <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
-              Assigned Shift: <strong>${myShift.name}</strong> (${myShift.startTime} – ${myShift.endTime}) • Time-In Cutoff: <strong>11:00 AM</strong>
+              Assigned Shift: <strong>${myShift?.name || 'Standard Shift'}</strong> (${myShift?.startTime || '09:00'} – ${myShift?.endTime || '18:00'}) • Time-In Cutoff: <strong>11:00 AM</strong>
             </div>
           </div>
 
@@ -1480,7 +1480,7 @@ const Attendance = {
     `;
   },
 
-  renderMyAttTable(filteredDates, myAttList, myShift, holidays) {
+  renderMyAttTable(filteredDates, myAttList, myShift, holidays, empId = (Auth.employee?.id || 4)) {
     if (filteredDates.length === 0) {
       return `
         <div class="card" style="padding:40px;text-align:center">
@@ -1540,7 +1540,7 @@ const Attendance = {
                       <div style="font-size:11px;color:var(--text-3)">${dayName} ${isWeekend ? '• Weekend' : ''}</div>
                     </td>
                     <td>
-                      <span style="font-size:12px;font-weight:500;color:var(--text-2)">${myShift.name}</span>
+                      <span style="font-size:12px;font-weight:500;color:var(--text-2)">${myShift?.name || 'Standard Shift'}</span>
                     </td>
                     <td style="color:var(--success);font-weight:700">
                       ${rec?.timeIn ? `<i class="fa fa-arrow-right-to-bracket" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.timeIn}` : '—'}

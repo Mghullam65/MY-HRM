@@ -574,7 +574,6 @@ const Payroll = {
     const salaries = DB.get('salary');
     const depts = DB.get('departments');
     const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
-    const canManage = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
 
     container.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
