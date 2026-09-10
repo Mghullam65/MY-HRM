@@ -1949,7 +1949,7 @@ const Attendance = {
             <input type="text" class="form-control" value="${(Auth.employee?.fullName || 'Employee')} (${Auth.employee?.empNo || ''})" readonly style="background:var(--surface)">
             <input type="hidden" id="ac-emp" value="${myId}">
           ` : `
-            <select class="form-control" id="ac-emp">
+            <select class="form-control" id="ac-emp" onchange="Attendance.checkCorrectionDateConflict()">
               ${emps.map(e => `<option value="${e.id}" ${e.id === myId ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
             </select>
           `}
@@ -1965,7 +1965,7 @@ const Attendance = {
       <div class="form-row form-row-3">
         <div class="form-group">
           <label class="form-label required">Date</label>
-          <input type="date" class="form-control" id="ac-date" value="${defaultDate}">
+          <input type="date" class="form-control" id="ac-date" value="${defaultDate}" onchange="Attendance.checkCorrectionDateConflict()">
         </div>
         <div class="form-group">
           <label class="form-label required">Time In</label>
@@ -1976,22 +1976,66 @@ const Attendance = {
           <input type="time" class="form-control" id="ac-out" value="18:00">
         </div>
       </div>
+
+      <!-- Live Date Conflict Warning Box -->
+      <div id="ac-date-conflict-warning" style="display:none;background:#fef2f2;border:1px solid #f87171;color:#991b1b;border-radius:8px;padding:9px 12px;font-size:12px;margin-bottom:14px">
+        <i class="fa fa-triangle-exclamation" style="margin-right:6px"></i>
+        <span id="ac-date-conflict-msg"></span>
+      </div>
+
       <div class="form-group">
         <label class="form-label required">Reason / Justification</label>
         <textarea class="form-control" id="ac-reason" rows="3" placeholder="Explain the cause of missing punch or reason for working remotely..."></textarea>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text-3)">
         <i class="fa fa-info-circle" style="color:var(--primary);margin-right:6px"></i>
-        Requests are routed first to the Direct Reporting Manager (Deputy Manager), then forwarded to HR / Admin for final synchronized approval.
+        <strong>One Correction Per Date Policy:</strong> Only 1 active correction request is permitted per date. Multiple requests for the same date are not allowed unless the previous request was rejected by your manager or HR.
       </div>
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Attendance.saveCorrection()"><i class="fa fa-paper-plane"></i> Submit Request</button>
+        <button class="btn btn-primary" id="btn-submit-correction" onclick="Attendance.saveCorrection()"><i class="fa fa-paper-plane"></i> Submit Request</button>
       `
     });
+
+    setTimeout(() => {
+      this.checkCorrectionDateConflict();
+    }, 50);
   },
 
+  checkCorrectionDateConflict() {
+    const empId = parseInt(document.getElementById('ac-emp')?.value) || Auth.employee?.id || 4;
+    const date = document.getElementById('ac-date')?.value;
+    const warnBox = document.getElementById('ac-date-conflict-warning');
+    const warnMsg = document.getElementById('ac-date-conflict-msg');
+    const submitBtn = document.getElementById('btn-submit-correction');
+    if (!date || !warnBox || !warnMsg) return;
+
+    const corrections = DB.get('attendance_corrections') || [];
+    const activeExisting = corrections.find(c => c.employeeId === empId && c.date === date && c.status !== 'rejected');
+
+    if (activeExisting) {
+      const statusText = activeExisting.status === 'approved' 
+        ? 'has already been approved' 
+        : activeExisting.status === 'manager_approved' 
+          ? 'has been endorsed by your manager and is awaiting final HR approval' 
+          : 'is already pending review with your reporting manager';
+      warnMsg.innerHTML = `<strong>Existing Request:</strong> An attendance correction for <strong>${Utils.formatDate(date)}</strong> ${statusText}. Multiple requests for the same date are not allowed. You can only apply again if this request is rejected.`;
+      warnBox.style.display = 'block';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+      }
+    } else {
+      warnBox.style.display = 'none';
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+      }
+    }
+  },
 
   saveCorrection() {
     const empId = parseInt(document.getElementById('ac-emp').value);
@@ -2008,6 +2052,28 @@ const Attendance = {
 
     const emp = DB.find('employees', empId);
     let corrections = DB.get('attendance_corrections') || [];
+
+    // Rule: One correction request is required against one date.
+    // Multiple requests for the same date are NOT allowed unless previous request was rejected.
+    const activeExisting = corrections.find(c => 
+      c.employeeId === empId && 
+      c.date === date && 
+      c.status !== 'rejected'
+    );
+
+    if (activeExisting) {
+      if (activeExisting.status === 'approved') {
+        Toast.show(`An attendance record for ${Utils.formatDate(date)} has already been approved. Multiple requests for the same date are not allowed.`, 'error');
+        return;
+      } else if (activeExisting.status === 'manager_approved') {
+        Toast.show(`A correction request for ${Utils.formatDate(date)} has already been approved by your manager and is awaiting final HR approval. Multiple requests for the same date are not allowed.`, 'error');
+        return;
+      } else {
+        Toast.show(`A correction request for ${Utils.formatDate(date)} is already pending review. Multiple requests for the same date are not allowed. You can only apply again if this request is rejected.`, 'error');
+        return;
+      }
+    }
+
     const newCorr = {
       id: DB.nextId('attendance_corrections'),
       employeeId: empId,

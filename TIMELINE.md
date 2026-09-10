@@ -398,8 +398,13 @@
     - Added an at-a-glance **Leave Types Policy Ribbon** directly above the Quota Matrix with badge indicators for all active leave types, day entitlements, carry-forward status, and quick `Manage Types` / `Add Type` shortcuts.
     - Re-architected Leave Types management sub-view with summary KPI metrics (Configured Types, Carry-Forward Eligible, Cumulative Allocation, Total Requests Logged) and added full `showEditType(id)` and `deleteType(id)` capabilities.
     - Backward-compatible routing ensuring `switchView('types')` automatically maps to the unified Quota feature with `quotaSubView = 'types'`.
-  - **Automated Regression Suite (`scratch/test-unified-leave-quota-types.js`)**:
-    - 10 / 10 tests passed (100%) validating tab unification, sub-nav toggles, policy ribbon, edit modal, and employee self-service view.
+  - **Attendance Module: Single Correction Per Date Rule & Re-application Policy (`js/attendance.js`, `js/employees.js`, `js/data.js`)**:
+    - Enforced strict business rule: Only **one active/pending correction request** is permitted against any single date per employee. Multiple requests for the same date are strictly disallowed while a request is pending, manager-endorsed, or approved.
+    - Re-application rule: If a manager, HR, or admin **rejects** the request (`status === 'rejected'`), the employee is immediately allowed to re-apply for that date with updated timings and justification.
+    - Implemented live date-conflict warning in `showApplyCorrectionModal` (`checkCorrectionDateConflict`) to dynamically warn employees and disable the submit button if an active request already exists for the selected date.
+    - Added database deduplication in `ensureHierarchyAndCorrections` to automatically resolve and clean up any historical duplicate pending submissions from prior tests.
+  - **Automated Regression Suite (`scratch/test-attendance-single-correction-per-date.js`)**:
+    - 8 / 8 tests passed (100%) validating deduplication, submission blocking for duplicate dates, manager/HR rejection flow, re-application allowance upon rejection, and live UI warning indicators.
 
 ---
 

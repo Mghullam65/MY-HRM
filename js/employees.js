@@ -2058,6 +2058,25 @@ const Employees = {
 
     const emp = DB.find('employees', empId);
     const corrections = DB.get('attendance_corrections') || [];
+
+    // Rule: One correction request is required against one date.
+    // Multiple requests for the same date are NOT allowed unless previous request was rejected.
+    const activeExisting = corrections.find(c => 
+      c.employeeId === empId && 
+      c.date === date && 
+      c.status !== 'rejected'
+    );
+
+    if (activeExisting) {
+      const statusLabel = activeExisting.status === 'approved' 
+        ? 'has already been approved' 
+        : activeExisting.status === 'manager_approved' 
+          ? 'is endorsed by manager and awaiting final HR approval' 
+          : 'is currently pending review';
+      Toast.show(`A correction request for ${Utils.formatDate(date)} ${statusLabel}. Multiple requests for the same date are not allowed unless rejected.`, 'error');
+      return;
+    }
+
     const newId = DB.nextId('attendance_corrections');
 
     corrections.unshift({

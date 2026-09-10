@@ -392,6 +392,28 @@ const DB = {
         }
       ];
       this.set('attendance_corrections', corrections);
+    } else {
+      // Ensure uniqueness: One active correction per employee per date.
+      // Deduplicate any duplicate non-rejected requests for the same employee and date.
+      const seenActive = new Set();
+      const deduped = [];
+      let didDedup = false;
+      corrections.forEach(c => {
+        if (c.status === 'rejected') {
+          deduped.push(c); // rejected records remain in history and don't block new requests
+        } else {
+          const key = `${c.employeeId}_${c.date}`;
+          if (!seenActive.has(key)) {
+            seenActive.add(key);
+            deduped.push(c);
+          } else {
+            didDedup = true;
+          }
+        }
+      });
+      if (didDedup) {
+        this.set('attendance_corrections', deduped);
+      }
     }
 
     // 2. Ensure reporting hierarchy and Deputy Manager's 4 team members
