@@ -2634,9 +2634,9 @@ const Administration = {
       const newLeave = {
         id: DB.nextId('leave_requests'),
         employeeId: prob.employeeId,
-        typeId: 6, // Unpaid Leave
-        quotaTypeId: 6,
-        quotaName: 'Unpaid Leave (Loss of Pay)',
+        typeId: 1,
+        quotaTypeId: null,
+        quotaName: 'Salary Deduction (Loss of Pay)',
         from: prob.rawRecord.date || prob.rawRecord.from,
         to: prob.rawRecord.date || prob.rawRecord.to,
         days: days,

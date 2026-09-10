@@ -511,22 +511,22 @@ const Leaves = {
     const qTotal = qAnnual + qSickCasual + qComp;
 
     // 2. AVAILED LEAVE
-    const avAnnual = allApprovedLeaves.filter(l => l.typeId === 2).reduce((s, l) => s + l.days, 0);
-    const avSickCasual = allApprovedLeaves.filter(l => l.typeId === 1 || l.typeId === 3).reduce((s, l) => s + l.days, 0);
-    const avComp = allApprovedLeaves.filter(l => l.typeId === 7).reduce((s, l) => s + l.days, 0);
-    const avHalf = allApprovedLeaves.filter(l => l.typeId === 8).reduce((s, l) => s + l.days, 0);
-    const avShort = allApprovedLeaves.filter(l => l.typeId === 9).reduce((s, l) => s + l.days, 0);
-    const avSalary = allApprovedLeaves.filter(l => l.salaryDeduction === true).reduce((s, l) => s + l.days, 0);
-    const avTotal = avAnnual + avSickCasual + avComp + avHalf + avShort + avSalary;
+    const avAnnual = allApprovedLeaves.filter(l => (l.typeId === 2 || l.quotaTypeId === 2) && !l.salaryDeduction).reduce((s, l) => s + (l.days || 0), 0);
+    const avSickCasual = allApprovedLeaves.filter(l => (l.typeId === 1 || l.typeId === 3 || l.quotaTypeId === 1 || l.quotaTypeId === 3) && !l.salaryDeduction).reduce((s, l) => s + (l.days || 0), 0);
+    const avComp = allApprovedLeaves.filter(l => (l.typeId === 7 || l.quotaTypeId === 7) && !l.salaryDeduction).reduce((s, l) => s + (l.days || 0), 0);
+    const avHalf = allApprovedLeaves.filter(l => l.typeId === 8 || l.leaveDuration === 'half_first' || l.leaveDuration === 'half_second' || l.days === 0.5).reduce((s, l) => s + (l.days || 0), 0);
+    const avShort = allApprovedLeaves.filter(l => l.typeId === 9 || l.leaveDuration === 'short' || l.days === 0.25).reduce((s, l) => s + (l.days || 0), 0);
+    const avSalary = allApprovedLeaves.filter(l => l.salaryDeduction === true || l.typeId === 6).reduce((s, l) => s + (l.deductionDays || l.days || 0), 0);
+    const avTotal = avAnnual + avSickCasual + avComp + avSalary;
 
     // 3. REMAINING LEAVES (Image order: Sick/Casual, Compensation, Annual, Total)
-    const remSickCasual = Math.max(0, qSickCasual - avSickCasual);
-    const remComp = Math.max(0, qComp - avComp);
-    const remAnnual = Math.max(0, qAnnual - avAnnual);
-    const remTotal = remSickCasual + remComp + remAnnual;
+    const remSickCasual = Math.max(0, Math.round((qSickCasual - avSickCasual) * 100) / 100);
+    const remComp = Math.max(0, Math.round((qComp - avComp) * 100) / 100);
+    const remAnnual = Math.max(0, Math.round((qAnnual - avAnnual) * 100) / 100);
+    const remTotal = Math.round((remSickCasual + remComp + remAnnual) * 100) / 100;
 
     // 4. OTHER LEAVE
-    const otherUnpaid = allApprovedLeaves.filter(l => l.typeId === 6).reduce((s, l) => s + l.days, 0);
+    const otherUnpaid = allApprovedLeaves.filter(l => l.salaryDeduction === true || l.typeId === 6).reduce((s, l) => s + (l.deductionDays || l.days || 0), 0);
     const tokenAvailments = (DB.get('token_availments') || []).filter(a => a.employeeId === emp.id && a.status === 'approved');
     const tokenDaysFromAvail = tokenAvailments.reduce((s, a) => s + (Number(a.days) || 0), 0);
     const tokenDaysFromRequests = allApprovedLeaves.filter(l => l.typeId === 10).reduce((s, l) => s + l.days, 0);
@@ -1418,7 +1418,7 @@ const Leaves = {
                       <button class="btn btn-ghost btn-xs" onclick="Leaves.showEditType(${t.id})" title="Edit leave type policy" style="padding:4px 8px">
                         <i class="fa fa-pen"></i> Edit
                       </button>
-                      ${t.id > 10 ? `
+                      ${t.id > 7 ? `
                         <button class="btn btn-ghost btn-xs" onclick="Leaves.deleteType(${t.id})" title="Delete custom type" style="padding:4px 8px;color:var(--danger)">
                           <i class="fa fa-trash"></i>
                         </button>
@@ -1671,22 +1671,34 @@ const Leaves = {
           </div>
         `}
 
-        <!-- Dates & Live Duration -->
+        <!-- Leave Unit / Duration Selection -->
+        <div class="form-row form-row-2" style="margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required"><i class="fa fa-business-time" style="color:var(--primary);margin-right:4px"></i> Leave Duration</label>
+            <select class="form-control" id="lf-duration" onchange="Leaves.onLeaveDurationChange(this.value)">
+              <option value="full">Full Day (1.0 Day / 8h)</option>
+              <option value="half_first">Half Day — Morning / 1st Half (0.5 Day / 4h)</option>
+              <option value="half_second">Half Day — Afternoon / 2nd Half (0.5 Day / 4h)</option>
+              <option value="short">Short Leave (0.25 Day / 2h)</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;display:flex;flex-direction:column;justify-content:flex-end">
+            <span id="lf-days-badge" class="badge badge-primary" style="font-size:12px;padding:8px 12px;display:inline-flex;align-items:center;gap:5px;height:38px">
+              <i class="fa fa-clock"></i> 1 Day Requested
+            </span>
+          </div>
+        </div>
+
+        <!-- Dates -->
         <div class="form-row form-row-2" style="margin-bottom:0">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label required"><i class="fa fa-calendar-arrow-down" style="color:var(--primary);margin-right:4px"></i> From Date</label>
             <input type="date" class="form-control" id="lf-from" value="${defaultDate}" onchange="Leaves.onLeaveDateChange()">
           </div>
-          <div class="form-group" style="margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0" id="lf-to-group">
             <label class="form-label required"><i class="fa fa-calendar-arrow-up" style="color:var(--primary);margin-right:4px"></i> To Date</label>
             <input type="date" class="form-control" id="lf-to" value="${defaultDate}" onchange="Leaves.onLeaveDateChange()">
           </div>
-        </div>
-
-        <div style="display:flex;justify-content:flex-end;margin-top:-6px">
-          <span id="lf-days-badge" class="badge badge-primary" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:5px">
-            <i class="fa fa-clock"></i> 1 Day Requested
-          </span>
         </div>
 
         <!-- Leave Type & Quota to Utilize -->
@@ -1764,17 +1776,53 @@ const Leaves = {
     }, 20);
   },
 
+  onLeaveDurationChange(dur) {
+    const toInput = document.getElementById('lf-to');
+    const toGroup = document.getElementById('lf-to-group');
+    const fromVal = document.getElementById('lf-from')?.value;
+    if (dur !== 'full') {
+      if (toInput && fromVal) toInput.value = fromVal;
+      if (toInput) toInput.disabled = true;
+      if (toGroup) toGroup.style.opacity = '0.5';
+    } else {
+      if (toInput) toInput.disabled = false;
+      if (toGroup) toGroup.style.opacity = '1';
+    }
+    this.onLeaveDateChange();
+  },
+
   onLeaveDateChange() {
     const from = document.getElementById('lf-from')?.value;
     const to = document.getElementById('lf-to')?.value;
-    if (from && to) {
-      const days = from <= to ? Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1) : 0;
-      const badge = document.getElementById('lf-days-badge');
-      if (badge) {
-        badge.innerHTML = from > to ? '<i class="fa fa-exclamation-triangle"></i> Invalid Date Range' : `<i class="fa fa-clock"></i> ${days} Day${days !== 1 ? 's' : ''} Requested`;
-        badge.className = from > to ? 'badge badge-danger' : 'badge badge-primary';
+    const dur = document.getElementById('lf-duration')?.value || 'full';
+    let days = 1;
+    let label = '1 Day Requested';
+
+    if (dur === 'half_first') {
+      days = 0.5;
+      label = '0.5 Day Requested (Half Day - Morning)';
+    } else if (dur === 'half_second') {
+      days = 0.5;
+      label = '0.5 Day Requested (Half Day - Afternoon)';
+    } else if (dur === 'short') {
+      days = 0.25;
+      label = '0.25 Day Requested (Short Leave - 2h)';
+    } else if (from && to) {
+      days = from <= to ? Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1) : 0;
+      label = `${days} Day${days !== 1 ? 's' : ''} Requested`;
+    }
+
+    const badge = document.getElementById('lf-days-badge');
+    if (badge) {
+      if (dur === 'full' && from > to) {
+        badge.innerHTML = '<i class="fa fa-exclamation-triangle"></i> Invalid Date Range';
+        badge.className = 'badge badge-danger';
+      } else {
+        badge.innerHTML = `<i class="fa fa-clock"></i> ${label}`;
+        badge.className = 'badge badge-primary';
       }
     }
+
     const isDeduct = document.getElementById('lf-salary-deduct')?.checked;
     if (isDeduct) {
       this.onSalaryDeductToggle(true);
@@ -1793,10 +1841,15 @@ const Leaves = {
       const emp = DB.find('employees', empId);
       const from = document.getElementById('lf-from')?.value;
       const to = document.getElementById('lf-to')?.value;
-      const days = (from && to && from <= to) ? Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1) : 1;
+      const dur = document.getElementById('lf-duration')?.value || 'full';
+      let days = 1;
+      if (dur === 'half_first' || dur === 'half_second') days = 0.5;
+      else if (dur === 'short') days = 0.25;
+      else if (from && to && from <= to) days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
+
       const salary = emp?.salary || 50000;
       const dailyWage = Math.round(salary / 30);
-      const totalDed = dailyWage * days;
+      const totalDed = Math.round(dailyWage * days);
 
       if (preview) {
         preview.innerHTML = `
@@ -1867,8 +1920,11 @@ const Leaves = {
     const quotaTypeId = parseInt(document.getElementById('lf-quota')?.value || 1);
     const from = document.getElementById('lf-from')?.value;
     const to = document.getElementById('lf-to')?.value;
-
-    const days = (from && to && from <= to) ? Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1) : 1;
+    const dur = document.getElementById('lf-duration')?.value || 'full';
+    let days = 1;
+    if (dur === 'half_first' || dur === 'half_second') days = 0.5;
+    else if (dur === 'short') days = 0.25;
+    else if (from && to && from <= to) days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
 
     const types = DB.get('leave_types') || [];
     const balances = DB.get('leave_balances') || [];
@@ -1878,14 +1934,16 @@ const Leaves = {
 
     const quotaType = types.find(t => t.id === quotaTypeId) || types[0];
     const allocated = bal?.quotas?.[quotaTypeId] ?? (quotaType?.maxDays || 14);
-    const used = empLeaves.filter(l => (l.quotaTypeId === quotaTypeId || l.typeId === quotaTypeId)).reduce((s, l) => s + l.days, 0);
-    const currentRemaining = bal?.balances?.[quotaTypeId] ?? Math.max(0, allocated - used);
+    const used = empLeaves.filter(l => (l.quotaTypeId === quotaTypeId || l.typeId === quotaTypeId) && !l.salaryDeduction).reduce((s, l) => s + (l.days || 0), 0);
+    const currentRemaining = bal?.balances?.[quotaTypeId] ?? Math.max(0, Math.round((allocated - used) * 100) / 100);
 
-    const balanceAfterApproval = Math.max(0, currentRemaining - days);
+    const balanceAfterApproval = Math.max(0, Math.round((currentRemaining - days) * 100) / 100);
     const isOverQuota = days > currentRemaining;
     const isRunningLow = currentRemaining <= 3;
     const pct = allocated > 0 ? Math.min(100, Math.round(((used + (isOverQuota ? currentRemaining : days)) / allocated) * 100)) : 0;
     const color = quotaType?.color || 'var(--primary)';
+
+    const durDesc = dur === 'short' ? 'Short Leave (2h)' : (dur === 'half_first' ? 'Half Day Morning (4h)' : (dur === 'half_second' ? 'Half Day Afternoon (4h)' : 'Full Day'));
 
     previewContainer.innerHTML = `
       <div style="background:var(--surface-2);border:1px solid ${isOverQuota ? 'var(--danger)' : 'var(--border)'};border-radius:10px;padding:12px 16px;transition:all .2s">
@@ -1906,7 +1964,7 @@ const Leaves = {
           </div>
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 4px">
             <div style="font-size:10px;color:var(--text-3);text-transform:uppercase">Used</div>
-            <div style="font-size:15px;font-weight:800;color:var(--warning)">${used}d</div>
+            <div style="font-size:15px;font-weight:800;color:var(--warning)">${Math.round(used * 100) / 100}d</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px 4px">
             <div style="font-size:10px;color:var(--text-3);text-transform:uppercase">Available</div>
@@ -1925,11 +1983,11 @@ const Leaves = {
         ${isOverQuota ? `
           <div style="color:${isSalaryDeduct ? 'var(--warning)' : 'var(--danger)'};font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:6px;margin-top:6px">
             <i class="fa fa-${isSalaryDeduct ? 'money-bill-wave' : 'triangle-exclamation'}"></i>
-            ${isSalaryDeduct ? `Quota exceeded (${days}d requested vs ${currentRemaining}d available), but <strong>Salary Deduction is Active</strong>. Leave will be approved via Loss of Pay.` : `Requested duration (${days} days) exceeds available ${quotaType?.name} quota (${currentRemaining} days remaining)!`}
+            ${isSalaryDeduct ? `Quota exceeded (${days}d requested vs ${currentRemaining}d available), but <strong>Salary Deduction is Active</strong>. Leave will be approved via Loss of Pay.` : `Requested duration (${days} days, ${durDesc}) exceeds available ${quotaType?.name} quota (${currentRemaining} days remaining)!`}
           </div>
         ` : `
           <div style="color:var(--text-3);font-size:11px;display:flex;align-items:center;justify-content:space-between">
-            <span>Deducting <strong>${days} day(s)</strong> from ${quotaType?.name} Quota</span>
+            <span>Deducting <strong>${days} day(s)</strong> (${durDesc}) from ${quotaType?.name} Quota</span>
             <span style="color:var(--success);font-weight:600">Remaining after deduction: ${balanceAfterApproval} days</span>
           </div>
         `}
@@ -1948,17 +2006,26 @@ const Leaves = {
     const quotaTypeId = parseInt(document.getElementById('lf-quota')?.value || typeId);
     const from = document.getElementById('lf-from').value;
     const to   = document.getElementById('lf-to').value;
+    const dur  = document.getElementById('lf-duration')?.value || 'full';
     const reason = document.getElementById('lf-reason').value.trim();
     const remarks = document.getElementById('lf-remarks')?.value.trim() || '';
     const isSalaryDeduct = document.getElementById('lf-salary-deduct')?.checked || false;
 
     if (!from || !to || !reason) { Toast.show('Please fill all required fields (Dates and Reason)', 'error'); return; }
-    if (from > to) { Toast.show('From date cannot be after To date', 'error'); return; }
+    if (dur === 'full' && from > to) { Toast.show('From date cannot be after To date', 'error'); return; }
 
-    const days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
+    let days = 1;
+    if (dur === 'half_first' || dur === 'half_second') {
+      days = 0.5;
+    } else if (dur === 'short') {
+      days = 0.25;
+    } else {
+      days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
+    }
+
     const targetEmp = DB.find('employees', empId);
     const dailyWage = Math.round((targetEmp?.salary || 50000) / 30);
-    const deductionAmount = isSalaryDeduct ? (dailyWage * days) : 0;
+    const deductionAmount = isSalaryDeduct ? Math.round(dailyWage * days) : 0;
 
     // Balance check against chosen quota (bypassed if salary deduction requested)
     const balances = DB.get('leave_balances') || [];
@@ -1975,10 +2042,10 @@ const Leaves = {
     // Overlap check
     const existing = (DB.get('leave_requests') || []).filter(l =>
       l.employeeId === empId && l.status !== 'rejected' && l.status !== 'cancelled' &&
-      l.from <= to && l.to >= from
+      l.from <= to && l.to >= from && (l.leaveDuration === 'full' || l.leaveDuration === dur)
     );
     if (existing.length > 0) {
-      Toast.show('An active leave request already exists overlapping these dates!', 'error');
+      Toast.show('An active leave request already exists overlapping these dates and duration!', 'error');
       return;
     }
 
@@ -1989,7 +2056,8 @@ const Leaves = {
       quotaTypeId,
       quotaName: quotaType?.name || leaveType?.name || 'Standard Quota',
       from,
-      to,
+      to: (dur !== 'full') ? from : to,
+      leaveDuration: dur,
       days,
       reason,
       remarks,
@@ -2007,8 +2075,8 @@ const Leaves = {
 
     DB.add('leave_requests', newLeave);
     DB.log('APPLY', 'Leaves', isSelf 
-      ? `${myEmp?.fullName} applied for personal leave for ${days}d (${from} to ${to}) utilizing ${newLeave.quotaName}`
-      : `Leave marked for ${targetEmp?.fullName} by ${myEmp?.fullName} (${days}d from ${from} to ${to}) utilizing ${newLeave.quotaName}`, 
+      ? `${myEmp?.fullName} applied for personal leave for ${days}d (${from} to ${newLeave.to}) utilizing ${newLeave.quotaName}`
+      : `Leave marked for ${targetEmp?.fullName} by ${myEmp?.fullName} (${days}d from ${from} to ${newLeave.to}) utilizing ${newLeave.quotaName}`, 
       Auth.user?.id);
 
     Modal.close('dynamic-modal');
@@ -2051,7 +2119,7 @@ const Leaves = {
         const bal = balances.find(b => b.employeeId === leave.employeeId);
         const targetQuotaId = leave.quotaTypeId || leave.typeId;
         if (bal && bal.balances && bal.balances[targetQuotaId] !== undefined) {
-          bal.balances[targetQuotaId] = Math.max(0, bal.balances[targetQuotaId] - leave.days);
+          bal.balances[targetQuotaId] = Math.max(0, Math.round((bal.balances[targetQuotaId] - leave.days) * 100) / 100);
           DB.set('leave_balances', balances);
         }
       }
@@ -3494,20 +3562,25 @@ const Leaves = {
     availments.push(newAvail);
     DB.set('token_availments', availments);
 
-    // Also insert into leave_requests as Type 10 (Token Leave) to integrate seamlessly with calendar & Leave Quota matrix
+    // Also insert into leave_requests as Compensatory Leave (Type 7) to integrate seamlessly with calendar
     const leaves = DB.get('leave_requests') || [];
     const typeName = type === 'short' ? `Short Leave (${reqMins}m)` : (type === 'half' ? 'Half Day Leave (4h)' : 'Full Day Leave (8h)');
     const newLeaveReq = {
       id: DB.nextId('leave_requests'),
       employeeId: myEmpId,
-      typeId: 10, // Token Leave
+      typeId: 7, // Compensatory Leave
+      quotaTypeId: 7,
+      quotaName: 'Compensatory Leave',
+      from: date,
+      to: date,
       fromDate: date,
       toDate: date,
+      leaveDuration: type === 'short' ? 'short' : (type === 'half' ? 'half_first' : 'full'),
       days: Math.round((reqHours / 8) * 100) / 100,
       status: 'approved',
       managerStatus: 'approved',
       hrStatus: 'approved',
-      reason: `[Compensatory Token Leave: ${typeName}] ${reason} (Redeemed: ${tokenSummaries.join(', ')})`,
+      reason: `[Overtime Token Availment: ${typeName}] ${reason} (Redeemed: ${tokenSummaries.join(', ')})`,
       appliedOn: Utils.today(),
       remarks: `Availed from approved overtime token(s): ${tokenSummaries.join(', ')}`
     };
