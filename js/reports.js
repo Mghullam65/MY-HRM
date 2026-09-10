@@ -156,6 +156,12 @@ const Reports = {
     const content = document.getElementById('page-content');
     if (!content) return;
 
+    // Regular employee / onboarding sees personal self-service statements only
+    if (['employee', 'onboarding'].includes(Auth.role)) {
+      this.renderPersonalReports(content);
+      return;
+    }
+
     // Reset pagination
     this.page = 1;
     if (!this.selectedColumns.length) {
@@ -227,7 +233,7 @@ const Reports = {
   // 1. EXECUTIVE BI & WORKFORCE ANALYTICS DECK
   // ═════════════════════════════════════════════════════════════════════════
   renderExecutiveBI(container) {
-    const emps = DB.get('employees') || [];
+    const emps = Auth.getScopedEmployees(DB.get('employees') || []);
     const activeEmps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
     const totalCount = activeEmps.length || 1;
     const depts = DB.get('departments') || [];
@@ -548,6 +554,15 @@ const Reports = {
   getProcessedData() {
     const schema = this.schemas[this.activeEntity];
     let data = DB.get(schema.source) || [];
+
+    if (Auth.role === 'dept_manager') {
+      const teamIds = Auth.getScopedEmployees(DB.get('employees') || []).map(e => e.id);
+      if (this.activeEntity === 'employees') {
+        data = data.filter(e => teamIds.includes(e.id));
+      } else if (data[0] && 'employeeId' in data[0]) {
+        data = data.filter(r => teamIds.includes(r.employeeId));
+      }
+    }
 
     // Filter department
     if (this.filterDept) {
@@ -961,5 +976,129 @@ const Reports = {
       </html>
     `);
     win.document.close();
+  },
+
+  renderPersonalReports(content) {
+    const myId = Auth.employee?.id;
+    const allAtt = DB.get('attendance') || [];
+    const allLeaves = DB.get('leave_requests') || [];
+    const allSalary = DB.get('salary') || [];
+    const allReviews = DB.get('performance_reviews') || [];
+
+    const myAtt = allAtt.filter(a => a.employeeId === myId);
+    const myLeaves = allLeaves.filter(l => l.employeeId === myId);
+    const mySalary = allSalary.filter(s => s.employeeId === myId);
+    const myReviews = allReviews.filter(r => r.employeeId === myId);
+
+    content.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <h2 style="font-size:22px;font-weight:800;color:var(--text)">Personal HR Statements & Reports</h2>
+              <span class="badge badge-primary" style="font-size:11px">Self-Service</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              Access your personal attendance, leave records, salary slips, and appraisal assessments.
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="Reports.render()">
+            <i class="fa fa-rotate"></i> Refresh
+          </button>
+        </div>
+
+        <!-- 4 Statement Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px;margin-bottom:24px">
+          <!-- 1. Attendance Statement -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-clock" style="color:var(--primary);margin-right:8px"></i>Attendance Statement
+                </div>
+                <span class="badge badge-primary" style="font-size:10px">${myAtt.length} Logs</span>
+              </div>
+              <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">
+                Comprehensive clock-in/out timestamps, overtime records, and punctuality summary.
+              </p>
+              <div style="background:var(--surface);padding:10px 12px;border-radius:8px;font-size:12px;display:flex;justify-content:space-between;margin-bottom:14px">
+                <span>Present Days: <strong>${myAtt.filter(a=>a.status==='present').length}</strong></span>
+                <span>Late Days: <strong style="color:var(--warning)">${myAtt.filter(a=>a.status==='late').length}</strong></span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm w-full" onclick="App.navigate('attendance')">
+              <i class="fa fa-calendar-days"></i> View Attendance Logs
+            </button>
+          </div>
+
+          <!-- 2. Leave History Statement -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-calendar-check" style="color:var(--warning);margin-right:8px"></i>Leave Ledger Statement
+                </div>
+                <span class="badge badge-warning" style="font-size:10px">${myLeaves.length} Requests</span>
+              </div>
+              <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">
+                Official record of leave balances, applied requisitions, and manager approvals.
+              </p>
+              <div style="background:var(--surface);padding:10px 12px;border-radius:8px;font-size:12px;display:flex;justify-content:space-between;margin-bottom:14px">
+                <span>Approved: <strong style="color:var(--success)">${myLeaves.filter(l=>l.status==='approved').length}</strong></span>
+                <span>Pending: <strong style="color:var(--warning)">${myLeaves.filter(l=>l.status==='pending'||l.status==='manager_approved').length}</strong></span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm w-full" onclick="App.navigate('leaves')">
+              <i class="fa fa-calendar-check"></i> View Leave Ledger
+            </button>
+          </div>
+
+          <!-- 3. Payroll Slip Statement -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-receipt" style="color:var(--success);margin-right:8px"></i>Salary & Tax Slips
+                </div>
+                <span class="badge badge-success" style="font-size:10px">${mySalary.length} Slips</span>
+              </div>
+              <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">
+                Verified salary disbursement slips, allowances, provident fund, and FBR tax deductions.
+              </p>
+              <div style="background:var(--surface);padding:10px 12px;border-radius:8px;font-size:12px;display:flex;justify-content:space-between;margin-bottom:14px">
+                <span>Latest Pay: <strong style="color:var(--success)">${mySalary[0] ? Utils.formatCurrency(mySalary[0].netSalary) : '—'}</strong></span>
+                <span>Status: <strong>${mySalary[0]?.status || 'Processed'}</strong></span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm w-full" onclick="App.navigate('payroll')">
+              <i class="fa fa-file-invoice-dollar"></i> View Payslips
+            </button>
+          </div>
+
+          <!-- 4. Performance Assessment Statement -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-chart-line" style="color:var(--accent);margin-right:8px"></i>Appraisal & Review Statement
+                </div>
+                <span class="badge badge-info" style="font-size:10px">${myReviews.length} Reviews</span>
+              </div>
+              <p style="font-size:12.5px;color:var(--text-2);margin-bottom:14px">
+                Quarterly appraisal ratings, OKR achievements, manager feedback, and skill ratings.
+              </p>
+              <div style="background:var(--surface);padding:10px 12px;border-radius:8px;font-size:12px;display:flex;justify-content:space-between;margin-bottom:14px">
+                <span>Rating: <strong style="color:var(--accent)">★ 4.2 / 5</strong></span>
+                <span>Status: <strong>Completed</strong></span>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm w-full" onclick="App.navigate('performance')">
+              <i class="fa fa-chart-line"></i> View Appraisal
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 };

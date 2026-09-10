@@ -6,12 +6,8 @@ const Performance = {
   currentView: 'reviews',
 
   getScopedEmployees() {
-    let emps = DB.get('employees').filter(e => e.status === 'active');
-    if (Auth.role === 'dept_manager') {
-      const myId = Auth.employee?.id;
-      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
-    }
-    return emps;
+    const emps = DB.get('employees') || [];
+    return Auth.getScopedEmployees(emps).filter(e => e.status === 'active');
   },
 
   getScopedReviews() {

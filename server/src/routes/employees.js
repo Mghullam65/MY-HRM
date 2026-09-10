@@ -1,11 +1,11 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const prisma = require('../db');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
 
 const router = express.Router();
 
-// List all employees (with filters)
+// List all employees (with filters and centralized role scoping)
 router.get('/', authenticate, async (req, res) => {
   try {
     const { departmentId, branchId, status, role, search } = req.query;
@@ -22,6 +22,12 @@ router.get('/', authenticate, async (req, res) => {
         { email: { contains: search } },
         { phone: { contains: search } }
       ];
+    }
+
+    // Role-based data scoping: ALL (null), TEAM (permitted array), SELF ([employeeId])
+    const scopedIds = await getScopedEmployeeIds(req.user);
+    if (scopedIds !== null) {
+      where.id = { in: scopedIds };
     }
 
     const employees = await prisma.employee.findMany({
@@ -42,10 +48,14 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Get single employee by ID
+// Get single employee by ID (protected against IDOR)
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+
+    // IDOR Protection: verify caller has permission to view this target employee
+    const hasAccess = await assertEmployeeAccess(req, res, id);
+    if (!hasAccess) return;
     const employee = await prisma.employee.findUnique({
       where: { id },
       include: {
@@ -179,6 +189,8 @@ router.post('/', authenticate, authorize('superadmin', 'hr_manager'), async (req
 router.put('/:id', authenticate, authorize('superadmin', 'hr_manager', 'dept_manager'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const hasAccess = await assertEmployeeAccess(req, res, id);
+    if (!hasAccess) return;
     const data = req.body;
 
     // Recalculate fullName if name parts changed

@@ -1,16 +1,15 @@
 const express = require('express');
 const prisma = require('../db');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get attendance logs with date range and employee filters
+// Get attendance logs with date range and employee filters (role scoped)
 router.get('/', authenticate, async (req, res) => {
   try {
     const { employeeId, date, month, year, startDate, endDate } = req.query;
 
     const where = {};
-    if (employeeId) where.employeeId = parseInt(employeeId);
     if (date) where.date = date;
     if (startDate && endDate) {
       where.date = { gte: startDate, lte: endDate };
@@ -19,9 +18,15 @@ router.get('/', authenticate, async (req, res) => {
       where.date = { startsWith: `${year}-${padMonth}` };
     }
 
-    // If regular employee, only allow viewing own attendance
-    if (req.user.role === 'employee' || req.user.role === 'onboarding') {
-      where.employeeId = req.user.employeeId;
+    if (employeeId) {
+      const hasAccess = await assertEmployeeAccess(req, res, employeeId);
+      if (!hasAccess) return;
+      where.employeeId = parseInt(employeeId);
+    } else {
+      const scopedIds = await getScopedEmployeeIds(req.user);
+      if (scopedIds !== null) {
+        where.employeeId = { in: scopedIds };
+      }
     }
 
     const records = await prisma.attendance.findMany({
@@ -40,12 +45,39 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Today's attendance summary for Dashboard widgets
+// Today's attendance summary for Dashboard widgets (role-scoped)
 router.get('/today-summary', authenticate, async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
-    const totalEmployees = await prisma.employee.count({ where: { status: 'active' } });
-    const todayLogs = await prisma.attendance.findMany({ where: { date: today } });
+    const scopedIds = await getScopedEmployeeIds(req.user);
+
+    // If regular employee, return self-only attendance summary
+    if (req.user.role === 'employee' || req.user.role === 'onboarding') {
+      const myLog = await prisma.attendance.findFirst({
+        where: { employeeId: req.user.employeeId, date: today }
+      });
+      return res.json({
+        success: true,
+        data: {
+          date: today,
+          status: myLog?.status || 'not_marked',
+          checkIn: myLog?.checkIn || null,
+          checkOut: myLog?.checkOut || null,
+          lateMinutes: myLog?.lateMinutes || 0,
+          workingHours: myLog?.workingHours || 0
+        }
+      });
+    }
+
+    const whereEmps = { status: 'active' };
+    const whereLogs = { date: today };
+    if (scopedIds !== null) {
+      whereEmps.id = { in: scopedIds };
+      whereLogs.employeeId = { in: scopedIds };
+    }
+
+    const totalEmployees = await prisma.employee.count({ where: whereEmps });
+    const todayLogs = await prisma.attendance.findMany({ where: whereLogs });
 
     const present = todayLogs.filter(a => a.status === 'present').length;
     const late = todayLogs.filter(a => a.status === 'late').length;
@@ -71,10 +103,13 @@ router.get('/today-summary', authenticate, async (req, res) => {
   }
 });
 
-// Punch In / Punch Out
+// Punch In / Punch Out (protected against punching for other staff)
 router.post('/punch', authenticate, async (req, res) => {
   try {
-    const employeeId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
+    const targetId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
+    const hasAccess = await assertEmployeeAccess(req, res, targetId);
+    if (!hasAccess) return;
+    const employeeId = targetId;
     const today = new Date().toISOString().split('T')[0];
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;

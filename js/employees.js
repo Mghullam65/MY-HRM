@@ -116,17 +116,8 @@ const Employees = {
   },
 
   getFiltered() {
-    let emps = DB.get('employees');
-    // Scoped team visibility: Deputy Manager only sees their direct reportees (4 employees)
-    if (Auth.role === 'dept_manager') {
-      const myId = Auth.employee?.id;
-      emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
-    }
-    // Regular employees only see themselves in the employee list
-    if (Auth.role === 'employee') {
-      const myEmpId = Auth.employee?.id;
-      emps = emps.filter(e => e.id === myEmpId);
-    }
+    let emps = DB.get('employees') || [];
+    emps = Auth.getScopedEmployees(emps);
     if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
     if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
     if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');

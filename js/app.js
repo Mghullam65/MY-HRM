@@ -157,10 +157,12 @@ const App = {
         <div class="search-dropdown" id="search-dropdown"></div>
       </div>
       <div class="topbar-actions">
-        <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:6px">
-          <i class="fa fa-cubes"></i>
-          <span>103 Models</span>
-        </button>
+        ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
+          <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:6px">
+            <i class="fa fa-cubes"></i>
+            <span>103 Models</span>
+          </button>
+        ` : ''}
         <button class="theme-toggle-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
           <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
@@ -444,7 +446,25 @@ const App = {
   },
 
   navigate(module, subView) {
-    // Role-based module access guard
+    // Role-based module access guards
+    if (module === 'administration' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('403 Forbidden: Access to Administration is restricted.', 'error');
+      if (this.currentModule && this.currentModule !== 'administration') return;
+      module = 'dashboard';
+    }
+
+    if (module === 'settings' && Auth.role !== 'superadmin') {
+      Toast.show('403 Forbidden: System Settings is restricted to Super Admin.', 'error');
+      if (this.currentModule && this.currentModule !== 'settings') return;
+      module = 'dashboard';
+    }
+
+    if (module === 'recruitment' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('403 Forbidden: Recruitment & ATS is restricted to HR & Admin.', 'error');
+      if (this.currentModule && this.currentModule !== 'recruitment') return;
+      module = 'dashboard';
+    }
+
     if (module === 'employees' && (Auth.role === 'employee' || Auth.role === 'onboarding')) {
       const staffAllowed = ['hr_letters', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
       const targetSub = subView || (typeof Employees !== 'undefined' ? Employees.currentView : null);

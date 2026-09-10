@@ -1,10 +1,10 @@
 const express = require('express');
 const prisma = require('../db');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
 
 const router = express.Router();
 
-// List payroll records
+// List payroll records (role-scoped, protected against IDOR)
 router.get('/', authenticate, async (req, res) => {
   try {
     const { month, year, employeeId, paymentStatus } = req.query;
@@ -13,10 +13,16 @@ router.get('/', authenticate, async (req, res) => {
     if (month) where.month = parseInt(month);
     if (year) where.year = parseInt(year);
     if (paymentStatus) where.paymentStatus = paymentStatus;
-    if (employeeId) where.employeeId = parseInt(employeeId);
 
-    if (req.user.role === 'employee' || req.user.role === 'onboarding') {
-      where.employeeId = req.user.employeeId;
+    if (employeeId) {
+      const hasAccess = await assertEmployeeAccess(req, res, employeeId);
+      if (!hasAccess) return;
+      where.employeeId = parseInt(employeeId);
+    } else {
+      const scopedIds = await getScopedEmployeeIds(req.user);
+      if (scopedIds !== null) {
+        where.employeeId = { in: scopedIds };
+      }
     }
 
     const records = await prisma.payroll.findMany({

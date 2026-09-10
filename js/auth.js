@@ -49,13 +49,109 @@ const Auth = {
   },
 
   get user() { return this._user; },
+  set user(u) { this._user = u; },
   get employee() { return this._employee; },
-  get role() { return this._user?.role || null; },
+  set employee(e) { this._employee = e; },
+  get role() { return this._role || this._user?.role || null; },
+  set role(r) { this._role = r; if (this._user) this._user.role = r; },
   get isLoggedIn() { return !!this._user; },
+
+  SCOPES: {
+    SELF: 'SELF',
+    TEAM: 'TEAM',
+    ALL: 'ALL',
+    NONE: 'NONE'
+  },
+
+  getScope(module) {
+    const role = this.role;
+    if (!role) return this.SCOPES.NONE;
+    if (role === 'superadmin' || role === 'hr_manager') return this.SCOPES.ALL;
+    if (role === 'dept_manager') {
+      const teamModules = ['dashboard', 'employees', 'attendance', 'leaves', 'performance', 'reports', 'approvals', 'assets', 'expenses', 'helpdesk'];
+      return teamModules.includes(module) ? this.SCOPES.TEAM : this.SCOPES.NONE;
+    }
+    if (role === 'employee' || role === 'onboarding') {
+      const selfModules = ['dashboard', 'profile', 'attendance', 'leaves', 'payroll', 'performance', 'reports', 'assets', 'expenses', 'helpdesk', 'events', 'holidays'];
+      return selfModules.includes(module) ? this.SCOPES.SELF : this.SCOPES.NONE;
+    }
+    return this.SCOPES.NONE;
+  },
+
+  getTeamEmployeeIds(managerEmpId, allEmployees) {
+    const emps = allEmployees || (typeof DB !== 'undefined' && DB.get ? DB.get('employees') : []) || [];
+    const mgrId = Number(managerEmpId || this._employee?.id);
+    if (!mgrId) return [];
+
+    const result = new Set([mgrId]);
+    let queue = [mgrId];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      emps.forEach(e => {
+        if ((e.managerId === current || e.reportingTo === current) && !result.has(e.id)) {
+          result.add(e.id);
+          queue.push(e.id);
+        }
+      });
+    }
+    return Array.from(result);
+  },
+
+  getScopedEmployees(allEmployees) {
+    const emps = allEmployees || (typeof DB !== 'undefined' && DB.get ? DB.get('employees') : []) || [];
+    const role = this.role;
+
+    if (role === 'superadmin' || role === 'hr_manager') {
+      return emps;
+    }
+    if (role === 'dept_manager') {
+      const teamIds = this.getTeamEmployeeIds(this._employee?.id, emps);
+      return emps.filter(e => teamIds.includes(e.id));
+    }
+    if (role === 'employee' || role === 'onboarding') {
+      const myId = Number(this._employee?.id);
+      return emps.filter(e => e.id === myId);
+    }
+    return [];
+  },
 
   can(permission) {
     if (!this.role) return false;
     if (this.role === 'superadmin') return true;
+
+    // Direct scope-based granular permission checks
+    if (permission.endsWith('_self') || permission.endsWith('.self') || permission.endsWith('.own')) {
+      return ['superadmin', 'hr_manager', 'dept_manager', 'employee', 'onboarding'].includes(this.role);
+    }
+    if (permission.endsWith('_team') || permission.endsWith('.team')) {
+      return ['superadmin', 'hr_manager', 'dept_manager'].includes(this.role);
+    }
+    if (permission.endsWith('_all') || permission.endsWith('.all')) {
+      return ['superadmin', 'hr_manager'].includes(this.role);
+    }
+
+    // Role-specific action prohibitions
+    if (this.role === 'employee' || this.role === 'onboarding') {
+      const prohibitedForEmployee = [
+        'employee.create', 'employee.add', 'employees.add', 'employee.edit', 'employee.delete',
+        'payroll.process', 'payroll.generate',
+        'approvals.view', 'approvals.manage',
+        'administration', 'settings', '103_model'
+      ];
+      if (prohibitedForEmployee.some(p => permission === p || permission.startsWith(p + '.'))) {
+        return false;
+      }
+    }
+
+    if (this.role === 'dept_manager') {
+      const prohibitedForDeptManager = [
+        'payroll.process', 'payroll.generate', 'administration', 'settings', '103_model'
+      ];
+      if (prohibitedForDeptManager.some(p => permission === p || permission.startsWith(p + '.'))) {
+        return false;
+      }
+    }
 
     // Check dynamic DB role_permissions first if available
     try {

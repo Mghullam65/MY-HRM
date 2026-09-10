@@ -632,6 +632,17 @@ const Payroll = {
   },
 
   viewSlip(empId, month) {
+    if (['employee', 'onboarding'].includes(Auth.role) && Number(empId) !== Auth.employee?.id) {
+      Toast.show('403 Forbidden: Access Denied to unauthorized payslip', 'error');
+      return;
+    }
+    if (Auth.role === 'dept_manager') {
+      const team = Auth.getScopedEmployees(DB.get('employees') || []);
+      if (!team.some(e => e.id === Number(empId))) {
+        Toast.show('403 Forbidden: Access Denied to employee payslip outside team', 'error');
+        return;
+      }
+    }
     const emp = DB.find('employees', Number(empId));
     const rec = DB.get('salary').find(s => s.employeeId === Number(empId) && s.month === month);
     if (!emp || !rec) { Toast.show('Salary record not found', 'error'); return; }

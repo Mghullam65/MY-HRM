@@ -4,8 +4,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get organization structure summary
-router.get('/structure', authenticate, async (req, res) => {
+// Get organization structure summary (restricted to Super Admin & HR Manager)
+router.get('/structure', authenticate, authorize('superadmin', 'hr_manager'), async (req, res) => {
   try {
     const [departments, designations, branches, shifts] = await Promise.all([
       prisma.department.findMany({ include: { _count: { select: { employees: true } } } }),

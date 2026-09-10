@@ -1,13 +1,16 @@
 const express = require('express');
 const prisma = require('../db');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get leave balances
+// Get leave balances (protected against IDOR)
 router.get('/balances', authenticate, async (req, res) => {
   try {
-    const employeeId = req.query.employeeId ? parseInt(req.query.employeeId) : req.user.employeeId;
+    const targetId = req.query.employeeId ? parseInt(req.query.employeeId) : req.user.employeeId;
+    const hasAccess = await assertEmployeeAccess(req, res, targetId);
+    if (!hasAccess) return;
+    const employeeId = targetId;
     const year = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
 
     const balances = await prisma.leaveBalance.findMany({
@@ -21,18 +24,23 @@ router.get('/balances', authenticate, async (req, res) => {
   }
 });
 
-// Get leave requests
+// Get leave requests (role-scoped)
 router.get('/requests', authenticate, async (req, res) => {
   try {
     const { status, employeeId } = req.query;
 
     const where = {};
     if (status && status !== 'all') where.status = status;
-    if (employeeId) where.employeeId = parseInt(employeeId);
 
-    // Regular employees see only their requests
-    if (req.user.role === 'employee' || req.user.role === 'onboarding') {
-      where.employeeId = req.user.employeeId;
+    if (employeeId) {
+      const hasAccess = await assertEmployeeAccess(req, res, employeeId);
+      if (!hasAccess) return;
+      where.employeeId = parseInt(employeeId);
+    } else {
+      const scopedIds = await getScopedEmployeeIds(req.user);
+      if (scopedIds !== null) {
+        where.employeeId = { in: scopedIds };
+      }
     }
 
     const requests = await prisma.leaveRequest.findMany({
@@ -52,11 +60,18 @@ router.get('/requests', authenticate, async (req, res) => {
   }
 });
 
-// Apply for leave
+// Apply for leave (employees restricted to self-apply)
 router.post('/requests', authenticate, async (req, res) => {
   try {
     const { leaveTypeId, startDate, endDate, days, reason } = req.body;
-    const employeeId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
+    const targetId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
+
+    if (['employee', 'onboarding'].includes(req.user.role) && targetId !== req.user.employeeId) {
+      return res.status(403).json({ success: false, message: '403 Forbidden: You can only apply leave for yourself.' });
+    }
+    const hasAccess = await assertEmployeeAccess(req, res, targetId);
+    if (!hasAccess) return;
+    const employeeId = targetId;
 
     if (!leaveTypeId || !startDate || !endDate) {
       return res.status(400).json({ success: false, message: 'Missing required leave fields.' });

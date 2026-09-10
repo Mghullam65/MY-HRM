@@ -1989,6 +1989,9 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 .ticker-track.fast {
   animation-duration: 25s !important;
 }
+.ticker-track.slow {
+  animation-duration: 90s !important;
+}
 @keyframes tickerMarquee {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }

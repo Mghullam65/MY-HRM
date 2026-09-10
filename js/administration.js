@@ -11,6 +11,24 @@ const Administration = {
 
   render() {
     const content = document.getElementById('page-content');
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      content.innerHTML = `
+        <div class="card animate-fade-in" style="max-width:560px;margin:60px auto;text-align:center;padding:40px 30px;border:1.5px solid rgba(239,68,68,0.3);box-shadow:0 8px 30px rgba(0,0,0,0.12)">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.12);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+            <i class="fa fa-ban"></i>
+          </div>
+          <h2 style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">403 — Access Denied</h2>
+          <p style="font-size:13.5px;color:var(--text-2);line-height:1.6;margin-bottom:24px">
+            You do not have administrative privileges to access this system configuration area or the 103-Model Blueprint Explorer. This section is restricted to Super Admin and HR Manager personnel.
+          </p>
+          <button class="btn btn-primary" onclick="App.navigate('dashboard')">
+            <i class="fa fa-house" style="margin-right:6px"></i> Return to Dashboard
+          </button>
+        </div>
+      `;
+      return;
+    }
+
     const curMonth = this.auditMonth || (typeof Utils !== 'undefined' ? Utils.thisMonth() : '2026-09');
     const unresolvedIssues = this.getAttendanceLeaveProblems(curMonth).filter(p => !p.isResolved);
 
@@ -58,6 +76,10 @@ const Administration = {
   },
 
   switchSection(section) {
+    if (section === 'blueprint' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('403 Forbidden: 103 Model feature is restricted to Admin personnel', 'error');
+      return;
+    }
     this.currentSection = section;
     document.querySelectorAll('[onclick*="Administration.switchSection"]').forEach(el => {
       const m = el.getAttribute('onclick').match(/'(\w+)'/);

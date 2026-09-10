@@ -305,6 +305,32 @@
   - Added category filter pills (`All`, `Leaves`, `Finance`, `Urgent SLA`, `Life Events`, `Compliance`) for instant domain-specific triage.
   - Redesigned action items into single-line dense executive rows with `max-height: 175px` smooth scrollable container, maintaining 100% test compatibility and immediate operational usability *(Completed)*.
 
+- [x] **Role Hierarchy, Centralized Data Scoping Engine, Dedicated Employee Self-Service Portal & Backend IDOR Protection**:
+  - **Universal Role Hierarchy (`js/auth.js`)**:
+    - **Super Admin (`superadmin`)**: Universal `ALL` scope across all 103 models, all employees, attendance, leaves, payroll, reports, system settings.
+    - **HR Manager (`hr_manager`)**: Universal `ALL` scope across all employee records, attendance, leaves, payroll, reports, and approvals.
+    - **Deputy Manager (`dept_manager`)**: Strict `TEAM` scope restricted to self + direct and recursive indirect reportees (Usman Baig + Fatima Raza, Tariq Hussain, Sehar Nawaz, Omar Farhan). Full segregation preventing visibility of out-of-team employees, attendance, leaves, payroll, charts, or approvals.
+    - **Employee (`employee`)**: Strict `SELF` scope. Full access to personal profile, attendance, leaves, payroll slips, documents, and reports; completely isolated from organization-wide data, 103-model blueprint, management charts, and approval workflows.
+    - **New Joiner (`onboarding`)**: Restricted `SELF` scope with induction checklist and document upload stage.
+  - **Centralized Data Scoping Engine (`js/auth.js`)**:
+    - Defined `Auth.SCOPES = { SELF: 'SELF', TEAM: 'TEAM', ALL: 'ALL', NONE: 'NONE' }`.
+    - Implemented `Auth.getScope(module)`, `Auth.getTeamEmployeeIds(managerEmpId, allEmployees)`, and `Auth.getScopedEmployees(allEmployees)`.
+    - Integrated across all frontend modules: `js/attendance.js`, `js/leaves.js`, `js/performance.js`, `js/employees.js`, `js/payroll.js`, `js/reports.js`.
+  - **Dedicated Employee Self-Service Dashboard (`js/dashboard.js`)**:
+    - Dedicated portal for `employee` / `onboarding`: Welcome hero, Today's Punch Widget with quick clock in/out, My Attendance, My Leave, My Payroll slip, My Performance, Personal Quick Actions, Colleague Birthdays, Holidays.
+    - Completely hides 103 Model, Employee Overview KPIs, Org charts, Add Employee, Process Payroll, and Executive Approvals Inbox.
+  - **Headlines Ticker Speed Control (`js/dashboard.js`, `css/main.css`)**:
+    - Speed toggle button (`1x` / `0.5x`) persisted in `localStorage`.
+    - Default `1x` (45s cycle) and relaxed `0.5x` (90s cycle) across all dashboards.
+  - **Backend API Authorization & IDOR Protection (`server/src/middleware/auth.js`, `routes/`)**:
+    - Added `getScopedEmployeeIds(user)` and `assertEmployeeAccess(req, res, targetEmployeeId)`.
+    - Enforced strict IDOR protection (`403 Forbidden: Access Denied`) on employee details, payslips, attendance, leave requests, and reports across all REST API endpoints.
+    - Gated `103 Model` structure endpoint (`GET /admin/structure`) strictly to `superadmin` and `hr_manager`.
+  - **Automated Verification Suites**:
+    - Frontend suite (`scratch/test-role-hierarchy-dashboard.js`): 55 / 55 tests passed (100%).
+    - Backend API IDOR suite (`scratch/test-api-idor-protection.js`): 14 / 14 tests passed (100%).
+    - 103-Model Blueprint Explorer regression (`scratch/test-blueprint-explorer.js`): 100% passed *(Completed)*.
+
 ---
 
 *File automatically maintained and synchronized with the repository.*

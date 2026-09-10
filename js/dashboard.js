@@ -6,6 +6,7 @@ const Dashboard = {
   charts: {},
   inboxCollapsed: typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_inbox_collapsed') === 'true' : false,
   inboxFilter: 'all',
+  tickerSpeed: typeof localStorage !== 'undefined' ? (localStorage.getItem('hrm_ticker_speed') || '1x') : '1x',
 
   toggleInboxCollapse() {
     this.inboxCollapsed = !this.inboxCollapsed;
@@ -27,6 +28,81 @@ const Dashboard = {
     }
   },
 
+  renderHeadlinesTicker(tickerItemsHtml) {
+    const isSlow = this.tickerSpeed === '0.5x';
+    return `
+      <div class="dash-ticker">
+        <div class="ticker-badge">
+          <span class="ticker-live-dot"></span>
+          <i class="fa fa-bolt"></i> HEADLINES
+        </div>
+        <div class="ticker-track-wrap">
+          <div class="ticker-track ${isSlow ? 'slow' : ''}" id="dash-ticker-track">
+            ${tickerItemsHtml}
+            ${tickerItemsHtml}
+          </div>
+        </div>
+        <div class="ticker-controls">
+          <button class="ticker-ctrl-btn" id="ticker-play-btn" onclick="Dashboard.toggleTickerPlay()" title="Pause/Play Headlines">
+            <i class="fa fa-pause"></i>
+          </button>
+          <button class="ticker-ctrl-btn" id="ticker-speed-btn" onclick="Dashboard.toggleTickerSpeed()" title="Toggle Speed (1x / 0.5x)">
+            <i class="fa fa-gauge"></i> ${this.tickerSpeed || '1x'}
+          </button>
+          <button class="ticker-ctrl-btn" onclick="Dashboard.showAllHeadlinesModal()" title="View All Events & Notices">
+            <i class="fa fa-list"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  },
+
+  quickSelfPunch(type) {
+    const today = Utils.today();
+    const myId = Auth.employee?.id;
+    if (!myId) return;
+    const allAtt = DB.get('attendance') || [];
+    let rec = allAtt.find(a => a.employeeId === myId && a.date === today);
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    if (type === 'in') {
+      if (rec && rec.timeIn) {
+        Toast.show('Already punched in today at ' + rec.timeIn, 'info');
+        return;
+      }
+      const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
+      if (rec) {
+        rec.timeIn = timeStr;
+        rec.status = isLate ? 'late' : 'present';
+        DB.set('attendance', allAtt);
+      } else {
+        const newRec = {
+          id: DB.nextId('attendance'),
+          employeeId: myId,
+          date: today,
+          timeIn: timeStr,
+          timeOut: '',
+          status: isLate ? 'late' : 'present',
+          overtime: 0,
+          device: 'Web Self-Service',
+          remarks: 'Self Punch-In'
+        };
+        DB.add('attendance', newRec);
+      }
+      Toast.show(`Punch-In recorded at ${timeStr}. Status: ${isLate ? 'Late' : 'Present'}`, 'success');
+    } else if (type === 'out') {
+      if (!rec || !rec.timeIn) {
+        Toast.show('Please punch in first before punching out', 'warning');
+        return;
+      }
+      rec.timeOut = timeStr;
+      DB.set('attendance', allAtt);
+      Toast.show(`Punch-Out recorded at ${timeStr}. Have a great evening!`, 'success');
+    }
+    this.render();
+  },
+
   render() {
     const content = document.getElementById('page-content');
     const att = DB.get('attendance');
@@ -37,11 +113,7 @@ const Dashboard = {
     const holidays = DB.get('holidays');
     const today = Utils.today();
 
-    let scopedEmps = emps;
-    if (Auth.role === 'dept_manager') {
-      const myId = Auth.employee?.id;
-      scopedEmps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
-    }
+    let scopedEmps = Auth.getScopedEmployees(emps);
     const scopedIds = scopedEmps.map(e => e.id);
 
     const totalEmps = scopedEmps.filter(e => e.status === 'active').length;
@@ -191,6 +263,12 @@ const Dashboard = {
       <span class="ticker-sep">✦</span>
     `).join('');
 
+    // Check scope: if SELF, render dedicated Employee Self-Service Dashboard
+    if (Auth.getScope('dashboard') === 'SELF') {
+      this.renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today);
+      return;
+    }
+
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Top Bar: Overview Header & Recent Activity Button (Right Corner) -->
@@ -201,7 +279,7 @@ const Dashboard = {
               <span class="badge badge-success" style="font-size:11px;padding:3px 9px"><i class="fa fa-circle" style="font-size:7px;margin-right:4px"></i>Live System</span>
             </div>
             <div style="font-size:12px;color:var(--text-3);margin-top:2px">
-              ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee.firstName}!
+              ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee?.firstName || Auth.employee?.fullName || 'User'}!
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
@@ -218,29 +296,7 @@ const Dashboard = {
         <!-- ═══════════════════════════════════════════════
              MOVING HEADLINES TICKER (Birthdays & Events)
         ═══════════════════════════════════════════════ -->
-        <div class="dash-ticker">
-          <div class="ticker-badge">
-            <span class="ticker-live-dot"></span>
-            <i class="fa fa-bolt"></i> HEADLINES
-          </div>
-          <div class="ticker-track-wrap">
-            <div class="ticker-track" id="dash-ticker-track">
-              ${tickerItemsHtml}
-              ${tickerItemsHtml}
-            </div>
-          </div>
-          <div class="ticker-controls">
-            <button class="ticker-ctrl-btn" id="ticker-play-btn" onclick="Dashboard.toggleTickerPlay()" title="Pause/Play Headlines">
-              <i class="fa fa-pause"></i>
-            </button>
-            <button class="ticker-ctrl-btn" id="ticker-speed-btn" onclick="Dashboard.toggleTickerSpeed()" title="Toggle Speed (1x / 2x)">
-              <i class="fa fa-gauge"></i> 1x
-            </button>
-            <button class="ticker-ctrl-btn" onclick="Dashboard.showAllHeadlinesModal()" title="View All Events & Notices">
-              <i class="fa fa-list"></i>
-            </button>
-          </div>
-        </div>
+        ${this.renderHeadlinesTicker(tickerItemsHtml)}
 
         ${Auth.role === 'onboarding' ? `
           <!-- New Joiner Welcome & Induction Checklist Card -->
@@ -280,18 +336,18 @@ const Dashboard = {
 
         <!-- KPI Row 1: Employees -->
         <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Employee Overview</h3>
+          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">${Auth.role === 'dept_manager' ? 'Team Overview' : 'Employee Overview'}</h3>
         </div>
         <div class="grid-4 mb-20">
-          ${this.statCard('Total Employees', totalEmps, 'fa-users', 'blue', `Active: ${totalEmps} | Inactive: ${inactiveEmps}`, '+2 this month', 'up')}
-          ${this.statCard('Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${scopedEmps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
-          ${this.statCard('Inactive Employees', inactiveEmps, 'fa-user-xmark', 'red', 'Ex-employees', '', '')}
-          ${this.statCard('New Joiners', newJoiners, 'fa-user-plus', 'purple', 'This month', '+' + newJoiners + ' this month', 'up')}
+          ${this.statCard(Auth.role === 'dept_manager' ? 'Team Members' : 'Total Employees', totalEmps, 'fa-users', 'blue', `Active: ${totalEmps} | Inactive: ${inactiveEmps}`, Auth.role === 'dept_manager' ? 'Direct & Team' : '+2 this month', 'up')}
+          ${this.statCard(Auth.role === 'dept_manager' ? 'Active in Team' : 'Active Employees', totalEmps, 'fa-user-check', 'green', `On probation: ${scopedEmps.filter(e=>e.employmentType==='Probation').length}`, '', '')}
+          ${this.statCard(Auth.role === 'dept_manager' ? 'Inactive in Team' : 'Inactive Employees', inactiveEmps, 'fa-user-xmark', 'red', 'Ex-employees', '', '')}
+          ${this.statCard(Auth.role === 'dept_manager' ? 'New Team Joiners' : 'New Joiners', newJoiners, 'fa-user-plus', 'purple', 'This month', '+' + newJoiners + ' this month', 'up')}
         </div>
 
         <!-- KPI Row 2: Attendance Today -->
         <div class="mb-16" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">Today's Attendance — ${Utils.formatDate(today)}</h3>
+          <h3 style="font-size:13px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:1px">${Auth.role === 'dept_manager' ? "Team Today's Attendance" : "Today's Attendance"} — ${Utils.formatDate(today)}</h3>
           <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')"><i class="fa fa-arrow-right"></i> View Full</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px">
@@ -300,7 +356,7 @@ const Dashboard = {
           ${this.miniStatCard('Late',     late,     'fa-clock',           '#f59e0b')}
           ${this.miniStatCard('Half Day', halfDay,  'fa-circle-half-stroke','#8b5cf6')}
           ${this.miniStatCard('On Leave', onLeave,  'fa-calendar-minus',  '#14b8a6')}
-          ${this.miniStatCard('Overtime', att.filter(a=>a.date===today&&a.overtime>0).length,'fa-business-time','#6366f1')}
+          ${this.miniStatCard('Overtime', todayAtt.filter(a=>a.overtime>0).length,'fa-business-time','#6366f1')}
         </div>
 
         <!-- Charts Row -->
@@ -379,8 +435,8 @@ const Dashboard = {
                 </div>
               `).join('')}
               <div style="padding:10px 12px;background:var(--primary-glow);border-radius:8px;border:1px solid var(--primary-glow)">
-                <div style="font-size:11px;color:var(--text-3)">Total Net Paid</div>
-                <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(DB.get('salary').filter(s=>s.status==='processed').reduce((a,s)=>a+s.netSalary,0))}</div>
+                <div style="font-size:11px;color:var(--text-3)">${Auth.role === 'dept_manager' ? 'Team Net Paid' : 'Total Net Paid'}</div>
+                <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(salary.filter(s=>s.status==='processed' && (Auth.role === 'dept_manager' ? scopedIds.includes(s.employeeId) : true)).reduce((a,s)=>a+s.netSalary,0))}</div>
               </div>
             </div>
           </div>
@@ -412,7 +468,7 @@ const Dashboard = {
         <!-- Quick Actions -->
         <div style="margin-bottom:20px">
           <h3 style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Quick Actions</h3>
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
+          <div style="display:grid;grid-template-columns:repeat(${Auth.role === 'dept_manager' ? 4 : 6},1fr);gap:10px">
             ${[
               { label:'Add Employee', icon:'fa-user-plus', color:'#6366f1', action:"App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" },
               { label:'Apply Leave', icon:'fa-calendar-plus', color:'#14b8a6', action:"App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" },
@@ -420,7 +476,12 @@ const Dashboard = {
               { label:'Process Payroll', icon:'fa-money-check-dollar', color:'#10b981', action:"App.navigate('payroll')" },
               { label:'Performance', icon:'fa-chart-line', color:'#8b5cf6', action:"App.navigate('performance')" },
               { label:'View Reports', icon:'fa-file-chart-line', color:'#ec4899', action:"App.navigate('reports')" },
-            ].map(a => `
+            ].filter(a => {
+              if (Auth.role === 'dept_manager') {
+                return !['Add Employee', 'Process Payroll'].includes(a.label);
+              }
+              return true;
+            }).map(a => `
               <button class="quick-action-btn" onclick="${a.action}">
                 <div class="qa-icon" style="background:${a.color}22;color:${a.color}"><i class="fa ${a.icon}"></i></div>
                 ${a.label}
@@ -438,7 +499,7 @@ const Dashboard = {
               <button class="btn btn-ghost btn-sm" onclick="App.navigate('leaves')">View All</button>
             </div>
             ${(() => {
-              const pendingLeaveList = leaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').slice(0, 5);
+              const pendingLeaveList = scopedLeaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').slice(0, 5);
               if (pendingLeaveList.length === 0) return '<div style="text-align:center;padding:20px;color:var(--text-muted)"><i class="fa fa-check-circle" style="font-size:28px;margin-bottom:8px;display:block;color:var(--success)"></i>All caught up!</div>';
               return pendingLeaveList.map(l => {
                 const emp = emps.find(e => e.id === l.employeeId);
@@ -515,7 +576,7 @@ const Dashboard = {
     `;
 
     // Render charts after DOM is ready
-    setTimeout(() => this.renderCharts(att, emps), 100);
+    setTimeout(() => this.renderCharts(att.filter(a => scopedIds.includes(a.employeeId)), scopedEmps, scopedLeaves, Auth.role === 'dept_manager'), 100);
   },
 
   renderActionCenterInbox() {
@@ -862,7 +923,7 @@ const Dashboard = {
     `;
   },
 
-  renderCharts(att, emps) {
+  renderCharts(att, emps, scopedLeaves, isTeamScope) {
     const chartDefaults = {
       color: '#fff',
       borderColor: 'var(--border)',
@@ -890,7 +951,7 @@ const Dashboard = {
     ], gridColor, textColor);
 
     // ── Leave Statistics (Doughnut) ──
-    const leaves = DB.get('leave_requests');
+    const leaves = scopedLeaves || DB.get('leave_requests');
     this.makeChart('chart-leave-stats', 'doughnut',
       ['Pending','Approved','Rejected','Manager Approved'],
       [{ data: [
@@ -904,27 +965,33 @@ const Dashboard = {
 
     // ── Dept Employees (Horizontal Bar) ──
     const depts = DB.get('departments');
+    const displayDepts = isTeamScope ? depts.filter(d => emps.some(e => e.departmentId === d.id)) : depts;
     this.makeChart('chart-dept', 'bar',
-      depts.map(d => d.name.length > 12 ? d.name.slice(0,12)+'…' : d.name),
-      [{ label:'Employees', data: depts.map(d => d.employeeCount), backgroundColor:'rgba(99,102,241,0.7)', borderRadius:4 }],
+      displayDepts.map(d => d.name.length > 12 ? d.name.slice(0,12)+'…' : d.name),
+      [{ label: isTeamScope ? 'Team Members' : 'Employees', data: displayDepts.map(d => emps.filter(e => e.departmentId === d.id).length), backgroundColor:'rgba(99,102,241,0.7)', borderRadius:4 }],
       gridColor, textColor, { indexAxis: 'y' }
     );
 
     // ── Monthly Joining (Bar) ──
     const months = ['Mar','Apr','May','Jun','Jul','Aug'];
-    const joined = [3,2,1,4,2,2];
+    const joined = isTeamScope
+      ? months.map((m, idx) => {
+          const mNum = String(idx + 3).padStart(2, '0');
+          return emps.filter(e => e.joiningDate && e.joiningDate.includes(`-0${idx + 3}-`)).length;
+        })
+      : [3,2,1,4,2,2];
     this.makeChart('chart-joining', 'bar', months,
       [{ label:'Joined', data: joined, backgroundColor:'rgba(20,184,166,0.7)', borderRadius:6 }],
       gridColor, textColor
     );
 
     // ── Late Arrivals (Bar) ──
-    const lateByDept = depts.map(d => {
+    const lateByDept = displayDepts.map(d => {
       const deptEmps = emps.filter(e => e.departmentId === d.id).map(e => e.id);
       return att.filter(a => deptEmps.includes(a.employeeId) && a.status === 'late').length;
     });
     this.makeChart('chart-late', 'bar',
-      depts.map(d => d.code),
+      displayDepts.map(d => d.code),
       [{ label:'Late Count', data: lateByDept, backgroundColor:'rgba(245,158,11,0.7)', borderRadius:6 }],
       gridColor, textColor
     );
@@ -967,10 +1034,21 @@ const Dashboard = {
     const track = document.getElementById('dash-ticker-track');
     const btn = document.getElementById('ticker-speed-btn');
     if (!track || !btn) return;
-    track.classList.toggle('fast');
-    const isFast = track.classList.contains('fast');
-    btn.innerHTML = `<i class="fa fa-gauge"></i> ${isFast ? '2x' : '1x'}`;
-    btn.title = isFast ? 'Normal Speed (1x)' : 'Double Speed (2x)';
+    track.classList.remove('fast');
+    if (this.tickerSpeed === '1x') {
+      this.tickerSpeed = '0.5x';
+      track.classList.add('slow');
+      btn.innerHTML = `<i class="fa fa-gauge"></i> 0.5x`;
+      btn.title = 'Current Speed: 0.5x (Click for 1x)';
+    } else {
+      this.tickerSpeed = '1x';
+      track.classList.remove('slow');
+      btn.innerHTML = `<i class="fa fa-gauge"></i> 1x`;
+      btn.title = 'Current Speed: 1x (Click for 0.5x)';
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('hrm_ticker_speed', this.tickerSpeed);
+    }
   },
 
   showBirthdayWishModal(empId) {
@@ -1160,5 +1238,342 @@ const Dashboard = {
       `,
       footer: `<button class="btn btn-secondary btn-sm" onclick="Modal.close()">Close</button>`
     });
+  },
+
+  renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today) {
+    const myId = Auth.employee?.id;
+    const allAtt = DB.get('attendance') || [];
+    const allLeaves = DB.get('leave_requests') || [];
+    const allSalary = DB.get('salary') || [];
+    const allReviews = DB.get('performance_reviews') || [];
+    const tickerItemsHtml = headlines.map(h => `
+      <span class="ticker-item ${h.type}" onclick="${h.action}" title="Click to view details">
+        <i class="fa ${h.icon}"></i>
+        <span style="font-size:10px;font-weight:800;letter-spacing:0.5px;opacity:0.9;margin-right:2px">[${h.tag}]</span>
+        ${h.text}
+      </span>
+      <span class="ticker-sep">✦</span>
+    `).join('');
+
+    const myTodayAtt = allAtt.find(a => a.employeeId === myId && a.date === today);
+    const thisMonth = today.slice(0, 7);
+    const myMonthAtt = allAtt.filter(a => a.employeeId === myId && a.date.startsWith(thisMonth));
+    const myPresent = myMonthAtt.filter(a => a.status === 'present').length;
+    const myLate = myMonthAtt.filter(a => a.status === 'late').length;
+    const myAbsent = myMonthAtt.filter(a => a.status === 'absent').length;
+    const myHalfDay = myMonthAtt.filter(a => a.status === 'half_day').length;
+
+    const myLeaves = allLeaves.filter(l => l.employeeId === myId);
+    const myPendingLeaves = myLeaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').length;
+
+    const mySalaryList = allSalary.filter(s => s.employeeId === myId);
+    const myLatestSalary = mySalaryList[mySalaryList.length - 1] || null;
+
+    let workingHoursToday = '0 hrs';
+    if (myTodayAtt?.timeIn && myTodayAtt?.timeOut) {
+      workingHoursToday = (typeof Attendance !== 'undefined' && Attendance.calcHours) ? Attendance.calcHours(myTodayAtt.timeIn, myTodayAtt.timeOut) : '8 hrs';
+    } else if (myTodayAtt?.timeIn) {
+      workingHoursToday = 'In Progress';
+    }
+
+    content.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Bar: Employee Greeting -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <h2 style="font-size:22px;font-weight:800;color:var(--text);letter-spacing:-0.5px">Employee Self-Service Portal</h2>
+              <span class="badge badge-success" style="font-size:11px;padding:3px 9px"><i class="fa fa-circle" style="font-size:7px;margin-right:4px"></i>Active Session</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee.fullName}!
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn btn-secondary btn-sm" onclick="App.openHistoryDrawer()" title="View your activity history drawer (Ctrl+H)">
+              <i class="fa fa-clock-rotate-left"></i> My Activity History
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="Dashboard.render()" title="Refresh Dashboard">
+              <i class="fa fa-rotate"></i> Refresh
+            </button>
+          </div>
+        </div>
+
+        <!-- MOVING HEADLINES TICKER (0.5x / 1x Speed) -->
+        ${this.renderHeadlinesTicker(tickerItemsHtml)}
+
+        ${Auth.role === 'onboarding' ? `
+          <!-- New Joiner Induction Banner -->
+          <div class="card" style="background:linear-gradient(135deg, rgba(245,158,11,0.14), rgba(79,128,247,0.1));border:1.5px solid rgba(245,158,11,0.4);border-radius:14px;padding:22px;margin-bottom:24px;box-shadow:0 4px 20px rgba(0,0,0,0.06)">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+              <div style="display:flex;align-items:center;gap:14px">
+                <div style="width:50px;height:50px;border-radius:14px;background:rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;color:#f59e0b;font-size:24px">
+                  <i class="fa fa-clipboard-check"></i>
+                </div>
+                <div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge badge-warning" style="font-size:11px"><i class="fa fa-sparkles"></i> Welcome to the Team</span>
+                    <span class="badge badge-info" style="font-size:11px"><i class="fa fa-user-clock"></i> Induction Stage</span>
+                  </div>
+                  <h2 style="font-size:18px;font-weight:800;color:var(--text);margin-top:4px">Complete Your Joining Onboarding & Document Upload</h2>
+                  <p style="font-size:12px;color:var(--text-2);margin-top:2px">
+                    Please review your personal profile info and upload required CNIC/degree documents.
+                  </p>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary" onclick="App.navigate('profile')"><i class="fa fa-id-card-clip"></i> Open Profile</button>
+                <button class="btn btn-secondary" onclick="Employees.showUploadDocumentModal(${Auth.employee.id})"><i class="fa fa-upload"></i> Upload Documents</button>
+              </div>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Employee Identity & Today's Attendance Hero Widget -->
+        <div class="card" style="margin-bottom:20px;padding:20px;border:1.5px solid var(--border);border-radius:14px;background:linear-gradient(135deg, var(--card) 0%, rgba(99,102,241,0.04) 100%)">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
+            <!-- Left: Profile Summary -->
+            <div style="display:flex;align-items:center;gap:16px;min-width:260px">
+              <div style="position:relative">
+                <div style="width:68px;height:68px;border-radius:50%;background:${Utils.avatarColor(Auth.employee.id)};color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.25);border:3px solid var(--primary)">
+                  ${Utils.avatarInitials(Auth.employee.fullName)}
+                </div>
+                <span class="badge badge-success" style="position:absolute;bottom:-4px;right:-4px;font-size:9px;padding:2px 6px;border-radius:8px">Active</span>
+              </div>
+              <div>
+                <h3 style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:2px">${Auth.employee.fullName}</h3>
+                <div style="font-size:12.5px;color:var(--primary);font-weight:600;margin-bottom:4px">
+                  ${Utils.getDesigName(Auth.employee.designationId)} • ${Utils.getDeptName(Auth.employee.departmentId)}
+                </div>
+                <div style="display:flex;gap:12px;font-size:11.5px;color:var(--text-3);flex-wrap:wrap">
+                  <span><i class="fa fa-id-badge" style="margin-right:4px"></i>${Auth.employee.empNo}</span>
+                  <span><i class="fa fa-envelope" style="margin-right:4px"></i>${Auth.employee.email}</span>
+                  <span><i class="fa fa-calendar-check" style="margin-right:4px"></i>Joined ${Utils.formatDate(Auth.employee.joiningDate)}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Today's Attendance Punch Box -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+              <div style="display:flex;flex-direction:column;gap:4px">
+                <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Today's Attendance</div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  ${myTodayAtt ? Utils.statusBadge(myTodayAtt.status) : '<span class="badge badge-secondary">Not Checked In</span>'}
+                  <span style="font-size:12px;color:var(--text-2);font-weight:600">${Utils.formatDate(today)}</span>
+                </div>
+                <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">
+                  In: <strong style="color:var(--success)">${myTodayAtt?.timeIn || '—'}</strong> | 
+                  Out: <strong style="color:var(--danger)">${myTodayAtt?.timeOut || '—'}</strong> | 
+                  Hours: <strong style="color:var(--primary)">${workingHoursToday}</strong>
+                </div>
+              </div>
+
+              <div style="display:flex;gap:8px">
+                ${!myTodayAtt || !myTodayAtt.timeIn ? `
+                  <button class="btn btn-success btn-sm" onclick="Dashboard.quickSelfPunch('in')">
+                    <i class="fa fa-fingerprint"></i> Punch In
+                  </button>
+                ` : !myTodayAtt.timeOut ? `
+                  <button class="btn btn-warning btn-sm" onclick="Dashboard.quickSelfPunch('out')">
+                    <i class="fa fa-right-from-bracket"></i> Punch Out
+                  </button>
+                ` : `
+                  <span class="badge badge-success" style="padding:6px 10px;font-size:11px">
+                    <i class="fa fa-check-circle"></i> Shift Done
+                  </span>
+                `}
+                <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')" title="View Attendance Logs">
+                  <i class="fa fa-calendar-day"></i> Logs
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personal Quick Actions -->
+        <div style="margin-bottom:20px">
+          <h3 style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">My Quick Actions</h3>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+            <button class="quick-action-btn" onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)">
+              <div class="qa-icon" style="background:#14b8a622;color:#14b8a6"><i class="fa fa-calendar-plus"></i></div>
+              Apply Leave
+            </button>
+            <button class="quick-action-btn" onclick="App.navigate('attendance')">
+              <div class="qa-icon" style="background:#f59e0b22;color:#f59e0b"><i class="fa fa-fingerprint"></i></div>
+              Mark Attendance
+            </button>
+            <button class="quick-action-btn" onclick="App.navigate('performance')">
+              <div class="qa-icon" style="background:#8b5cf622;color:#8b5cf6"><i class="fa fa-chart-line"></i></div>
+              My Performance
+            </button>
+            <button class="quick-action-btn" onclick="App.navigate('payroll')">
+              <div class="qa-icon" style="background:#10b98122;color:#10b981"><i class="fa fa-receipt"></i></div>
+              My Payslips
+            </button>
+            <button class="quick-action-btn" onclick="App.navigate('reports')">
+              <div class="qa-icon" style="background:#ec489922;color:#ec4899"><i class="fa fa-file-invoice"></i></div>
+              Personal Reports
+            </button>
+          </div>
+        </div>
+
+        <!-- 4 Self-Service Cards Grid -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
+          <!-- 1. My Attendance Card -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-clock" style="color:#10b981;margin-right:8px"></i>My Attendance
+                </div>
+                <span class="badge badge-primary" style="font-size:10px">This Month</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+                <div style="background:var(--surface);padding:10px;border-radius:8px;text-align:center">
+                  <div style="font-size:20px;font-weight:800;color:var(--success)">${myPresent}</div>
+                  <div style="font-size:10px;color:var(--text-3);font-weight:600">Present Days</div>
+                </div>
+                <div style="background:var(--surface);padding:10px;border-radius:8px;text-align:center">
+                  <div style="font-size:20px;font-weight:800;color:var(--warning)">${myLate}</div>
+                  <div style="font-size:10px;color:var(--text-3);font-weight:600">Late Days</div>
+                </div>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3);line-height:1.5">
+                Absent: <strong>${myAbsent}</strong> • Half Days: <strong>${myHalfDay}</strong>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm w-full" style="margin-top:14px" onclick="App.navigate('attendance')">
+              <i class="fa fa-arrow-right"></i> View Full Timesheet
+            </button>
+          </div>
+
+          <!-- 2. My Leave Balances Card -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-calendar-check" style="color:var(--warning);margin-right:8px"></i>My Leave
+                </div>
+                <span class="badge badge-warning" style="font-size:10px">${myPendingLeaves} Pending</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px">
+                  <span style="color:var(--text-2)">Annual Leaves</span>
+                  <strong style="color:var(--success)">14 Days Remaining</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px">
+                  <span style="color:var(--text-2)">Casual Leaves</span>
+                  <strong style="color:var(--primary)">8 Days Remaining</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:6px;font-size:12px">
+                  <span style="color:var(--text-2)">Sick Leaves</span>
+                  <strong style="color:var(--warning)">7 Days Remaining</strong>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm w-full" onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)">
+              <i class="fa fa-plus"></i> Apply Leave
+            </button>
+          </div>
+
+          <!-- 3. My Payroll Card -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-money-bill-wave" style="color:var(--success);margin-right:8px"></i>My Payroll
+                </div>
+                <span class="badge badge-success" style="font-size:10px">Aug 2026</span>
+              </div>
+              <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:12px;text-align:center">
+                <div style="font-size:11px;color:var(--text-3);font-weight:600">Net Take-Home Salary</div>
+                <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:2px">
+                  ${myLatestSalary ? Utils.formatCurrency(myLatestSalary.netSalary) : '₨ 82,250'}
+                </div>
+                <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+                  Status: <span class="badge badge-success" style="font-size:9.5px">${myLatestSalary?.status === 'processed' ? 'Processed' : 'Disbursed'}</span>
+                </div>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3);display:flex;justify-content:space-between">
+                <span>Basic: <strong>${myLatestSalary ? Utils.formatCurrency(myLatestSalary.basic) : '₨ 85,000'}</strong></span>
+                <span>Tax & Ded: <strong>${myLatestSalary ? Utils.formatCurrency(myLatestSalary.deductions + (myLatestSalary.tax || 0)) : '₨ 22,750'}</strong></span>
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm w-full" style="margin-top:14px" onclick="Payroll.viewSlip(${Auth.employee.id}, '2026-08')">
+              <i class="fa fa-eye"></i> View Payslip
+            </button>
+          </div>
+
+          <!-- 4. My Performance Card -->
+          <div class="card" style="display:flex;flex-direction:column;justify-content:space-between">
+            <div>
+              <div class="card-header" style="margin-bottom:12px">
+                <div class="card-title" style="font-size:14px">
+                  <i class="fa fa-chart-line" style="color:var(--accent);margin-right:8px"></i>My Performance
+                </div>
+                <span class="badge badge-info" style="font-size:10px">Q3 2026</span>
+              </div>
+              <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:12px;text-align:center">
+                <div style="font-size:11px;color:var(--text-3);font-weight:600">Latest Appraisal Rating</div>
+                <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:2px">
+                  ★ 4.2 <span style="font-size:12px;color:var(--text-3)">/ 5.0</span>
+                </div>
+                <div style="font-size:10.5px;color:var(--text-2);margin-top:4px">
+                  Rating: <strong>Exceeds Expectations</strong>
+                </div>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3)">
+                Active OKRs & Goals: <strong>4 Assigned</strong> (75% on track)
+              </div>
+            </div>
+            <button class="btn btn-ghost btn-sm w-full" style="margin-top:14px" onclick="App.navigate('performance')">
+              <i class="fa fa-bullseye"></i> View Goals & Reviews
+            </button>
+          </div>
+        </div>
+
+        <!-- Bottom Grid: Celebrations & Holidays -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+          <!-- Upcoming Birthdays -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><i class="fa fa-birthday-cake" style="color:#ec4899;margin-right:8px"></i>Colleague Birthdays</div>
+            </div>
+            ${upcomingBdays.length === 0 ? '<div class="text-muted text-sm">No upcoming birthdays</div>' : upcomingBdays.slice(0,3).map(e => `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:600">${e.fullName}</div>
+                  <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
+                </div>
+                <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899">
+                  <i class="fa fa-gift"></i> Wish
+                </button>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Upcoming Holidays -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><i class="fa fa-calendar-days" style="color:var(--info);margin-right:8px"></i>Upcoming Holidays</div>
+              <button class="btn btn-ghost btn-sm" onclick="App.navigate('events')">View All</button>
+            </div>
+            ${upcomingHols.slice(0,3).map(h => `
+              <div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border)">
+                <div style="width:40px;height:40px;background:var(--info-light);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                  <div style="font-size:15px;font-weight:800;color:var(--info);line-height:1">${new Date(h.date).getDate()}</div>
+                  <div style="font-size:8.5px;color:var(--info);font-weight:700">${new Date(h.date).toLocaleString('en',{month:'short'}).toUpperCase()}</div>
+                </div>
+                <div>
+                  <div style="font-size:13px;font-weight:600">${h.name}</div>
+                  <div style="font-size:11px;color:var(--text-3)">${h.type.charAt(0).toUpperCase()+h.type.slice(1)} • ${Utils.formatDate(h.date)}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
   }
 };
