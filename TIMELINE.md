@@ -406,19 +406,15 @@
   - **Automated Regression Suite (`scratch/test-attendance-single-correction-per-date.js`)**:
     - 8 / 8 tests passed (100%) validating deduplication, submission blocking for duplicate dates, manager/HR rejection flow, re-application allowance upon rejection, and live UI warning indicators.
 
-  - **Attendance Module: Break Time Adjustment Controls in Correction Requests (`js/attendance.js`, `js/employees.js`, `js/data.js`)**:
-    - Added dedicated **Break Out (Start)** and **Break In (End)** input controls to the Attendance Correction / WFH modal in both the Attendance module and Employee Profile self-service.
-    - Added one-click **"Standard Break (1h)"** action to quickly add standard 1-hour lunch break (`13:00` - `14:00`).
-    - Added one-click **"Delete Break"** action to completely remove break times for employees working continuous shifts with zero break deductions.
-    - Allows direct **editing** of Break Out and Break In times to reflect custom break durations.
-    - Implemented a **Live Calculation Preview Strip** directly inside the correction modal calculating and displaying in real-time:
-      - Break duration badge (e.g. `Break Duration: 1h 0m` or `No Break Deducted (Continuous Shift)`).
-      - Net working hours formula: `(Time Out - Time In) - (Break In - Break Out)`.
-      - Live Overtime badge indicating extra hours beyond the 8-hour shift banked as non-cash tokens.
-    - Updated Requested Times column in the Corrections & WFH table (`renderCorrections` in `js/attendance.js` and `case 'attendance-correction'` in `js/employees.js`) to display Check In/Out, Break Out/In, and net calculated work hours.
-    - Synchronized `breakOut`, `breakIn`, `workingHours`, and `overtime` directly into the `attendance` table upon final manager/HR approval.
+  - **Attendance Module: Multiple Breaks Support & Dynamic Break Slots (`js/attendance.js`, `js/employees.js`)**:
+    - Added a small, dedicated **`[ + Add Break ]`** button to dynamically add multiple break intervals (e.g. morning tea, lunch, evening prayer/tea).
+    - Each break row provides dedicated **Break Out (Start)**, **Break In (End)**, and an individual **`[ 🗑 ]` delete button** to remove any specific break slot.
+    - Added smart defaults for successive break rows (`13:00 - 14:00` for Break #1, `16:30 - 17:00` for Break #2, `11:00 - 11:15` for Break #3).
+    - Updated **Live Calculation Preview Strip** to calculate cumulative break duration across all breaks (`Total Breaks (N): Xh Ym`), deduct the total break duration from gross working shift, and display net working hours and overtime tokens in real-time.
+    - Updated the Corrections & WFH tables to display all break slots formatted cleanly (e.g., `Breaks (3): 11:00–11:30, 13:00–14:00, 16:30–17:00`).
+    - Extended approval synchronization to record all break intervals in the `attendance` ledger (`attRecord.breaks = reqBreaks`) while keeping backwards compatibility with primary `breakOut` / `breakIn`.
   - **Automated Regression Suite (`scratch/test-attendance-correction-breaks.js`)**:
-    - 41 / 41 tests passed (100%) validating break adding, editing, clearing/deleting, live preview calculation, validation rules, and approval synchronization to the attendance ledger.
+    - **55 / 55 tests passed (100%)** validating single-break and multi-break adding, row-by-row deletion, cumulative calculation, error handling, and attendance ledger synchronization.
 
 ---
 
