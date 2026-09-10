@@ -331,6 +331,25 @@
     - Backend API IDOR suite (`scratch/test-api-idor-protection.js`): 14 / 14 tests passed (100%).
     - 103-Model Blueprint Explorer regression (`scratch/test-blueprint-explorer.js`): 100% passed *(Completed)*.
 
+- [x] **Employee Attendance Permissions Hardening & "My Attendance" Dropdown Filter Architecture (`js/attendance.js`)**:
+  - **Permission Hardening & Tab Segregation**:
+    - Restricted regular employee login (`employee` and `onboarding`) from seeing or accessing administrative attendance views: `Monthly` (company-wide grid), `Employee Wise`, `Department Wise`, `Daily` (all-company listing), `Geo-Fence & IP Check`, `Biometric Sync & ZKTeco`, and `Manual Entry`.
+    - Gated `Attendance.switchView(view)` with `403 Forbidden` checks, preventing unauthorized tab transitions and redirecting employees automatically to `my_attendance`.
+    - Blocked administrative action buttons (`Time-In Windows`, `Bulk Mark`, `Audit Center`, `Edit Windows`, manual log creation, manual deletion) with 403 authorization rejections.
+    - Gated direct log editing (`editRecord()`): redirects employees to submit a formal correction request via `showApplyCorrectionModal()` with locked user identity.
+    - Scoped `Corrections & WFH` view: employees can only view their own requests and are blocked from seeing `Manager Approve`, `Final Approve`, or `Reject` buttons.
+  - **Dedicated "My Attendance" Self-Service Portal**:
+    - Implemented a dedicated personal attendance view named **"My Attendance"** with personal monthly attendance stat cards (Present, Late, Half Day, Absent, Overtime, Punctuality Score).
+    - Replaced multi-column grids with a unified **Dropdown Menu Filter** (`#my-att-period-select`) supporting:
+      1. **📅 Daily (Single Date)**: Detailed day punch dossier with clock-in/out timestamps, verification source/device terminal, duration logged, shift cutoff check, and 1-click live Clock-In/Clock-Out punch buttons.
+      2. **📆 Weekly (7-Day View)**: 7-day rotational breakdown with week navigation controls (`prevWeek`, `nextWeek`, `thisWeek`).
+      3. **🗓️ Monthly (Full Month)**: Complete calendar month log with month picker and navigation controls.
+      4. **🔍 Custom Dates Range**: Customizable date range filter (`from` to `to`) with instant apply.
+    - Integrated secondary filter controls: status filter pills (`All Records`, `Present`, `Late`, `Half Day`, `Absent`), real-time search input, and personal CSV export (`exportMyAttendance()`).
+  - **Automated Verification Suite (`scratch/test-employee-attendance-permissions.js`)**:
+    - Executed 31-test end-to-end verification suite covering tab visibility, switchView 403 access control, action gating, dropdown menu period filtering (Daily, Weekly, Monthly, Custom), correction request locking, and deputy manager/admin privilege tiers.
+    - 31 / 31 tests passed (100% pass rate) with zero regressions across existing role hierarchy, IDOR, and blueprint explorer suites *(Completed)*.
+
 ---
 
 *File automatically maintained and synchronized with the repository.*
