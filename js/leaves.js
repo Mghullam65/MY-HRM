@@ -141,8 +141,11 @@ const Leaves = {
     container.innerHTML = `
       <div class="card" style="padding:0">
         <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : isDeptMgr ? 'Team Leave Requests (Direct Reportees)' : 'All Leave Requests'}</span>
-          <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>
+          <div>
+            <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : isDeptMgr ? 'Team Leave Requests (Direct Reportees)' : 'All Leave Requests'}</span>
+            ${isDeptMgr ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-info-circle" style="color:var(--warning)"></i> View & approval only — Contact HR to apply or edit leaves on behalf of employees</div>` : ''}
+          </div>
+          ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
@@ -1591,6 +1594,12 @@ const Leaves = {
     const isDeptMgr = role === 'dept_manager';
     const myEmp = Auth.employee || allEmps.find(e => e.id === Auth.user?.employeeId) || allEmps[0];
 
+    // Deputy Managers may only apply leave for themselves, not mark it for employees
+    if (isDeptMgr && (targetMode === 'employee' || (!targetMode && this.calMode === 'employee'))) {
+      Toast.show('Deputy Managers cannot apply or mark leave on behalf of employees. Only HR and Admins can do this.', 'warning');
+      return;
+    }
+
     // Determine targetMode: 'my' (personal application) or 'employee' (marking for staff)
     let mode = targetMode;
     if (!mode) {
@@ -1608,8 +1617,8 @@ const Leaves = {
 
     Modal.show(isSelf ? 'Apply for My Leave' : 'Mark Leave for Employee', `
       <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
-        <!-- Management Switcher: Apply for Myself vs Mark for Employee -->
-        ${isManagement ? `
+        <!-- Management Switcher: Apply for Myself vs Mark for Employee (hidden for dept_manager) -->
+        ${isManagement && !isDeptMgr ? `
           <div style="display:flex;justify-content:center;margin-bottom:2px">
             <div class="cal-mode-switcher">
               <button class="cal-mode-btn ${isSelf ? 'active' : ''}" type="button" onclick="Leaves.switchApplyFormMode('my')">
@@ -2446,7 +2455,10 @@ const Leaves = {
                       <td><span class="badge badge-info" style="font-size:11px;font-weight:600">${typeLabel}</span></td>
                       <td style="font-weight:700;color:var(--primary)">${a.hours} hrs (${a.minutes || (a.hours*60)} mins)</td>
                       <td><span class="badge badge-secondary">${a.days || Math.round((a.hours/8)*100)/100} Days</span></td>
-                      <td style="font-size:12px;color:var(--text-2);max-width:280px">${a.reason}</td>
+                      <td style="font-size:12px;color:var(--text-2);max-width:280px">
+                        <div>${a.reason}</div>
+                        ${a.tokenSummary ? `<div style="font-size:10.5px;color:var(--primary);margin-top:3px;font-weight:600"><i class="fa fa-coins"></i> ${a.tokenSummary}</div>` : ''}
+                      </td>
                       <td><span class="badge badge-success"><i class="fa fa-check-circle"></i> Availed &amp; Deducted</span></td>
                     </tr>
                   `;
@@ -2590,16 +2602,19 @@ const Leaves = {
             <i class="fa fa-business-time" style="color:var(--primary);margin-right:4px"></i> Token Duration to Claim
           </label>
           
+          <!-- Remaining claimable info bar -->
+          <div id="ot-claim-max-bar" style="margin-bottom:8px"></div>
+
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
             <div class="form-group" style="margin-bottom:0">
-              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Hours</label>
+              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Hours (max by attendance)</label>
               <div style="display:flex;align-items:center;gap:6px">
                 <input type="number" class="form-control" id="ot-claim-hours" value="0" min="0" max="12" step="1" oninput="Leaves.validateClaimDuration()" onchange="Leaves.validateClaimDuration()">
                 <span style="font-size:12px;color:var(--text-3);font-weight:600">hrs</span>
               </div>
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Minutes</label>
+              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Minutes (max by attendance)</label>
               <div style="display:flex;align-items:center;gap:6px">
                 <input type="number" class="form-control" id="ot-claim-mins" value="0" min="0" max="59" step="1" oninput="Leaves.validateClaimDuration()" onchange="Leaves.validateClaimDuration()">
                 <span style="font-size:12px;color:var(--text-3);font-weight:600">mins</span>
@@ -2707,47 +2722,90 @@ const Leaves = {
     const recMins = otInfo.recordedOtMins % 60;
     const remHours = Math.floor(otInfo.remainingClaimableMins / 60);
     const remMins = otInfo.remainingClaimableMins % 60;
+    const wrkH = Math.floor(otInfo.workingMins / 60);
+    const wrkM = otInfo.workingMins % 60;
 
     strip.innerHTML = `
       <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text)">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
           <div style="font-weight:700;display:flex;align-items:center;gap:6px">
-            <i class="fa fa-business-time" style="color:var(--success)"></i> Recorded Attendance on ${Utils.formatDate(date)}
+            <i class="fa fa-business-time" style="color:var(--success)"></i> Attendance Record for ${Utils.formatDate(date)}
           </div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <span style="font-size:11px;color:var(--text-3)">Net Work: <strong>${otInfo.workingHours}</strong></span>
-            <span class="badge badge-success" style="font-size:11.5px;font-weight:700">
-              <i class="fa fa-clock"></i> Overtime Clocked: ${recHours > 0 ? recHours + 'h ' : ''}${recMins}m (${otInfo.recordedOtMins} mins)
-            </span>
+          <span style="font-size:11px;color:var(--text-3)">Punches: In <strong>${otInfo.timeIn}</strong> → Out <strong>${otInfo.timeOut}</strong></span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px">
+          <div style="background:var(--surface);border-radius:6px;padding:6px 10px;text-align:center">
+            <div style="font-size:10px;color:var(--text-3);font-weight:600;margin-bottom:2px">TOTAL WORKED</div>
+            <div style="font-size:14px;font-weight:800;color:var(--text)">${wrkH}h ${wrkM}m</div>
+            <div style="font-size:10px;color:var(--text-muted)">${otInfo.workingMins} mins</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.07);border-radius:6px;padding:6px 10px;text-align:center">
+            <div style="font-size:10px;color:var(--primary);font-weight:600;margin-bottom:2px">OVERTIME (beyond 8h)</div>
+            <div style="font-size:14px;font-weight:800;color:var(--primary)">${recHours}h ${recMins}m</div>
+            <div style="font-size:10px;color:var(--text-muted)">${otInfo.recordedOtMins} mins</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.08);border-radius:6px;padding:6px 10px;text-align:center">
+            <div style="font-size:10px;color:var(--success);font-weight:600;margin-bottom:2px">
+              ${otInfo.alreadyClaimedMins > 0 ? 'REMAINING TO CLAIM' : 'AVAILABLE TO CLAIM'}
+            </div>
+            <div style="font-size:14px;font-weight:800;color:var(--success)">${remHours}h ${remMins}m</div>
+            <div style="font-size:10px;color:var(--text-muted)">
+              ${otInfo.alreadyClaimedMins > 0 ? `${otInfo.alreadyClaimedMins}m already claimed` : `${otInfo.remainingClaimableMins} mins`}
+            </div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--text-2);padding-top:4px;border-top:1px dashed rgba(16,185,129,0.25);flex-wrap:wrap;gap:6px">
-          <span>Punches: In <strong>${otInfo.timeIn}</strong> • Out <strong>${otInfo.timeOut}</strong></span>
-          ${otInfo.alreadyClaimedMins > 0 ? `
-            <span>Already Claimed: <strong style="color:var(--warning)">${otInfo.alreadyClaimedMins}m</strong> | Remaining Available: <strong style="color:var(--success)">${remHours > 0 ? remHours + 'h ' : ''}${remMins}m (${otInfo.remainingClaimableMins} mins)</strong></span>
-          ` : `
-            <span style="color:var(--success);font-weight:600"><i class="fa fa-circle-check"></i> Full ${otInfo.recordedOtMins} mins available to claim</span>
-          `}
-        </div>
+        ${otInfo.alreadyClaimedMins > 0 ? `
+          <div style="font-size:11px;color:#b45309;background:rgba(245,158,11,0.08);border-radius:5px;padding:4px 8px;font-weight:600">
+            <i class="fa fa-circle-info"></i> You already have ${otInfo.alreadyClaimedMins} mins claimed on this date. You can only apply up to <strong>${otInfo.remainingClaimableMins} mins (${remHours > 0 ? remHours + 'h ' : ''}${remMins}m)</strong> more.
+          </div>
+        ` : ''}
       </div>
     `;
+
+    // Update max-bar with claimable limit
+    const maxBar = document.getElementById('ot-claim-max-bar');
+    if (maxBar) {
+      if (otInfo.remainingClaimableMins > 0) {
+        maxBar.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:7px;font-size:11.5px;color:var(--text-2)">
+            <i class="fa fa-lock" style="color:var(--primary)"></i>
+            <span>You may claim between <strong>0</strong> and <strong>${remHours > 0 ? remHours + 'h ' : ''}${remMins}m (${otInfo.remainingClaimableMins} mins)</strong> — cannot exceed your actual overtime worked on this date.</span>
+          </div>
+        `;
+      } else {
+        maxBar.innerHTML = `
+          <div style="padding:6px 10px;background:#fef2f2;border:1px solid #f87171;border-radius:7px;font-size:11.5px;color:#991b1b;font-weight:600">
+            <i class="fa fa-ban"></i> No claimable overtime remaining on this date.
+          </div>
+        `;
+      }
+    }
+
+    // Update input max attributes dynamically
+    if (hoursInput) hoursInput.max = remHours;
+    if (minsInput) minsInput.max = (remHours > 0 ? 59 : remMins);
 
     // Setup quick pills
     if (pillsContainer) {
       const pills = [];
-      if (otInfo.remainingClaimableMins >= 45) {
+      if (otInfo.remainingClaimableMins >= 45 && otInfo.remainingClaimableMins !== 45) {
         pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid var(--border);padding:2px 8px;color:var(--primary)" onclick="Leaves.setClaimMinutes(45)"><i class="fa fa-bolt"></i> 45 mins</button>`);
       }
       if (otInfo.remainingClaimableMins >= 60 && otInfo.remainingClaimableMins !== 60) {
         pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid var(--border);padding:2px 8px;color:var(--primary)" onclick="Leaves.setClaimMinutes(60)"><i class="fa fa-bolt"></i> 1 hour (60m)</button>`);
       }
-      pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.08);padding:2px 8px;color:var(--success);font-weight:700" onclick="Leaves.setClaimMinutes(${otInfo.remainingClaimableMins})"><i class="fa fa-star"></i> Max Available (${remHours > 0 ? remHours + 'h ' : ''}${remMins}m)</button>`);
-      pillsContainer.innerHTML = `
+      if (otInfo.remainingClaimableMins >= 90 && otInfo.remainingClaimableMins !== 90) {
+        pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid var(--border);padding:2px 8px;color:var(--primary)" onclick="Leaves.setClaimMinutes(90)"><i class="fa fa-bolt"></i> 90 mins</button>`);
+      }
+      if (otInfo.remainingClaimableMins > 0) {
+        pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.08);padding:2px 8px;color:var(--success);font-weight:700" onclick="Leaves.setClaimMinutes(${otInfo.remainingClaimableMins})"><i class="fa fa-star"></i> Max: ${remHours > 0 ? remHours + 'h ' : ''}${remMins}m</button>`);
+      }
+      pillsContainer.innerHTML = pills.length ? `
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
           <span style="font-size:11px;color:var(--text-3);font-weight:600">Quick Fill:</span>
           ${pills.join('')}
         </div>
-      `;
+      ` : '';
     }
 
     // Set initial claim inputs based on prefillHours or max available
@@ -2794,7 +2852,7 @@ const Leaves = {
     }
 
     if (totalClaimedMins <= 0) {
-      msgEl.innerHTML = `<div style="color:var(--warning);font-size:11.5px;font-weight:600"><i class="fa fa-triangle-exclamation"></i> Please enter hours and minutes greater than 0.</div>`;
+      msgEl.innerHTML = `<div style="color:var(--warning);font-size:11.5px;font-weight:600"><i class="fa fa-triangle-exclamation"></i> Please enter hours and/or minutes greater than 0.</div>`;
       if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
       return;
     }
@@ -2802,13 +2860,18 @@ const Leaves = {
     if (totalClaimedMins > otInfo.remainingClaimableMins) {
       const maxH = Math.floor(otInfo.remainingClaimableMins / 60);
       const maxM = otInfo.remainingClaimableMins % 60;
+      // Auto-clamp the input fields to max allowed
+      if (hoursInput) hoursInput.value = maxH;
+      if (minsInput) minsInput.value = maxM;
       msgEl.innerHTML = `
         <div style="background:#fef2f2;border:1px solid #f87171;color:#991b1b;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600">
           <i class="fa fa-circle-xmark" style="margin-right:4px"></i>
-          Cannot apply for ${Math.floor(totalClaimedMins / 60) > 0 ? Math.floor(totalClaimedMins / 60) + 'h ' : ''}${totalClaimedMins % 60}m (${totalClaimedMins} mins). You only have ${maxH > 0 ? maxH + 'h ' : ''}${maxM}m (${otInfo.remainingClaimableMins} mins) of overtime recorded on this date.
+          Cannot apply for ${Math.floor(totalClaimedMins / 60) > 0 ? Math.floor(totalClaimedMins / 60) + 'h ' : ''}${totalClaimedMins % 60}m — your overtime on this date is only <strong>${maxH > 0 ? maxH + 'h ' : ''}${maxM}m (${otInfo.remainingClaimableMins} mins)</strong>. Values auto-corrected to maximum.
         </div>
       `;
       if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
+      // Re-validate after clamp
+      setTimeout(() => this.validateClaimDuration(), 50);
       return;
     }
 
@@ -2816,10 +2879,12 @@ const Leaves = {
     const clH = Math.floor(totalClaimedMins / 60);
     const clM = totalClaimedMins % 60;
     const decHours = Math.round((totalClaimedMins / 60) * 100) / 100;
+    const maxH2 = Math.floor(otInfo.remainingClaimableMins / 60);
+    const maxM2 = otInfo.remainingClaimableMins % 60;
     msgEl.innerHTML = `
       <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:var(--success);border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600">
         <i class="fa fa-circle-check" style="margin-right:4px"></i>
-        Valid claim: <strong>${clH > 0 ? clH + 'h ' : ''}${clM}m</strong> (${totalClaimedMins} mins ≈ ${decHours} hrs) within recorded extra hours.
+        Valid claim: <strong>${clH > 0 ? clH + 'h ' : ''}${clM}m</strong> (${totalClaimedMins} mins ≈ ${decHours} hrs) — within your <strong>${maxH2 > 0 ? maxH2 + 'h ' : ''}${maxM2}m</strong> recorded overtime on this date.
       </div>
     `;
     if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; }
@@ -2900,32 +2965,195 @@ const Leaves = {
     this.render();
   },
 
+  getApprovedTokensWithBalance(empId) {
+    const allTokens = DB.get('overtime_tokens') || [];
+    const empTokens = allTokens.filter(t => t.employeeId === empId && t.status === 'approved');
+    const availments = (DB.get('token_availments') || []).filter(a => a.employeeId === empId && a.status === 'approved');
+
+    // Track deductions
+    const deductions = {};
+    empTokens.forEach(t => { deductions[t.id] = Number(t.availedHours) || 0; });
+
+    // Reconcile with token_availments
+    availments.forEach(a => {
+      if (a.tokenDeductions) {
+        Object.entries(a.tokenDeductions).forEach(([tId, hrs]) => {
+          deductions[tId] = Math.max(deductions[tId] || 0, Number(hrs) || 0);
+        });
+      } else if (a.tokenIds && a.tokenIds.length === 1) {
+        deductions[a.tokenIds[0]] = Math.max(deductions[a.tokenIds[0]] || 0, Number(a.hours) || 0);
+      } else {
+        // Legacy FIFO allocation across tokens
+        let needed = Number(a.hours) || 0;
+        for (const t of empTokens) {
+          if (needed <= 0) break;
+          const currentDed = deductions[t.id] || 0;
+          const cap = Math.max(0, Number(t.hours) - currentDed);
+          const take = Math.min(needed, cap);
+          deductions[t.id] = currentDed + take;
+          needed -= take;
+        }
+      }
+    });
+
+    return empTokens.map(t => {
+      const totalHours = Number(t.hours) || 0;
+      const totalMins = t.minutes || Math.round(totalHours * 60);
+      const availed = deductions[t.id] || 0;
+      const remHours = Math.max(0, Math.round((totalHours - availed) * 100) / 100);
+      const remMins = Math.round(remHours * 60);
+      const mgr = DB.find('employees', t.managerId) || { fullName: 'Usman Baig' };
+      return {
+        ...t,
+        managerName: mgr.fullName,
+        totalHours,
+        totalMins,
+        availedHours: Math.round(availed * 100) / 100,
+        remHours,
+        remMins
+      };
+    }).filter(t => t.remHours > 0);
+  },
+
   showAvailTokenModal() {
     const myEmp = Auth.employee || DB.find('employees', 4);
     const myEmpId = myEmp?.id || 4;
     const metrics = this.getEmployeeTokenMetrics(myEmpId);
+    const approvedTokens = this.getApprovedTokensWithBalance(myEmpId);
+    const allEmpTokens = (DB.get('overtime_tokens') || []).filter(t => t.employeeId === myEmpId);
+    const pendingTokens = allEmpTokens.filter(t => t.status === 'pending');
+    const rejectedTokens = allEmpTokens.filter(t => t.status === 'rejected');
+    const hasPending = pendingTokens.length > 0;
+    const hasNoApproved = approvedTokens.length === 0;
 
     Modal.show('Avail Token as Compensatory Leave', `
       <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
-        <!-- Live Token Balance Header -->
-        <div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(99,102,241,0.08));border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-size:12px;color:var(--text-3);font-weight:600">Your Current Available Token Balance</div>
-            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:2px">
-              ${metrics.balanceHours} <span style="font-size:14px;font-weight:600">Hours (${metrics.balanceDays} Days)</span>
-            </div>
+        <!-- Live Token Balance Header with 3 metrics -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(99,102,241,0.08));border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:10.5px;color:var(--success);font-weight:700;margin-bottom:4px">AVAILABLE BALANCE</div>
+            <div style="font-size:22px;font-weight:800;color:var(--success)">${metrics.balanceHours}h</div>
+            <div style="font-size:11px;color:var(--text-muted)">${metrics.balanceDays} Days</div>
           </div>
-          <span class="badge badge-success" style="font-size:12px;padding:6px 12px">
-            <i class="fa fa-coins"></i> Banked Non-Cash Time
-          </span>
+          <div style="background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:10.5px;color:#d97706;font-weight:700;margin-bottom:4px">PENDING APPROVAL</div>
+            <div style="font-size:22px;font-weight:800;color:#d97706">${pendingTokens.length}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Token claims</div>
+          </div>
+          <div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.2);border-radius:10px;padding:12px;text-align:center">
+            <div style="font-size:10.5px;color:var(--primary);font-weight:700;margin-bottom:4px">APPROVED TOKENS</div>
+            <div style="font-size:22px;font-weight:800;color:var(--primary)">${approvedTokens.length}</div>
+            <div style="font-size:11px;color:var(--text-muted)">With balance</div>
+          </div>
         </div>
 
-        ${metrics.balanceHours < 0.75 ? `
-          <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px;font-size:12px;color:var(--danger)">
-            <i class="fa fa-triangle-exclamation" style="margin-right:6px"></i>
-            <strong>Insufficient Token Balance:</strong> The minimum required time to avail a token is <strong>45 minutes (0.75 hours)</strong>. You currently have <strong>${metrics.balanceHours} hours</strong>. Please earn approved overtime tokens before availing.
+        ${hasPending ? `
+          <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:8px 12px;font-size:11.5px;color:#b45309;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-hourglass-half"></i>
+            <span><strong>${pendingTokens.length} pending token claim(s)</strong> are awaiting manager approval and <strong>cannot</strong> be used for compensatory leave until approved.</span>
           </div>
         ` : ''}
+
+        <!-- All Employee Tokens Reference Section -->
+        ${allEmpTokens.length > 0 ? `
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+          <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <i class="fa fa-wallet" style="color:var(--primary)"></i> Your Previous Overtime Token History
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;max-height:130px;overflow-y:auto">
+            ${allEmpTokens.map(t => {
+              const tH = Math.floor((t.minutes || Math.round(t.hours*60)) / 60);
+              const tM = (t.minutes || Math.round(t.hours*60)) % 60;
+              let statusBadge = '';
+              if (t.status === 'approved') {
+                const thisApproved = approvedTokens.find(at => at.id === t.id);
+                const remH = thisApproved ? Math.floor(thisApproved.remMins / 60) : 0;
+                const remM = thisApproved ? thisApproved.remMins % 60 : 0;
+                const remBal = thisApproved ? thisApproved.remMins : 0;
+                statusBadge = `<span class="badge badge-success" style="font-size:10px;font-weight:700">✓ Approved — ${remBal > 0 ? (remH > 0 ? remH + 'h ' : '') + remM + 'm balance' : 'Fully Availed'}</span>`;
+              } else if (t.status === 'pending') {
+                statusBadge = `<span class="badge badge-warning" style="font-size:10px">⏳ Pending — Cannot use</span>`;
+              } else {
+                statusBadge = `<span class="badge badge-danger" style="font-size:10px">✗ Rejected</span>`;
+              }
+              return `
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px;background:var(--card);border-radius:7px;border:1px solid ${t.status === 'approved' ? 'rgba(16,185,129,0.2)' : (t.status === 'pending' ? 'rgba(245,158,11,0.2)' : 'rgba(239,68,68,0.15)')}">
+                  <div style="flex:1;min-width:0">
+                    <span style="font-weight:700;font-size:12px">Token #${t.id}</span>
+                    <span style="font-size:11px;color:var(--text-3);margin:0 6px">${Utils.formatDate(t.date)}</span>
+                    <span style="font-size:11px;color:var(--text-2)">${tH > 0 ? tH + 'h ' : ''}${tM}m OT</span>
+                  </div>
+                  ${statusBadge}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Approved Tokens Selection for Leave -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+            <label class="form-label required" style="font-size:12.5px;font-weight:700;margin-bottom:0">
+              <i class="fa fa-list-check" style="color:var(--primary);margin-right:4px"></i>
+              Select Token(s) to Redeem Against This Leave
+              ${approvedTokens.length > 0 ? `<span style="font-size:11px;font-weight:400;color:var(--text-3)">(${approvedTokens.length} approved token${approvedTokens.length > 1 ? 's' : ''} available)</span>` : ''}
+            </label>
+            ${approvedTokens.length > 0 ? `
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button type="button" class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 8px" onclick="Leaves.selectTokensForDuration('all')">Select All</button>
+              <button type="button" class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 8px" onclick="Leaves.selectTokensForDuration(0.75)">&gt;45m Short</button>
+              <button type="button" class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 8px" onclick="Leaves.selectTokensForDuration(4)">4h Half Day</button>
+              <button type="button" class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 8px" onclick="Leaves.selectTokensForDuration(8)">8h Full Day</button>
+              <button type="button" class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 8px;color:var(--text-3)" onclick="Leaves.selectTokensForDuration(0)">Clear</button>
+            </div>
+            ` : ''}
+          </div>
+
+          <div id="tk-tokens-list" style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding-right:2px">
+            ${approvedTokens.length === 0 ? `
+              <div style="background:rgba(239,68,68,0.06);border:1px dashed #f87171;border-radius:8px;padding:16px;text-align:center;font-size:12.5px;color:var(--danger)">
+                <i class="fa fa-triangle-exclamation" style="font-size:22px;margin-bottom:8px;display:block"></i>
+                ${hasPending
+                  ? `You have <strong>${pendingTokens.length} pending</strong> overtime token claim(s) that are <strong>not yet approved</strong>. You cannot avail compensatory leave until your manager approves them.`
+                  : 'No approved overtime tokens with available balance found. Earn extra overtime hours and get them approved by your manager to avail compensatory leave.'}
+              </div>
+            ` : approvedTokens.map((t) => `
+              <label style="background:var(--card);border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:0;transition:all 0.15s ease" class="token-card-label" id="token-card-${t.id}">
+                <input type="checkbox" class="avail-token-chk" value="${t.id}" data-id="${t.id}" data-rem-hours="${t.remHours}" data-rem-mins="${t.remMins}" checked onchange="Leaves.onTokenSelectionChange()" style="margin-top:3px;cursor:pointer;width:15px;height:15px">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-weight:800;font-size:13px;color:var(--text)">Token #${t.id}</span>
+                      <span style="font-size:11px;color:var(--text-3)">${Utils.formatDate(t.date)}</span>
+                    </div>
+                    <div style="display:flex;gap:6px;align-items:center">
+                      <span class="badge badge-secondary" style="font-size:10.5px">Total: ${t.totalHours}h</span>
+                      <span class="badge badge-success" style="font-size:11px;font-weight:700">
+                        <i class="fa fa-coins"></i> ${t.remHours}h ${t.remMins % 60 > 0 ? (t.remMins % 60) + 'm ' : ''}available
+                      </span>
+                    </div>
+                  </div>
+                  <div style="font-size:11.5px;color:var(--text-2);margin-top:3px;line-height:1.35">
+                    <i class="fa fa-briefcase" style="color:var(--text-3)"></i> ${t.taskDescription}
+                  </div>
+                  <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">
+                    <i class="fa fa-user-check"></i> Approved by ${t.managerName}
+                    ${t.availedHours > 0 ? `• <span style="color:#b45309">${t.availedHours}h already availed</span>` : ''}
+                  </div>
+                </div>
+              </label>
+            `).join('')}
+          </div>
+
+          <!-- Selection Aggregate Strip -->
+          <div id="tk-selected-summary" style="margin-top:10px;background:var(--surface-2);border-radius:7px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11.5px;flex-wrap:wrap;gap:6px">
+            <div>
+              Selected Token Time: <strong id="tk-selected-total" style="color:var(--primary);font-size:13px">0 Hours (0 mins)</strong>
+            </div>
+            <div id="tk-eligible-badges" style="display:flex;gap:4px;flex-wrap:wrap"></div>
+          </div>
+        </div>
 
         <div class="form-row form-row-2" style="margin-bottom:0">
           <div class="form-group" style="margin-bottom:0">
@@ -2935,9 +3163,9 @@ const Leaves = {
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label required"><i class="fa fa-layer-group" style="color:var(--primary);margin-right:4px"></i> Avail Leave As</label>
             <select class="form-control" id="tk-avail-type" onchange="Leaves.onAvailTypeChange(this.value)">
-              <option value="short" selected>Short Leave (45 mins – 2 hrs)</option>
-              <option value="half">Half Day Leave (4.0 Hours)</option>
-              <option value="full">Full Day Leave (8.0 Hours)</option>
+              <option value="short" selected>Short Leave (min 45 mins)</option>
+              <option value="half" id="opt-half-leave">Half Day Leave (4.0 Hours = 240 mins)</option>
+              <option value="full" id="opt-full-leave">Full Day Leave (8.0 Hours = 480 mins)</option>
             </select>
           </div>
         </div>
@@ -2945,48 +3173,133 @@ const Leaves = {
         <!-- Short Leave Duration Configuration (Strictly Minimum 45 min) -->
         <div id="tk-short-section" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
           <label class="form-label required" style="font-size:12.5px;font-weight:700">
-            <i class="fa fa-stopwatch" style="color:var(--primary);margin-right:4px"></i> Select Short Leave Duration
+            <i class="fa fa-stopwatch" style="color:var(--primary);margin-right:4px"></i> Short Leave Duration
           </label>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
             <select class="form-control" id="tk-short-preset" style="flex:1" onchange="document.getElementById('tk-avail-mins').value=this.value; Leaves.updateAvailLiveCalculation()">
-              <option value="45" selected>45 Minutes (0.75 hrs) — Standard Policy Minimum</option>
-              <option value="60">60 Minutes (1.0 hr)</option>
+              <option value="45" selected>45 Minutes — Policy Minimum</option>
+              <option value="60">60 Minutes (1 hr)</option>
               <option value="90">90 Minutes (1.5 hrs)</option>
-              <option value="120">120 Minutes (2.0 hrs)</option>
+              <option value="120">120 Minutes (2 hrs)</option>
             </select>
             <div style="display:flex;align-items:center;gap:6px">
-              <input type="number" id="tk-avail-mins" class="form-control" style="width:90px" value="45" min="45" max="240" step="5" oninput="Leaves.updateAvailLiveCalculation()">
+              <input type="number" id="tk-avail-mins" class="form-control" style="width:90px" value="45" min="45" max="479" step="5" oninput="Leaves.updateAvailLiveCalculation()">
               <span style="font-size:12px;font-weight:600;color:var(--text-3)">mins</span>
             </div>
           </div>
           <div style="font-size:11px;color:#d97706;font-weight:600;margin-top:6px">
-            <i class="fa fa-circle-info"></i> System Rule: The minimum time to avail an overtime token is 45 minutes.
+            <i class="fa fa-circle-info"></i> Policy: Minimum 45 mins. Max 479 mins (use Half/Full Day for ≥4h).
           </div>
         </div>
 
         <!-- Live Calculation Preview Card -->
-        <div id="tk-calc-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:12px">
-          <div>
-            Requested Token Time: <strong id="tk-calc-hrs" style="color:var(--primary);font-size:13px">0.75 Hours (45 mins)</strong>
+        <div id="tk-calc-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <div>
+              Leave Requested: <strong id="tk-calc-hrs" style="color:var(--primary);font-size:13px">0.75 Hours (45 mins)</strong>
+            </div>
+            <div id="tk-calc-rem" style="color:var(--text-3)">Selected Token Time: <strong style="color:var(--success)">0 hrs</strong></div>
           </div>
-          <div id="tk-calc-rem" style="color:var(--text-3)">
-            Remaining Balance After: <strong>${Math.max(0, Math.round((metrics.balanceHours - 0.75)*100)/100)} hrs</strong>
-          </div>
+          <div id="tk-coverage-status" style="font-size:11.5px"></div>
         </div>
 
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label required"><i class="fa fa-comment-dots" style="color:var(--primary);margin-right:4px"></i> Purpose / Reason for Token Leave</label>
+          <label class="form-label required"><i class="fa fa-comment-dots" style="color:var(--primary);margin-right:4px"></i> Reason for Token Leave</label>
           <textarea class="form-control" id="tk-avail-reason" rows="2" placeholder="e.g. Urgent banking errand, personal doctor visit, family obligation..."></textarea>
         </div>
       </div>
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-success" id="tk-submit-btn" onclick="Leaves.submitAvailToken()"><i class="fa fa-check"></i> Avail Token Leave</button>
+        <button class="btn btn-success" id="tk-submit-btn" ${hasNoApproved ? 'disabled style="opacity:0.5;cursor:not-allowed"' : ''} onclick="Leaves.submitAvailToken()">
+          <i class="fa fa-check"></i> Avail Token Leave
+        </button>
       `
     });
 
-    setTimeout(() => this.updateAvailLiveCalculation(), 20);
+    setTimeout(() => {
+      this.onTokenSelectionChange();
+    }, 50);
+  },
+
+  selectTokensForDuration(targetHours) {
+    const checkboxes = Array.from(document.querySelectorAll('.avail-token-chk'));
+    if (!checkboxes.length) return;
+
+    if (targetHours === 'all') {
+      checkboxes.forEach(chk => { chk.checked = true; });
+    } else if (targetHours === 0) {
+      checkboxes.forEach(chk => { chk.checked = false; });
+    } else {
+      let accumulatedHours = 0;
+      checkboxes.forEach(chk => {
+        const hrs = parseFloat(chk.getAttribute('data-rem-hours') || 0);
+        if (accumulatedHours < targetHours) {
+          chk.checked = true;
+          accumulatedHours += hrs;
+        } else {
+          chk.checked = false;
+        }
+      });
+      const typeSelect = document.getElementById('tk-avail-type');
+      if (typeSelect) {
+        if (targetHours === 4) typeSelect.value = 'half';
+        else if (targetHours === 8) typeSelect.value = 'full';
+        this.onAvailTypeChange(typeSelect.value);
+      }
+    }
+    this.onTokenSelectionChange();
+  },
+
+  onTokenSelectionChange() {
+    const checkboxes = Array.from(document.querySelectorAll('.avail-token-chk:checked'));
+    let totalMins = 0;
+    checkboxes.forEach(chk => {
+      const mins = parseInt(chk.getAttribute('data-rem-mins')) || 0;
+      totalMins += mins;
+    });
+
+    const totalHours = Math.round((totalMins / 60) * 100) / 100;
+    const disp = document.getElementById('tk-selected-total');
+    if (disp) {
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      disp.innerHTML = `${totalHours} Hours (${h > 0 ? h + 'h ' : ''}${m} mins) <span style="font-size:11px;font-weight:400;color:var(--text-3)">[${checkboxes.length} token(s) selected]</span>`;
+    }
+
+    // Update eligible badges
+    const badgesEl = document.getElementById('tk-eligible-badges');
+    if (badgesEl) {
+      const badges = [];
+      if (totalHours >= 8.0) {
+        badges.push(`<span class="badge badge-success" style="font-size:10px"><i class="fa fa-check"></i> Full Day (8h)</span>`);
+      }
+      if (totalHours >= 4.0) {
+        badges.push(`<span class="badge badge-info" style="font-size:10px"><i class="fa fa-check"></i> Half Day (4h)</span>`);
+      }
+      if (totalMins >= 45) {
+        badges.push(`<span class="badge badge-primary" style="font-size:10px"><i class="fa fa-check"></i> Short Leave (45m+)</span>`);
+      } else {
+        badges.push(`<span class="badge badge-warning" style="font-size:10px"><i class="fa fa-triangle-exclamation"></i> Min 45m Needed</span>`);
+      }
+      badgesEl.innerHTML = badges.join('');
+    }
+
+    // Highlight selected cards
+    document.querySelectorAll('.avail-token-chk').forEach(chk => {
+      const card = document.getElementById(`token-card-${chk.value}`);
+      if (card) {
+        if (chk.checked) {
+          card.style.borderColor = 'var(--primary)';
+          card.style.background = 'rgba(99,102,241,0.06)';
+        } else {
+          card.style.borderColor = 'var(--border)';
+          card.style.background = 'var(--card)';
+        }
+      }
+    });
+
+    this.updateAvailLiveCalculation();
   },
 
   onAvailTypeChange(type) {
@@ -2998,63 +3311,102 @@ const Leaves = {
   },
 
   updateAvailLiveCalculation() {
-    const myEmp = Auth.employee || DB.find('employees', 4);
-    const metrics = this.getEmployeeTokenMetrics(myEmp?.id || 4);
     const type = document.getElementById('tk-avail-type')?.value || 'short';
+    const checkboxes = Array.from(document.querySelectorAll('.avail-token-chk:checked'));
+    let selectedMins = 0;
+    checkboxes.forEach(chk => {
+      selectedMins += parseInt(chk.getAttribute('data-rem-mins')) || 0;
+    });
+    const selectedHours = Math.round((selectedMins / 60) * 100) / 100;
+
     let reqHours = 0.75;
     let reqMins = 45;
+    let typeLabel = 'Short Leave';
 
     if (type === 'short') {
       reqMins = parseInt(document.getElementById('tk-avail-mins')?.value) || 45;
       reqHours = Math.round((reqMins / 60) * 100) / 100;
+      typeLabel = `Short Leave (${reqMins}m)`;
     } else if (type === 'half') {
       reqHours = 4.0;
       reqMins = 240;
+      typeLabel = 'Half Day Leave (4.0h)';
     } else if (type === 'full') {
       reqHours = 8.0;
       reqMins = 480;
+      typeLabel = 'Full Day Leave (8.0h)';
     }
 
     const hrsEl = document.getElementById('tk-calc-hrs');
     const remEl = document.getElementById('tk-calc-rem');
+    const statusEl = document.getElementById('tk-coverage-status');
     const btn = document.getElementById('tk-submit-btn');
 
     if (hrsEl) {
       hrsEl.textContent = `${reqHours} Hours (${reqMins} mins)`;
     }
-    if (remEl) {
-      const rem = Math.round((metrics.balanceHours - reqHours) * 100) / 100;
-      if (rem < 0) {
-        remEl.innerHTML = `<span style="color:var(--danger);font-weight:700"><i class="fa fa-circle-exclamation"></i> Exceeds Balance by ${Math.abs(rem)}h</span>`;
-        if (btn) btn.disabled = true;
-      } else if (type === 'short' && reqMins < 45) {
-        remEl.innerHTML = `<span style="color:var(--danger);font-weight:700"><i class="fa fa-circle-exclamation"></i> Min 45 mins required</span>`;
-        if (btn) btn.disabled = true;
-      } else {
-        remEl.innerHTML = `Remaining Balance After: <strong style="color:var(--success)">${rem} hrs</strong>`;
-        if (btn) btn.disabled = false;
-      }
+
+    if (!checkboxes.length) {
+      if (remEl) remEl.innerHTML = `<span style="color:var(--danger);font-weight:700">No Tokens Selected</span>`;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);font-weight:600"><i class="fa fa-circle-xmark"></i> Please select at least one approved token from the list above.</span>`;
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    const diffMins = selectedMins - reqMins;
+
+    if (type === 'short' && reqMins < 45) {
+      if (remEl) remEl.innerHTML = `<span style="color:var(--danger);font-weight:700">Minimum 45m required</span>`;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger);font-weight:600"><i class="fa fa-circle-xmark"></i> System Rule: Short Leave requires a minimum of 45 minutes.</span>`;
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    if (diffMins < 0) {
+      const shortageMins = Math.abs(diffMins);
+      if (remEl) remEl.innerHTML = `<span style="color:var(--danger);font-weight:700"><i class="fa fa-circle-exclamation"></i> Short by ${shortageMins}m</span>`;
+      if (statusEl) statusEl.innerHTML = `
+        <div style="background:#fef2f2;border:1px solid #f87171;color:#991b1b;border-radius:6px;padding:6px 10px;font-weight:600">
+          <i class="fa fa-circle-xmark" style="margin-right:4px"></i>
+          Selected time (${selectedMins}m) is less than requested ${typeLabel} (${reqMins}m). Please select more tokens (need ${shortageMins}m more).
+        </div>
+      `;
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+    } else {
+      const surplusMins = diffMins;
+      if (remEl) remEl.innerHTML = `Remaining: <strong style="color:var(--success)">${surplusMins} mins</strong>`;
+      if (statusEl) statusEl.innerHTML = `
+        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:var(--success);border-radius:6px;padding:6px 10px;font-weight:600">
+          <i class="fa fa-circle-check" style="margin-right:4px"></i>
+          Selected tokens (${selectedMins}m) successfully cover requested ${typeLabel} (${reqMins}m).
+        </div>
+      `;
+      if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
     }
   },
 
   submitAvailToken() {
     const myEmp = Auth.employee || DB.find('employees', 4);
     const myEmpId = myEmp?.id || 4;
-    const metrics = this.getEmployeeTokenMetrics(myEmpId);
 
-    const date = document.getElementById('tk-avail-date').value;
-    const type = document.getElementById('tk-avail-type').value;
-    const reason = document.getElementById('tk-avail-reason').value.trim();
+    const date = document.getElementById('tk-avail-date')?.value;
+    const type = document.getElementById('tk-avail-type')?.value;
+    const reason = document.getElementById('tk-avail-reason')?.value.trim();
 
     if (!date) { Toast.show('Please select date of leave', 'error'); return; }
     if (!reason) { Toast.show('Please provide a reason for availing token leave', 'error'); return; }
 
-    let reqHours = 0;
-    let reqMins = 0;
+    const checkboxes = Array.from(document.querySelectorAll('.avail-token-chk:checked'));
+    if (!checkboxes.length) {
+      Toast.show('Please select at least one approved token to redeem for this leave', 'error');
+      return;
+    }
+
+    let reqHours = 0.75;
+    let reqMins = 45;
 
     if (type === 'short') {
       reqMins = parseInt(document.getElementById('tk-avail-mins')?.value) || 0;
-      // Minimum duration validation (45 minutes)
       if (reqMins < 45) {
         Toast.show('Minimum duration to avail an overtime token is 45 minutes.', 'error');
         return;
@@ -3068,12 +3420,61 @@ const Leaves = {
       reqMins = 480;
     }
 
-    // Balance check
-    if (reqHours > metrics.balanceHours) {
-      Toast.show(`Insufficient token balance! Requested: ${reqHours}h, Available: ${metrics.balanceHours}h`, 'error');
+    // Verify all selected tokens exist and are strictly APPROVED
+    const allTokens = DB.get('overtime_tokens') || [];
+    let totalSelectedMins = 0;
+
+    for (const chk of checkboxes) {
+      const tId = parseInt(chk.value);
+      const token = allTokens.find(t => t.id === tId);
+      if (!token) {
+        Toast.show(`Selected token #${tId} was not found.`, 'error');
+        return;
+      }
+      if (token.status !== 'approved') {
+        Toast.show(`Token #${tId} is not approved (${token.status}). Only approved tokens can be availed.`, 'error');
+        return;
+      }
+      totalSelectedMins += parseInt(chk.getAttribute('data-rem-mins')) || 0;
+    }
+
+    const totalSelectedHours = Math.round((totalSelectedMins / 60) * 100) / 100;
+    if (reqHours > totalSelectedHours) {
+      Toast.show(`Insufficient selected token time! Selected: ${totalSelectedHours}h, Needed: ${reqHours}h`, 'error');
       return;
     }
 
+    // Deduct requested hours across the selected tokens
+    let needed = reqHours;
+    const tokenDeductions = {};
+    const selectedTokenIds = [];
+    const tokenSummaries = [];
+
+    for (const chk of checkboxes) {
+      if (needed <= 0) break;
+      const tId = parseInt(chk.value);
+      const tRemHours = parseFloat(chk.getAttribute('data-rem-hours') || 0);
+      const token = allTokens.find(t => t.id === tId);
+      if (!token || tRemHours <= 0) continue;
+
+      selectedTokenIds.push(tId);
+      const take = Math.min(needed, tRemHours);
+      const takeRounded = Math.round(take * 100) / 100;
+      tokenDeductions[tId] = takeRounded;
+      tokenSummaries.push(`Token #${tId} (${takeRounded}h from ${Utils.formatDate(token.date)})`);
+
+      // Update token's availed hours in database
+      const prevAvailed = Number(token.availedHours) || 0;
+      const newAvailed = Math.round((prevAvailed + takeRounded) * 100) / 100;
+      token.availedHours = newAvailed;
+      token.availedMinutes = Math.round(newAvailed * 60);
+
+      needed = Math.round((needed - takeRounded) * 100) / 100;
+    }
+
+    DB.set('overtime_tokens', allTokens);
+
+    // Save in token_availments
     const availments = DB.get('token_availments') || [];
     const newAvail = {
       id: DB.nextId('token_availments'),
@@ -3083,6 +3484,9 @@ const Leaves = {
       minutes: reqMins,
       hours: reqHours,
       days: Math.round((reqHours / 8) * 100) / 100,
+      tokenIds: selectedTokenIds,
+      tokenDeductions,
+      tokenSummary: tokenSummaries.join(', '),
       reason,
       status: 'approved',
       appliedOn: new Date().toISOString()
@@ -3092,7 +3496,7 @@ const Leaves = {
 
     // Also insert into leave_requests as Type 10 (Token Leave) to integrate seamlessly with calendar & Leave Quota matrix
     const leaves = DB.get('leave_requests') || [];
-    const typeName = type === 'short' ? `Short Leave (${reqMins}m)` : (type === 'half' ? 'Half Day' : 'Full Day');
+    const typeName = type === 'short' ? `Short Leave (${reqMins}m)` : (type === 'half' ? 'Half Day Leave (4h)' : 'Full Day Leave (8h)');
     const newLeaveReq = {
       id: DB.nextId('leave_requests'),
       employeeId: myEmpId,
@@ -3103,16 +3507,16 @@ const Leaves = {
       status: 'approved',
       managerStatus: 'approved',
       hrStatus: 'approved',
-      reason: `[Overtime Token Availment: ${typeName}] ${reason}`,
+      reason: `[Compensatory Token Leave: ${typeName}] ${reason} (Redeemed: ${tokenSummaries.join(', ')})`,
       appliedOn: Utils.today(),
-      remarks: `Availed from banked overtime tokens (${reqHours}h)`
+      remarks: `Availed from approved overtime token(s): ${tokenSummaries.join(', ')}`
     };
     leaves.push(newLeaveReq);
     DB.set('leave_requests', leaves);
 
-    DB.log('APPLY', 'Leaves', `Availed ${reqHours}h (${type}) Overtime Token Leave for ${myEmp.fullName} on ${date}`, Auth.user?.id);
+    DB.log('APPLY', 'Leaves', `Availed ${reqHours}h (${type}) Overtime Token Leave for ${myEmp.fullName} on ${date} (Tokens: ${selectedTokenIds.join(', ')})`, Auth.user?.id);
     Modal.close('dynamic-modal');
-    Toast.show(`Token leave applied successfully! Deducted ${reqHours}h from your token balance.`, 'success');
+    Toast.show(`Compensatory token leave applied successfully! Deducted ${reqHours}h across selected token(s).`, 'success');
     this.render();
   },
 

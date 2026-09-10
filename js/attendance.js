@@ -14,6 +14,18 @@ const Attendance = {
   myAttTo: Utils.today(),
   myAttStatusFilter: 'all',
   myAttSearchQuery: '',
+  // "My Employees Attendance" combined view state (for dept_manager)
+  myEmpAttPeriod: 'daily',  // 'daily' | 'monthly' | 'employee_wise' | 'dept_wise' | 'weekly' | 'custom'
+  myEmpAttDate: Utils.today(),
+  myEmpAttMonth: Utils.thisMonth(),
+  myEmpAttWeekOffset: 0,
+  myEmpAttFrom: '',
+  myEmpAttTo: Utils.today(),
+  myEmpAttEmpFilter: 'all', // employee id or 'all'
+  myEmpAttStatusFilter: 'all',
+  adminDailyDeptFilter: 'all',
+  adminMonthlyDeptFilter: 'all',
+  adminEmpWiseDeptFilter: 'all',
 
   getScopedEmployees() {
     const emps = DB.get('employees') || [];
@@ -29,8 +41,8 @@ const Attendance = {
     // Restrict employee default view to My Attendance
     if (isEmployee && !['my_attendance', 'corrections', 'timesheets'].includes(this.currentView)) {
       this.currentView = 'my_attendance';
-    } else if (isManager && ['geofence', 'machine', 'manual'].includes(this.currentView)) {
-      this.currentView = 'daily';
+    } else if (isManager && !['my_attendance', 'my_employees', 'roster', 'timesheets', 'corrections'].includes(this.currentView)) {
+      this.currentView = 'my_employees';
     }
 
     const scopedEmps = this.getScopedEmployees();
@@ -84,14 +96,11 @@ const Attendance = {
       ];
     } else if (isManager) {
       tabs = [
-        { id:'my_attendance', label:'My Attendance' },
-        { id:'daily',         label:'Daily' },
-        { id:'monthly',       label:'Monthly' },
-        { id:'employee',      label:'Employee Wise' },
-        { id:'dept',          label:'Department Wise' },
-        { id:'roster',        label:'Shift Roster & Swaps', badge: pendingSwaps },
-        { id:'timesheets',    label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>scopedIds.includes(t.employeeId) && t.status==='submitted').length },
-        { id:'corrections',   label:'Corrections & WFH', badge: pendingCorrections },
+        { id:'my_attendance',  label:'My Attendance' },
+        { id:'my_employees',   label:'My Employees Attendance', icon: 'fa-users-line' },
+        { id:'roster',         label:'Shift Roster & Swaps', badge: pendingSwaps },
+        { id:'timesheets',     label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>scopedIds.includes(t.employeeId) && t.status==='submitted').length },
+        { id:'corrections',    label:'Corrections & WFH', badge: pendingCorrections },
       ];
     } else {
       // Super Admin and HR Manager
@@ -188,6 +197,8 @@ const Attendance = {
             ${isEmployee ? `
               <button class="btn btn-primary btn-sm" onclick="Attendance.showApplyCorrectionModal()"><i class="fa fa-plus"></i> Apply Correction / WFH</button>
               <button class="btn btn-ghost btn-sm" onclick="Attendance.exportMyAttendance()"><i class="fa fa-file-export"></i> Export My Records</button>
+            ` : isManager ? `
+              <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
             ` : `
               ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="Attendance.showTimeInWindowConfig()"><i class="fa fa-clock"></i> Time-In Windows</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
@@ -222,7 +233,16 @@ const Attendance = {
     const managerBlocked = ['geofence', 'machine', 'manual'];
     if (isManager && managerBlocked.includes(view)) {
       Toast.show('403 Forbidden: Access Denied to administrative configuration.', 'error');
-      view = 'daily';
+      view = 'my_employees';
+    }
+    if (isManager && ['daily', 'monthly', 'employee', 'dept'].includes(view)) {
+      this.currentView = 'my_employees';
+      if (view === 'daily') this.myEmpAttPeriod = 'daily';
+      else if (view === 'monthly') this.myEmpAttPeriod = 'monthly';
+      else if (view === 'employee') this.myEmpAttPeriod = 'employee_wise';
+      else if (view === 'dept') this.myEmpAttPeriod = 'dept_wise';
+      this.renderView();
+      return;
     }
 
     this.currentView = view;
@@ -239,6 +259,7 @@ const Attendance = {
     if (!container) return;
     switch(this.currentView) {
       case 'my_attendance': this.renderMyAttendance(container); break;
+      case 'my_employees':  this.renderMyEmployeesAttendance(container); break;
       case 'daily':         this.renderDaily(container); break;
       case 'monthly':       this.renderMonthly(container); break;
       case 'employee':      this.renderEmployeeWise(container); break;
@@ -251,6 +272,650 @@ const Attendance = {
       case 'corrections':   this.renderCorrections(container); break;
       default:              this.renderMyAttendance(container); break;
     }
+  },
+
+  // ============================================================
+  // MY EMPLOYEES ATTENDANCE — Dept Manager Combined View
+  // Merges Daily + Monthly into one tab with period dropdown
+  // View-only: no edit/create actions for dept_manager
+  // ============================================================
+  changeMyEmpAttPeriod(period) {
+    this.myEmpAttPeriod = period;
+    this.renderView();
+  },
+
+  prevMyEmpAttDay() {
+    const d = new Date(this.myEmpAttDate || Utils.today());
+    d.setDate(d.getDate() - 1);
+    this.myEmpAttDate = d.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  nextMyEmpAttDay() {
+    const d = new Date(this.myEmpAttDate || Utils.today());
+    d.setDate(d.getDate() + 1);
+    this.myEmpAttDate = d.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  setMyEmpAttDate(val) {
+    this.myEmpAttDate = val;
+    this.renderView();
+  },
+
+  prevMyEmpAttWeek() {
+    this.myEmpAttWeekOffset = (this.myEmpAttWeekOffset || 0) - 1;
+    this.renderView();
+  },
+
+  nextMyEmpAttWeek() {
+    this.myEmpAttWeekOffset = (this.myEmpAttWeekOffset || 0) + 1;
+    this.renderView();
+  },
+
+  getMyEmpAttWeekDates() {
+    const today = new Date();
+    const currentDay = today.getDay();
+    const diff = today.getDate() - currentDay + (currentDay === 0 ? -6 : 1);
+    const baseMonday = new Date(today.setDate(diff));
+    baseMonday.setDate(baseMonday.getDate() + ((this.myEmpAttWeekOffset || 0) * 7));
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(baseMonday);
+      d.setDate(baseMonday.getDate() + i);
+      days.push(d.toISOString().split('T')[0]);
+    }
+    return days;
+  },
+
+  prevMyEmpAttMonth() {
+    const [y, m] = (this.myEmpAttMonth || Utils.thisMonth()).split('-').map(Number);
+    const d = new Date(y, m - 2);
+    this.myEmpAttMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    this.renderView();
+  },
+
+  nextMyEmpAttMonth() {
+    const [y, m] = (this.myEmpAttMonth || Utils.thisMonth()).split('-').map(Number);
+    const d = new Date(y, m);
+    this.myEmpAttMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    this.renderView();
+  },
+
+  setMyEmpAttMonth(val) {
+    this.myEmpAttMonth = val;
+    this.renderView();
+  },
+
+  applyMyEmpAttCustomRange() {
+    const fromEl = document.getElementById('myemp-att-from');
+    const toEl   = document.getElementById('myemp-att-to');
+    if (fromEl && toEl) {
+      if (fromEl.value && toEl.value && fromEl.value > toEl.value) {
+        Toast.show('From Date cannot be later than To Date', 'warning');
+        return;
+      }
+      this.myEmpAttFrom = fromEl.value;
+      this.myEmpAttTo   = toEl.value;
+      this.renderView();
+    }
+  },
+
+  setMyEmpAttEmpFilter(val) {
+    this.myEmpAttEmpFilter = val;
+    this.renderView();
+  },
+
+  setMyEmpAttStatusFilter(val) {
+    this.myEmpAttStatusFilter = val;
+    this.renderView();
+  },
+
+  renderMyEmployeesAttendance(container) {
+    if (!container) return;
+    const emps = this.getScopedEmployees();
+    if (!emps.length) {
+      container.innerHTML = `<div class="card"><div class="empty-state" style="padding:60px"><i class="fa fa-users"></i><h3>No Employees in Your Team</h3><p>You have no scoped employees assigned to your department.</p></div></div>`;
+      return;
+    }
+
+    const allAtt = DB.get('attendance') || [];
+    const holidays = DB.get('holidays') || [];
+    const scopedIds = emps.map(e => e.id);
+    const period   = this.myEmpAttPeriod || 'daily';
+    const empFilter = this.myEmpAttEmpFilter || 'all';
+    const statusFilter = this.myEmpAttStatusFilter || 'all';
+
+    if (!this.myEmpAttDate)  this.myEmpAttDate  = Utils.today();
+    if (!this.myEmpAttMonth) this.myEmpAttMonth = Utils.thisMonth();
+    if (!this.myEmpAttTo)    this.myEmpAttTo    = Utils.today();
+    if (!this.myEmpAttFrom) {
+      const d = new Date();
+      d.setDate(d.getDate() - 30);
+      this.myEmpAttFrom = d.toISOString().split('T')[0];
+    }
+
+    // Build date list based on period
+    let dateList = [];
+    let periodLabel = '';
+
+    if (period === 'daily' || period === 'dept_wise') {
+      dateList = [this.myEmpAttDate];
+      const dObj = new Date(this.myEmpAttDate);
+      periodLabel = dObj.toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+    } else if (period === 'weekly') {
+      dateList = this.getMyEmpAttWeekDates();
+      const wStart = new Date(dateList[0]).toLocaleDateString('en-PK', { month:'short', day:'numeric' });
+      const wEnd   = new Date(dateList[6]).toLocaleDateString('en-PK', { month:'short', day:'numeric', year:'numeric' });
+      periodLabel = `${wStart} – ${wEnd}`;
+    } else if (period === 'monthly' || period === 'employee_wise') {
+      const [y, m] = (this.myEmpAttMonth || Utils.thisMonth()).split('-').map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      for (let i = 1; i <= daysInMonth; i++) {
+        dateList.push(`${y}-${String(m).padStart(2, '0')}-${String(i).padStart(2, '0')}`);
+      }
+      periodLabel = new Date((this.myEmpAttMonth || Utils.thisMonth()) + '-01').toLocaleDateString('en-PK', { month:'long', year:'numeric' });
+    } else if (period === 'custom') {
+      const start = new Date(this.myEmpAttFrom);
+      const end   = new Date(this.myEmpAttTo);
+      let curr = new Date(start);
+      while (curr <= end && dateList.length < 366) {
+        dateList.push(curr.toISOString().split('T')[0]);
+        curr.setDate(curr.getDate() + 1);
+      }
+      periodLabel = `${Utils.formatDate(this.myEmpAttFrom)} to ${Utils.formatDate(this.myEmpAttTo)}`;
+    }
+
+    // Period control HTML
+    let periodControls = '';
+    if (period === 'daily' || period === 'dept_wise') {
+      periodControls = `
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.prevMyEmpAttDay()" title="Previous Day"><i class="fa fa-chevron-left"></i></button>
+          <input type="date" class="form-control" style="width:148px;height:34px;font-size:12.5px" value="${this.myEmpAttDate}" onchange="Attendance.setMyEmpAttDate(this.value)">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.nextMyEmpAttDay()" title="Next Day"><i class="fa fa-chevron-right"></i></button>
+          <button class="btn btn-ghost btn-sm" style="height:34px;font-size:12px" onclick="Attendance.setMyEmpAttDate('${Utils.today()}')"><i class="fa fa-calendar-day"></i> Today</button>
+        </div>`;
+    } else if (period === 'weekly') {
+      periodControls = `
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.prevMyEmpAttWeek()" title="Previous Week"><i class="fa fa-chevron-left"></i></button>
+          <div style="font-size:12.5px;font-weight:700;color:var(--text);padding:0 6px;white-space:nowrap">${periodLabel}</div>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.nextMyEmpAttWeek()" title="Next Week"><i class="fa fa-chevron-right"></i></button>
+          <button class="btn btn-ghost btn-sm" style="height:34px;font-size:12px" onclick="Attendance.myEmpAttWeekOffset=0;Attendance.renderView()"><i class="fa fa-rotate-left"></i> Current</button>
+        </div>`;
+    } else if (period === 'monthly' || period === 'employee_wise') {
+      const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+      const selM = this.myEmpAttMonth || Utils.thisMonth();
+      periodControls = `
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.prevMyEmpAttMonth()" title="Previous Month"><i class="fa fa-chevron-left"></i></button>
+          <select class="filter-select" style="width:170px;height:34px" onchange="Attendance.setMyEmpAttMonth(this.value)">
+            ${allMonths.map(mo => `<option value="${mo}" ${mo===selM?'selected':''}>${new Date(mo+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
+          </select>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.nextMyEmpAttMonth()" title="Next Month"><i class="fa fa-chevron-right"></i></button>
+        </div>`;
+    } else if (period === 'custom') {
+      periodControls = `
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-size:11.5px;color:var(--text-3);font-weight:600">From:</span>
+          <input type="date" class="form-control" id="myemp-att-from" style="width:135px;height:34px;font-size:12px" value="${this.myEmpAttFrom}">
+          <span style="font-size:11.5px;color:var(--text-3);font-weight:600">To:</span>
+          <input type="date" class="form-control" id="myemp-att-to" style="width:135px;height:34px;font-size:12px" value="${this.myEmpAttTo}">
+          <button class="btn btn-primary btn-sm" style="height:34px" onclick="Attendance.applyMyEmpAttCustomRange()"><i class="fa fa-filter"></i> Apply</button>
+        </div>`;
+    }
+
+    // Filter displayed employees
+    const displayEmps = empFilter === 'all' ? emps : emps.filter(e => e.id === parseInt(empFilter));
+
+    const statusColors = { present:'var(--success)', late:'var(--warning)', half_day:'var(--accent)', absent:'var(--danger)' };
+    const statusIcons  = { present:'fa-circle-check', late:'fa-clock', half_day:'fa-circle-half-stroke', absent:'fa-circle-xmark' };
+    const statusLabels = { present:'Present', late:'Late', half_day:'Half Day', absent:'Absent' };
+
+    // KPI summary strip across all filtered employees for the period
+    let kpiPresent=0, kpiAbsent=0, kpiLate=0, kpiHalf=0, kpiOT=0, kpiTotal=0;
+    displayEmps.forEach(emp => {
+      const empRecs = allAtt.filter(a => a.employeeId === emp.id && dateList.includes(a.date));
+      kpiPresent += empRecs.filter(a => a.status === 'present').length;
+      kpiLate    += empRecs.filter(a => a.status === 'late').length;
+      kpiHalf    += empRecs.filter(a => a.status === 'half_day').length;
+      kpiAbsent  += empRecs.filter(a => a.status === 'absent').length;
+      kpiOT      += empRecs.filter(a => (a.overtime || 0) > 0).length;
+      kpiTotal   += empRecs.length;
+    });
+
+    // Build Table or View HTML based on period
+    let tableHTML = '';
+
+    if (period === 'employee_wise') {
+      // 1. Employee Wise Summary View for Manager's Team
+      const selMonth = this.myEmpAttMonth || Utils.thisMonth();
+      tableHTML = `
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead><tr>
+              <th>Employee</th>
+              <th>Department</th>
+              <th>Total Days</th>
+              <th style="color:var(--success)">Present</th>
+              <th style="color:var(--danger)">Absent</th>
+              <th style="color:var(--warning)">Late</th>
+              <th style="color:var(--accent)">Half Day</th>
+              <th>Overtime</th>
+              <th>Attendance Rate</th>
+            </tr></thead>
+            <tbody>
+              ${displayEmps.map(emp => {
+                const empAtt = allAtt.filter(a => a.employeeId === emp.id && a.date.startsWith(selMonth));
+                const p  = empAtt.filter(a => a.status === 'present').length;
+                const ab = empAtt.filter(a => a.status === 'absent').length;
+                const l  = empAtt.filter(a => a.status === 'late').length;
+                const hd = empAtt.filter(a => a.status === 'half_day').length;
+                const ot = empAtt.reduce((s,a) => s + (a.overtime||0), 0);
+                const total = empAtt.length || 1;
+                const pct = Math.round(((p + l) / total) * 100);
+                const color = pct >= 90 ? 'var(--success)' : pct >= 75 ? 'var(--warning)' : 'var(--danger)';
+                return `<tr>
+                  <td><div style="display:flex;align-items:center;gap:10px">
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+                    <div>
+                      <div style="font-weight:600;font-size:13px">${emp.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${emp.empNo} · ${emp.designation || 'Staff'}</div>
+                    </div>
+                  </div></td>
+                  <td><span class="badge badge-secondary">${Utils.getDeptName(emp.departmentId)}</span></td>
+                  <td style="font-weight:600">${empAtt.length}</td>
+                  <td style="color:var(--success);font-weight:700">${p}</td>
+                  <td style="color:var(--danger);font-weight:700">${ab}</td>
+                  <td style="color:var(--warning);font-weight:700">${l}</td>
+                  <td style="color:var(--accent);font-weight:700">${hd}</td>
+                  <td style="font-weight:600">${ot > 0 ? `<span class="badge badge-primary">${ot}h</span>` : '0h'}</td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="progress" style="flex:1;height:8px">
+                        <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
+                      </div>
+                      <span style="font-size:12px;font-weight:700;color:${color}">${pct}%</span>
+                    </div>
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else if (period === 'dept_wise') {
+      // 2. Department Wise Overview for Manager's Department
+      let depts = DB.get('departments') || [];
+      const deptIds = [...new Set(emps.map(e => e.departmentId))];
+      const myDepts = depts.filter(d => deptIds.includes(d.id));
+      const targetDate = this.myEmpAttDate || Utils.today();
+      const dayAtt = allAtt.filter(a => a.date === targetDate && scopedIds.includes(a.employeeId));
+
+      tableHTML = `
+        <div style="padding:18px">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:18px">
+            ${myDepts.map(dept => {
+              const deptEmps = emps.filter(e => e.departmentId === dept.id);
+              const deptAtt = dayAtt.filter(a => deptEmps.some(e => e.id === a.employeeId));
+              const p = deptAtt.filter(a => a.status === 'present').length;
+              const ab = deptAtt.filter(a => a.status === 'absent').length;
+              const l = deptAtt.filter(a => a.status === 'late').length;
+              const hd = deptAtt.filter(a => a.status === 'half_day').length;
+              const pct = deptEmps.length ? Math.round(((p + l) / deptEmps.length) * 100) : 0;
+              const color = pct >= 90 ? 'var(--success)' : pct >= 75 ? 'var(--warning)' : 'var(--danger)';
+              return `
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+                    <div>
+                      <div style="font-size:16px;font-weight:700;color:var(--text)">${dept.name}</div>
+                      <div style="font-size:12px;color:var(--text-3);margin-top:2px">${dept.code || 'DEPT'} • ${deptEmps.length} Team Members</div>
+                    </div>
+                    <div style="font-size:28px;font-weight:800;color:${color}">${pct}%</div>
+                  </div>
+                  <div class="progress" style="height:8px;margin-bottom:14px">
+                    <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
+                  </div>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <span class="badge badge-success">Present: ${p}</span>
+                    <span class="badge badge-warning">Late: ${l}</span>
+                    <span class="badge badge-accent">Half Day: ${hd}</span>
+                    <span class="badge badge-danger">Absent: ${ab}</span>
+                    <span class="badge badge-secondary">Not Marked: ${Math.max(0, deptEmps.length - deptAtt.length)}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;color:var(--text)">Team Member Daily Status for ${Utils.formatDate(targetDate)}:</div>
+          <div class="table-wrapper" style="border:1px solid var(--border);border-radius:8px">
+            <table>
+              <thead><tr><th>Employee</th><th>Department</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead>
+              <tbody>
+                ${displayEmps.map(emp => {
+                  const rec = dayAtt.find(a => a.employeeId === emp.id);
+                  const hrs = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
+                  return `<tr>
+                    <td><div style="display:flex;align-items:center;gap:8px">
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+                      <div><div style="font-size:12.5px;font-weight:600">${emp.fullName}</div><div style="font-size:10.5px;color:var(--text-3)">${emp.empNo}</div></div>
+                    </div></td>
+                    <td><span class="badge badge-secondary">${Utils.getDeptName(emp.departmentId)}</span></td>
+                    <td style="color:var(--success);font-weight:600">${rec?.timeIn || '—'}</td>
+                    <td style="color:var(--danger);font-weight:600">${rec?.timeOut || '—'}</td>
+                    <td style="font-weight:600">${hrs}</td>
+                    <td>${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Marked</span>'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    } else if (period === 'monthly' || period === 'custom') {
+      // 3. Monthly Matrix View
+      const days = dateList.map(dStr => {
+        const dt = new Date(dStr);
+        return {
+          dateStr: dStr,
+          day: String(dt.getDate()).padStart(2, '0'),
+          dayName: dt.toLocaleDateString('en', { weekday: 'narrow' }),
+          isWeekend: dt.getDay() === 0 || dt.getDay() === 6,
+          isHoliday: holidays.some(h => h.date === dStr)
+        };
+      });
+
+      tableHTML = `
+        <div class="table-wrapper" style="overflow-x:auto;max-height:520px;border:none;border-radius:0">
+          <table style="min-width:${200 + days.length * 34}px;border-collapse:separate;border-spacing:0">
+            <thead style="position:sticky;top:0;z-index:10;background:var(--surface)">
+              <tr>
+                <th style="min-width:180px;position:sticky;left:0;z-index:11;background:var(--surface)">Employee</th>
+                ${days.map(d => `
+                  <th style="text-align:center;min-width:32px;padding:5px 2px;font-size:10.5px;${(d.isWeekend || d.isHoliday) ? 'background:rgba(255,255,255,0.02);color:var(--text-muted)' : ''}" title="${d.dateStr}">
+                    <div>${d.day}</div><div style="font-size:9px;font-weight:400;color:var(--text-muted)">${d.dayName}</div>
+                  </th>`).join('')}
+                <th style="text-align:center;min-width:32px;color:var(--success)">P</th>
+                <th style="text-align:center;min-width:32px;color:var(--warning)">L</th>
+                <th style="text-align:center;min-width:32px;color:var(--danger)">A</th>
+                <th style="text-align:center;min-width:32px;color:var(--accent)">HD</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${displayEmps.map(emp => {
+                let p=0, l=0, a=0, hd=0;
+                const cells = days.map(d => {
+                  if ((d.isWeekend || d.isHoliday) && !allAtt.find(r => r.employeeId===emp.id && r.date===d.dateStr)) {
+                    return `<td style="text-align:center;background:rgba(255,255,255,0.02);color:var(--text-muted);font-size:10px">${d.isHoliday ? 'H' : 'W'}</td>`;
+                  }
+                  const rec = allAtt.find(r => r.employeeId===emp.id && r.date===d.dateStr);
+                  if (!rec) return `<td style="text-align:center;color:var(--text-muted);font-size:10px">—</td>`;
+                  if (rec.status==='present') p++;
+                  else if (rec.status==='late') { l++; p++; }
+                  else if (rec.status==='half_day') hd++;
+                  else if (rec.status==='absent') a++;
+                  const ic = { present:'P', late:'L', half_day:'H', absent:'A' };
+                  const cl = statusColors[rec.status] || 'var(--text)';
+                  return `<td style="text-align:center;padding:3px 2px" title="${emp.fullName}: ${rec.status} (${rec.timeIn||'—'} – ${rec.timeOut||'—'})">
+                    <span style="font-size:11px;font-weight:700;color:${cl};display:inline-block;padding:1px 4px;border-radius:4px;background:${cl}18">${ic[rec.status]||'?'}</span>
+                  </td>`;
+                }).join('');
+                return `<tr>
+                  <td style="position:sticky;left:0;background:var(--card);z-index:2">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)};width:26px;height:26px;font-size:10px">${Utils.avatarInitials(emp.fullName)}</div>
+                      <div><div style="font-size:12px;font-weight:600;white-space:nowrap">${emp.fullName}</div><div style="font-size:10px;color:var(--text-muted)">${emp.empNo}</div></div>
+                    </div>
+                  </td>
+                  ${cells}
+                  <td style="text-align:center;color:var(--success);font-weight:700">${p}</td>
+                  <td style="text-align:center;color:var(--warning);font-weight:700">${l}</td>
+                  <td style="text-align:center;color:var(--danger);font-weight:700">${a}</td>
+                  <td style="text-align:center;color:var(--accent);font-weight:700">${hd}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:14px;font-size:11.5px;color:var(--text-muted);flex-wrap:wrap">
+          <span><strong style="color:var(--success)">P</strong> = Present</span>
+          <span><strong style="color:var(--warning)">L</strong> = Late</span>
+          <span><strong style="color:var(--danger)">A</strong> = Absent</span>
+          <span><strong style="color:var(--accent)">H</strong> = Half Day</span>
+          <span><strong>W</strong> = Weekend</span>
+          <span><strong>H</strong> = Holiday</span>
+        </div>`;
+    } else {
+      // 4. Daily / Weekly Detailed Table View
+      const allDates = period === 'weekly' ? dateList : [this.myEmpAttDate];
+      tableHTML = allDates.map(dStr => {
+        const dt = new Date(dStr);
+        const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+        const isHoliday = holidays.some(h => h.date === dStr);
+        const dayLabel = dt.toLocaleDateString('en-PK', { weekday:'long', month:'short', day:'numeric' });
+        const dayAtt = allAtt.filter(a => scopedIds.includes(a.employeeId) && a.date === dStr);
+
+        const rows = displayEmps.map(emp => {
+          const rec = dayAtt.find(a => a.employeeId === emp.id);
+          const recStatus = rec?.status;
+          if (statusFilter !== 'all' && recStatus !== statusFilter && !(statusFilter === 'not_marked' && !rec)) return '';
+          const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
+          const ot = rec?.overtime || 0;
+          const statusCol = statusColors[recStatus] || 'var(--text-muted)';
+          return `
+            <tr class="myemp-att-row">
+              <td><div style="display:flex;align-items:center;gap:10px">
+                <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+                <div><div style="font-weight:600;font-size:13px">${emp.fullName}</div><div style="font-size:11px;color:var(--text-3)">${emp.empNo} · ${Utils.getDeptName(emp.departmentId)}</div></div>
+              </div></td>
+              <td style="color:var(--success);font-weight:600">${rec?.timeIn || '—'}</td>
+              <td style="color:#d97706;font-weight:600">${rec?.breakOut || '—'}</td>
+              <td style="color:#2563eb;font-weight:600">${rec?.breakIn || '—'}</td>
+              <td style="color:var(--danger);font-weight:600">${rec?.timeOut || '—'}</td>
+              <td style="font-weight:600">${hours}</td>
+              <td>${ot ? `<span class="badge badge-primary">${ot}h</span>` : '—'}</td>
+              <td style="font-size:12px">${rec?.device || '—'}</td>
+              <td>${rec ? `<span class="badge" style="background:${statusCol}20;color:${statusCol};border:1px solid ${statusCol}50;font-size:11px">${statusLabels[recStatus]||recStatus}</span>` : '<span class="badge badge-secondary" style="font-size:11px">Not Marked</span>'}</td>
+            </tr>`;
+        }).join('');
+
+        const totalRecs = dayAtt.filter(a => displayEmps.some(e => e.id === a.employeeId)).length;
+        const headerBg = isWeekend || isHoliday ? 'rgba(255,255,255,0.03)' : 'rgba(99,102,241,0.06)';
+
+        return `
+          <div style="margin-bottom:${period==='weekly'?'16px':'0'}">
+            ${period === 'weekly' ? `
+              <div style="background:${headerBg};border:1px solid var(--border);border-radius:8px 8px 0 0;padding:8px 14px;display:flex;align-items:center;justify-content:space-between">
+                <div style="font-weight:700;font-size:13px;color:${isWeekend||isHoliday?'var(--text-muted)':'var(--text)'}">
+                  <i class="fa ${isHoliday ? 'fa-star' : isWeekend ? 'fa-coffee' : 'fa-calendar-day'}" style="margin-right:6px;color:${isWeekend||isHoliday?'var(--text-muted)':'var(--primary)'}"></i>
+                  ${dayLabel} ${isHoliday ? '<span class="badge badge-warning" style="font-size:10px">Holiday</span>' : isWeekend ? '<span class="badge badge-secondary" style="font-size:10px">Weekend</span>' : ''}
+                </div>
+                <div style="font-size:12px;color:var(--text-3)">${totalRecs} / ${displayEmps.length} marked</div>
+              </div>
+              <div class="table-wrapper" style="border-radius:0 0 8px 8px;border-top:none">
+            ` : '<div class="table-wrapper">'}
+              <table>
+                <thead><tr>
+                  <th>Employee</th><th>Check In</th><th>Break Out</th><th>Break In</th><th>Check Out</th><th>Working Hrs</th><th>Overtime</th><th>Device</th><th>Status</th>
+                </tr></thead>
+                <tbody>${rows || '<tr><td colspan="9"><div class="empty-state" style="padding:20px"><i class="fa fa-circle-check"></i><p style="margin:4px 0;font-size:12px">Weekend / Holiday — No Records</p></div></td></tr>'}</tbody>
+              </table>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(16,185,129,0.06));border:1px solid rgba(99,102,241,0.22);border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:20px">
+              <i class="fa fa-users-line"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">My Employees Attendance</div>
+              <div style="font-size:12px;color:var(--text-3)">${emps.length} team member${emps.length!==1?'s':''} · View-only — Contact HR to edit records</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 10px;font-size:11.5px;font-weight:600">
+              <i class="fa fa-lock" style="margin-right:4px"></i>Read Only — Editing restricted to HR / Admin
+            </span>
+          </div>
+        </div>
+
+        <!-- Four-in-One Quick Pill Switcher (Daily | Monthly | Employee Wise | Department Wise | Weekly | Custom) -->
+        <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border);flex-wrap:wrap">
+            <button class="myemp-pill-btn ${period==='daily'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('daily')">
+              <i class="fa fa-calendar-day"></i> Daily
+            </button>
+            <button class="myemp-pill-btn ${period==='monthly'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('monthly')">
+              <i class="fa fa-calendar-days"></i> Monthly
+            </button>
+            <button class="myemp-pill-btn ${period==='employee_wise'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('employee_wise')">
+              <i class="fa fa-user-group"></i> Employee Wise
+            </button>
+            <button class="myemp-pill-btn ${period==='dept_wise'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('dept_wise')">
+              <i class="fa fa-building-user"></i> Department Wise
+            </button>
+            <button class="myemp-pill-btn ${period==='weekly'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('weekly')">
+              <i class="fa fa-calendar-week"></i> Weekly
+            </button>
+            <button class="myemp-pill-btn ${period==='custom'?'active':''}" onclick="Attendance.changeMyEmpAttPeriod('custom')">
+              <i class="fa fa-filter"></i> Custom Range
+            </button>
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">
+            <span class="badge badge-primary" style="font-size:11px"><i class="fa fa-shield-halved"></i> Scoped to Your Department</span>
+          </div>
+        </div>
+
+        <style>
+          .myemp-pill-btn { padding:6px 14px;border:none;background:transparent;color:var(--text-3);font-size:12.5px;font-weight:600;border-radius:7px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;gap:6px; }
+          .myemp-pill-btn.active { background:var(--primary);color:white;box-shadow:0 2px 6px rgba(99,102,241,0.3); }
+          .myemp-pill-btn:hover:not(.active) { background:var(--surface-2);color:var(--text); }
+        </style>
+
+        <!-- KPI Strip -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px">
+          ${[
+            { label:'Present',  val:kpiPresent, color:'#10b981', icon:'fa-circle-check' },
+            { label:'Late',     val:kpiLate,    color:'#f59e0b', icon:'fa-clock' },
+            { label:'Half Day', val:kpiHalf,    color:'#8b5cf6', icon:'fa-circle-half-stroke' },
+            { label:'Absent',   val:kpiAbsent,  color:'#ef4444', icon:'fa-circle-xmark' },
+            { label:'Overtime', val:kpiOT,      color:'#6366f1', icon:'fa-business-time' },
+          ].map(s => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;border-left:3px solid ${s.color}">
+              <i class="fa ${s.icon}" style="color:${s.color};font-size:18px"></i>
+              <div>
+                <div style="font-size:22px;font-weight:800;color:${s.color}">${s.val}</div>
+                <div style="font-size:11px;color:var(--text-3)">${s.label}</div>
+              </div>
+            </div>`).join('')}
+        </div>
+
+        <!-- Controls Row -->
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <!-- Left: Period dropdown + context date controls -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="position:relative">
+              <select class="filter-select" style="height:34px;min-width:180px;padding-left:30px;font-weight:600" onchange="Attendance.changeMyEmpAttPeriod(this.value)">
+                <option value="daily"         ${period==='daily'        ?'selected':''}>📅 Daily Attendance</option>
+                <option value="monthly"       ${period==='monthly'      ?'selected':''}>🗓️ Monthly Matrix</option>
+                <option value="employee_wise" ${period==='employee_wise'?'selected':''}>👤 Employee Wise Summary</option>
+                <option value="dept_wise"     ${period==='dept_wise'    ?'selected':''}>🏢 Department Wise Overview</option>
+                <option value="weekly"        ${period==='weekly'       ?'selected':''}>📆 Weekly View</option>
+                <option value="custom"        ${period==='custom'       ?'selected':''}>🔍 Custom Range</option>
+              </select>
+              <i class="fa fa-calendar-alt" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--primary);font-size:12px;pointer-events:none"></i>
+            </div>
+            ${periodControls}
+          </div>
+          <!-- Right: Employee filter + status filter + export -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <select class="filter-select" style="height:34px;min-width:160px" onchange="Attendance.setMyEmpAttEmpFilter(this.value)">
+              <option value="all" ${empFilter==='all'?'selected':''}>All Employees (${emps.length})</option>
+              ${emps.map(e => `<option value="${e.id}" ${empFilter==e.id?'selected':''}>${e.fullName}</option>`).join('')}
+            </select>
+            <select class="filter-select" style="height:34px;min-width:120px" onchange="Attendance.setMyEmpAttStatusFilter(this.value)">
+              <option value="all"       ${statusFilter==='all'      ?'selected':''}>All Status</option>
+              <option value="present"   ${statusFilter==='present'  ?'selected':''}>Present</option>
+              <option value="late"      ${statusFilter==='late'     ?'selected':''}>Late</option>
+              <option value="half_day"  ${statusFilter==='half_day' ?'selected':''}>Half Day</option>
+              <option value="absent"    ${statusFilter==='absent'   ?'selected':''}>Absent</option>
+              <option value="not_marked" ${statusFilter==='not_marked'?'selected':''}>Not Marked</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" style="height:34px" onclick="Attendance.exportMyEmpAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Attendance Table / Card View -->
+        <div class="card" style="padding:0;overflow:hidden">
+          ${tableHTML}
+        </div>
+      </div>
+    `;
+  },
+
+  exportMyEmpAttendance() {
+    const emps = this.getScopedEmployees();
+    const empFilter = this.myEmpAttEmpFilter || 'all';
+    const displayEmps = empFilter === 'all' ? emps : emps.filter(e => e.id === parseInt(empFilter));
+    const scopedIds = displayEmps.map(e => e.id);
+    const allAtt = DB.get('attendance') || [];
+    let records = allAtt.filter(a => scopedIds.includes(a.employeeId));
+
+    if (this.myEmpAttPeriod === 'daily' || this.myEmpAttPeriod === 'dept_wise') {
+      records = records.filter(a => a.date === (this.myEmpAttDate || Utils.today()));
+    } else if (this.myEmpAttPeriod === 'weekly') {
+      const weekDates = this.getMyEmpAttWeekDates();
+      records = records.filter(a => weekDates.includes(a.date));
+    } else if (this.myEmpAttPeriod === 'monthly' || this.myEmpAttPeriod === 'employee_wise') {
+      const month = this.myEmpAttMonth || Utils.thisMonth();
+      records = records.filter(a => a.date.startsWith(month));
+    } else if (this.myEmpAttPeriod === 'custom' && this.myEmpAttFrom && this.myEmpAttTo) {
+      records = records.filter(a => a.date >= this.myEmpAttFrom && a.date <= this.myEmpAttTo);
+    }
+
+    if (this.myEmpAttStatusFilter && this.myEmpAttStatusFilter !== 'all') {
+      records = records.filter(a => a.status === this.myEmpAttStatusFilter);
+    }
+
+    if (records.length === 0) {
+      Toast.show('No team attendance records found to export for this period', 'warning');
+      return;
+    }
+
+    const headers = ['Date', 'Employee #', 'Employee Name', 'Department', 'Check In', 'Break Out', 'Break In', 'Check Out', 'Working Hours', 'Overtime (hrs)', 'Status', 'Device', 'Remarks'];
+    const rows = records.map(a => {
+      const emp = emps.find(e => e.id === a.employeeId);
+      const hours = a.timeIn && a.timeOut ? this.calcHours(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : '';
+      const ot = a.overtime || (a.timeIn && a.timeOut ? this.calcOvertime(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : 0);
+      return [
+        a.date,
+        emp?.empNo || a.employeeId,
+        `"${(emp?.fullName || '').replace(/"/g, '""')}"`,
+        `"${Utils.getDeptName(emp?.departmentId).replace(/"/g, '""')}"`,
+        a.timeIn || '',
+        a.breakOut || '',
+        a.breakIn || '',
+        a.timeOut || '',
+        `"${hours}"`,
+        ot,
+        a.status,
+        `"${(a.device || '').replace(/"/g, '""')}"`,
+        `"${(a.remarks || '').replace(/"/g, '""')}"`
+      ];
+    });
+
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const filename = `team_attendance_${this.myEmpAttPeriod}_${Utils.today()}.csv`;
+    Utils.downloadCSV(csv, filename);
+    Toast.show(`Exported ${records.length} team records to ${filename}`, 'success');
   },
 
   // ============================================================
@@ -940,22 +1605,39 @@ const Attendance = {
 
   renderDaily(container) {
     const emps = this.getScopedEmployees();
-    const scopedIds = emps.map(e => e.id);
+    const depts = DB.get('departments') || [];
+    const isAdminOrHr = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    let filteredEmps = emps;
+    if (isAdminOrHr && this.adminDailyDeptFilter && this.adminDailyDeptFilter !== 'all') {
+      filteredEmps = emps.filter(e => e.departmentId === parseInt(this.adminDailyDeptFilter));
+    }
+    const scopedIds = filteredEmps.map(e => e.id);
     const att = DB.get('attendance').filter(a => a.date === this.currentDate && scopedIds.includes(a.employeeId));
 
     container.innerHTML = `
       <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
-          <button class="btn btn-ghost btn-sm" onclick="Attendance.prevDay()"><i class="fa fa-chevron-left"></i></button>
-          <input type="date" class="form-control" style="width:160px" value="${this.currentDate}" onchange="Attendance.currentDate=this.value;Attendance.renderView()">
-          <button class="btn btn-ghost btn-sm" onclick="Attendance.nextDay()"><i class="fa fa-chevron-right"></i></button>
-          <span style="font-size:13px;color:var(--text-3)">${Utils.formatDate(this.currentDate)}</span>
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.prevDay()"><i class="fa fa-chevron-left"></i></button>
+            <input type="date" class="form-control" style="width:160px" value="${this.currentDate}" onchange="Attendance.currentDate=this.value;Attendance.renderView()">
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.nextDay()"><i class="fa fa-chevron-right"></i></button>
+            <span style="font-size:13px;color:var(--text-3);font-weight:600">${Utils.formatDate(this.currentDate)}</span>
+          </div>
+          ${isAdminOrHr ? `
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:var(--text-3);font-weight:600">Department:</span>
+              <select class="filter-select" style="min-width:180px;height:34px" onchange="Attendance.adminDailyDeptFilter=this.value;Attendance.renderView()">
+                <option value="all" ${(!this.adminDailyDeptFilter||this.adminDailyDeptFilter==='all')?'selected':''}>🏢 All Departments (${depts.length})</option>
+                ${depts.map(d => `<option value="${d.id}" ${this.adminDailyDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
-            <thead><tr><th>Employee</th><th>Check In (Time In)</th><th>Break Out</th><th>Break In</th><th>Check Out (Time Out)</th><th>Working Hours</th><th>Overtime</th><th>Device</th><th>Status</th><th>Action</th></tr></thead>
+            <thead><tr><th>Employee</th><th>Department</th><th>Check In (Time In)</th><th>Break Out</th><th>Break In</th><th>Check Out (Time Out)</th><th>Working Hours</th><th>Overtime</th><th>Device</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>
-              ${emps.map(emp => {
+              ${filteredEmps.map(emp => {
                 const rec = att.find(a => a.employeeId === emp.id);
                 const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
                 const ot = rec?.overtime || (rec?.timeIn && rec?.timeOut ? this.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : 0);
@@ -965,6 +1647,7 @@ const Attendance = {
                       <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
                       <div><div style="font-weight:600;font-size:13px">${emp.fullName}</div><div style="font-size:11px;color:var(--text-3)">${emp.empNo}</div></div>
                     </div></td>
+                    <td><span class="badge badge-secondary">${Utils.getDeptName(emp.departmentId)}</span></td>
                     <td style="color:var(--success);font-weight:600">${rec?.timeIn || '—'}</td>
                     <td style="color:#d97706;font-weight:600">${rec?.breakOut || '—'}</td>
                     <td style="color:#2563eb;font-weight:600">${rec?.breakIn || '—'}</td>
@@ -988,7 +1671,13 @@ const Attendance = {
     const [year, month] = this.currentMonth.split('-').map(Number);
     const daysInMonth = new Date(year, month, 0).getDate();
     const emps = this.getScopedEmployees();
-    const scopedIds = emps.map(e => e.id);
+    const depts = DB.get('departments') || [];
+    const isAdminOrHr = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    let filteredEmps = emps;
+    if (isAdminOrHr && this.adminMonthlyDeptFilter && this.adminMonthlyDeptFilter !== 'all') {
+      filteredEmps = emps.filter(e => e.departmentId === parseInt(this.adminMonthlyDeptFilter));
+    }
+    const scopedIds = filteredEmps.map(e => e.id);
     const att = DB.get('attendance').filter(a => a.date.startsWith(this.currentMonth) && scopedIds.includes(a.employeeId));
 
     const days = [];
@@ -1006,9 +1695,15 @@ const Attendance = {
             ${['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'].map(m => `<option value="${m}" ${m===this.currentMonth?'selected':''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
           </select>
           <button class="btn btn-ghost btn-sm" onclick="Attendance.nextMonth()"><i class="fa fa-chevron-right"></i></button>
+          ${isAdminOrHr ? `
+            <select class="filter-select" style="min-width:180px;height:34px" onchange="Attendance.adminMonthlyDeptFilter=this.value;Attendance.renderView()">
+              <option value="all" ${(!this.adminMonthlyDeptFilter||this.adminMonthlyDeptFilter==='all')?'selected':''}>🏢 All Departments (${depts.length})</option>
+              ${depts.map(d => `<option value="${d.id}" ${this.adminMonthlyDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+            </select>
+          ` : ''}
         </div>
         <div style="font-size:12px;color:var(--text-3);display:flex;gap:12px;align-items:center">
-          <span><strong style="color:var(--text)">${emps.length}</strong> Employees</span>
+          <span><strong style="color:var(--text)">${filteredEmps.length}</strong> Employees</span>
           <span><strong style="color:var(--text)">${daysInMonth}</strong> Days</span>
           <span>Click any cell to edit record</span>
         </div>
@@ -1017,7 +1712,7 @@ const Attendance = {
         <table style="min-width:${180 + days.length * 36 + 180}px;border-collapse:separate;border-spacing:0">
           <thead style="position:sticky;top:0;z-index:10;background:var(--surface)">
             <tr>
-              <th style="min-width:180px;position:sticky;left:0;z-index:11;background:var(--surface)">Employee</th>
+              <th style="min-width:200px;position:sticky;left:0;z-index:11;background:var(--surface)">Employee</th>
               ${days.map(d => `
                 <th style="text-align:center;min-width:34px;padding:6px 2px;font-size:11px;${d.isWeekend ? 'background:rgba(255,255,255,0.02);color:var(--text-muted)' : ''}">
                   <div>${d.day}</div>
@@ -1031,7 +1726,7 @@ const Attendance = {
             </tr>
           </thead>
           <tbody>
-            ${emps.map(emp => {
+            ${filteredEmps.map(emp => {
               let p=0, a=0, l=0, hd=0;
               return `<tr>
                 <td style="position:sticky;left:0;background:var(--card);z-index:2">
@@ -1039,7 +1734,7 @@ const Attendance = {
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)};width:26px;height:26px;font-size:10px">${Utils.avatarInitials(emp.fullName)}</div>
                     <div>
                       <div style="font-size:12px;font-weight:600;white-space:nowrap">${emp.fullName}</div>
-                      <div style="font-size:10px;color:var(--text-muted)">${emp.empNo}</div>
+                      <div style="font-size:10px;color:var(--text-muted)">${emp.empNo} · ${Utils.getDeptName(emp.departmentId)}</div>
                     </div>
                   </div>
                 </td>
@@ -1087,16 +1782,42 @@ const Attendance = {
 
   renderEmployeeWise(container) {
     const emps = this.getScopedEmployees();
-    const scopedIds = emps.map(e => e.id);
+    const depts = DB.get('departments') || [];
+    const isAdminOrHr = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const selMonth = this.currentMonth || Utils.thisMonth();
+
+    let filteredEmps = emps;
+    if (isAdminOrHr && this.adminEmpWiseDeptFilter && this.adminEmpWiseDeptFilter !== 'all') {
+      filteredEmps = emps.filter(e => e.departmentId === parseInt(this.adminEmpWiseDeptFilter));
+    }
+    const scopedIds = filteredEmps.map(e => e.id);
     const att = DB.get('attendance').filter(a => scopedIds.includes(a.employeeId));
+
     container.innerHTML = `
       <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:12.5px;font-weight:600;color:var(--text-3)">Month:</span>
+            <select class="filter-select" onchange="Attendance.currentMonth=this.value;Attendance.renderView()" style="width:190px">
+              ${['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'].map(m => `<option value="${m}" ${m===selMonth?'selected':''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
+            </select>
+          </div>
+          ${isAdminOrHr ? `
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:12px;color:var(--text-3);font-weight:600">Department:</span>
+              <select class="filter-select" style="min-width:180px;height:34px" onchange="Attendance.adminEmpWiseDeptFilter=this.value;Attendance.renderView()">
+                <option value="all" ${(!this.adminEmpWiseDeptFilter||this.adminEmpWiseDeptFilter==='all')?'selected':''}>🏢 All Departments (${depts.length})</option>
+                ${depts.map(d => `<option value="${d.id}" ${this.adminEmpWiseDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+              </select>
+            </div>
+          ` : ''}
+        </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
-            <thead><tr><th>Employee</th><th>Total Days</th><th>Present</th><th>Absent</th><th>Late</th><th>Half Day</th><th>Overtime Hrs</th><th>Attendance %</th></tr></thead>
+            <thead><tr><th>Employee</th><th>Department</th><th>Total Days</th><th>Present</th><th>Absent</th><th>Late</th><th>Half Day</th><th>Overtime Hrs</th><th>Attendance %</th></tr></thead>
             <tbody>
-              ${emps.map(emp => {
-                const empAtt = att.filter(a => a.employeeId === emp.id && a.date.startsWith('2026-08'));
+              ${filteredEmps.map(emp => {
+                const empAtt = att.filter(a => a.employeeId === emp.id && a.date.startsWith(selMonth));
                 const p  = empAtt.filter(a => a.status === 'present').length;
                 const ab = empAtt.filter(a => a.status === 'absent').length;
                 const l  = empAtt.filter(a => a.status === 'late').length;
@@ -1104,18 +1825,20 @@ const Attendance = {
                 const ot = empAtt.reduce((s,a) => s + (a.overtime||0), 0);
                 const total = empAtt.length || 1;
                 const pct = Math.round(((p+l)/total)*100);
+                const color = pct>=90?'var(--success)':pct>=75?'var(--warning)':'var(--danger)';
                 return `<tr>
                   <td><div style="display:flex;align-items:center;gap:10px">
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
                     <div><div style="font-weight:600;font-size:13px">${emp.fullName}</div><div style="font-size:11px;color:var(--text-3)">${emp.empNo}</div></div>
                   </div></td>
+                  <td><span class="badge badge-secondary">${Utils.getDeptName(emp.departmentId)}</span></td>
                   <td>${total}</td>
                   <td style="color:var(--success);font-weight:600">${p}</td>
                   <td style="color:var(--danger);font-weight:600">${ab}</td>
                   <td style="color:var(--warning);font-weight:600">${l}</td>
                   <td style="color:var(--accent);font-weight:600">${hd}</td>
                   <td>${ot}h</td>
-                  <td><div style="display:flex;align-items:center;gap:8px"><div class="progress" style="flex:1"><div class="progress-bar" style="width:${pct}%;background:${pct>=90?'var(--success)':pct>=75?'var(--warning)':'var(--danger)'}"></div></div><span style="font-size:12px;font-weight:600;color:${pct>=90?'var(--success)':pct>=75?'var(--warning)':'var(--danger)'}">${pct}%</span></div></td>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="progress" style="flex:1"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div><span style="font-size:12px;font-weight:600;color:${color}">${pct}%</span></div></td>
                 </tr>`;
               }).join('')}
             </tbody>
@@ -1341,6 +2064,10 @@ const Attendance = {
       this.showApplyCorrectionModal(date);
       return;
     }
+    if (Auth.role === 'dept_manager') {
+      Toast.show('Deputy Managers are not permitted to edit attendance records. Please submit a correction request or contact HR.', 'warning');
+      return;
+    }
     const emp = DB.find('employees', empId);
     if (!emp) return;
     const rec = DB.get('attendance').find(a => a.employeeId === empId && a.date === date);
@@ -1476,6 +2203,10 @@ const Attendance = {
   deleteRecord(recId) {
     if (Auth.role === 'employee' || Auth.role === 'onboarding') {
       Toast.show('403 Forbidden: Access Denied.', 'error');
+      return;
+    }
+    if (Auth.role === 'dept_manager') {
+      Toast.show('403 Forbidden: Deputy Managers cannot delete attendance records. Contact HR / Admin.', 'error');
       return;
     }
     Modal.confirm('Delete Attendance Record', 'Are you sure you want to delete this attendance record?<br><br><small style="color:var(--text-3)"><i class="fa fa-info-circle"></i> The employee will be notified and unblocked to submit an attendance correction for this date if needed.</small>', () => {
@@ -1737,6 +2468,10 @@ const Attendance = {
   },
 
   exportAttendance() {
+    if (this.currentView === 'my_employees') {
+      this.exportMyEmpAttendance();
+      return;
+    }
     const emps = this.getScopedEmployees();
     const scopedIds = emps.map(e => e.id);
     let att = DB.get('attendance');
