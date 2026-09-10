@@ -205,11 +205,13 @@ const Dashboard = {
     const pendingReviews = scopedReviews.filter(r => r.status === 'pending').length;
     const doneReviews    = scopedReviews.filter(r => r.status === 'completed').length;
 
-    // Birthdays, Holidays, Announcements, Anniversaries for Headlines Ticker
+    // Birthdays, Holidays, Announcements, Anniversaries for Headlines Ticker & Dashboard Cards
+    // (Company-wide celebrations so all logins: Admin, Manager, Employee see colleague birthdays)
+    const allActiveEmps = emps.filter(e => e.status === 'active');
     const todayMMDD = today.slice(5);
-    const todayBdays = scopedEmps.filter(e => e.dob?.slice(5) === todayMMDD && e.status === 'active');
-    const upcomingBdays = scopedEmps.filter(e => {
-      if (!e.dob || e.status !== 'active') return false;
+    const todayBdays = allActiveEmps.filter(e => e.dob?.slice(5) === todayMMDD);
+    const upcomingBdays = allActiveEmps.filter(e => {
+      if (!e.dob) return false;
       const bYear = new Date().getFullYear();
       let bd = new Date(bYear + '-' + e.dob.slice(5));
       const now = new Date();
@@ -219,7 +221,15 @@ const Dashboard = {
         diff = (bd - now) / 86400000;
       }
       return diff > 0 && diff <= 30;
-    }).sort((a,b) => a.dob.slice(5).localeCompare(b.dob.slice(5)));
+    }).sort((a,b) => {
+      const bYear = new Date().getFullYear();
+      let bdA = new Date(bYear + '-' + a.dob.slice(5));
+      let bdB = new Date(bYear + '-' + b.dob.slice(5));
+      const now = new Date();
+      if ((bdA - now) < 0) bdA = new Date((bYear + 1) + '-' + a.dob.slice(5));
+      if ((bdB - now) < 0) bdB = new Date((bYear + 1) + '-' + b.dob.slice(5));
+      return bdA - bdB;
+    });
 
     const upcomingHols = holidays.filter(h => h.date >= today).sort((a,b) => a.date.localeCompare(b.date)).slice(0, 4);
     const announcements = DB.get('announcements') || [];
@@ -330,7 +340,7 @@ const Dashboard = {
 
     // Check scope: if SELF, render dedicated Employee Self-Service Dashboard
     if (Auth.getScope('dashboard') === 'SELF') {
-      this.renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today);
+      this.renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today, todayBdays);
       return;
     }
 
@@ -589,30 +599,44 @@ const Dashboard = {
               <div class="card-title"><i class="fa fa-birthday-cake" style="color:#ec4899;margin-right:8px"></i>Birthdays</div>
             </div>
             ${todayBdays.length ? `
-              <div class="mb-12" style="padding:12px;background:var(--danger-light);border-radius:8px;border:1px solid hsla(340,84%,62%,.2)">
-                <div style="font-size:11px;font-weight:600;color:#ec4899;margin-bottom:6px">🎂 TODAY'S BIRTHDAYS</div>
+              <div class="mb-12" style="padding:12px;background:var(--danger-light);border-radius:8px;border:1px solid hsla(340,84%,62%,.2);margin-bottom:12px">
+                <div style="font-size:11px;font-weight:700;color:#ec4899;margin-bottom:8px;letter-spacing:0.5px">🎂 TODAY'S BIRTHDAYS</div>
                 ${todayBdays.map(e => `
-                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
-                    <div>
-                      <div style="font-size:13px;font-weight:600">${e.fullName}</div>
-                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)}</div>
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:700;color:var(--text)">${e.fullName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
                     </div>
+                    <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899;font-weight:700;border:1px solid rgba(236,72,153,0.3);border-radius:6px;padding:3px 8px">
+                      <i class="fa fa-gift"></i> Wish
+                    </button>
                   </div>
                 `).join('')}
               </div>
             ` : ''}
-            <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px">Upcoming (30 days)</div>
-            ${upcomingBdays.length === 0 ? '<div class="text-muted text-sm">No upcoming birthdays</div>' : upcomingBdays.slice(0,4).map(e => `
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-                <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
-                <div style="flex:1">
-                  <div style="font-size:13px;font-weight:500">${e.fullName}</div>
-                  <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)}</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px">Upcoming (30 days)</div>
+            ${upcomingBdays.length === 0 ? '<div class="text-muted text-sm" style="padding:10px 0">No upcoming birthdays in next 30 days</div>' : upcomingBdays.slice(0,5).map(e => {
+              const bYear = new Date().getFullYear();
+              let bDate = new Date(bYear + '-' + e.dob.slice(5));
+              if ((bDate - new Date()) < 0) bDate = new Date((bYear + 1) + '-' + e.dob.slice(5));
+              const dateStr = bDate.toLocaleDateString('en-PK', { month:'short', day:'numeric' });
+              return `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                  <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+                  <div style="flex:1">
+                    <div style="font-size:13px;font-weight:600;color:var(--text)">${e.fullName}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:12px;color:var(--primary);font-weight:700">${dateStr}</span>
+                    <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899" title="Send birthday wish">
+                      <i class="fa fa-gift"></i> Wish
+                    </button>
+                  </div>
                 </div>
-                <div style="font-size:12px;color:var(--primary);font-weight:600">${new Date(new Date().getFullYear()+'-'+e.dob.slice(5)).toLocaleDateString('en-PK',{month:'short',day:'2-digit'})}</div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
           </div>
 
           <div class="card">
@@ -1305,7 +1329,7 @@ const Dashboard = {
     });
   },
 
-  renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today) {
+  renderEmployeeDashboard(content, headlines, upcomingHols, upcomingBdays, today, todayBdays = []) {
     const myId = Auth.employee?.id;
     const myEmp = Auth.employee || (myId ? DB.find('employees', myId) : null);
     const allAtt = DB.get('attendance') || [];
@@ -1616,23 +1640,59 @@ const Dashboard = {
 
         <!-- Bottom Grid: Celebrations & Holidays -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-          <!-- Upcoming Birthdays -->
+          <!-- Upcoming & Today's Colleague Birthdays -->
           <div class="card">
             <div class="card-header">
               <div class="card-title"><i class="fa fa-birthday-cake" style="color:#ec4899;margin-right:8px"></i>Colleague Birthdays</div>
             </div>
-            ${upcomingBdays.length === 0 ? '<div class="text-muted text-sm">No upcoming birthdays</div>' : upcomingBdays.slice(0,3).map(e => `
-              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-                <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
-                <div style="flex:1">
-                  <div style="font-size:13px;font-weight:600">${e.fullName}</div>
-                  <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
-                </div>
-                <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899">
-                  <i class="fa fa-gift"></i> Wish
-                </button>
+            ${todayBdays.length ? `
+              <div class="mb-12" style="padding:12px;background:var(--danger-light);border-radius:8px;border:1px solid hsla(340,84%,62%,.2);margin-bottom:12px">
+                <div style="font-size:11px;font-weight:700;color:#ec4899;margin-bottom:8px;letter-spacing:0.5px">🎂 TODAY'S BIRTHDAYS</div>
+                ${todayBdays.map(e => `
+                  <div style="display:flex;align-items:center;gap:10px;padding:6px 0;${todayBdays.length > 1 ? 'border-bottom:1px dashed hsla(340,84%,62%,.2);' : ''}">
+                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+                    <div style="flex:1">
+                      <div style="font-size:13px;font-weight:700;color:var(--text)">${e.fullName} ${e.id === myId ? '<span class="badge badge-success" style="font-size:9.5px;padding:1px 5px">You</span>' : ''}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
+                    </div>
+                    ${e.id !== myId ? `
+                      <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899;font-weight:700;border:1px solid rgba(236,72,153,0.3);border-radius:6px;padding:3px 8px">
+                        <i class="fa fa-gift"></i> Wish
+                      </button>
+                    ` : `
+                      <span class="badge badge-warning" style="font-size:10px">🎉 Happy Birthday!</span>
+                    `}
+                  </div>
+                `).join('')}
               </div>
-            `).join('')}
+            ` : ''}
+            
+            <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.8px">
+              Upcoming (30 days)
+            </div>
+            ${upcomingBdays.length === 0 ? '<div class="text-muted text-sm" style="padding:10px 0">No upcoming birthdays in next 30 days</div>' : upcomingBdays.slice(0, 5).map(e => {
+              const bYear = new Date().getFullYear();
+              let bDate = new Date(bYear + '-' + e.dob.slice(5));
+              if ((bDate - new Date()) < 0) bDate = new Date((bYear + 1) + '-' + e.dob.slice(5));
+              const dateStr = bDate.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' });
+              return `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+                  <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
+                  <div style="flex:1">
+                    <div style="font-size:13px;font-weight:600;color:var(--text)">${e.fullName} ${e.id === myId ? '<span class="badge badge-primary" style="font-size:9.5px;padding:1px 5px">You</span>' : ''}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${Utils.getDeptName(e.departmentId)}</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:12px;color:var(--primary);font-weight:700">${dateStr}</span>
+                    ${e.id !== myId ? `
+                      <button class="btn btn-ghost btn-xs" onclick="Dashboard.showBirthdayWishModal(${e.id})" style="color:#ec4899" title="Send birthday wish">
+                        <i class="fa fa-gift"></i> Wish
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join('')}
           </div>
 
           <!-- Upcoming Holidays -->
