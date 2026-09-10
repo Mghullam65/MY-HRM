@@ -420,8 +420,20 @@
       - Dispatches a real-time notification to the employee via `LiveNotifications.dispatch()` notifying them that their attendance record for the date was deleted and they can now submit a new attendance correction request.
     - Added automatic self-healing unblocking in both `checkCorrectionDateConflict()` and `saveCorrection()` (in both Attendance module and Employee Profile self-service):
       - If an approved correction exists in the database for a date but no record exists in the actual `attendance` table (due to prior HR deletion), the obsolete correction is automatically reset so the employee is not blocked and the submit button remains active.
-  - **Automated Regression Suite (`scratch/test-attendance-hr-delete-unblock.js`)**:
-    - **22 / 22 tests passed (100%)** verifying deletion permission gating, database record deletion, correction unblocking, employee live notification dispatch, seamless re-application, and self-healing when attendance records are absent.
+  - **Leaves & Compensatory Overtime Module: Overtime Token Claim Attendance Display & Strict Duration Limit (`js/leaves.js`)**:
+    - Added real-time attendance shift and recorded overtime display directly inside the **Apply Overtime Token Claim** modal (`Leaves.getAttendanceOvertimeForDate` and `Leaves.onClaimDateOrEmpChange`).
+    - The modal dynamically renders:
+      - Attendance shift punch timings: Check In, Check Out, Break times, and Net Work Duration.
+      - **Overtime Clocked**: Exact extra minutes and hours worked beyond the 8.0-hour shift (e.g. `50 mins (0.83 hrs)`).
+      - Already Claimed minutes on that date and remaining claimable minutes.
+      - Quick Fill pill buttons (`[ 45 mins ]`, `[ 1 hour ]`, `[ Max Available (50m) ]`).
+    - Enforced strict duration gating (`Leaves.validateClaimDuration` and `Leaves.submitClaimOvertimeToken`):
+      - Replaced ambiguous single decimal hours field with dedicated **Hours** and **Minutes** controls.
+      - Strictly prevents claiming more time than clocked: an employee with 50 mins clocked can claim 45 or 50 mins, but entering 55 or 60 mins is immediately blocked with a clear validation alert and submit button disabling.
+      - Zero overtime shifts and missing attendance shifts are blocked from claiming tokens.
+    - Updated claims tables and pending approval inbox to format durations with both minutes and hours (e.g. `50m (0.83h) OT`).
+  - **Automated Regression Suite (`scratch/test-overtime-token-claim-validation.js`)**:
+    - **33 / 33 tests passed (100%)** validating attendance overtime lookup, live modal strip rendering, quick pills, 45m/50m acceptance, 55m/60m rejection, zero overtime blocking, and missing attendance date rejection.
 
 ---
 

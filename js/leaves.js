@@ -2313,7 +2313,7 @@ const Leaves = {
                           </div>
                         </td>
                         <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(t.date)}</td>
-                        <td><span class="badge badge-primary" style="font-size:12px;font-weight:700">${t.hours} hrs OT</span></td>
+                        <td><span class="badge badge-primary" style="font-size:12px;font-weight:700">${t.minutes ? `${Math.floor(t.minutes / 60) > 0 ? Math.floor(t.minutes / 60) + 'h ' : ''}${t.minutes % 60}m (${t.hours}h)` : `${t.hours} hrs`} OT</span></td>
                         <td style="max-width:320px;font-size:12.5px;color:var(--text)">
                           <div style="line-height:1.4">${t.taskDescription}</div>
                         </td>
@@ -2382,7 +2382,7 @@ const Leaves = {
                         <div style="font-weight:600;font-size:12.5px">${emp?.fullName || 'Self'}</div>
                         <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo}</div>
                       </td>
-                      <td><span class="badge badge-primary" style="font-weight:700">${t.hours} hrs</span></td>
+                      <td><span class="badge badge-primary" style="font-weight:700">${t.minutes ? `${Math.floor(t.minutes / 60) > 0 ? Math.floor(t.minutes / 60) + 'h ' : ''}${t.minutes % 60}m (${t.hours}h)` : `${t.hours} hrs`}</span></td>
                       <td style="max-width:280px;font-size:12px;color:var(--text-2);line-height:1.4">${t.taskDescription}</td>
                       <td style="font-size:12px;color:var(--text-2)">
                         <strong>${mgr?.fullName || 'Usman Baig'}</strong>
@@ -2459,13 +2459,88 @@ const Leaves = {
     `;
   },
 
+  getAttendanceOvertimeForDate(empId, date) {
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
+    if (!attRec) {
+      return {
+        found: false,
+        timeIn: null,
+        timeOut: null,
+        breaks: [],
+        workingHours: '0h 0m',
+        workingMins: 0,
+        recordedOtMins: 0,
+        recordedOtHours: 0,
+        alreadyClaimedMins: 0,
+        remainingClaimableMins: 0
+      };
+    }
+
+    const timeIn = attRec.timeIn || '';
+    const timeOut = attRec.timeOut || '';
+    const breakOut = attRec.breakOut || '';
+    const breakIn = attRec.breakIn || '';
+    const breaks = (attRec.breaks && attRec.breaks.length) ? attRec.breaks : (breakOut && breakIn ? [{ breakOut, breakIn }] : []);
+
+    let workingMins = 0;
+    if (typeof Attendance !== 'undefined' && Attendance.calcWorkingMinutes && timeIn && timeOut) {
+      workingMins = Attendance.calcWorkingMinutes(timeIn, timeOut, breakOut, breakIn, breaks);
+    } else if (timeIn && timeOut) {
+      const [inH, inM] = timeIn.split(':').map(Number);
+      const [outH, outM] = timeOut.split(':').map(Number);
+      let gross = (outH * 60 + outM) - (inH * 60 + inM);
+      let bMins = 0;
+      breaks.forEach(b => {
+        if (b && b.breakOut && b.breakIn) {
+          const [bOH, bOM] = b.breakOut.split(':').map(Number);
+          const [bIH, bIM] = b.breakIn.split(':').map(Number);
+          const diff = (bIH * 60 + bIM) - (bOH * 60 + bOM);
+          if (diff > 0) bMins += diff;
+        }
+      });
+      workingMins = Math.max(0, gross - bMins);
+    }
+
+    // Standard Shift Requirement: 8.0h (480 mins)
+    let calculatedOtMins = Math.max(0, workingMins - 480);
+    if (attRec.overtime && typeof attRec.overtime === 'number' && attRec.overtime > 0) {
+      const explicitOtMins = Math.round(attRec.overtime * 60);
+      calculatedOtMins = Math.max(calculatedOtMins, explicitOtMins);
+    }
+
+    // Previously claimed tokens on this date
+    const allTokens = DB.get('overtime_tokens') || [];
+    const dateTokens = allTokens.filter(t => t.employeeId === empId && t.date === date && t.status !== 'rejected');
+    const alreadyClaimedMins = dateTokens.reduce((sum, t) => {
+      if (typeof t.minutes === 'number' && t.minutes > 0) return sum + t.minutes;
+      return sum + Math.round((Number(t.hours) || 0) * 60);
+    }, 0);
+
+    const remainingClaimableMins = Math.max(0, calculatedOtMins - alreadyClaimedMins);
+
+    return {
+      found: true,
+      status: attRec.status,
+      timeIn,
+      timeOut,
+      breaks,
+      workingMins,
+      workingHours: `${Math.floor(workingMins / 60)}h ${workingMins % 60}m`,
+      recordedOtMins: calculatedOtMins,
+      recordedOtHours: Math.round((calculatedOtMins / 60) * 100) / 100,
+      alreadyClaimedMins,
+      remainingClaimableMins
+    };
+  },
+
   showClaimOvertimeTokenModal(prefillDate, prefillHours) {
     const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const myEmp = Auth.employee || DB.find('employees', 4) || allEmps[0];
     const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
     const isManagement = !isEmployee;
     const defaultDate = prefillDate || Utils.today();
-    const defaultHours = prefillHours || 1.5;
 
     // Direct Reporting Manager
     const mgrId = myEmp?.managerId || myEmp?.reportingTo || 3;
@@ -2501,15 +2576,42 @@ const Leaves = {
           </div>
         `}
 
-        <div class="form-row form-row-2" style="margin-bottom:0">
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date Overtime Worked</label>
-            <input type="date" class="form-control" id="ot-claim-date" value="${defaultDate}">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date Overtime Worked</label>
+          <input type="date" class="form-control" id="ot-claim-date" value="${defaultDate}" onchange="Leaves.onClaimDateOrEmpChange()">
+        </div>
+
+        <!-- Attendance Overtime Verification Strip -->
+        <div id="ot-claim-att-strip"></div>
+
+        <!-- Overtime Claim Duration Inputs -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:12px 14px">
+          <label class="form-label required" style="margin-bottom:6px">
+            <i class="fa fa-business-time" style="color:var(--primary);margin-right:4px"></i> Token Duration to Claim
+          </label>
+          
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Hours</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="number" class="form-control" id="ot-claim-hours" value="0" min="0" max="12" step="1" oninput="Leaves.validateClaimDuration()" onchange="Leaves.validateClaimDuration()">
+                <span style="font-size:12px;color:var(--text-3);font-weight:600">hrs</span>
+              </div>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:11.5px;color:var(--text-3);margin-bottom:3px">Minutes</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <input type="number" class="form-control" id="ot-claim-mins" value="0" min="0" max="59" step="1" oninput="Leaves.validateClaimDuration()" onchange="Leaves.validateClaimDuration()">
+                <span style="font-size:12px;color:var(--text-3);font-weight:600">mins</span>
+              </div>
+            </div>
           </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label required"><i class="fa fa-business-time" style="color:var(--primary);margin-right:4px"></i> Extra Hours Worked</label>
-            <input type="number" class="form-control" id="ot-claim-hours" value="${defaultHours}" min="0.5" max="12" step="0.5" placeholder="e.g. 1.5, 2.0">
-          </div>
+
+          <!-- Quick Fill Pill Shortcuts -->
+          <div id="ot-claim-quick-pills"></div>
+
+          <!-- Live Validation Feedback Banner -->
+          <div id="ot-claim-val-msg" style="margin-top:8px"></div>
         </div>
 
         <div class="form-group" style="margin-bottom:0">
@@ -2527,9 +2629,13 @@ const Leaves = {
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Leaves.submitClaimOvertimeToken()"><i class="fa fa-paper-plane"></i> Submit Token Claim</button>
+        <button class="btn btn-primary" id="btn-submit-ot-claim" onclick="Leaves.submitClaimOvertimeToken()"><i class="fa fa-paper-plane"></i> Submit Token Claim</button>
       `
     });
+
+    setTimeout(() => {
+      this.onClaimDateOrEmpChange(prefillHours);
+    }, 50);
   },
 
   onClaimEmpChange(empId) {
@@ -2541,28 +2647,242 @@ const Leaves = {
     const hidden = document.getElementById('ot-claim-mgr-id');
     if (disp) disp.value = mgr.fullName;
     if (hidden) hidden.value = mgrId;
+    this.onClaimDateOrEmpChange();
+  },
+
+  onClaimDateOrEmpChange(prefillHours) {
+    const empInput = document.getElementById('ot-claim-emp');
+    const empId = empInput ? parseInt(empInput.value) : (Auth.employee?.id || 4);
+    const dateInput = document.getElementById('ot-claim-date');
+    const date = dateInput ? dateInput.value : Utils.today();
+    const strip = document.getElementById('ot-claim-att-strip');
+    const pillsContainer = document.getElementById('ot-claim-quick-pills');
+    const hoursInput = document.getElementById('ot-claim-hours');
+    const minsInput = document.getElementById('ot-claim-mins');
+    if (!strip) return;
+
+    const otInfo = this.getAttendanceOvertimeForDate(empId, date);
+
+    if (!otInfo.found) {
+      strip.innerHTML = `
+        <div style="background:#fef2f2;border:1px solid #f87171;border-radius:8px;padding:10px 14px;font-size:12px;color:#991b1b">
+          <div style="font-weight:700;display:flex;align-items:center;gap:6px">
+            <i class="fa fa-triangle-exclamation"></i> No Attendance Record Found
+          </div>
+          <div style="margin-top:3px;font-size:11.5px;line-height:1.4">
+            No attendance shift is logged for <strong>${Utils.formatDate(date)}</strong>. You must have a recorded attendance shift with extra hours clocked beyond 8h 0m to claim overtime tokens.
+          </div>
+        </div>
+      `;
+      if (pillsContainer) pillsContainer.innerHTML = '';
+      if (hoursInput) hoursInput.value = 0;
+      if (minsInput) minsInput.value = 0;
+      this.validateClaimDuration();
+      return;
+    }
+
+    if (otInfo.recordedOtMins <= 0) {
+      strip.innerHTML = `
+        <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:10px 14px;font-size:12px;color:#92400e">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+            <div style="font-weight:700;display:flex;align-items:center;gap:6px">
+              <i class="fa fa-circle-info"></i> Attendance Shift: ${otInfo.timeIn || '—'} – ${otInfo.timeOut || '—'} (${otInfo.workingHours})
+            </div>
+            <span class="badge badge-secondary" style="font-size:11px">0 min Overtime</span>
+          </div>
+          <div style="margin-top:4px;font-size:11.5px;line-height:1.4">
+            Standard 8h 0m shift requirement was not exceeded on <strong>${Utils.formatDate(date)}</strong>. Extra hours must be clocked beyond 8.0h to earn compensatory tokens.
+          </div>
+        </div>
+      `;
+      if (pillsContainer) pillsContainer.innerHTML = '';
+      if (hoursInput) hoursInput.value = 0;
+      if (minsInput) minsInput.value = 0;
+      this.validateClaimDuration();
+      return;
+    }
+
+    // Overtime found!
+    const recHours = Math.floor(otInfo.recordedOtMins / 60);
+    const recMins = otInfo.recordedOtMins % 60;
+    const remHours = Math.floor(otInfo.remainingClaimableMins / 60);
+    const remMins = otInfo.remainingClaimableMins % 60;
+
+    strip.innerHTML = `
+      <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--text)">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+          <div style="font-weight:700;display:flex;align-items:center;gap:6px">
+            <i class="fa fa-business-time" style="color:var(--success)"></i> Recorded Attendance on ${Utils.formatDate(date)}
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <span style="font-size:11px;color:var(--text-3)">Net Work: <strong>${otInfo.workingHours}</strong></span>
+            <span class="badge badge-success" style="font-size:11.5px;font-weight:700">
+              <i class="fa fa-clock"></i> Overtime Clocked: ${recHours > 0 ? recHours + 'h ' : ''}${recMins}m (${otInfo.recordedOtMins} mins)
+            </span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;color:var(--text-2);padding-top:4px;border-top:1px dashed rgba(16,185,129,0.25);flex-wrap:wrap;gap:6px">
+          <span>Punches: In <strong>${otInfo.timeIn}</strong> • Out <strong>${otInfo.timeOut}</strong></span>
+          ${otInfo.alreadyClaimedMins > 0 ? `
+            <span>Already Claimed: <strong style="color:var(--warning)">${otInfo.alreadyClaimedMins}m</strong> | Remaining Available: <strong style="color:var(--success)">${remHours > 0 ? remHours + 'h ' : ''}${remMins}m (${otInfo.remainingClaimableMins} mins)</strong></span>
+          ` : `
+            <span style="color:var(--success);font-weight:600"><i class="fa fa-circle-check"></i> Full ${otInfo.recordedOtMins} mins available to claim</span>
+          `}
+        </div>
+      </div>
+    `;
+
+    // Setup quick pills
+    if (pillsContainer) {
+      const pills = [];
+      if (otInfo.remainingClaimableMins >= 45) {
+        pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid var(--border);padding:2px 8px;color:var(--primary)" onclick="Leaves.setClaimMinutes(45)"><i class="fa fa-bolt"></i> 45 mins</button>`);
+      }
+      if (otInfo.remainingClaimableMins >= 60 && otInfo.remainingClaimableMins !== 60) {
+        pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid var(--border);padding:2px 8px;color:var(--primary)" onclick="Leaves.setClaimMinutes(60)"><i class="fa fa-bolt"></i> 1 hour (60m)</button>`);
+      }
+      pills.push(`<button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;border:1px solid rgba(16,185,129,0.4);background:rgba(16,185,129,0.08);padding:2px 8px;color:var(--success);font-weight:700" onclick="Leaves.setClaimMinutes(${otInfo.remainingClaimableMins})"><i class="fa fa-star"></i> Max Available (${remHours > 0 ? remHours + 'h ' : ''}${remMins}m)</button>`);
+      pillsContainer.innerHTML = `
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px">
+          <span style="font-size:11px;color:var(--text-3);font-weight:600">Quick Fill:</span>
+          ${pills.join('')}
+        </div>
+      `;
+    }
+
+    // Set initial claim inputs based on prefillHours or max available
+    let initialClaimMins = otInfo.remainingClaimableMins;
+    if (prefillHours && typeof prefillHours === 'number' && prefillHours > 0) {
+      const prefMins = Math.round(prefillHours * 60);
+      initialClaimMins = Math.min(prefMins, otInfo.remainingClaimableMins);
+    }
+
+    if (hoursInput) hoursInput.value = Math.floor(initialClaimMins / 60);
+    if (minsInput) minsInput.value = initialClaimMins % 60;
+
+    this.validateClaimDuration();
+  },
+
+  validateClaimDuration() {
+    const empInput = document.getElementById('ot-claim-emp');
+    const empId = empInput ? parseInt(empInput.value) : (Auth.employee?.id || 4);
+    const dateInput = document.getElementById('ot-claim-date');
+    const date = dateInput ? dateInput.value : Utils.today();
+    const hoursInput = document.getElementById('ot-claim-hours');
+    const minsInput = document.getElementById('ot-claim-mins');
+    const msgEl = document.getElementById('ot-claim-val-msg');
+    const btnSubmit = document.getElementById('btn-submit-ot-claim');
+
+    if (!msgEl) return;
+
+    const hours = parseInt(hoursInput?.value) || 0;
+    const mins = parseInt(minsInput?.value) || 0;
+    const totalClaimedMins = (hours * 60) + mins;
+
+    const otInfo = this.getAttendanceOvertimeForDate(empId, date);
+
+    if (!otInfo.found) {
+      msgEl.innerHTML = `<div style="color:var(--danger);font-size:11.5px;font-weight:600"><i class="fa fa-circle-xmark"></i> No attendance record on this date. Cannot claim overtime.</div>`;
+      if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    if (otInfo.recordedOtMins <= 0) {
+      msgEl.innerHTML = `<div style="color:var(--danger);font-size:11.5px;font-weight:600"><i class="fa fa-circle-xmark"></i> No overtime was clocked on this date (Shift was 8h 0m or less).</div>`;
+      if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    if (totalClaimedMins <= 0) {
+      msgEl.innerHTML = `<div style="color:var(--warning);font-size:11.5px;font-weight:600"><i class="fa fa-triangle-exclamation"></i> Please enter hours and minutes greater than 0.</div>`;
+      if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    if (totalClaimedMins > otInfo.remainingClaimableMins) {
+      const maxH = Math.floor(otInfo.remainingClaimableMins / 60);
+      const maxM = otInfo.remainingClaimableMins % 60;
+      msgEl.innerHTML = `
+        <div style="background:#fef2f2;border:1px solid #f87171;color:#991b1b;border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600">
+          <i class="fa fa-circle-xmark" style="margin-right:4px"></i>
+          Cannot apply for ${Math.floor(totalClaimedMins / 60) > 0 ? Math.floor(totalClaimedMins / 60) + 'h ' : ''}${totalClaimedMins % 60}m (${totalClaimedMins} mins). You only have ${maxH > 0 ? maxH + 'h ' : ''}${maxM}m (${otInfo.remainingClaimableMins} mins) of overtime recorded on this date.
+        </div>
+      `;
+      if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.style.opacity = '0.5'; btnSubmit.style.cursor = 'not-allowed'; }
+      return;
+    }
+
+    // Valid claim!
+    const clH = Math.floor(totalClaimedMins / 60);
+    const clM = totalClaimedMins % 60;
+    const decHours = Math.round((totalClaimedMins / 60) * 100) / 100;
+    msgEl.innerHTML = `
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);color:var(--success);border-radius:6px;padding:6px 10px;font-size:11.5px;font-weight:600">
+        <i class="fa fa-circle-check" style="margin-right:4px"></i>
+        Valid claim: <strong>${clH > 0 ? clH + 'h ' : ''}${clM}m</strong> (${totalClaimedMins} mins ≈ ${decHours} hrs) within recorded extra hours.
+      </div>
+    `;
+    if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.style.opacity = '1'; btnSubmit.style.cursor = 'pointer'; }
+  },
+
+  setClaimMinutes(mins) {
+    const hInput = document.getElementById('ot-claim-hours');
+    const mInput = document.getElementById('ot-claim-mins');
+    if (hInput && mInput) {
+      hInput.value = Math.floor(mins / 60);
+      mInput.value = mins % 60;
+      this.validateClaimDuration();
+    }
   },
 
   submitClaimOvertimeToken() {
-    const empId = parseInt(document.getElementById('ot-claim-emp').value);
-    const date = document.getElementById('ot-claim-date').value;
-    const hours = parseFloat(document.getElementById('ot-claim-hours').value);
-    const managerId = parseInt(document.getElementById('ot-claim-mgr-id').value) || 3;
-    const taskDescription = document.getElementById('ot-claim-desc').value.trim();
+    const empInput = document.getElementById('ot-claim-emp');
+    const empId = empInput ? parseInt(empInput.value) : (Auth.employee?.id || 4);
+    const date = document.getElementById('ot-claim-date')?.value;
+    const hours = parseInt(document.getElementById('ot-claim-hours')?.value) || 0;
+    const mins = parseInt(document.getElementById('ot-claim-mins')?.value) || 0;
+    const managerId = parseInt(document.getElementById('ot-claim-mgr-id')?.value) || 3;
+    const taskDescription = document.getElementById('ot-claim-desc')?.value.trim();
 
     if (!date) { Toast.show('Please select date overtime was worked', 'error'); return; }
-    if (isNaN(hours) || hours <= 0) { Toast.show('Please specify valid extra hours worked', 'error'); return; }
+
+    const claimedMins = (hours * 60) + mins;
+    if (claimedMins <= 0) {
+      Toast.show('Please specify valid extra hours or minutes worked', 'error');
+      return;
+    }
+
     if (!taskDescription || taskDescription.length < 5) {
       Toast.show('Please explain the assigned work or task description (minimum 5 characters)', 'error');
       return;
     }
 
+    // Verify against actual attendance overtime
+    const otInfo = this.getAttendanceOvertimeForDate(empId, date);
+    if (!otInfo.found) {
+      Toast.show(`No attendance record found for ${Utils.formatDate(date)}. Cannot claim overtime tokens.`, 'error');
+      return;
+    }
+
+    if (otInfo.recordedOtMins <= 0) {
+      Toast.show(`No overtime was recorded on ${Utils.formatDate(date)}. Shift did not exceed 8.0 hours.`, 'error');
+      return;
+    }
+
+    if (claimedMins > otInfo.remainingClaimableMins) {
+      Toast.show(`Cannot apply for ${claimedMins} mins. You only have ${otInfo.remainingClaimableMins} mins of overtime recorded on this date.`, 'error');
+      return;
+    }
+
+    const claimedHours = Math.round((claimedMins / 60) * 100) / 100;
     const tokens = DB.get('overtime_tokens') || [];
     const newClaim = {
       id: DB.nextId('overtime_tokens'),
       employeeId: empId,
       date,
-      hours: Math.round(hours * 10) / 10,
+      hours: claimedHours,
+      minutes: claimedMins,
+      recordedOvertimeMinutes: otInfo.recordedOtMins,
       taskDescription,
       status: 'pending',
       appliedOn: Utils.today(),
@@ -2573,7 +2893,7 @@ const Leaves = {
 
     tokens.push(newClaim);
     DB.set('overtime_tokens', tokens);
-    DB.log('APPLY', 'Leaves', `Submitted overtime token claim (${hours}h) for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
+    DB.log('APPLY', 'Leaves', `Submitted overtime token claim (${claimedMins}m / ${claimedHours}h) for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
 
     Modal.close('dynamic-modal');
     Toast.show('Overtime token claim submitted successfully!', 'success', `Sent to ${Utils.getEmpName(managerId)} for verification.`);
