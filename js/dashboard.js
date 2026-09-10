@@ -92,47 +92,42 @@ const Dashboard = {
         };
         DB.add('attendance', newRec);
       }
-      Toast.show(`Check-In recorded at ${timeStr}. Status: ${isLate ? 'Late' : 'Present'}`, 'success');
+    // Record in attendance_logs machine telemetry
+    const punchLabel = type === 'in' ? 'Check-In' : (type === 'b_out' ? 'OT-Out' : (type === 'b_in' ? 'OT-In' : 'Check-Out'));
+    const punchType = type === 'in' ? 'check_in' : (type === 'b_out' ? 'ot_out' : (type === 'b_in' ? 'ot_in' : 'check_out'));
+    const allLogs = DB.get('attendance_logs') || [];
+    const empDayLogs = allLogs.filter(l => l.employeeId === myId && l.date === today);
+    const punchNumber = empDayLogs.length + 1;
+
+    allLogs.push({
+      id: DB.nextId('attendance_logs'),
+      employeeId: myId,
+      date: today,
+      time: timeStr,
+      timestamp: new Date().toISOString(),
+      punchType,
+      punchLabel,
+      punchNumber,
+      device: 'ZKTeco-Main-Gate',
+      deviceIp: '192.168.1.201',
+      verifyMode: 'Biometric / Fingerprint'
+    });
+    DB.set('attendance_logs', allLogs);
+
+    if (rec) {
+      rec.punchCount = punchNumber;
+      rec.completionStatus = (rec.timeIn && rec.breakOut && rec.breakIn && rec.timeOut) ? 'Complete' : 'In Progress';
+      DB.set('attendance', allAtt);
+    }
+
+    if (type === 'in') {
+      Toast.show(`Check-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
     } else if (type === 'b_out') {
-      if (!rec || !rec.timeIn) {
-        Toast.show('Please check in first before starting a break', 'warning');
-        return;
-      }
-      if (rec.breakOut) {
-        Toast.show('Break out already recorded at ' + rec.breakOut, 'info');
-        return;
-      }
-      rec.breakOut = timeStr;
-      DB.set('attendance', allAtt);
-      Toast.show(`Break Out recorded at ${timeStr}. Enjoy your break!`, 'info');
+      Toast.show(`OT-Out recorded at ${timeStr} (Swipe #${punchNumber})`, 'info');
     } else if (type === 'b_in') {
-      if (!rec || !rec.breakOut) {
-        Toast.show('Please record break out before recording break in', 'warning');
-        return;
-      }
-      if (rec.breakIn) {
-        Toast.show('Break in already recorded at ' + rec.breakIn, 'info');
-        return;
-      }
-      rec.breakIn = timeStr;
-      DB.set('attendance', allAtt);
-      Toast.show(`Break In recorded at ${timeStr}. Welcome back to work!`, 'success');
+      Toast.show(`OT-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
     } else if (type === 'out') {
-      if (!rec || !rec.timeIn) {
-        Toast.show('Please check in first before checking out', 'warning');
-        return;
-      }
-      rec.timeOut = timeStr;
-      const ot = (typeof Attendance !== 'undefined' && Attendance.calcOvertime)
-        ? Attendance.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn)
-        : 0;
-      rec.overtime = ot;
-      DB.set('attendance', allAtt);
-      if (ot > 0) {
-        Toast.show(`Check-Out recorded at ${timeStr}. You worked ${ot}h extra counted as Overtime Token! Claim it under Leaves.`, 'success');
-      } else {
-        Toast.show(`Check-Out recorded at ${timeStr}. Have a great evening!`, 'success');
-      }
+      Toast.show(`Check-Out recorded at ${timeStr} (Swipe #${punchNumber}). Daily shift completed!`, 'success');
     }
     this.render();
   },
@@ -1399,45 +1394,41 @@ const Dashboard = {
                 </div>
                 <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">
                   In: <strong style="color:var(--success)">${myTodayAtt?.timeIn || '—'}</strong> | 
-                  Break: <strong style="color:#d97706">${myTodayAtt?.breakOut || '—'} – ${myTodayAtt?.breakIn || '—'}</strong> | 
+                  OT-Out: <strong style="color:#d97706">${myTodayAtt?.breakOut || '—'}</strong> | 
+                  OT-In: <strong style="color:#0284c7">${myTodayAtt?.breakIn || '—'}</strong> | 
                   Out: <strong style="color:var(--danger)">${myTodayAtt?.timeOut || '—'}</strong> | 
                   Net: <strong style="color:var(--primary)">${workingHoursToday}</strong>
-                  ${(myTodayAtt?.overtime || 0) > 0 ? ` | OT: <strong style="color:#8b5cf6">${myTodayAtt.overtime}h Token</strong>` : ''}
+                  ${(myTodayAtt?.overtime || 0) > 0 ? ` | OT: <strong style="color:#8b5cf6">${myTodayAtt.overtime}h</strong>` : ''}
                 </div>
               </div>
 
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                 ${!myTodayAtt || !myTodayAtt.timeIn ? `
                   <button class="btn btn-success btn-sm" onclick="Dashboard.quickSelfPunch('in')">
                     <i class="fa fa-fingerprint"></i> Check In
                   </button>
                 ` : !myTodayAtt.breakOut ? `
-                  <button class="btn btn-warning btn-sm" style="color:white" onclick="Dashboard.quickSelfPunch('b_out')">
-                    <i class="fa fa-mug-hot"></i> Break Out
+                  <button class="btn btn-warning btn-sm" style="color:white" onclick="Dashboard.quickSelfPunch('ot_out')">
+                    <i class="fa fa-arrow-right-from-bracket"></i> OT-Out
                   </button>
                   <button class="btn btn-danger btn-sm" onclick="Dashboard.quickSelfPunch('out')">
-                    <i class="fa fa-arrow-right-from-bracket"></i> Check Out
+                    <i class="fa fa-arrow-right-to-bracket"></i> Check Out
                   </button>
                 ` : !myTodayAtt.breakIn ? `
-                  <button class="btn btn-info btn-sm" style="color:white" onclick="Dashboard.quickSelfPunch('b_in')">
-                    <i class="fa fa-rotate-left"></i> Break In
+                  <button class="btn btn-info btn-sm" style="color:white" onclick="Dashboard.quickSelfPunch('ot_in')">
+                    <i class="fa fa-arrow-right-to-bracket"></i> OT-In
                   </button>
                 ` : !myTodayAtt.timeOut ? `
                   <button class="btn btn-danger btn-sm" onclick="Dashboard.quickSelfPunch('out')">
-                    <i class="fa fa-arrow-right-from-bracket"></i> Check Out
+                    <i class="fa fa-arrow-right-to-bracket"></i> Check Out
                   </button>
                 ` : `
                   <span class="badge badge-success" style="padding:6px 10px;font-size:11px">
                     <i class="fa fa-check-circle"></i> Shift Done
                   </span>
-                  ${(myTodayAtt?.overtime || 0) > 0 ? `
-                    <button class="btn btn-primary btn-sm" onclick="App.navigate('leaves');setTimeout(()=>Leaves.switchView('tokens'),100)" title="Claim Overtime Token">
-                      <i class="fa fa-coins"></i> Claim ${myTodayAtt.overtime}h Token
-                    </button>
-                  ` : ''}
                 `}
-                <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')" title="View Attendance Logs">
-                  <i class="fa fa-calendar-day"></i> Logs
+                <button class="btn btn-ghost btn-sm" onclick="Attendance.showMachinePunchDetail(${myEmp.id}, '${today}')" title="View Biometric Machine Swipes">
+                  <i class="fa fa-fingerprint"></i> Logs
                 </button>
               </div>
             </div>

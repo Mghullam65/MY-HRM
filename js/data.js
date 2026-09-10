@@ -3959,13 +3959,8 @@ const DB = {
 
   ensureRosterAndAttendanceData() {
     let attLogs = this.get('attendance_logs');
-    if (!attLogs || !attLogs.length) {
-      attLogs = [
-        { id: 1, employeeId: 4, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:55:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.22' },
-        { id: 2, employeeId: 3, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:48:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.15' },
-        { id: 3, employeeId: 1, deviceCode: 'ZKT-KARACHI-01', punchType: 'IN', punchTime: '2026-09-09T08:35:00.000Z', latitude: 24.8607, longitude: 67.0011, ipAddress: '192.168.10.1' }
-      ];
-      this.set('attendance_logs', attLogs);
+    if (!attLogs || !attLogs.length || !attLogs[0].punchLabel) {
+      this.set('attendance_logs', genMachinePunchLogs());
     }
 
     let rosters = this.get('rosters');
@@ -4721,6 +4716,8 @@ function genAttendance() {
   return records;
 }
 
+const attendance = genAttendance();
+
 const overtimeTokens = [
   {
     id: 1,
@@ -4771,16 +4768,112 @@ const overtimeTokens = [
     managerRemarks: 'Approved for client deck work.'
   }
 ];
-const attendance = genAttendance();
+function genMachinePunchLogs() {
+  const logs = [];
+  let logId = 1;
+  const dates = ['2026-09-08', '2026-09-09', '2026-09-10'];
+  const emps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15];
+  const devices = [
+    { name: 'ZKTeco-Main-Gate', ip: '192.168.1.201' },
+    { name: 'ZKTeco-Floor-1', ip: '192.168.1.202' },
+    { name: 'ZKTeco-Production', ip: '192.168.1.203' }
+  ];
 
-const attendanceLogs = [
-  { id: 1, employeeId: 1, date: '2026-08-31', timeIn: '09:02', timeOut: '18:05', device: 'ZKTeco-01', status: 'present' },
-  { id: 2, employeeId: 2, date: '2026-08-31', timeIn: '09:15', timeOut: '18:10', device: 'ZKTeco-01', status: 'present' },
-  { id: 3, employeeId: 3, date: '2026-08-31', timeIn: '09:45', timeOut: '18:30', device: 'ZKTeco-02', status: 'late' },
-  { id: 4, employeeId: 4, date: '2026-08-31', timeIn: '09:05', timeOut: '18:00', device: 'ZKTeco-01', status: 'present' },
-  { id: 5, employeeId: 5, date: '2026-08-31', timeIn: null, timeOut: null, device: null, status: 'absent' },
-  { id: 6, employeeId: 6, date: '2026-08-31', timeIn: '09:00', timeOut: '13:00', device: 'ZKTeco-01', status: 'half_day' },
-];
+  dates.forEach(date => {
+    emps.forEach((empId, empIdx) => {
+      const dev = devices[empIdx % devices.length];
+      const vMode = empIdx % 3 === 0 ? 'Face Recognition' : 'Fingerprint';
+
+      // 1. Check-In (Arrival punch)
+      const inMin = 8 * 60 + 50 + ((empId * 7) % 40);
+      const inH = String(Math.floor(inMin / 60)).padStart(2, '0');
+      const inM = String(inMin % 60).padStart(2, '0');
+      const inS = String((empId * 13) % 60).padStart(2, '0');
+      const inTime = `${inH}:${inM}:${inS}`;
+
+      logs.push({
+        id: logId++,
+        employeeId: empId,
+        date,
+        time: inTime,
+        timestamp: `${date}T${inTime}Z`,
+        punchType: 'check_in',
+        punchLabel: 'Check-In',
+        punchNumber: 1,
+        device: dev.name,
+        deviceIp: dev.ip,
+        verifyMode: vMode
+      });
+
+      // 2. OT-Out (Break / OT exit punch)
+      const otOutMin = 13 * 60 + ((empId * 3) % 15);
+      const outH = String(Math.floor(otOutMin / 60)).padStart(2, '0');
+      const outM = String(otOutMin % 60).padStart(2, '0');
+      const outS = String((empId * 17) % 60).padStart(2, '0');
+      const otOutTime = `${outH}:${outM}:${outS}`;
+
+      logs.push({
+        id: logId++,
+        employeeId: empId,
+        date,
+        time: otOutTime,
+        timestamp: `${date}T${otOutTime}Z`,
+        punchType: 'ot_out',
+        punchLabel: 'OT-Out',
+        punchNumber: 2,
+        device: dev.name,
+        deviceIp: dev.ip,
+        verifyMode: vMode
+      });
+
+      // 3. OT-In (Break / OT return punch)
+      const otInMin = 14 * 60 + ((empId * 2) % 10);
+      const inH2 = String(Math.floor(otInMin / 60)).padStart(2, '0');
+      const inM2 = String(otInMin % 60).padStart(2, '0');
+      const inS2 = String((empId * 19) % 60).padStart(2, '0');
+      const otInTime = `${inH2}:${inM2}:${inS2}`;
+
+      logs.push({
+        id: logId++,
+        employeeId: empId,
+        date,
+        time: otInTime,
+        timestamp: `${date}T${otInTime}Z`,
+        punchType: 'ot_in',
+        punchLabel: 'OT-In',
+        punchNumber: 3,
+        device: dev.name,
+        deviceIp: dev.ip,
+        verifyMode: vMode
+      });
+
+      // 4. Check-Out (Departure punch)
+      const coMin = 18 * 60 + ((empId * 5) % 60);
+      const coH = String(Math.floor(coMin / 60)).padStart(2, '0');
+      const coM = String(coMin % 60).padStart(2, '0');
+      const coS = String((empId * 23) % 60).padStart(2, '0');
+      const coTime = `${coH}:${coM}:${coS}`;
+
+      logs.push({
+        id: logId++,
+        employeeId: empId,
+        date,
+        time: coTime,
+        timestamp: `${date}T${coTime}Z`,
+        punchType: 'check_out',
+        punchLabel: 'Check-Out',
+        punchNumber: 4,
+        device: dev.name,
+        deviceIp: dev.ip,
+        verifyMode: vMode
+      });
+    });
+  });
+
+  return logs;
+}
+
+const attendanceLogs = genMachinePunchLogs();
 
 const leaveTypes = [
   { id: 1, name: 'Casual Leave', code: 'CL', maxDays: 12, carryForward: false, color: '#3b82f6' },

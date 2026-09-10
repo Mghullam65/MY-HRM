@@ -28,6 +28,13 @@ const Attendance = {
   adminEmpWiseDeptFilter: 'all',
   adminMyEmpDeptFilter: 'all',
 
+  machineLogDate: Utils.today(),
+  machineLogDeptFilter: 'all',
+  machineLogEmpFilter: 'all',
+  machineLogPunchFilter: 'all',
+  machineLogDeviceFilter: 'all',
+  machineLogSearchQuery: '',
+
   getScopedEmployees() {
     const emps = DB.get('employees') || [];
     return Auth.getScopedEmployees(emps).filter(e => e.status === 'active');
@@ -40,11 +47,11 @@ const Attendance = {
     const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
 
     // Restrict default view
-    if (isEmployee && !['my_attendance', 'corrections', 'timesheets'].includes(this.currentView)) {
+    if (isEmployee && !['my_attendance', 'machine', 'corrections', 'timesheets'].includes(this.currentView)) {
       this.currentView = 'my_attendance';
-    } else if (isManager && !['my_attendance', 'my_employees', 'roster', 'timesheets', 'corrections'].includes(this.currentView)) {
+    } else if (isManager && !['my_attendance', 'my_employees', 'machine', 'roster', 'timesheets', 'corrections'].includes(this.currentView)) {
       this.currentView = 'my_employees';
-    } else if (isAdmin && !['my_attendance', 'my_employees', 'roster', 'geofence', 'machine', 'timesheets', 'manual', 'corrections'].includes(this.currentView)) {
+    } else if (isAdmin && !['my_attendance', 'my_employees', 'machine', 'roster', 'geofence', 'timesheets', 'manual', 'corrections'].includes(this.currentView)) {
       this.currentView = 'my_employees';
     }
 
@@ -89,11 +96,12 @@ const Attendance = {
       return s.status === 'pending_peer' || s.status === 'peer_accepted';
     }).length;
 
-    // Role-specific Tab Navigation (Strictly hiding admin views from employee)
+    // Role-specific Tab Navigation (Strictly scoping attendance views)
     let tabs = [];
     if (isEmployee) {
       tabs = [
         { id:'my_attendance', label:'My Attendance' },
+        { id:'machine',       label:'My Machine Punch Logs', icon:'fa-fingerprint' },
         { id:'corrections',   label:'Corrections & WFH', badge: pendingCorrections },
         { id:'timesheets',    label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>t.employeeId===myEmpId && t.status==='submitted').length },
       ];
@@ -101,6 +109,7 @@ const Attendance = {
       tabs = [
         { id:'my_attendance',  label:'My Attendance' },
         { id:'my_employees',   label:'My Employees Attendance', icon: 'fa-users-line' },
+        { id:'machine',        label:'Team Machine Punch Logs', icon: 'fa-fingerprint' },
         { id:'roster',         label:'Shift Roster & Swaps', badge: pendingSwaps },
         { id:'timesheets',     label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>scopedIds.includes(t.employeeId) && t.status==='submitted').length },
         { id:'corrections',    label:'Corrections & WFH', badge: pendingCorrections },
@@ -110,9 +119,9 @@ const Attendance = {
       tabs = [
         { id:'my_attendance', label:'My Attendance' },
         { id:'my_employees',  label:'My Employees Attendance', icon: 'fa-users-line' },
+        { id:'machine',       label:'Biometric Machine Punch Hub', icon:'fa-fingerprint' },
         { id:'roster',        label:'Shift Roster & Swaps', badge: pendingSwaps },
         { id:'geofence',      label:'Geo-Fence & IP Check' },
-        { id:'machine',       label:'Biometric Sync & ZKTeco' },
         { id:'timesheets',    label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>t.status==='submitted').length },
         { id:'manual',        label:'Manual Entry' },
         { id:'corrections',   label:'Corrections & WFH', badge: pendingCorrections },
@@ -223,14 +232,14 @@ const Attendance = {
 
   switchView(view) {
     const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
-    const employeeAllowed = ['my_attendance', 'corrections', 'timesheets'];
+    const employeeAllowed = ['my_attendance', 'machine', 'corrections', 'timesheets'];
     if (isEmployee && !employeeAllowed.includes(view)) {
       Toast.show('403 Forbidden: Access Denied to administrative attendance views.', 'error');
       view = 'my_attendance';
     }
 
     const isManager = Auth.role === 'dept_manager';
-    const managerBlocked = ['geofence', 'machine', 'manual'];
+    const managerBlocked = ['geofence', 'manual'];
     if (isManager && managerBlocked.includes(view)) {
       Toast.show('403 Forbidden: Access Denied to administrative configuration.', 'error');
       view = 'my_employees';
@@ -1349,33 +1358,34 @@ const Attendance = {
             ${isToday ? `
               ${(!rec || !rec.timeIn) ? `
                 <button class="btn btn-success" style="padding:8px 18px;font-weight:700" onclick="Dashboard.quickSelfPunch('in');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-fingerprint"></i> Check In (Time In)
+                  <i class="fa fa-fingerprint"></i> Check In (Punch #1)
                 </button>
               ` : (!rec.breakOut ? `
-                <button class="btn btn-warning" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('b_out');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-mug-hot"></i> Break Out
+                <button class="btn btn-warning" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('ot_out');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-mug-hot"></i> OT-Out (Punch #2)
                 </button>
                 <button class="btn btn-danger" style="padding:8px 16px;font-weight:700" onclick="Dashboard.quickSelfPunch('out');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out (Time Out)
+                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out
                 </button>
               ` : (!rec.breakIn ? `
-                <button class="btn btn-info" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('b_in');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-rotate-left"></i> Break In (Resume)
+                <button class="btn btn-info" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('ot_in');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-rotate-left"></i> OT-In (Punch #3)
+                </button>
+                <button class="btn btn-danger" style="padding:8px 16px;font-weight:700" onclick="Dashboard.quickSelfPunch('out');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out
                 </button>
               ` : (!rec.timeOut ? `
                 <button class="btn btn-danger" style="padding:8px 18px;font-weight:700" onclick="Dashboard.quickSelfPunch('out');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out (Time Out)
+                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out (Punch #4)
                 </button>
               ` : `
-                <span class="badge badge-success" style="padding:6px 12px;font-size:12px"><i class="fa fa-circle-check"></i> Shift Completed</span>
+                <span class="badge badge-success" style="padding:6px 12px;font-size:12px"><i class="fa fa-circle-check"></i> Shift Completed (${rec.punchCount || 4}/4 Swipes)</span>
               `)))}
             ` : ''}
 
-            ${overtimeHours > 0 ? `
-              <button class="btn btn-primary btn-sm" style="padding:8px 16px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white" onclick="Leaves.showClaimOvertimeTokenModal('${dStr}', ${overtimeHours})">
-                <i class="fa fa-coins"></i> Claim Overtime Token (${overtimeHours}h)
-              </button>
-            ` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.showMachinePunchDetail(${empId}, '${dStr}')" title="View Biometric Machine Swipes">
+              <i class="fa fa-fingerprint"></i> Machine Swipes Log
+            </button>
 
             <button class="btn btn-warning btn-sm" onclick="Attendance.showApplyCorrectionModal('${dStr}')">
               <i class="fa fa-wrench"></i> Request Attendance Correction / WFH
@@ -1383,10 +1393,10 @@ const Attendance = {
           </div>
         </div>
 
-        <!-- 6 KPI Dossier Cards: Check In, Break Out, Break In, Check Out, Working Hours, Overtime -->
+        <!-- 6 KPI Dossier Cards: Check In, OT-Out, OT-In, Check Out, Working Hours, Overtime -->
         <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px">
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid var(--success)">
-            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-to-bracket" style="color:var(--success);margin-right:5px"></i>Check In (Time In) / Clock In Timestamp</div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-to-bracket" style="color:var(--success);margin-right:5px"></i>Check In (Punch #1)</div>
             <div style="font-size:22px;font-weight:800;color:${rec?.timeIn?'var(--success)':'var(--text-muted)'};margin-top:6px">
               ${rec?.timeIn || '—'}
             </div>
@@ -1396,32 +1406,32 @@ const Attendance = {
           </div>
 
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #d97706">
-            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-mug-hot" style="color:#d97706;margin-right:5px"></i>Break Out</div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-mug-hot" style="color:#d97706;margin-right:5px"></i>OT-Out (Punch #2)</div>
             <div style="font-size:22px;font-weight:800;color:${rec?.breakOut?'#d97706':'var(--text-muted)'};margin-top:6px">
               ${rec?.breakOut || '—'}
             </div>
             <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
-              ${rec?.breakOut ? 'Lunch / Tea break start' : 'No break out logged'}
+              ${rec?.breakOut ? 'OT / Lunch exit punch' : 'No punch recorded'}
             </div>
           </div>
 
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #2563eb">
-            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-rotate-left" style="color:#2563eb;margin-right:5px"></i>Break In</div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-rotate-left" style="color:#2563eb;margin-right:5px"></i>OT-In (Punch #3)</div>
             <div style="font-size:22px;font-weight:800;color:${rec?.breakIn?'#2563eb':'var(--text-muted)'};margin-top:6px">
               ${rec?.breakIn || '—'}
             </div>
             <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
-              ${rec?.breakIn ? 'Returned from break' : 'No break in logged'}
+              ${rec?.breakIn ? 'OT / Lunch resume punch' : 'No punch recorded'}
             </div>
           </div>
 
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid var(--danger)">
-            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-from-bracket" style="color:var(--danger);margin-right:5px"></i>Check Out (Time Out) / Clock Out Timestamp</div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-from-bracket" style="color:var(--danger);margin-right:5px"></i>Check Out (Punch #4)</div>
             <div style="font-size:22px;font-weight:800;color:${rec?.timeOut?'var(--danger)':'var(--text-muted)'};margin-top:6px">
               ${rec?.timeOut || '—'}
             </div>
             <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
-              ${rec?.timeOut ? 'Standard evening punch-out' : 'Awaiting punch-out'}
+              ${rec?.timeOut ? 'Standard shift punch-out' : 'Awaiting punch-out'}
             </div>
           </div>
 
@@ -1436,12 +1446,12 @@ const Attendance = {
           </div>
 
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #8b5cf6">
-            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-coins" style="color:#8b5cf6;margin-right:5px"></i>Overtime</div>
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-clock" style="color:#8b5cf6;margin-right:5px"></i>Overtime</div>
             <div style="font-size:22px;font-weight:800;color:#8b5cf6;margin-top:6px">
               ${overtimeHours ? overtimeHours + ' hrs' : '0.0 hrs'}
             </div>
             <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
-              Non-cash compensatory token
+              ${rec?.punchCount ? `${rec.punchCount}/4 Swipes (${rec.completionStatus || 'Complete'})` : 'Daily Machine Punch Cycle'}
             </div>
           </div>
         </div>
@@ -1493,8 +1503,8 @@ const Attendance = {
                 <th style="min-width:130px">Date &amp; Day</th>
                 <th>Shift</th>
                 <th>Check In (Time In)</th>
-                <th>Break Out</th>
-                <th>Break In</th>
+                <th>OT-Out (Break)</th>
+                <th>OT-In (Resume)</th>
                 <th>Check Out (Time Out)</th>
                 <th>Working Hours</th>
                 <th>Overtime</th>
@@ -1554,18 +1564,14 @@ const Attendance = {
                       ${rec?.remarks || (isWeekend ? 'Rest Day' : (holiday ? holiday.name : '—'))}
                     </td>
                     <td style="text-align:center;white-space:nowrap">
-                      ${otHours > 0 ? `
-                        <button class="btn btn-ghost btn-sm" style="color:var(--primary);padding:3px 7px;font-size:11px;font-weight:700" onclick="Leaves.showClaimOvertimeTokenModal('${dStr}', ${otHours})" title="Claim Overtime Token">
-                          <i class="fa fa-coins text-warning"></i> Token
-                        </button>
-                      ` : ''}
+                      <button class="btn btn-ghost btn-sm" style="color:var(--primary);padding:3px 7px;font-size:11px" onclick="Attendance.showMachinePunchDetail(${empId}, '${dStr}')" title="View Machine Swipes">
+                        <i class="fa fa-fingerprint"></i> Swipes
+                      </button>
                       ${needsCorrection ? `
                         <button class="btn btn-ghost btn-sm" style="color:var(--warning);padding:3px 7px;font-size:11px" onclick="Attendance.showApplyCorrectionModal('${dStr}')" title="Request Attendance Correction">
                           <i class="fa fa-wrench"></i> Fix
                         </button>
-                      ` : (!otHours ? `
-                        <span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-check text-success"></i> Normal</span>
-                      ` : '')}
+                      ` : ''}
                     </td>
                   </tr>
                 `;
@@ -1914,106 +1920,701 @@ const Attendance = {
     `;
   },
 
+  setMachineLogDate(d) {
+    this.machineLogDate = d;
+    this.renderView();
+  },
+
+  prevMachineLogDate() {
+    const dt = new Date(this.machineLogDate || Utils.today());
+    dt.setDate(dt.getDate() - 1);
+    this.machineLogDate = dt.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  nextMachineLogDate() {
+    const dt = new Date(this.machineLogDate || Utils.today());
+    dt.setDate(dt.getDate() + 1);
+    this.machineLogDate = dt.toISOString().split('T')[0];
+    this.renderView();
+  },
+
+  setMachineLogToday() {
+    this.machineLogDate = Utils.today();
+    this.renderView();
+  },
+
+  setMachineLogDeptFilter(dept) {
+    this.machineLogDeptFilter = dept;
+    this.renderView();
+  },
+
+  setMachineLogEmpFilter(empId) {
+    this.machineLogEmpFilter = empId;
+    this.renderView();
+  },
+
+  setMachineLogPunchFilter(punch) {
+    this.machineLogPunchFilter = punch;
+    this.renderView();
+  },
+
+  setMachineLogDeviceFilter(dev) {
+    this.machineLogDeviceFilter = dev;
+    this.renderView();
+  },
+
+  setMachineLogSearch(q) {
+    this.machineLogSearchQuery = (q || '').toLowerCase().trim();
+    document.querySelectorAll('.machine-punch-row').forEach(row => {
+      const txt = row.textContent.toLowerCase();
+      row.style.display = txt.includes(this.machineLogSearchQuery) ? '' : 'none';
+    });
+  },
+
   renderMachineLog(container) {
-    const emps = this.getScopedEmployees();
-    const scopedIds = emps.map(e => e.id);
-    let logs = DB.get('attendance_logs') || [];
-    if (Auth.role === 'dept_manager') {
-      logs = logs.filter(l => scopedIds.includes(l.employeeId));
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isManager = Auth.role === 'dept_manager';
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    const allEmps = DB.get('employees') || [];
+    const activeEmps = allEmps.filter(e => e.status === 'active');
+    const myEmp = Auth.employee || DB.find('employees', 4);
+    const myEmpId = myEmp?.id || 4;
+
+    let scopedEmps = [];
+    if (isEmployee) {
+      scopedEmps = myEmp ? [myEmp] : [];
+    } else if (isManager) {
+      scopedEmps = this.getScopedEmployees();
+    } else {
+      scopedEmps = activeEmps;
     }
-    const devices = DB.get('biometric_devices') || [];
+    const scopedIds = scopedEmps.map(e => e.id);
+
+    const allLogs = DB.get('attendance_logs') || [];
+    const devices = DB.get('biometric_devices') || [
+      { id: 1, name: 'ZKTeco-Main-Gate', ip: '192.168.1.201', port: 4370, location: 'HQ Entrance Turnstile', status: 'online' },
+      { id: 2, name: 'ZKTeco-Warehouse', ip: '192.168.1.202', port: 4370, location: 'Logistics Bay Turnstile', status: 'online' },
+      { id: 3, name: 'ZKTeco-HQ-Floor2', ip: '192.168.1.203', port: 4370, location: 'Corporate Suite Door', status: 'online' }
+    ];
+    const departments = DB.get('departments') || [];
+    const curDate = this.machineLogDate || Utils.today();
+
+    // Filter logs by date and role scoping
+    const dateRoleLogs = allLogs.filter(l => scopedIds.includes(l.employeeId) && l.date === curDate);
+
+    // Group punches by employee for daily sequence & frequency calculation
+    const empPunchesMap = {};
+    dateRoleLogs.forEach(l => {
+      if (!empPunchesMap[l.employeeId]) empPunchesMap[l.employeeId] = [];
+      empPunchesMap[l.employeeId].push(l);
+    });
+    Object.keys(empPunchesMap).forEach(eId => {
+      empPunchesMap[eId].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    });
+
+    // Compute day KPIs
+    const totalSwipesCaptured = dateRoleLogs.length;
+    const uniqueEmployeesCount = Object.keys(empPunchesMap).length;
+
+    let completeCyclesCount = 0;
+    let inProgressCount = 0;
+    let partialCount = 0;
+
+    Object.keys(empPunchesMap).forEach(eId => {
+      const pList = empPunchesMap[eId];
+      const types = pList.map(p => p.punchType);
+      const hasIn = types.includes('check_in');
+      const hasOTOut = types.includes('ot_out');
+      const hasOTIn = types.includes('ot_in');
+      const hasOut = types.includes('check_out');
+
+      if (hasIn && hasOTOut && hasOTIn && hasOut) {
+        completeCyclesCount++;
+      } else if (hasIn && !hasOut) {
+        inProgressCount++;
+      } else {
+        partialCount++;
+      }
+    });
+
+    // Apply secondary filters (Department, Employee, Punch Type, Device)
+    let filteredLogs = [...dateRoleLogs];
+
+    if (isAdmin && this.machineLogDeptFilter !== 'all') {
+      filteredLogs = filteredLogs.filter(l => {
+        const emp = allEmps.find(e => e.id === l.employeeId);
+        return String(emp?.departmentId) === String(this.machineLogDeptFilter);
+      });
+    }
+
+    if (this.machineLogEmpFilter !== 'all') {
+      filteredLogs = filteredLogs.filter(l => String(l.employeeId) === String(this.machineLogEmpFilter));
+    }
+
+    if (this.machineLogPunchFilter !== 'all') {
+      filteredLogs = filteredLogs.filter(l => l.punchType === this.machineLogPunchFilter);
+    }
+
+    if (this.machineLogDeviceFilter !== 'all') {
+      filteredLogs = filteredLogs.filter(l => l.device === this.machineLogDeviceFilter);
+    }
+
+    // Sort newest punches first
+    filteredLogs.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+
+    // Punch badge generator
+    const getPunchBadge = (pType, pLabel) => {
+      switch (pType) {
+        case 'check_in':
+          return `<span class="badge badge-success" style="font-size:11px;font-weight:700;padding:4px 9px"><i class="fa fa-arrow-right-to-bracket" style="margin-right:4px"></i>${pLabel || 'Check-In'}</span>`;
+        case 'ot_out':
+          return `<span class="badge badge-warning" style="background:#f59e0b;color:white;font-size:11px;font-weight:700;padding:4px 9px"><i class="fa fa-mug-hot" style="margin-right:4px"></i>${pLabel || 'OT-Out'}</span>`;
+        case 'ot_in':
+          return `<span class="badge badge-info" style="background:#0284c7;color:white;font-size:11px;font-weight:700;padding:4px 9px"><i class="fa fa-rotate-left" style="margin-right:4px"></i>${pLabel || 'OT-In'}</span>`;
+        case 'check_out':
+          return `<span class="badge badge-danger" style="font-size:11px;font-weight:700;padding:4px 9px"><i class="fa fa-arrow-right-from-bracket" style="margin-right:4px"></i>${pLabel || 'Check-Out'}</span>`;
+        default:
+          return `<span class="badge badge-secondary" style="font-size:11px;padding:4px 9px">${pLabel || 'Punch'}</span>`;
+      }
+    };
 
     container.innerHTML = `
+      <!-- Header Banner & Scoping Notice -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px">
         <div>
           <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.12);color:var(--primary)">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(99,102,241,0.14);color:var(--primary)">
               <i class="fa fa-fingerprint"></i>
             </span>
-            Biometric Hardware Integration &amp; ZKTeco Sync Hub
+            ${isEmployee ? 'My Biometric Machine Punch Logs & Swipe Telemetry' : isManager ? 'Department Team Biometric Machine Punch Logs' : 'Biometric Machine Hardware Integration & Punch Hub'}
           </h2>
-          <div style="font-size:12px;color:var(--text-3);margin-top:3px">
-            Direct ZKTeco .dat / .csv parser, TCP/IP terminal sync, and automated punch pairing
+          <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
+            ${isEmployee 
+              ? 'Personal biometric terminal swipe logs, 4-option punch frequency tracking (Check-In, OT-Out, OT-In, Check-Out), and daily attendance cycle status.' 
+              : isManager 
+              ? 'Monitoring swipe logs for you and your department staff. Review punch frequencies, sequences, and verify 4-way shift completion.' 
+              : 'Enterprise-wide biometric terminal telemetry hub. Real-time swipe logs, 4-option machine tracking, frequency analytics, and automated attendance cycle verification.'}
           </div>
         </div>
 
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="Attendance.showZKTecoUploadModal()">
-            <i class="fa fa-file-import"></i> Import ZKTeco Punch Log (.dat / .csv)
-          </button>
-          <button class="btn btn-primary btn-sm" onclick="Attendance.syncBiometricHardware()">
-            <i class="fa fa-rotate"></i> 1-Click Terminal Hardware Sync
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${isAdmin ? `
+            <button class="btn btn-secondary btn-sm" onclick="Attendance.showZKTecoUploadModal()">
+              <i class="fa fa-file-import"></i> Import ZKTeco Log (.dat / .csv)
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Attendance.syncBiometricHardware()">
+              <i class="fa fa-rotate"></i> 1-Click Terminal Hardware Sync
+            </button>
+          ` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="Attendance.exportMachinePunchLogs()">
+            <i class="fa fa-file-export"></i> Export CSV Log
           </button>
         </div>
       </div>
 
-      <!-- Biometric Terminal Hardware Status Cards -->
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
-        ${devices.map(d => `
-          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start">
-              <div style="display:flex;align-items:center;gap:10px">
-                <div style="width:12px;height:12px;border-radius:50%;background:var(--success);box-shadow:0 0 10px var(--success)"></div>
-                <div>
-                  <div style="font-weight:700;font-size:13.5px;color:var(--text)">${d.name}</div>
-                  <div style="font-size:11px;color:var(--text-3)">${d.model || 'ZKTeco Biometric Terminal'}</div>
+      <!-- 4 KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Total Machine Swipes</div>
+              <div style="font-size:26px;font-weight:800;color:var(--primary);margin-top:4px">${totalSwipesCaptured}</div>
+            </div>
+            <div style="width:36px;height:36px;border-radius:9px;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:16px">
+              <i class="fa fa-fingerprint"></i>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            Captured on ${Utils.formatDate(curDate)} across all terminals
+          </div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Complete Daily Cycles</div>
+              <div style="font-size:26px;font-weight:800;color:var(--success);margin-top:4px">${completeCyclesCount}</div>
+            </div>
+            <div style="width:36px;height:36px;border-radius:9px;background:rgba(16,185,129,0.12);display:flex;align-items:center;justify-content:center;color:var(--success);font-size:16px">
+              <i class="fa fa-circle-check"></i>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            Completed all 4 machine options (In, OT-Out, OT-In, Out)
+          </div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #0284c7">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Active On Shift</div>
+              <div style="font-size:26px;font-weight:800;color:#0284c7;margin-top:4px">${inProgressCount}</div>
+            </div>
+            <div style="width:36px;height:36px;border-radius:9px;background:rgba(2,132,199,0.12);display:flex;align-items:center;justify-content:center;color:#0284c7;font-size:16px">
+              <i class="fa fa-person-walking-arrow-right"></i>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            Swiped Check-In or OT-In; awaiting evening Check-Out
+          </div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #8b5cf6">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Unique Users Swiped</div>
+              <div style="font-size:26px;font-weight:800;color:#8b5cf6;margin-top:4px">${uniqueEmployeesCount}</div>
+            </div>
+            <div style="width:36px;height:36px;border-radius:9px;background:rgba(139,92,246,0.12);display:flex;align-items:center;justify-content:center;color:#8b5cf6;font-size:16px">
+              <i class="fa fa-users"></i>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+            ${uniqueEmployeesCount > 0 ? (totalSwipesCaptured / uniqueEmployeesCount).toFixed(1) : 0} avg swipes per employee today
+          </div>
+        </div>
+      </div>
+
+      <!-- Biometric Hardware Terminals Strip (Admin / Manager) -->
+      ${!isEmployee ? `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+          ${devices.map(d => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div style="width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 8px var(--success)"></div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--text)">${d.name}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${d.location || 'Hardware Terminal'}</div>
+                  </div>
                 </div>
+                <span class="badge badge-success" style="font-size:10px">ONLINE (Port 4370)</span>
               </div>
-              <span class="badge badge-success" style="font-size:10.5px">ONLINE</span>
+              <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-3)">
+                <span>IP: <strong style="font-family:monospace;color:var(--text)">${d.ip}</strong></span>
+                <span>Mode: <strong>Biometric / RFID</strong></span>
+              </div>
             </div>
-            <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:11.5px">
-              <div><span style="color:var(--text-3)">IP:</span> <strong style="font-family:monospace">${d.ip}:${d.port}</strong></div>
-              <div><span style="color:var(--text-3)">Location:</span> <strong>${d.location}</strong></div>
-              <div style="grid-column:span 2"><span style="color:var(--text-3)">Last Heartbeat:</span> <strong style="color:var(--success)">${new Date(d.lastSync || Date.now()).toLocaleTimeString()}</strong></div>
+          `).join('')}
+        </div>
+      ` : ''}
+
+      <!-- Interactive Filters & Sub-bar -->
+      <div class="card" style="padding:14px 18px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <!-- Date Navigator -->
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.prevMachineLogDate()" title="Previous Day"><i class="fa fa-chevron-left"></i></button>
+            <input type="date" class="form-control" style="width:145px;padding:6px 10px;font-size:12.5px" value="${curDate}" onchange="Attendance.setMachineLogDate(this.value)">
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.nextMachineLogDate()" title="Next Day"><i class="fa fa-chevron-right"></i></button>
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.setMachineLogToday()"><i class="fa fa-calendar-day"></i> Today</button>
+          </div>
+
+          <!-- Dropdowns -->
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            ${isAdmin ? `
+              <select class="form-control" style="width:160px;font-size:12px;padding:6px 10px" onchange="Attendance.setMachineLogDeptFilter(this.value)">
+                <option value="all" ${this.machineLogDeptFilter==='all'?'selected':''}>All Departments</option>
+                ${departments.map(d => `<option value="${d.id}" ${String(this.machineLogDeptFilter)===String(d.id)?'selected':''}>${d.name}</option>`).join('')}
+              </select>
+            ` : ''}
+
+            ${!isEmployee ? `
+              <select class="form-control" style="width:160px;font-size:12px;padding:6px 10px" onchange="Attendance.setMachineLogEmpFilter(this.value)">
+                <option value="all" ${this.machineLogEmpFilter==='all'?'selected':''}>All Employees (${scopedEmps.length})</option>
+                ${scopedEmps.map(e => `<option value="${e.id}" ${String(this.machineLogEmpFilter)===String(e.id)?'selected':''}>${e.fullName} (${e.empNo})</option>`).join('')}
+              </select>
+            ` : ''}
+
+            <select class="form-control" style="width:160px;font-size:12px;padding:6px 10px" onchange="Attendance.setMachineLogPunchFilter(this.value)">
+              <option value="all" ${this.machineLogPunchFilter==='all'?'selected':''}>All Punch Options (4)</option>
+              <option value="check_in" ${this.machineLogPunchFilter==='check_in'?'selected':''}>Check-In (Punch #1)</option>
+              <option value="ot_out" ${this.machineLogPunchFilter==='ot_out'?'selected':''}>OT-Out (Punch #2)</option>
+              <option value="ot_in" ${this.machineLogPunchFilter==='ot_in'?'selected':''}>OT-In (Punch #3)</option>
+              <option value="check_out" ${this.machineLogPunchFilter==='check_out'?'selected':''}>Check-Out (Punch #4)</option>
+            </select>
+
+            <select class="form-control" style="width:160px;font-size:12px;padding:6px 10px" onchange="Attendance.setMachineLogDeviceFilter(this.value)">
+              <option value="all" ${this.machineLogDeviceFilter==='all'?'selected':''}>All Biometric Terminals</option>
+              ${devices.map(d => `<option value="${d.name}" ${this.machineLogDeviceFilter===d.name?'selected':''}>${d.name}</option>`).join('')}
+            </select>
+
+            <div style="position:relative">
+              <input type="text" class="form-control" placeholder="Search employee..." style="padding:6px 10px 6px 28px;font-size:12px;width:150px" oninput="Attendance.setMachineLogSearch(this.value)">
+              <i class="fa fa-magnifying-glass" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:11px"></i>
             </div>
           </div>
-        `).join('')}
+        </div>
       </div>
 
-      <!-- Raw Machine Log Table -->
+      <!-- Live Machine Swipes Telemetry Table -->
       <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <div style="font-size:13.5px;font-weight:700">
-            <i class="fa fa-list" style="color:var(--primary);margin-right:6px"></i> Live Biometric Terminal Punches &bull; ${Utils.formatDate(this.currentDate)}
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-list-check" style="color:var(--primary)"></i>
+            Biometric Machine Swipe Telemetry Log &bull; ${Utils.formatDate(curDate)}
           </div>
-          <div style="font-size:12px;color:var(--text-3)">${logs.length} machine logs captured</div>
+          <div style="font-size:12px;color:var(--text-3)">
+            Showing <strong>${filteredLogs.length}</strong> of <strong>${totalSwipesCaptured}</strong> swipe events
+          </div>
         </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Emp #</th>
-                <th>Punch Date</th>
-                <th>Check In</th>
-                <th>Check Out</th>
-                <th>Biometric Device</th>
-                <th>Verify Mode</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${logs.map(log => {
-                const emp = emps.find(e => e.id === log.employeeId);
-                return `<tr>
-                  <td><div style="display:flex;align-items:center;gap:10px">
-                    <div class="avatar avatar-sm" style="background:${Utils.avatarColor(log.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
-                    <span style="font-weight:600;font-size:13px">${emp?.fullName || '—'}</span>
-                  </div></td>
-                  <td><span style="font-family:monospace;font-size:12px;color:var(--primary);font-weight:700">${emp?.empNo||'—'}</span></td>
-                  <td>${Utils.formatDate(log.date)}</td>
-                  <td style="color:var(--success);font-weight:700">${log.timeIn||'—'}</td>
-                  <td style="color:var(--danger);font-weight:700">${log.timeOut||'—'}</td>
-                  <td><span class="chip"><i class="fa fa-fingerprint" style="color:var(--primary);margin-right:4px"></i>${log.device||'ZKTeco-01'}</span></td>
-                  <td><span class="badge badge-info" style="font-size:10px">Biometric / Face</span></td>
-                  <td>${Utils.statusBadge(log.status)}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
+
+        ${filteredLogs.length === 0 ? `
+          <div style="padding:48px 20px;text-align:center">
+            <div style="font-size:38px;color:var(--text-muted);margin-bottom:12px"><i class="fa fa-fingerprint"></i></div>
+            <h3 style="font-size:16px;font-weight:700;color:var(--text)">No Biometric Machine Logs Found</h3>
+            <p style="font-size:12.5px;color:var(--text-3);max-width:440px;margin:6px auto 16px">
+              No swipe telemetry captured for this date and selected filter criteria.
+            </p>
+            ${isAdmin ? `
+              <button class="btn btn-primary btn-sm" onclick="Attendance.syncBiometricHardware()"><i class="fa fa-rotate"></i> Sync Biometric Hardware Terminals</button>
+            ` : ''}
+          </div>
+        ` : `
+          <div class="table-wrapper" style="border:none;border-radius:0">
+            <table>
+              <thead>
+                <tr>
+                  <th style="min-width:110px">Swipe Time</th>
+                  <th>Machine Option</th>
+                  <th>Swipe Frequency / Seq #</th>
+                  <th>Employee</th>
+                  <th>Emp # &amp; Dept</th>
+                  <th>Terminal Hardware</th>
+                  <th>Verify Mode</th>
+                  <th>Daily Shift Cycle</th>
+                  <th style="text-align:center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredLogs.map(log => {
+                  const emp = allEmps.find(e => e.id === log.employeeId);
+                  const dept = emp ? Utils.getDeptName(emp.departmentId) : '—';
+                  const pList = empPunchesMap[log.employeeId] || [];
+                  const empTotalToday = pList.length;
+                  const punchIdx = pList.findIndex(p => p.id === log.id);
+                  const seqNum = punchIdx >= 0 ? (punchIdx + 1) : (log.punchNumber || 1);
+
+                  // Completion status for employee
+                  const types = pList.map(p => p.punchType);
+                  const is4WayComplete = types.includes('check_in') && types.includes('ot_out') && types.includes('ot_in') && types.includes('check_out');
+                  const isInProgress = types.includes('check_in') && !types.includes('check_out');
+
+                  return `
+                    <tr class="machine-punch-row">
+                      <td>
+                        <div style="font-family:monospace;font-size:13.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                          <i class="fa fa-clock" style="color:var(--primary);font-size:12px"></i>
+                          ${log.time || '—'}
+                        </div>
+                        <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">${Utils.formatDate(log.date)}</div>
+                      </td>
+
+                      <td>
+                        ${getPunchBadge(log.punchType, log.punchLabel)}
+                      </td>
+
+                      <td>
+                        <div style="display:flex;align-items:center;gap:6px">
+                          <span class="badge badge-secondary" style="font-weight:700;font-size:11px">
+                            Swipe #${seqNum} of ${empTotalToday}
+                          </span>
+                        </div>
+                        <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">
+                          ${empTotalToday >= 4 ? '<span style="color:var(--success);font-weight:600">✓ 4 Swipes Completed</span>' : `<span style="color:var(--warning);font-weight:600">${empTotalToday} swipe(s) recorded</span>`}
+                        </div>
+                      </td>
+
+                      <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(log.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
+                          <div>
+                            <div style="font-weight:700;font-size:13px;color:var(--text)">${emp?.fullName || '—'}</div>
+                            <div style="font-size:11px;color:var(--text-3)">${emp?.designation || 'Staff'}</div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td>
+                        <span style="font-family:monospace;font-size:12px;color:var(--primary);font-weight:700">${emp?.empNo || '—'}</span>
+                        <div style="font-size:11px;color:var(--text-3);margin-top:2px">${dept}</div>
+                      </td>
+
+                      <td>
+                        <div style="font-weight:600;font-size:12px;color:var(--text);display:flex;align-items:center;gap:5px">
+                          <i class="fa fa-fingerprint" style="color:var(--primary)"></i>
+                          ${log.device || 'ZKTeco-Main-Gate'}
+                        </div>
+                        <div style="font-size:10.5px;font-family:monospace;color:var(--text-3);margin-top:1px">${log.deviceIp || '192.168.1.201'}</div>
+                      </td>
+
+                      <td>
+                        <span class="chip" style="font-size:11px">
+                          <i class="fa ${log.verifyMode === 'Face Recognition' ? 'fa-user-tag' : 'fa-fingerprint'}" style="margin-right:4px;color:var(--primary)"></i>
+                          ${log.verifyMode || 'Fingerprint'}
+                        </span>
+                      </td>
+
+                      <td>
+                        ${is4WayComplete ? `
+                          <span class="badge badge-success" style="font-size:11px;font-weight:700"><i class="fa fa-circle-check"></i> Complete (4/4)</span>
+                        ` : isInProgress ? `
+                          <span class="badge badge-primary" style="font-size:11px;font-weight:700"><i class="fa fa-person-walking-arrow-right"></i> In Progress (${empTotalToday}/4)</span>
+                        ` : `
+                          <span class="badge badge-warning" style="font-size:11px;font-weight:700"><i class="fa fa-circle-exclamation"></i> Incomplete (${empTotalToday}/4)</span>
+                        `}
+                      </td>
+
+                      <td style="text-align:center">
+                        <button class="btn btn-ghost btn-sm" onclick="Attendance.showMachinePunchDetail(${log.employeeId}, '${curDate}')" title="View Full Day Swipes Timeline">
+                          <i class="fa fa-timeline" style="color:var(--primary)"></i> Day Log
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
       </div>
     `;
+  },
+
+  showMachinePunchDetail(empId, date) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const allLogs = DB.get('attendance_logs') || [];
+    const empLogs = allLogs.filter(l => l.employeeId === empId && l.date === date);
+    empLogs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
+    const checkInLog  = empLogs.find(l => l.punchType === 'check_in');
+    const otOutLog    = empLogs.find(l => l.punchType === 'ot_out');
+    const otInLog     = empLogs.find(l => l.punchType === 'ot_in');
+    const checkOutLog = empLogs.find(l => l.punchType === 'check_out');
+
+    const totalSwipes = empLogs.length;
+    const isComplete = checkInLog && otOutLog && otInLog && checkOutLog;
+    const isInProgress = checkInLog && !checkOutLog;
+
+    Modal.show(`Biometric Machine Swipe Dossier &bull; ${emp.fullName}`, `
+      <div style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text)">${emp.fullName} <span style="font-family:monospace;font-size:13px;color:var(--primary);margin-left:6px">(${emp.empNo})</span></div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${emp.designation || 'Staff'} &bull; ${Utils.getDeptName(emp.departmentId)} &bull; ${Utils.formatDate(date)}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="background:var(--surface);padding:8px 14px;border-radius:8px;border:1px solid var(--border);text-align:center">
+            <div style="font-size:10px;color:var(--text-3);font-weight:700;text-transform:uppercase">Total Swipes Today</div>
+            <div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:2px">${totalSwipes} Times</div>
+          </div>
+          <div style="background:var(--surface);padding:8px 14px;border-radius:8px;border:1px solid var(--border);text-align:center">
+            <div style="font-size:10px;color:var(--text-3);font-weight:700;text-transform:uppercase">Shift Status</div>
+            <div style="font-size:13px;font-weight:700;margin-top:4px">
+              ${isComplete ? '<span style="color:var(--success)">Complete (4/4)</span>' : isInProgress ? '<span style="color:var(--primary)">In Progress</span>' : '<span style="color:var(--warning)">Incomplete</span>'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Machine Option Punch Matrix Strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <!-- Punch #1 Check-In -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid var(--success)">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
+            <i class="fa fa-arrow-right-to-bracket" style="color:var(--success)"></i> Punch #1: Check-In
+          </div>
+          <div style="font-size:19px;font-weight:800;color:${checkInLog ? 'var(--success)' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
+            ${checkInLog?.time || '—'}
+          </div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
+            ${checkInLog ? `${checkInLog.device || 'ZKTeco'} &bull; ${checkInLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
+          </div>
+        </div>
+
+        <!-- Punch #2 OT-Out -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid #f59e0b">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
+            <i class="fa fa-mug-hot" style="color:#f59e0b"></i> Punch #2: OT-Out
+          </div>
+          <div style="font-size:19px;font-weight:800;color:${otOutLog ? '#f59e0b' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
+            ${otOutLog?.time || '—'}
+          </div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
+            ${otOutLog ? `${otOutLog.device || 'ZKTeco'} &bull; ${otOutLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
+          </div>
+        </div>
+
+        <!-- Punch #3 OT-In -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid #0284c7">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
+            <i class="fa fa-rotate-left" style="color:#0284c7"></i> Punch #3: OT-In
+          </div>
+          <div style="font-size:19px;font-weight:800;color:${otInLog ? '#0284c7' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
+            ${otInLog?.time || '—'}
+          </div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
+            ${otInLog ? `${otInLog.device || 'ZKTeco'} &bull; ${otInLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
+          </div>
+        </div>
+
+        <!-- Punch #4 Check-Out -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid var(--danger)">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
+            <i class="fa fa-arrow-right-from-bracket" style="color:var(--danger)"></i> Punch #4: Check-Out
+          </div>
+          <div style="font-size:19px;font-weight:800;color:${checkOutLog ? 'var(--danger)' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
+            ${checkOutLog?.time || '—'}
+          </div>
+          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
+            ${checkOutLog ? `${checkOutLog.device || 'ZKTeco'} &bull; ${checkOutLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Chronological Visual Swipe Timeline -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
+          <i class="fa fa-clock-rotate-left" style="color:var(--primary)"></i>
+          Chronological Machine Swipe Timeline (${empLogs.length} Events)
+        </div>
+
+        ${empLogs.length === 0 ? `
+          <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">
+            No machine swipes recorded on this date.
+          </div>
+        ` : `
+          <div style="position:relative;padding-left:24px;border-left:2px dashed var(--border);margin-left:12px;display:flex;flex-direction:column;gap:16px">
+            ${empLogs.map((log, idx) => {
+              const prev = idx > 0 ? empLogs[idx - 1] : null;
+              let elapsedText = '';
+              if (prev && prev.time && log.time) {
+                const [h1, m1] = prev.time.split(':').map(Number);
+                const [h2, m2] = log.time.split(':').map(Number);
+                const diffMin = (h2 * 60 + m2) - (h1 * 60 + m1);
+                if (diffMin > 0) {
+                  const hrs = Math.floor(diffMin / 60);
+                  const mins = diffMin % 60;
+                  elapsedText = `${hrs > 0 ? hrs + 'h ' : ''}${mins}m interval`;
+                }
+              }
+
+              const badge = log.punchType === 'check_in' ? '#10b981' : log.punchType === 'ot_out' ? '#f59e0b' : log.punchType === 'ot_in' ? '#0284c7' : '#ef4444';
+
+              return `
+                <div style="position:relative">
+                  <div style="position:absolute;left:-31px;top:2px;width:14px;height:14px;border-radius:50%;background:${badge};box-shadow:0 0 0 3px var(--card)"></div>
+                  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <strong style="font-size:13px;color:var(--text)">Swipe #${idx + 1}: ${log.punchLabel || log.punchType}</strong>
+                        <span class="chip" style="font-size:10.5px">${log.device || 'ZKTeco'}</span>
+                      </div>
+                      <div style="font-family:monospace;font-weight:800;font-size:13.5px;color:${badge}">
+                        ${log.time}
+                      </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--text-3);margin-top:4px;display:flex;justify-content:space-between">
+                      <span>Terminal: <strong>${log.deviceIp || '192.168.1.201'}</strong> &bull; Mode: <strong>${log.verifyMode || 'Fingerprint'}</strong></span>
+                      ${elapsedText ? `<span style="font-weight:600;color:var(--text-2)"><i class="fa fa-hourglass-half"></i> ${elapsedText}</span>` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-primary" onclick="Attendance.exportSingleEmployeePunches(${empId}, '${date}')">
+          <i class="fa fa-download"></i> Export Employee Punches CSV
+        </button>
+      `
+    });
+  },
+
+  exportSingleEmployeePunches(empId, date) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const allLogs = DB.get('attendance_logs') || [];
+    const empLogs = allLogs.filter(l => l.employeeId === empId && l.date === date);
+    empLogs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+    if (empLogs.length === 0) {
+      Toast.show('No machine punches to export for this employee.', 'warning');
+      return;
+    }
+
+    const headers = ['Swipe #', 'Employee ID', 'Employee Name', 'Department', 'Date', 'Time', 'Punch Option', 'Device', 'Device IP', 'Verify Mode'];
+    const rows = empLogs.map((l, idx) => [
+      idx + 1,
+      emp.empNo || emp.id,
+      `"${emp.fullName.replace(/"/g, '""')}"`,
+      `"${Utils.getDeptName(emp.departmentId).replace(/"/g, '""')}"`,
+      l.date,
+      l.time,
+      l.punchLabel || l.punchType,
+      l.device || 'ZKTeco',
+      l.deviceIp || '192.168.1.201',
+      l.verifyMode || 'Fingerprint'
+    ]);
+
+    Utils.exportCSV(`Biometric_Punches_${emp.empNo}_${date}.csv`, headers, rows);
+    Toast.show(`Exported ${empLogs.length} machine punches for ${emp.fullName}`, 'success');
+  },
+
+  exportMachinePunchLogs() {
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isManager = Auth.role === 'dept_manager';
+    const allEmps = DB.get('employees') || [];
+    const myEmp = Auth.employee || DB.find('employees', 4);
+
+    let scopedEmps = [];
+    if (isEmployee) scopedEmps = myEmp ? [myEmp] : [];
+    else if (isManager) scopedEmps = this.getScopedEmployees();
+    else scopedEmps = allEmps;
+    const scopedIds = scopedEmps.map(e => e.id);
+
+    const allLogs = DB.get('attendance_logs') || [];
+    const curDate = this.machineLogDate || Utils.today();
+    const logs = allLogs.filter(l => scopedIds.includes(l.employeeId) && l.date === curDate);
+
+    if (logs.length === 0) {
+      Toast.show('No machine punch logs found to export.', 'warning');
+      return;
+    }
+
+    const headers = ['Date', 'Time', 'Employee #', 'Employee Name', 'Department', 'Punch Option', 'Device Terminal', 'Device IP', 'Verify Mode'];
+    const rows = logs.map(l => {
+      const emp = allEmps.find(e => e.id === l.employeeId);
+      return [
+        l.date,
+        l.time,
+        emp?.empNo || l.employeeId,
+        `"${(emp?.fullName || '').replace(/"/g, '""')}"`,
+        `"${(Utils.getDeptName(emp?.departmentId) || '').replace(/"/g, '""')}"`,
+        l.punchLabel || l.punchType,
+        l.device || 'ZKTeco-Main-Gate',
+        l.deviceIp || '192.168.1.201',
+        l.verifyMode || 'Fingerprint'
+      ];
+    });
+
+    Utils.exportCSV(`Biometric_Machine_Logs_${curDate}.csv`, headers, rows);
+    Toast.show(`Exported ${logs.length} biometric machine logs!`, 'success');
   },
 
   renderManualEntry(container) {
