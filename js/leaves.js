@@ -68,7 +68,6 @@ const Leaves = {
             { id:'calendar', label:'Leave Calendar', icon:'fa-calendar' },
             { id:'quota',    label:'Leave Quota & Balance',  icon:'fa-scale-balanced' },
             { id:'tokens',   label:'Overtime Tokens', icon:'fa-coins' },
-            { id:'types',    label:'Leave Types',    icon:'fa-tags' },
             { id:'holidays', label:'Holidays',       icon:'fa-calendar-days' },
           ].map(t => `
             <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Leaves.switchView('${t.id}')">
@@ -91,11 +90,24 @@ const Leaves = {
   },
 
   switchView(view) {
-    this.currentView = view;
+    if (view === 'types') {
+      this.currentView = 'quota';
+      this.quotaSubView = 'types';
+    } else {
+      this.currentView = view;
+      if (view === 'quota' && !this.quotaSubView) {
+        this.quotaSubView = 'matrix';
+      }
+    }
     document.querySelectorAll('[onclick*="Leaves.switchView"]').forEach(b => {
       const m = b.getAttribute('onclick').match(/'(\w+)'/);
-      if (m) b.classList.toggle('active', m[1] === view);
+      if (m) b.classList.toggle('active', m[1] === this.currentView);
     });
+    this.renderView();
+  },
+
+  setQuotaSubView(subView) {
+    this.quotaSubView = subView;
     this.renderView();
   },
 
@@ -108,7 +120,11 @@ const Leaves = {
       case 'quota':
       case 'balance':  this.renderQuota(container); break;
       case 'tokens':   this.renderTokens(container); break;
-      case 'types':    this.renderTypes(container); break;
+      case 'types':    
+        this.currentView = 'quota';
+        this.quotaSubView = 'types';
+        this.renderQuota(container);
+        break;
       case 'holidays': this.renderHolidays(container); break;
     }
   },
@@ -844,6 +860,14 @@ const Leaves = {
     const types = DB.get('leave_types') || [];
     const allEmps = DB.get('employees') || [];
 
+    if (!this.quotaSubView) this.quotaSubView = 'matrix';
+
+    // If sub-view is 'types', render the integrated Leave Types & Policy console
+    if (this.quotaSubView === 'types') {
+      this.renderTypes(container);
+      return;
+    }
+
     if (isEmployee) {
       // ── EMPLOYEE VIEW: PERSONAL LEAVE QUOTA BREAKDOWN & HISTORY ──
       const myEmp = Auth.employee || allEmps.find(e => e.id === Auth.user?.employeeId) || allEmps[0];
@@ -867,6 +891,25 @@ const Leaves = {
 
       container.innerHTML = `
         <div class="animate-fade-in">
+          <!-- Feature Header & Sub-Nav Switcher -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+            <div>
+              <h2 style="font-size:19px;font-weight:800;margin:0 0 2px 0;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-scale-balanced" style="color:var(--primary)"></i>
+                Leave Quotas, Balances &amp; Types
+              </h2>
+              <div style="font-size:12px;color:var(--text-3)">View personal leave quotas, remaining balances, and company leave type policies.</div>
+            </div>
+            <div style="display:flex;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border);gap:4px">
+              <button class="btn btn-sm ${this.quotaSubView !== 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('matrix')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-table-cells" style="margin-right:6px"></i>My Quota &amp; Balances
+              </button>
+              <button class="btn btn-sm ${this.quotaSubView === 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('types')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-tags" style="margin-right:6px"></i>Company Leave Types (${types.length})
+              </button>
+            </div>
+          </div>
+
           <!-- Banner -->
           <div style="background:linear-gradient(135deg,rgba(99,102,241,0.15) 0%,rgba(236,72,153,0.12) 100%);border:1px solid rgba(99,102,241,0.25);border-radius:16px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
             <div>
@@ -999,16 +1042,25 @@ const Leaves = {
       <div class="animate-fade-in">
         
         <!-- Header & Action Controls Bar -->
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap">
           <div>
-            <h3 style="font-size:18px;font-weight:800;margin:0 0 4px 0">
-              <i class="fa fa-scale-balanced" style="color:var(--primary);margin-right:6px"></i> Annual Leave Quotas &amp; Balances — ${this.quotaYear || 2026}
+            <h3 style="font-size:18px;font-weight:800;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-scale-balanced" style="color:var(--primary);margin-right:6px"></i> Annual Leave Quotas, Balances &amp; Types — ${this.quotaYear || 2026}
             </h3>
             <div style="font-size:12.5px;color:var(--text-3)">
-              Comprehensive multi-tier leave matrix tracking quotas, availed days, remaining balances, and unpaid deductions.
+              Unified leave console tracking employee quotas, availed days, remaining balances, and company leave types catalog.
             </div>
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <!-- Sub-View Switcher Pills (Matrix vs Types) -->
+            <div style="display:flex;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border);gap:4px">
+              <button class="btn btn-sm ${this.quotaSubView !== 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('matrix')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-table-cells" style="margin-right:6px"></i>Quota &amp; Balance Matrix
+              </button>
+              <button class="btn btn-sm ${this.quotaSubView === 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('types')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-tags" style="margin-right:6px"></i>Leave Types &amp; Policy (${types.length})
+              </button>
+            </div>
             <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()" title="Export complete matrix to CSV">
               <i class="fa fa-file-export"></i> Export CSV
             </button>
@@ -1036,6 +1088,26 @@ const Leaves = {
           <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid var(--success)">
             <div style="font-size:24px;font-weight:800;color:var(--success)">${totalCompanyRemaining} days</div>
             <div style="font-size:11.5px;color:var(--text-3)">Net Balance Days Available</div>
+          </div>
+        </div>
+
+        <!-- Integrated Leave Types Policy Ribbon -->
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">
+              <i class="fa fa-tags" style="color:var(--primary);margin-right:4px"></i> Leave Types Policy:
+            </span>
+            ${types.map(t => `
+              <span class="badge" style="background:${t.color}18;color:${t.color};border:1px solid ${t.color}44;font-size:11.5px;padding:4px 10px;display:inline-flex;align-items:center;gap:6px">
+                <strong style="font-weight:700">${t.code}</strong> ${t.name} (${t.maxDays}d${t.carryForward ? ' • CF' : ''})
+              </span>
+            `).join('')}
+          </div>
+          <div style="display:flex;gap:6px">
+            ${isHrOrAdmin ? `
+              <button class="btn btn-ghost btn-xs" onclick="Leaves.showAddType()" style="font-size:11px"><i class="fa fa-plus"></i> Add Type</button>
+            ` : ''}
+            <button class="btn btn-outline btn-xs" onclick="Leaves.setQuotaSubView('types')" style="font-size:11px"><i class="fa fa-sliders"></i> Manage Types</button>
           </div>
         </div>
 
@@ -1226,23 +1298,118 @@ const Leaves = {
   },
 
   renderTypes(container) {
-    const types = DB.get('leave_types');
+    const types = DB.get('leave_types') || [];
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const allLeaves = DB.get('leave_requests') || [];
+
+    const totalTypes = types.length;
+    const cfTypes = types.filter(t => t.carryForward).length;
+    const totalMaxDays = types.reduce((s, t) => s + (t.maxDays || 0), 0);
+
     container.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showAddType()"><i class="fa fa-plus"></i> Add Leave Type</button>` : ''}
-      </div>
-      <div class="grid-3">
-        ${types.map(t => `
-          <div class="card" style="border-top:4px solid ${t.color}">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-              <span class="badge" style="background:${t.color}22;color:${t.color};font-size:13px">${t.code}</span>
-              ${t.carryForward ? '<span class="chip" style="font-size:10px">Carry Forward</span>' : ''}
+      <div class="animate-fade-in">
+        <!-- Feature Header & Sub-Nav Switcher -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap">
+          <div>
+            <h3 style="font-size:18px;font-weight:800;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-scale-balanced" style="color:var(--primary)"></i> Annual Leave Quotas, Balances &amp; Types
+            </h3>
+            <div style="font-size:12.5px;color:var(--text-3)">
+              Configure company leave types, annual entitlement limits, carry-forward rules, and quota definitions.
             </div>
-            <div style="font-size:16px;font-weight:700;margin-bottom:4px">${t.name}</div>
-            <div style="font-size:28px;font-weight:800;color:${t.color};margin-bottom:4px">${t.maxDays}</div>
-            <div style="font-size:12px;color:var(--text-3)">days per year</div>
           </div>
-        `).join('')}
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <!-- Sub-View Switcher Pills -->
+            <div style="display:flex;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border);gap:4px">
+              <button class="btn btn-sm ${this.quotaSubView !== 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('matrix')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-table-cells" style="margin-right:6px"></i>${isEmployee ? 'My Quota & Balances' : 'Quota & Balance Matrix'}
+              </button>
+              <button class="btn btn-sm ${this.quotaSubView === 'types' ? 'btn-primary' : 'btn-ghost'}" onclick="Leaves.setQuotaSubView('types')" style="font-size:12px;font-weight:600;border-radius:7px">
+                <i class="fa fa-tags" style="margin-right:6px"></i>Leave Types &amp; Policy (${types.length})
+              </button>
+            </div>
+            ${isHrOrAdmin ? `
+              <button class="btn btn-primary btn-sm" onclick="Leaves.showAddType()"><i class="fa fa-plus"></i> Add Leave Type</button>
+            ` : ''}
+            <button class="btn btn-outline btn-sm" onclick="Leaves.setQuotaSubView('matrix')"><i class="fa fa-table-cells"></i> View Quota Matrix</button>
+          </div>
+        </div>
+
+        <!-- Summary KPI Cards -->
+        <div class="grid-4 mb-20" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid var(--primary)">
+            <div style="font-size:24px;font-weight:800;color:var(--primary)">${totalTypes}</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Configured Leave Types</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid #10b981">
+            <div style="font-size:24px;font-weight:800;color:#10b981">${cfTypes}</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Carry-Forward Eligible</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid #f59e0b">
+            <div style="font-size:24px;font-weight:800;color:#f59e0b">${totalMaxDays}d</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Cumulative Annual Allowance</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid #8b5cf6">
+            <div style="font-size:24px;font-weight:800;color:#8b5cf6">${allLeaves.length}</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Total Requests Logged</div>
+          </div>
+        </div>
+
+        <!-- Cards Grid -->
+        <div class="grid-3" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+          ${types.map(t => {
+            const reqCount = allLeaves.filter(l => l.typeId === t.id).length;
+            const approvedDays = allLeaves.filter(l => l.typeId === t.id && l.status === 'approved').reduce((s, l) => s + (l.days || 0), 0);
+            return `
+              <div class="card" style="border-top:4px solid ${t.color || 'var(--primary)'};position:relative;display:flex;flex-direction:column;justify-content:space-between">
+                <div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                    <span class="badge" style="background:${t.color || '#6366f1'}22;color:${t.color || '#6366f1'};font-size:12.5px;font-weight:700">${t.code}</span>
+                    <div style="display:flex;gap:4px;align-items:center">
+                      ${t.carryForward ? '<span class="chip" style="font-size:10px;background:rgba(16,185,129,0.12);color:#059669"><i class="fa fa-rotate-right" style="margin-right:3px"></i>Carry Forward</span>' : '<span class="chip" style="font-size:10px;color:var(--text-muted)">Lapse on Dec 31</span>'}
+                    </div>
+                  </div>
+                  <div style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text)">${t.name}</div>
+                  <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:12px">
+                    <span style="font-size:32px;font-weight:800;color:${t.color || 'var(--primary)'};line-height:1">${t.maxDays}</span>
+                    <span style="font-size:12px;color:var(--text-3)">days standard allocation / year</span>
+                  </div>
+                  
+                  <div style="background:var(--surface);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:11.5px;color:var(--text-2)">
+                    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                      <span>Total Requests Logged:</span>
+                      <strong>${reqCount}</strong>
+                    </div>
+                    <div style="display:flex;justify-content:space-between">
+                      <span>Total Approved Days:</span>
+                      <strong>${Math.round(approvedDays * 10) / 10} days</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);margin-top:auto">
+                  <span style="font-size:11px;color:var(--text-muted)">ID: #${t.id}</span>
+                  <div style="display:flex;gap:6px">
+                    ${isHrOrAdmin ? `
+                      <button class="btn btn-ghost btn-xs" onclick="Leaves.showEditType(${t.id})" title="Edit leave type policy" style="padding:4px 8px">
+                        <i class="fa fa-pen"></i> Edit
+                      </button>
+                      ${t.id > 10 ? `
+                        <button class="btn btn-ghost btn-xs" onclick="Leaves.deleteType(${t.id})" title="Delete custom type" style="padding:4px 8px;color:var(--danger)">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      ` : ''}
+                    ` : ''}
+                    <button class="btn btn-outline btn-xs" onclick="Leaves.setQuotaSubView('matrix')" title="View in employee quota matrix" style="padding:4px 8px">
+                      <i class="fa fa-table-cells"></i> Quotas
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
     `;
   },
@@ -1283,6 +1450,72 @@ const Leaves = {
     });
     Modal.close('dynamic-modal');
     Toast.show('Leave type added!', 'success');
+    this.renderView();
+  },
+
+  showEditType(id) {
+    if (Auth.role === 'employee' || Auth.role === 'onboarding') {
+      Toast.show('Permission denied: Employees cannot edit leave types.', 'error');
+      return;
+    }
+    const type = DB.find('leave_types', id);
+    if (!type) {
+      Toast.show('Leave type not found.', 'error');
+      return;
+    }
+    Modal.show(`Edit Leave Type: ${type.name}`, `
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label required">Leave Type Name</label><input class="form-control" id="lt-edit-name" value="${type.name}"></div>
+        <div class="form-group"><label class="form-label required">Code</label><input class="form-control" id="lt-edit-code" value="${type.code}" maxlength="5"></div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group"><label class="form-label required">Max Days/Year</label><input class="form-control" id="lt-edit-days" type="number" value="${type.maxDays || 15}" min="1" max="365"></div>
+        <div class="form-group"><label class="form-label">Color</label><input class="form-control" id="lt-edit-color" type="color" value="${type.color || '#6366f1'}"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Carry Forward?</label>
+        <select class="form-control" id="lt-edit-carry">
+          <option value="false" ${!type.carryForward ? 'selected' : ''}>No</option>
+          <option value="true" ${type.carryForward ? 'selected' : ''}>Yes</option>
+        </select>
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+               <button class="btn btn-primary" onclick="Leaves.updateType(${id})"><i class="fa fa-save"></i> Save Changes</button>`
+    });
+  },
+
+  updateType(id) {
+    if (Auth.role === 'employee' || Auth.role === 'onboarding') { Toast.show('Permission denied.', 'error'); return; }
+    const name = document.getElementById('lt-edit-name').value.trim();
+    const code = document.getElementById('lt-edit-code').value.trim();
+    if (!name || !code) { Toast.show('Name and code required', 'error'); return; }
+    DB.update('leave_types', id, {
+      name,
+      code: code.toUpperCase(),
+      maxDays: parseInt(document.getElementById('lt-edit-days').value) || 15,
+      color: document.getElementById('lt-edit-color').value,
+      carryForward: document.getElementById('lt-edit-carry').value === 'true'
+    });
+    Modal.close('dynamic-modal');
+    Toast.show(`Leave type "${name}" updated successfully!`, 'success');
+    this.renderView();
+  },
+
+  deleteType(id) {
+    if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
+      Toast.show('Permission denied: Only Administrators and HR can delete leave types.', 'error');
+      return;
+    }
+    const type = DB.find('leave_types', id);
+    if (!type) return;
+    const usedCount = (DB.get('leave_requests') || []).filter(l => l.typeId === id).length;
+    if (usedCount > 0) {
+      Toast.show(`Cannot delete "${type.name}": It has ${usedCount} associated leave requests.`, 'warning');
+      return;
+    }
+    if (!confirm(`Are you sure you want to delete leave type "${type.name}"?`)) return;
+    DB.delete('leave_types', id);
+    Toast.show(`Leave type "${type.name}" removed.`, 'success');
     this.renderView();
   },
 

@@ -392,8 +392,14 @@
       - **Strict Minimum Duration Rule**: Availing less than 45 minutes for Short Leave is strictly blocked with validation warnings.
       - **Balance Check**: Ensures requested leave does not exceed available approved token hours.
       - **Leave Quota Matrix Integration**: Availing token leave automatically creates records in `token_availments` and `leave_requests` (Type 10: `Token Leave`), seamlessly reflecting under the `Token Leave` column in the 20-column Leave Quota & Balance matrix.
-  - **Automated Regression Suite (`scratch/test-attendance-breaks-tokens.js`)**:
-    - 17 / 17 tests passed (100%) validating break deductions, net minutes, non-cash overtime payroll rule, token claim workflow, manager approvals, minimum 45m availment validation, and Leave Quota sync *(Completed)*.
+  - **Leave Section: Unified Leave Quota & Balance + Leave Types Console (`js/leaves.js`)**:
+    - Unified the previously separate `Leave Quota & Balance` and `Leave Types` tabs into a single consolidated feature in the main navigation.
+    - Integrated sub-navigation switcher pills right inside the feature: `[ ⚖ Quota & Balance Matrix ]` and `[ 🏷 Leave Types & Policy ]`.
+    - Added an at-a-glance **Leave Types Policy Ribbon** directly above the Quota Matrix with badge indicators for all active leave types, day entitlements, carry-forward status, and quick `Manage Types` / `Add Type` shortcuts.
+    - Re-architected Leave Types management sub-view with summary KPI metrics (Configured Types, Carry-Forward Eligible, Cumulative Allocation, Total Requests Logged) and added full `showEditType(id)` and `deleteType(id)` capabilities.
+    - Backward-compatible routing ensuring `switchView('types')` automatically maps to the unified Quota feature with `quotaSubView = 'types'`.
+  - **Automated Regression Suite (`scratch/test-unified-leave-quota-types.js`)**:
+    - 10 / 10 tests passed (100%) validating tab unification, sub-nav toggles, policy ribbon, edit modal, and employee self-service view.
 
 ---
 
