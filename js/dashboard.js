@@ -87,14 +87,50 @@ const Dashboard = {
           timeOut: '',
           status: isLate ? 'late' : 'present',
           overtime: 0,
-          device: 'Web Self-Service',
+          device: 'ZKTeco-Main-Gate',
           remarks: 'Self Check-In'
         };
         DB.add('attendance', newRec);
+        rec = newRec;
       }
+    } else if (type === 'ot_out' || type === 'b_out') {
+      if (!rec || !rec.timeIn) {
+        Toast.show('Please check in first before recording OT-Out', 'warning');
+        return;
+      }
+      if (rec.breakOut) {
+        Toast.show('OT-Out already recorded at ' + rec.breakOut, 'info');
+        return;
+      }
+      rec.breakOut = timeStr;
+      DB.set('attendance', allAtt);
+    } else if (type === 'ot_in' || type === 'b_in') {
+      if (!rec || !rec.breakOut) {
+        Toast.show('Please record OT-Out before recording OT-In', 'warning');
+        return;
+      }
+      if (rec.breakIn) {
+        Toast.show('OT-In already recorded at ' + rec.breakIn, 'info');
+        return;
+      }
+      rec.breakIn = timeStr;
+      DB.set('attendance', allAtt);
+    } else if (type === 'out') {
+      if (!rec || !rec.timeIn) {
+        Toast.show('Please check in first before checking out', 'warning');
+        return;
+      }
+      rec.timeOut = timeStr;
+      const ot = (typeof Attendance !== 'undefined' && Attendance.calcOvertime)
+        ? Attendance.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn)
+        : 0;
+      rec.overtime = ot;
+      DB.set('attendance', allAtt);
+    }
+
     // Record in attendance_logs machine telemetry
-    const punchLabel = type === 'in' ? 'Check-In' : (type === 'b_out' ? 'OT-Out' : (type === 'b_in' ? 'OT-In' : 'Check-Out'));
-    const punchType = type === 'in' ? 'check_in' : (type === 'b_out' ? 'ot_out' : (type === 'b_in' ? 'ot_in' : 'check_out'));
+    const punchLabel = type === 'in' ? 'Check-In' : (type === 'ot_out' || type === 'b_out' ? 'OT-Out' : (type === 'ot_in' || type === 'b_in' ? 'OT-In' : 'Check-Out'));
+    const punchType = type === 'in' ? 'check_in' : (type === 'ot_out' || type === 'b_out' ? 'ot_out' : (type === 'ot_in' || type === 'b_in' ? 'ot_in' : 'check_out'));
     const allLogs = DB.get('attendance_logs') || [];
     const empDayLogs = allLogs.filter(l => l.employeeId === myId && l.date === today);
     const punchNumber = empDayLogs.length + 1;
@@ -122,9 +158,9 @@ const Dashboard = {
 
     if (type === 'in') {
       Toast.show(`Check-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
-    } else if (type === 'b_out') {
+    } else if (type === 'ot_out' || type === 'b_out') {
       Toast.show(`OT-Out recorded at ${timeStr} (Swipe #${punchNumber})`, 'info');
-    } else if (type === 'b_in') {
+    } else if (type === 'ot_in' || type === 'b_in') {
       Toast.show(`OT-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
     } else if (type === 'out') {
       Toast.show(`Check-Out recorded at ${timeStr} (Swipe #${punchNumber}). Daily shift completed!`, 'success');
