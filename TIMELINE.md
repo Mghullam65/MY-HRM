@@ -413,8 +413,15 @@
     - Updated **Live Calculation Preview Strip** to calculate cumulative break duration across all breaks (`Total Breaks (N): Xh Ym`), deduct the total break duration from gross working shift, and display net working hours and overtime tokens in real-time.
     - Updated the Corrections & WFH tables to display all break slots formatted cleanly (e.g., `Breaks (3): 11:00–11:30, 13:00–14:00, 16:30–17:00`).
     - Extended approval synchronization to record all break intervals in the `attendance` ledger (`attRecord.breaks = reqBreaks`) while keeping backwards compatibility with primary `breakOut` / `breakIn`.
-  - **Automated Regression Suite (`scratch/test-attendance-correction-breaks.js`)**:
-    - **55 / 55 tests passed (100%)** validating single-break and multi-break adding, row-by-row deletion, cumulative calculation, error handling, and attendance ledger synchronization.
+  - **Attendance Module: HR Deletes Attendance — Automatic Unblock & Employee Notification (`js/attendance.js`, `js/employees.js`)**:
+    - Resolved issue where an employee could not submit an attendance correction after HR deleted their attendance record due to orphaned approved correction requests.
+    - Updated `Attendance.deleteRecord(recId)`:
+      - Automatically resets any existing correction request for that `(employeeId, date)` to `status: 'rejected'` with remark explaining the HR deletion.
+      - Dispatches a real-time notification to the employee via `LiveNotifications.dispatch()` notifying them that their attendance record for the date was deleted and they can now submit a new attendance correction request.
+    - Added automatic self-healing unblocking in both `checkCorrectionDateConflict()` and `saveCorrection()` (in both Attendance module and Employee Profile self-service):
+      - If an approved correction exists in the database for a date but no record exists in the actual `attendance` table (due to prior HR deletion), the obsolete correction is automatically reset so the employee is not blocked and the submit button remains active.
+  - **Automated Regression Suite (`scratch/test-attendance-hr-delete-unblock.js`)**:
+    - **22 / 22 tests passed (100%)** verifying deletion permission gating, database record deletion, correction unblocking, employee live notification dispatch, seamless re-application, and self-healing when attendance records are absent.
 
 ---
 

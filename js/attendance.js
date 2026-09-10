@@ -1478,11 +1478,54 @@ const Attendance = {
       Toast.show('403 Forbidden: Access Denied.', 'error');
       return;
     }
-    Modal.confirm('Delete Attendance Record', 'Are you sure you want to delete this attendance record?', () => {
-      DB.delete('attendance', recId);
-      DB.log('DELETE', 'Attendance', `Deleted attendance record #${recId}`, Auth.user?.id);
+    Modal.confirm('Delete Attendance Record', 'Are you sure you want to delete this attendance record?<br><br><small style="color:var(--text-3)"><i class="fa fa-info-circle"></i> The employee will be notified and unblocked to submit an attendance correction for this date if needed.</small>', () => {
+      const rec = DB.find('attendance', recId);
+      if (rec) {
+        const empId = rec.employeeId;
+        const date = rec.date;
+        const emp = DB.find('employees', empId);
+
+        // 1. Delete the attendance record
+        DB.delete('attendance', recId);
+
+        // 2. Unblock any previous attendance correction requests for this date & employee
+        let corrections = DB.get('attendance_corrections') || [];
+        corrections = corrections.map(c => {
+          if (c.employeeId === empId && c.date === date) {
+            return {
+              ...c,
+              status: 'rejected',
+              hrStatus: 'rejected',
+              hrRemarks: `Attendance record was deleted by HR (${Auth.employee?.fullName || 'HR Administration'}). You may submit a new correction request.`,
+              hrApprovedAt: new Date().toISOString()
+            };
+          }
+          return c;
+        });
+        DB.set('attendance_corrections', corrections);
+
+        // 3. Notify the employee that their attendance record was deleted and they can re-apply
+        if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+          LiveNotifications.dispatch({
+            recipientEmpId: empId,
+            recipientRole: 'employee',
+            type: 'attendance_alert',
+            priority: 'high',
+            title: 'Attendance Record Removed by HR',
+            message: `Your attendance record for ${Utils.formatDate(date)} was removed by HR (${Auth.employee?.fullName || 'HR Administration'}). You can now submit a new attendance correction request for this date if needed.`,
+            actionUrl: 'attendance',
+            subView: 'corrections',
+            actionLabel: 'Apply Correction'
+          });
+        }
+
+        DB.log('DELETE', 'Attendance', `Deleted attendance record #${recId} for ${emp?.fullName || ('EMP #' + empId)} on ${date} (Corrections unblocked & employee notified)`, Auth.user?.id);
+      } else {
+        DB.delete('attendance', recId);
+      }
+
       Modal.close('dynamic-modal');
-      Toast.show('Attendance record deleted!', 'warning');
+      Toast.show('Attendance record deleted!', 'warning', 'Employee notified and enabled to re-apply for correction.');
       this.renderView();
     });
   },
@@ -2248,8 +2291,21 @@ const Attendance = {
     const submitBtn = document.getElementById('btn-submit-correction');
     if (!date || !warnBox || !warnMsg) return;
 
-    const corrections = DB.get('attendance_corrections') || [];
-    const activeExisting = corrections.find(c => c.employeeId === empId && c.date === date && c.status !== 'rejected');
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
+    let corrections = DB.get('attendance_corrections') || [];
+    let activeExisting = corrections.find(c => c.employeeId === empId && c.date === date && c.status !== 'rejected');
+
+    // Auto-heal / unblock: If correction was approved, but the attendance record does not exist
+    // (e.g. was deleted by HR), unblock the employee so they can apply again!
+    if (activeExisting && activeExisting.status === 'approved' && !attRec) {
+      activeExisting.status = 'rejected';
+      activeExisting.hrStatus = 'rejected';
+      activeExisting.hrRemarks = 'Attendance record was deleted by HR. You may submit a new correction request.';
+      DB.set('attendance_corrections', corrections);
+      activeExisting = null;
+    }
 
     if (activeExisting) {
       const statusText = activeExisting.status === 'approved' 
@@ -2272,8 +2328,6 @@ const Attendance = {
         submitBtn.style.cursor = 'pointer';
       }
       // Check if existing attendance record exists to prefill
-      const allAtt = DB.get('attendance') || [];
-      const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
       if (attRec) {
         const inEl = document.getElementById('ac-in');
         const outEl = document.getElementById('ac-out');
@@ -2333,16 +2387,29 @@ const Attendance = {
     const breakOut = breaks.length > 0 ? breaks[0].breakOut : '';
     const breakIn = breaks.length > 0 ? breaks[0].breakIn : '';
 
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
     const emp = DB.find('employees', empId);
     let corrections = DB.get('attendance_corrections') || [];
 
     // Rule: One correction request is required against one date.
     // Multiple requests for the same date are NOT allowed unless previous request was rejected.
-    const activeExisting = corrections.find(c => 
+    let activeExisting = corrections.find(c => 
       c.employeeId === empId && 
       c.date === date && 
       c.status !== 'rejected'
     );
+
+    // Auto-heal / unblock: If correction was approved, but the attendance record does not exist
+    // (e.g. was deleted by HR), unblock the employee so they can apply again!
+    if (activeExisting && activeExisting.status === 'approved' && !attRec) {
+      activeExisting.status = 'rejected';
+      activeExisting.hrStatus = 'rejected';
+      activeExisting.hrRemarks = 'Attendance record was deleted by HR. You may submit a new correction request.';
+      DB.set('attendance_corrections', corrections);
+      activeExisting = null;
+    }
 
     if (activeExisting) {
       if (activeExisting.status === 'approved') {

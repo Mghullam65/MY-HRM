@@ -2291,8 +2291,21 @@ const Employees = {
     const submitBtn = document.getElementById('btn-submit-emp-correction');
     if (!date || !warnBox || !warnMsg) return;
 
-    const corrections = DB.get('attendance_corrections') || [];
-    const activeExisting = corrections.find(c => c.employeeId === empId && c.date === date && c.status !== 'rejected');
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
+    let corrections = DB.get('attendance_corrections') || [];
+    let activeExisting = corrections.find(c => c.employeeId === empId && c.date === date && c.status !== 'rejected');
+
+    // Auto-heal / unblock: If correction was approved, but the attendance record does not exist
+    // (e.g. was deleted by HR), unblock the employee so they can apply again!
+    if (activeExisting && activeExisting.status === 'approved' && !attRec) {
+      activeExisting.status = 'rejected';
+      activeExisting.hrStatus = 'rejected';
+      activeExisting.hrRemarks = 'Attendance record was deleted by HR. You may submit a new correction request.';
+      DB.set('attendance_corrections', corrections);
+      activeExisting = null;
+    }
 
     if (activeExisting) {
       const statusText = activeExisting.status === 'approved' 
@@ -2315,8 +2328,6 @@ const Employees = {
         submitBtn.style.cursor = 'pointer';
       }
       // Check if existing attendance record exists to prefill
-      const allAtt = DB.get('attendance') || [];
-      const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
       if (attRec) {
         const inEl = document.getElementById('ac-in');
         const outEl = document.getElementById('ac-out');
@@ -2375,16 +2386,29 @@ const Employees = {
     const breakOut = breaks.length > 0 ? breaks[0].breakOut : '';
     const breakIn = breaks.length > 0 ? breaks[0].breakIn : '';
 
+    const allAtt = DB.get('attendance') || [];
+    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+
     const emp = DB.find('employees', empId);
-    const corrections = DB.get('attendance_corrections') || [];
+    let corrections = DB.get('attendance_corrections') || [];
 
     // Rule: One correction request is required against one date.
     // Multiple requests for the same date are NOT allowed unless previous request was rejected.
-    const activeExisting = corrections.find(c => 
+    let activeExisting = corrections.find(c => 
       c.employeeId === empId && 
       c.date === date && 
       c.status !== 'rejected'
     );
+
+    // Auto-heal / unblock: If correction was approved, but the attendance record does not exist
+    // (e.g. was deleted by HR), unblock the employee so they can apply again!
+    if (activeExisting && activeExisting.status === 'approved' && !attRec) {
+      activeExisting.status = 'rejected';
+      activeExisting.hrStatus = 'rejected';
+      activeExisting.hrRemarks = 'Attendance record was deleted by HR. You may submit a new correction request.';
+      DB.set('attendance_corrections', corrections);
+      activeExisting = null;
+    }
 
     if (activeExisting) {
       const statusLabel = activeExisting.status === 'approved' 
