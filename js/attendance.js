@@ -26,6 +26,7 @@ const Attendance = {
   adminDailyDeptFilter: 'all',
   adminMonthlyDeptFilter: 'all',
   adminEmpWiseDeptFilter: 'all',
+  adminMyEmpDeptFilter: 'all',
 
   getScopedEmployees() {
     const emps = DB.get('employees') || [];
@@ -38,10 +39,12 @@ const Attendance = {
     const isManager = Auth.role === 'dept_manager';
     const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
 
-    // Restrict employee default view to My Attendance
+    // Restrict default view
     if (isEmployee && !['my_attendance', 'corrections', 'timesheets'].includes(this.currentView)) {
       this.currentView = 'my_attendance';
     } else if (isManager && !['my_attendance', 'my_employees', 'roster', 'timesheets', 'corrections'].includes(this.currentView)) {
+      this.currentView = 'my_employees';
+    } else if (isAdmin && !['my_attendance', 'my_employees', 'roster', 'geofence', 'machine', 'timesheets', 'manual', 'corrections'].includes(this.currentView)) {
       this.currentView = 'my_employees';
     }
 
@@ -106,10 +109,7 @@ const Attendance = {
       // Super Admin and HR Manager
       tabs = [
         { id:'my_attendance', label:'My Attendance' },
-        { id:'daily',         label:'Daily' },
-        { id:'monthly',       label:'Monthly' },
-        { id:'employee',      label:'Employee Wise' },
-        { id:'dept',          label:'Department Wise' },
+        { id:'my_employees',  label:'My Employees Attendance', icon: 'fa-users-line' },
         { id:'roster',        label:'Shift Roster & Swaps', badge: pendingSwaps },
         { id:'geofence',      label:'Geo-Fence & IP Check' },
         { id:'machine',       label:'Biometric Sync & ZKTeco' },
@@ -235,7 +235,7 @@ const Attendance = {
       Toast.show('403 Forbidden: Access Denied to administrative configuration.', 'error');
       view = 'my_employees';
     }
-    if (isManager && ['daily', 'monthly', 'employee', 'dept'].includes(view)) {
+    if (['daily', 'monthly', 'employee', 'dept'].includes(view)) {
       this.currentView = 'my_employees';
       if (view === 'daily') this.myEmpAttPeriod = 'daily';
       else if (view === 'monthly') this.myEmpAttPeriod = 'monthly';
@@ -375,16 +375,26 @@ const Attendance = {
     if (!container) return;
     const emps = this.getScopedEmployees();
     if (!emps.length) {
-      container.innerHTML = `<div class="card"><div class="empty-state" style="padding:60px"><i class="fa fa-users"></i><h3>No Employees in Your Team</h3><p>You have no scoped employees assigned to your department.</p></div></div>`;
+      container.innerHTML = `<div class="card"><div class="empty-state" style="padding:60px"><i class="fa fa-users"></i><h3>No Employees Found</h3><p>You have no accessible employees assigned.</p></div></div>`;
       return;
     }
 
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const isManager = Auth.role === 'dept_manager';
     const allAtt = DB.get('attendance') || [];
     const holidays = DB.get('holidays') || [];
-    const scopedIds = emps.map(e => e.id);
-    const period   = this.myEmpAttPeriod || 'daily';
+    const depts = DB.get('departments') || [];
+    const period = this.myEmpAttPeriod || 'daily';
     const empFilter = this.myEmpAttEmpFilter || 'all';
     const statusFilter = this.myEmpAttStatusFilter || 'all';
+
+    // Apply department filter for HR/Admin if selected
+    let deptFilteredEmps = emps;
+    if (isAdmin && this.adminMyEmpDeptFilter && this.adminMyEmpDeptFilter !== 'all') {
+      deptFilteredEmps = emps.filter(e => e.departmentId === parseInt(this.adminMyEmpDeptFilter));
+    }
+    const displayEmps = empFilter === 'all' ? deptFilteredEmps : deptFilteredEmps.filter(e => e.id === parseInt(empFilter));
+    const scopedIds = displayEmps.map(e => e.id);
 
     if (!this.myEmpAttDate)  this.myEmpAttDate  = Utils.today();
     if (!this.myEmpAttMonth) this.myEmpAttMonth = Utils.thisMonth();
@@ -466,9 +476,6 @@ const Attendance = {
         </div>`;
     }
 
-    // Filter displayed employees
-    const displayEmps = empFilter === 'all' ? emps : emps.filter(e => e.id === parseInt(empFilter));
-
     const statusColors = { present:'var(--success)', late:'var(--warning)', half_day:'var(--accent)', absent:'var(--danger)' };
     const statusIcons  = { present:'fa-circle-check', late:'fa-clock', half_day:'fa-circle-half-stroke', absent:'fa-circle-xmark' };
     const statusLabels = { present:'Present', late:'Late', half_day:'Half Day', absent:'Absent' };
@@ -489,7 +496,7 @@ const Attendance = {
     let tableHTML = '';
 
     if (period === 'employee_wise') {
-      // 1. Employee Wise Summary View for Manager's Team
+      // 1. Employee Wise Summary View
       const selMonth = this.myEmpAttMonth || Utils.thisMonth();
       tableHTML = `
         <div class="table-wrapper" style="border:none;border-radius:0">
@@ -546,10 +553,9 @@ const Attendance = {
         </div>
       `;
     } else if (period === 'dept_wise') {
-      // 2. Department Wise Overview for Manager's Department
-      let depts = DB.get('departments') || [];
+      // 2. Department Wise Overview
       const deptIds = [...new Set(emps.map(e => e.departmentId))];
-      const myDepts = depts.filter(d => deptIds.includes(d.id));
+      const myDepts = isAdmin ? depts : depts.filter(d => deptIds.includes(d.id));
       const targetDate = this.myEmpAttDate || Utils.today();
       const dayAtt = allAtt.filter(a => a.date === targetDate && scopedIds.includes(a.employeeId));
 
@@ -589,10 +595,10 @@ const Attendance = {
             }).join('')}
           </div>
 
-          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;color:var(--text)">Team Member Daily Status for ${Utils.formatDate(targetDate)}:</div>
+          <div style="font-weight:700;font-size:13.5px;margin-bottom:10px;color:var(--text)">Employee Status Breakdown for ${Utils.formatDate(targetDate)}:</div>
           <div class="table-wrapper" style="border:1px solid var(--border);border-radius:8px">
             <table>
-              <thead><tr><th>Employee</th><th>Department</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead>
+              <thead><tr><th>Employee</th><th>Department</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th>${isAdmin ? '<th style="text-align:center">Action</th>' : ''}</tr></thead>
               <tbody>
                 ${displayEmps.map(emp => {
                   const rec = dayAtt.find(a => a.employeeId === emp.id);
@@ -607,6 +613,11 @@ const Attendance = {
                     <td style="color:var(--danger);font-weight:600">${rec?.timeOut || '—'}</td>
                     <td style="font-weight:600">${hrs}</td>
                     <td>${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Marked</span>'}</td>
+                    ${isAdmin ? `
+                      <td style="text-align:center">
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.editRecord(${emp.id},'${targetDate}')" title="Edit Record"><i class="fa fa-pen"></i></button>
+                      </td>
+                    ` : ''}
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -651,14 +662,19 @@ const Attendance = {
                     return `<td style="text-align:center;background:rgba(255,255,255,0.02);color:var(--text-muted);font-size:10px">${d.isHoliday ? 'H' : 'W'}</td>`;
                   }
                   const rec = allAtt.find(r => r.employeeId===emp.id && r.date===d.dateStr);
-                  if (!rec) return `<td style="text-align:center;color:var(--text-muted);font-size:10px">—</td>`;
+                  if (!rec) {
+                    return isAdmin 
+                      ? `<td style="text-align:center;cursor:pointer" onclick="Attendance.editRecord(${emp.id},'${d.dateStr}')" title="Mark for ${d.dateStr}"><span style="color:var(--text-muted)">—</span></td>`
+                      : `<td style="text-align:center;color:var(--text-muted);font-size:10px">—</td>`;
+                  }
                   if (rec.status==='present') p++;
                   else if (rec.status==='late') { l++; p++; }
                   else if (rec.status==='half_day') hd++;
                   else if (rec.status==='absent') a++;
                   const ic = { present:'P', late:'L', half_day:'H', absent:'A' };
                   const cl = statusColors[rec.status] || 'var(--text)';
-                  return `<td style="text-align:center;padding:3px 2px" title="${emp.fullName}: ${rec.status} (${rec.timeIn||'—'} – ${rec.timeOut||'—'})">
+                  const cellClick = isAdmin ? `onclick="Attendance.editRecord(${emp.id},'${d.dateStr}')" style="cursor:pointer;padding:3px 2px"` : `style="padding:3px 2px"`;
+                  return `<td style="text-align:center" ${cellClick} title="${emp.fullName}: ${rec.status} (${rec.timeIn||'—'} – ${rec.timeOut||'—'})">
                     <span style="font-size:11px;font-weight:700;color:${cl};display:inline-block;padding:1px 4px;border-radius:4px;background:${cl}18">${ic[rec.status]||'?'}</span>
                   </td>`;
                 }).join('');
@@ -666,7 +682,7 @@ const Attendance = {
                   <td style="position:sticky;left:0;background:var(--card);z-index:2">
                     <div style="display:flex;align-items:center;gap:8px">
                       <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)};width:26px;height:26px;font-size:10px">${Utils.avatarInitials(emp.fullName)}</div>
-                      <div><div style="font-size:12px;font-weight:600;white-space:nowrap">${emp.fullName}</div><div style="font-size:10px;color:var(--text-muted)">${emp.empNo}</div></div>
+                      <div><div style="font-size:12px;font-weight:600;white-space:nowrap">${emp.fullName}</div><div style="font-size:10px;color:var(--text-muted)">${emp.empNo} · ${Utils.getDeptName(emp.departmentId)}</div></div>
                     </div>
                   </td>
                   ${cells}
@@ -686,6 +702,7 @@ const Attendance = {
           <span><strong style="color:var(--accent)">H</strong> = Half Day</span>
           <span><strong>W</strong> = Weekend</span>
           <span><strong>H</strong> = Holiday</span>
+          ${isAdmin ? `<span style="margin-left:auto;color:var(--primary);font-weight:600"><i class="fa fa-mouse-pointer"></i> Click any cell to mark or edit record</span>` : ''}
         </div>`;
     } else {
       // 4. Daily / Weekly Detailed Table View
@@ -718,6 +735,11 @@ const Attendance = {
               <td>${ot ? `<span class="badge badge-primary">${ot}h</span>` : '—'}</td>
               <td style="font-size:12px">${rec?.device || '—'}</td>
               <td>${rec ? `<span class="badge" style="background:${statusCol}20;color:${statusCol};border:1px solid ${statusCol}50;font-size:11px">${statusLabels[recStatus]||recStatus}</span>` : '<span class="badge badge-secondary" style="font-size:11px">Not Marked</span>'}</td>
+              ${isAdmin ? `
+                <td style="text-align:center">
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.editRecord(${emp.id},'${dStr}')" title="Edit Record"><i class="fa fa-pen"></i></button>
+                </td>
+              ` : ''}
             </tr>`;
         }).join('');
 
@@ -738,9 +760,9 @@ const Attendance = {
             ` : '<div class="table-wrapper">'}
               <table>
                 <thead><tr>
-                  <th>Employee</th><th>Check In</th><th>Break Out</th><th>Break In</th><th>Check Out</th><th>Working Hrs</th><th>Overtime</th><th>Device</th><th>Status</th>
+                  <th>Employee</th><th>Check In</th><th>Break Out</th><th>Break In</th><th>Check Out</th><th>Working Hrs</th><th>Overtime</th><th>Device</th><th>Status</th>${isAdmin ? '<th style="text-align:center">Action</th>' : ''}
                 </tr></thead>
-                <tbody>${rows || '<tr><td colspan="9"><div class="empty-state" style="padding:20px"><i class="fa fa-circle-check"></i><p style="margin:4px 0;font-size:12px">Weekend / Holiday — No Records</p></div></td></tr>'}</tbody>
+                <tbody>${rows || '<tr><td colspan="10"><div class="empty-state" style="padding:20px"><i class="fa fa-circle-check"></i><p style="margin:4px 0;font-size:12px">Weekend / Holiday — No Records</p></div></td></tr>'}</tbody>
               </table>
             </div>
           </div>`;
@@ -761,7 +783,9 @@ const Attendance = {
                 </div>
                 <div>
                   <div style="font-size:16px;font-weight:800;color:var(--text);letter-spacing:-0.3px">My Employees Attendance <span style="font-size:12px;font-weight:600;color:var(--text-3);margin-left:6px">• ${periodLabel}</span></div>
-                  <div style="font-size:11.5px;color:var(--text-3)">${emps.length} Team Members • ${Utils.getDeptName(emps[0]?.departmentId)} • View-only</div>
+                  <div style="font-size:11.5px;color:var(--text-3)">
+                    ${displayEmps.length} Employees ${isAdmin ? '• All Departments' : `• ${Utils.getDeptName(emps[0]?.departmentId)}`} • ${isAdmin ? 'Management View' : 'View-only'}
+                  </div>
                 </div>
               </div>
 
@@ -790,13 +814,21 @@ const Attendance = {
 
           </div>
 
-          <!-- Filter Sub-bar: Employee Filter + Status Filter + Read Only Badge + Export CSV -->
+          <!-- Filter Sub-bar: Department Filter (Admin) + Employee Filter + Status Filter + Read Only/Admin Badge + Export CSV -->
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);flex-wrap:wrap;gap:10px">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              ${isAdmin ? `
+                <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Department:</span>
+                <select class="filter-select" style="height:32px;min-width:160px" onchange="Attendance.adminMyEmpDeptFilter=this.value;Attendance.renderView()">
+                  <option value="all" ${(!this.adminMyEmpDeptFilter||this.adminMyEmpDeptFilter==='all')?'selected':''}>🏢 All Departments (${depts.length})</option>
+                  ${depts.map(d => `<option value="${d.id}" ${this.adminMyEmpDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+                </select>
+              ` : ''}
+
               <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Employee:</span>
               <select class="filter-select" style="height:32px;min-width:170px" onchange="Attendance.setMyEmpAttEmpFilter(this.value)">
-                <option value="all" ${empFilter==='all'?'selected':''}>All Employees (${emps.length})</option>
-                ${emps.map(e => `<option value="${e.id}" ${empFilter==e.id?'selected':''}>${e.fullName}</option>`).join('')}
+                <option value="all" ${empFilter==='all'?'selected':''}>All Employees (${deptFilteredEmps.length})</option>
+                ${deptFilteredEmps.map(e => `<option value="${e.id}" ${empFilter==e.id?'selected':''}>${e.fullName}</option>`).join('')}
               </select>
 
               <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-left:6px">Status:</span>
@@ -808,9 +840,15 @@ const Attendance = {
             </div>
 
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600">
-                <i class="fa fa-lock" style="margin-right:4px"></i>Read Only
-              </span>
+              ${isAdmin ? `
+                <span style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600">
+                  <i class="fa fa-shield-check" style="margin-right:4px"></i>Full Admin Access
+                </span>
+              ` : `
+                <span style="background:rgba(239,68,68,0.1);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:4px 8px;font-size:11px;font-weight:600">
+                  <i class="fa fa-lock" style="margin-right:4px"></i>Read Only
+                </span>
+              `}
               <button class="btn btn-ghost btn-sm" style="height:32px" onclick="Attendance.exportMyEmpAttendance()">
                 <i class="fa fa-file-export"></i> Export CSV
               </button>
@@ -846,8 +884,13 @@ const Attendance = {
 
   exportMyEmpAttendance() {
     const emps = this.getScopedEmployees();
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    let deptFiltered = emps;
+    if (isAdmin && this.adminMyEmpDeptFilter && this.adminMyEmpDeptFilter !== 'all') {
+      deptFiltered = emps.filter(e => e.departmentId === parseInt(this.adminMyEmpDeptFilter));
+    }
     const empFilter = this.myEmpAttEmpFilter || 'all';
-    const displayEmps = empFilter === 'all' ? emps : emps.filter(e => e.id === parseInt(empFilter));
+    const displayEmps = empFilter === 'all' ? deptFiltered : deptFiltered.filter(e => e.id === parseInt(empFilter));
     const scopedIds = displayEmps.map(e => e.id);
     const allAtt = DB.get('attendance') || [];
     let records = allAtt.filter(a => scopedIds.includes(a.employeeId));
