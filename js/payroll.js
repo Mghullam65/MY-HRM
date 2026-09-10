@@ -9,10 +9,11 @@ const Payroll = {
   render() {
     this.ensurePFData();
     const content = document.getElementById('page-content');
-    const isEmp = Auth.role === 'employee';
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isEmp = !isHrOrAdmin; // Managers, employees, and onboarding only see their personal finances
 
-    // Auto-scope employee to slips or pf if on admin view
-    if (isEmp && (this.currentView === 'salary' || this.currentView === 'allowances' || this.currentView === 'deductions' || this.currentView === 'bank_advice' || this.currentView === 'statutory')) {
+    // Auto-scope personal users to slips if on an admin view
+    if (isEmp && (this.currentView === 'salary' || this.currentView === 'allowances' || this.currentView === 'deductions' || this.currentView === 'bank_advice' || this.currentView === 'statutory' || this.currentView === 'structures')) {
       this.currentView = 'slips';
     }
 
@@ -89,6 +90,12 @@ const Payroll = {
   },
 
   switchView(view) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures'];
+    if (!isHrOrAdmin && adminOnlyViews.includes(view)) {
+      Toast.show('Access Denied: Company salary registers and processing are restricted to HR & Admin.', 'error');
+      view = 'slips';
+    }
     this.currentView = view;
     document.querySelectorAll('[onclick*="Payroll.switchView"]').forEach(b => {
       const m = b.getAttribute('onclick').match(/'(\w+)'/);
@@ -471,8 +478,9 @@ const Payroll = {
 
 
   renderLoans(container) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
     let loans = DB.get('loans');
-    if (Auth.role === 'employee') {
+    if (!isHrOrAdmin) {
       loans = loans.filter(l => l.employeeId === Auth.employee?.id);
     }
     container.innerHTML = `
@@ -558,8 +566,9 @@ const Payroll = {
 
 
   renderSlips(container) {
+    const canManage = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     let emps = DB.get('employees').filter(e => e.status === 'active');
-    if (Auth.role === 'employee') {
+    if (!canManage) {
       emps = emps.filter(e => e.id === Auth.employee?.id);
     }
     const salaries = DB.get('salary');
@@ -632,16 +641,10 @@ const Payroll = {
   },
 
   viewSlip(empId, month) {
-    if (['employee', 'onboarding'].includes(Auth.role) && Number(empId) !== Auth.employee?.id) {
-      Toast.show('403 Forbidden: Access Denied to unauthorized payslip', 'error');
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!isHrOrAdmin && Number(empId) !== Auth.employee?.id) {
+      Toast.show('403 Forbidden: Financial and salary details are strictly confidential between HR/Admin and the employee.', 'error');
       return;
-    }
-    if (Auth.role === 'dept_manager') {
-      const team = Auth.getScopedEmployees(DB.get('employees') || []);
-      if (!team.some(e => e.id === Number(empId))) {
-        Toast.show('403 Forbidden: Access Denied to employee payslip outside team', 'error');
-        return;
-      }
     }
     const emp = DB.find('employees', Number(empId));
     const rec = DB.get('salary').find(s => s.employeeId === Number(empId) && s.month === month);
@@ -1300,8 +1303,8 @@ const Payroll = {
   },
 
   renderProvidentFund(container) {
-    const isEmp = Auth.role === 'employee';
-    if (isEmp) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!isHrOrAdmin) {
       this.renderEmployeePFView(container);
     } else {
       this.renderAdminPFView(container);
@@ -2477,7 +2480,7 @@ const Payroll = {
   // BATCH 2: Pakistani FBR Income Tax Engine (Finance Act 2024-2026)
   // ============================================================
   renderTaxEngine(container) {
-    const isEmp = Auth.role === 'employee';
+    const isEmp = !['superadmin', 'hr_manager'].includes(Auth.role);
     const config = DB.get('tax_config') || { slabs: [] };
     const emps = DB.get('employees').filter(e => e.status === 'active');
     const myEmp = isEmp ? emps.find(e => e.id === Auth.employee?.id) : null;
