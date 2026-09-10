@@ -244,6 +244,94 @@ const DB = {
   },
 
   ensureHierarchyAndCorrections() {
+    // 0. Ensure attendance records have breakOut and breakIn
+    const attList = this.get('attendance') || [];
+    let attChanged = false;
+    attList.forEach(a => {
+      if (a.timeIn && a.timeOut && a.breakOut === undefined) {
+        a.breakOut = '13:00';
+        a.breakIn = '14:00';
+        attChanged = true;
+      }
+    });
+    if (attChanged) this.set('attendance', attList);
+
+    // 0b. Ensure overtime_tokens collection exists
+    let tokens = this.get('overtime_tokens');
+    if (!tokens || !tokens.length) {
+      tokens = [
+        {
+          id: 1,
+          employeeId: 4, // Fatima Raza
+          date: '2026-09-02',
+          hours: 2.0,
+          taskDescription: 'Critical client CRM deployment and post-release cloud monitoring',
+          status: 'approved',
+          appliedOn: '2026-09-02',
+          managerId: 3, // Usman Baig
+          managerApprovedAt: '2026-09-03T10:00:00Z',
+          managerRemarks: 'Verified client deployment work. 2.0h Overtime Token approved.'
+        },
+        {
+          id: 2,
+          employeeId: 4, // Fatima Raza
+          date: '2026-09-04',
+          hours: 1.5,
+          taskDescription: 'Emergency bug fix on payment gateway callback webhook',
+          status: 'approved',
+          appliedOn: '2026-09-04',
+          managerId: 3,
+          managerApprovedAt: '2026-09-05T09:30:00Z',
+          managerRemarks: 'Production hotfix confirmed. 1.5h Overtime Token approved.'
+        },
+        {
+          id: 3,
+          employeeId: 4, // Fatima Raza
+          date: '2026-09-08',
+          hours: 2.5,
+          taskDescription: 'Database performance indexing and audit log archival',
+          status: 'pending',
+          appliedOn: '2026-09-08',
+          managerId: 3,
+          managerApprovedAt: null,
+          managerRemarks: ''
+        },
+        {
+          id: 4,
+          employeeId: 9, // Tariq Hussain
+          date: '2026-09-03',
+          hours: 3.0,
+          taskDescription: 'Client system architecture presentation slides preparation',
+          status: 'approved',
+          appliedOn: '2026-09-03',
+          managerId: 3,
+          managerApprovedAt: '2026-09-04T11:00:00Z',
+          managerRemarks: 'Approved for client deck work.'
+        }
+      ];
+      this.set('overtime_tokens', tokens);
+    }
+
+    // 0c. Ensure token_availments collection exists
+    let availments = this.get('token_availments');
+    if (!availments) {
+      availments = [
+        {
+          id: 1,
+          employeeId: 4, // Fatima Raza
+          date: '2026-09-07',
+          leaveDuration: 'short',
+          minutes: 60,
+          hours: 1.0,
+          days: 0.13,
+          reason: 'Personal banking errand (availed 1h overtime token)',
+          status: 'approved',
+          appliedOn: '2026-09-07T08:30:00Z'
+        }
+      ];
+      this.set('token_availments', availments);
+    }
+
     // 1. Ensure attendance_corrections table exists
     let corrections = this.get('attendance_corrections');
     if (!corrections || !corrections.length) {
@@ -4010,6 +4098,7 @@ const DB = {
     this.set('employees', employees);
     this.set('attendance', attendance);
     this.set('attendance_logs', attendanceLogs);
+    this.set('overtime_tokens', overtimeTokens);
     this.set('leave_requests', leaveRequests);
     this.set('leave_balances', leaveBalances);
     this.set('leave_types', leaveTypes);
@@ -4585,6 +4674,8 @@ function genAttendance() {
       records.push({
         id: id++, employeeId: empId, date: dateStr,
         timeIn: status === 'absent' ? null : `${String(inH).padStart(2,'0')}:${String(inM).padStart(2,'0')}`,
+        breakOut: status === 'absent' ? null : '13:00',
+        breakIn: status === 'absent' ? null : '14:00',
         timeOut: status === 'absent' ? null : `18:${String(Math.floor(Math.random()*60)).padStart(2,'0')}`,
         status, overtime: Math.random() > 0.8 ? Math.floor(Math.random()*3) : 0,
         device: 'ZKTeco-01', remarks: ''
@@ -4593,6 +4684,57 @@ function genAttendance() {
   }
   return records;
 }
+
+const overtimeTokens = [
+  {
+    id: 1,
+    employeeId: 4, // Fatima Raza
+    date: '2026-09-02',
+    hours: 2.0,
+    taskDescription: 'Critical client CRM deployment and post-release cloud monitoring',
+    status: 'approved',
+    appliedOn: '2026-09-02',
+    managerId: 3, // Usman Baig
+    managerApprovedAt: '2026-09-03T10:00:00Z',
+    managerRemarks: 'Verified client deployment work. 2.0h Overtime Token approved.'
+  },
+  {
+    id: 2,
+    employeeId: 4, // Fatima Raza
+    date: '2026-09-04',
+    hours: 1.5,
+    taskDescription: 'Emergency bug fix on payment gateway callback webhook',
+    status: 'approved',
+    appliedOn: '2026-09-04',
+    managerId: 3,
+    managerApprovedAt: '2026-09-05T09:30:00Z',
+    managerRemarks: 'Production hotfix confirmed. 1.5h Overtime Token approved.'
+  },
+  {
+    id: 3,
+    employeeId: 4, // Fatima Raza
+    date: '2026-09-08',
+    hours: 2.5,
+    taskDescription: 'Database performance indexing and audit log archival',
+    status: 'pending',
+    appliedOn: '2026-09-08',
+    managerId: 3,
+    managerApprovedAt: null,
+    managerRemarks: ''
+  },
+  {
+    id: 4,
+    employeeId: 9, // Tariq Hussain
+    date: '2026-09-03',
+    hours: 3.0,
+    taskDescription: 'Client system architecture presentation slides preparation',
+    status: 'approved',
+    appliedOn: '2026-09-03',
+    managerId: 3,
+    managerApprovedAt: '2026-09-04T11:00:00Z',
+    managerRemarks: 'Approved for client deck work.'
+  }
+];
 const attendance = genAttendance();
 
 const attendanceLogs = [

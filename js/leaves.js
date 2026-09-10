@@ -62,11 +62,12 @@ const Leaves = {
         </div>
 
         <!-- Tabs -->
-        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border)">
+        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border);flex-wrap:wrap">
           ${[
             { id:'requests', label:'Leave Requests', icon:'fa-list' },
             { id:'calendar', label:'Leave Calendar', icon:'fa-calendar' },
             { id:'quota',    label:'Leave Quota & Balance',  icon:'fa-scale-balanced' },
+            { id:'tokens',   label:'Overtime Tokens', icon:'fa-coins' },
             { id:'types',    label:'Leave Types',    icon:'fa-tags' },
             { id:'holidays', label:'Holidays',       icon:'fa-calendar-days' },
           ].map(t => `
@@ -106,6 +107,7 @@ const Leaves = {
       case 'calendar': this.renderCalendar(container); break;
       case 'quota':
       case 'balance':  this.renderQuota(container); break;
+      case 'tokens':   this.renderTokens(container); break;
       case 'types':    this.renderTypes(container); break;
       case 'holidays': this.renderHolidays(container); break;
     }
@@ -506,7 +508,10 @@ const Leaves = {
 
     // 4. OTHER LEAVE
     const otherUnpaid = allApprovedLeaves.filter(l => l.typeId === 6).reduce((s, l) => s + l.days, 0);
-    const otherToken = allApprovedLeaves.filter(l => l.typeId === 10).reduce((s, l) => s + l.days, 0);
+    const tokenAvailments = (DB.get('token_availments') || []).filter(a => a.employeeId === emp.id && a.status === 'approved');
+    const tokenDaysFromAvail = tokenAvailments.reduce((s, a) => s + (Number(a.days) || 0), 0);
+    const tokenDaysFromRequests = allApprovedLeaves.filter(l => l.typeId === 10).reduce((s, l) => s + l.days, 0);
+    const otherToken = Math.round(Math.max(tokenDaysFromAvail, tokenDaysFromRequests) * 10) / 10;
 
     return {
       empId: emp.id,
@@ -1883,5 +1888,712 @@ const Leaves = {
     Modal.close('dynamic-modal');
     Toast.show('Holiday added!', 'success');
     this.renderView();
+  },
+
+  // ============================================================
+  // OVERTIME TOKEN MANAGEMENT — Non-Cash Compensatory Time
+  // Employee applies token claim for manager approval ->
+  // Manager approves/rejects -> Avail as Short/Half/Full (min 45m)
+  // ============================================================
+  getEmployeeTokenMetrics(empId) {
+    const tokens = DB.get('overtime_tokens') || [];
+    const availments = DB.get('token_availments') || [];
+    const empTokens = tokens.filter(t => t.employeeId === empId);
+    const empAvailments = availments.filter(a => a.employeeId === empId && a.status === 'approved');
+
+    const approvedHours = empTokens.filter(t => t.status === 'approved').reduce((s, t) => s + (Number(t.hours) || 0), 0);
+    const pendingHours = empTokens.filter(t => t.status === 'pending').reduce((s, t) => s + (Number(t.hours) || 0), 0);
+    const rejectedHours = empTokens.filter(t => t.status === 'rejected').reduce((s, t) => s + (Number(t.hours) || 0), 0);
+    const availedHours = empAvailments.reduce((s, a) => s + (Number(a.hours) || 0), 0);
+
+    const balanceHours = Math.max(0, Math.round((approvedHours - availedHours) * 100) / 100);
+    const balanceDays = Math.round((balanceHours / 8) * 100) / 100;
+
+    return {
+      approvedHours: Math.round(approvedHours * 100) / 100,
+      pendingHours: Math.round(pendingHours * 100) / 100,
+      rejectedHours: Math.round(rejectedHours * 100) / 100,
+      availedHours: Math.round(availedHours * 100) / 100,
+      balanceHours,
+      balanceDays
+    };
+  },
+
+  renderTokens(container) {
+    if (!container) return;
+    const myEmp = Auth.employee || DB.find('employees', 4);
+    const myEmpId = myEmp?.id || 4;
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const isHRorAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    const scopedEmps = this.getScopedEmployees();
+    const scopedIds = scopedEmps.map(e => e.id);
+    const metrics = this.getEmployeeTokenMetrics(myEmpId);
+
+    const allTokens = DB.get('overtime_tokens') || [];
+    const allAvailments = DB.get('token_availments') || [];
+
+    // Filter pending tokens requiring manager review
+    const pendingTokens = allTokens.filter(t => {
+      if (isHRorAdmin) return t.status === 'pending';
+      if (isDeptMgr) return (t.managerId === myEmpId || scopedIds.includes(t.employeeId)) && t.status === 'pending';
+      return false;
+    });
+
+    // Claims ledger filtering
+    const displayTokens = allTokens.filter(t => {
+      if (isEmployee) return t.employeeId === myEmpId;
+      if (isDeptMgr) return t.managerId === myEmpId || scopedIds.includes(t.employeeId) || t.employeeId === myEmpId;
+      return true;
+    });
+
+    // Availments ledger filtering
+    const displayAvailments = allAvailments.filter(a => {
+      if (isEmployee) return a.employeeId === myEmpId;
+      if (isDeptMgr) return scopedIds.includes(a.employeeId) || a.employeeId === myEmpId;
+      return true;
+    });
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Banner: Overtime Token System Info & Actions -->
+        <div class="card" style="padding:18px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(99,102,241,0.07) 0%,rgba(168,85,247,0.06) 100%);border:1.5px solid rgba(99,102,241,0.25);border-radius:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 14px rgba(99,102,241,0.3)">
+                <i class="fa fa-coins"></i>
+              </div>
+              <div>
+                <h3 style="font-size:17px;font-weight:800;color:var(--text);margin:0;letter-spacing:-0.3px">
+                  Overtime Tokens &amp; Compensatory Leave Bank
+                </h3>
+                <p style="font-size:12px;color:var(--text-3);margin:3px 0 0">
+                  Non-Cash Policy: Overtime is <strong>not paid as cash in salary</strong>. Extra hours are converted into verified tokens with reporting manager approval, avail as <strong>Short Leave (min 45 min)</strong>, <strong>Half Day (4h)</strong>, or <strong>Full Day (8h)</strong>.
+                </p>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="Leaves.showClaimOvertimeTokenModal()">
+                <i class="fa fa-plus-circle"></i> Apply Overtime Token Claim
+              </button>
+              <button class="btn btn-success" onclick="Leaves.showAvailTokenModal()">
+                <i class="fa fa-calendar-check"></i> Avail Token as Leave
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 KPI Metrics Hero Grid -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #10b981;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Available Token Balance</span>
+              <i class="fa fa-coins" style="font-size:18px;color:#10b981"></i>
+            </div>
+            <div style="font-size:28px;font-weight:800;color:#10b981;margin:8px 0 2px">${metrics.balanceHours} <span style="font-size:14px;font-weight:600">hrs</span></div>
+            <div style="font-size:11px;color:var(--text-muted)">≈ <strong>${metrics.balanceDays} Days</strong> compensatory leave available</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #6366f1;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Total Approved Overtime</span>
+              <i class="fa fa-shield-check" style="font-size:18px;color:#6366f1"></i>
+            </div>
+            <div style="font-size:28px;font-weight:800;color:#6366f1;margin:8px 0 2px">${metrics.approvedHours} <span style="font-size:14px;font-weight:600">hrs</span></div>
+            <div style="font-size:11px;color:var(--text-muted)">Verified work assigned by manager</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #8b5cf6;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Availed Token Leave</span>
+              <i class="fa fa-clock-rotate-left" style="font-size:18px;color:#8b5cf6"></i>
+            </div>
+            <div style="font-size:28px;font-weight:800;color:#8b5cf6;margin:8px 0 2px">${metrics.availedHours} <span style="font-size:14px;font-weight:600">hrs</span></div>
+            <div style="font-size:11px;color:var(--text-muted)">Recorded under Token Leave quota</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #f59e0b;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Pending Claims</span>
+              <i class="fa fa-hourglass-half" style="font-size:18px;color:#f59e0b"></i>
+            </div>
+            <div style="font-size:28px;font-weight:800;color:#f59e0b;margin:8px 0 2px">${metrics.pendingHours} <span style="font-size:14px;font-weight:600">hrs</span></div>
+            <div style="font-size:11px;color:var(--text-muted)">Under review with reporting manager</div>
+          </div>
+        </div>
+
+        <!-- Manager / HR Action Box: Pending Token Approvals -->
+        ${pendingTokens.length > 0 ? `
+          <div class="card" style="padding:0;margin-bottom:24px;border:1.5px solid rgba(245,158,11,0.4)">
+            <div style="padding:14px 18px;background:rgba(245,158,11,0.08);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:10px">
+                <span class="badge badge-warning" style="font-size:12px;padding:4px 8px"><i class="fa fa-bell"></i> Action Required</span>
+                <span style="font-weight:800;font-size:14px;color:var(--text)">Pending Overtime Token Claims from Team Members (${pendingTokens.length})</span>
+              </div>
+              <span style="font-size:11.5px;color:var(--text-3)">Review work assignment and approve or reject</span>
+            </div>
+            <div class="table-wrapper" style="border:none">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Date Worked</th>
+                    <th>Extra Hours</th>
+                    <th>Assigned Work / Task Description</th>
+                    <th>Applied On</th>
+                    <th style="text-align:center">Manager Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${pendingTokens.map(t => {
+                    const emp = DB.find('employees', t.employeeId);
+                    return `
+                      <tr>
+                        <td>
+                          <div style="display:flex;align-items:center;gap:10px">
+                            <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
+                            <div>
+                              <div style="font-weight:700;font-size:13px">${emp?.fullName || 'Employee #' + t.employeeId}</div>
+                              <div style="font-size:11px;color:var(--text-3)">${emp?.empNo} • ${Utils.getDeptName(emp?.departmentId)}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(t.date)}</td>
+                        <td><span class="badge badge-primary" style="font-size:12px;font-weight:700">${t.hours} hrs OT</span></td>
+                        <td style="max-width:320px;font-size:12.5px;color:var(--text)">
+                          <div style="line-height:1.4">${t.taskDescription}</div>
+                        </td>
+                        <td style="font-size:11.5px;color:var(--text-3)">${t.appliedOn}</td>
+                        <td style="text-align:center;white-space:nowrap">
+                          <button class="btn btn-success btn-sm" style="margin-right:6px" onclick="Leaves.approveOvertimeToken(${t.id})" title="Approve token claim if work was assigned">
+                            <i class="fa fa-check"></i> Approve
+                          </button>
+                          <button class="btn btn-danger btn-sm" onclick="Leaves.rejectOvertimeToken(${t.id})" title="Reject token claim">
+                            <i class="fa fa-times"></i> Reject
+                          </button>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Section 1: Overtime Token Claims Ledger -->
+        <div class="card" style="padding:0;margin-bottom:24px">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">
+                <i class="fa fa-list-check" style="color:var(--primary);margin-right:6px"></i>
+                Overtime Token Claims &amp; Verification Ledger
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3)">
+                ${isEmployee ? 'History of your submitted overtime claims and manager verification notes' : 'Corporate overtime claims ledger and reporting manager approvals'}
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="Leaves.showClaimOvertimeTokenModal()">
+              <i class="fa fa-plus"></i> Claim Overtime
+            </button>
+          </div>
+
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date Worked</th>
+                  <th>Employee</th>
+                  <th>Extra Hours</th>
+                  <th>Task Description / Assigned Work</th>
+                  <th>Reporting Manager</th>
+                  <th>Status</th>
+                  <th>Manager Remarks / Approval</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${displayTokens.length === 0 ? `
+                  <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No overtime token claims recorded yet.</td></tr>
+                ` : displayTokens.map(t => {
+                  const emp = DB.find('employees', t.employeeId);
+                  const mgr = DB.find('employees', t.managerId || emp?.managerId || emp?.reportingTo || 3);
+                  let statusBadge = '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
+                  if (t.status === 'approved') statusBadge = '<span class="badge badge-success"><i class="fa fa-check-circle"></i> Approved &amp; Banked</span>';
+                  else if (t.status === 'rejected') statusBadge = '<span class="badge badge-danger"><i class="fa fa-circle-xmark"></i> Rejected</span>';
+
+                  return `
+                    <tr>
+                      <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(t.date)}</td>
+                      <td>
+                        <div style="font-weight:600;font-size:12.5px">${emp?.fullName || 'Self'}</div>
+                        <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo}</div>
+                      </td>
+                      <td><span class="badge badge-primary" style="font-weight:700">${t.hours} hrs</span></td>
+                      <td style="max-width:280px;font-size:12px;color:var(--text-2);line-height:1.4">${t.taskDescription}</td>
+                      <td style="font-size:12px;color:var(--text-2)">
+                        <strong>${mgr?.fullName || 'Usman Baig'}</strong>
+                      </td>
+                      <td>${statusBadge}</td>
+                      <td style="font-size:11.5px;color:var(--text-3);max-width:220px">
+                        ${t.managerRemarks || (t.status === 'approved' ? '✓ Verified work assignment' : (t.status === 'rejected' ? '✗ Rejected' : 'Awaiting review'))}
+                        ${t.managerApprovedAt ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${new Date(t.managerApprovedAt).toLocaleDateString()}</div>` : ''}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Section 2: Token Leave Availment Ledger -->
+        <div class="card" style="padding:0">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">
+                <i class="fa fa-calendar-check" style="color:#10b981;margin-right:6px"></i>
+                Token Leave Availment History
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3)">
+                Compensatory leave taken utilizing banked overtime tokens (Short Leave 45m+, Half Day 4h, Full Day 8h)
+              </div>
+            </div>
+            <button class="btn btn-success btn-sm" onclick="Leaves.showAvailTokenModal()">
+              <i class="fa fa-calendar-plus"></i> Avail Token Leave
+            </button>
+          </div>
+
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Leave Date</th>
+                  <th>Employee</th>
+                  <th>Leave Type</th>
+                  <th>Duration Availed</th>
+                  <th>Quota Deducted</th>
+                  <th>Reason / Purpose</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${displayAvailments.length === 0 ? `
+                  <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No token leave availments recorded yet.</td></tr>
+                ` : displayAvailments.map(a => {
+                  const emp = DB.find('employees', a.employeeId);
+                  const typeLabel = a.leaveDuration === 'short' ? 'Short Leave (45m+)' : (a.leaveDuration === 'half' ? 'Half Day Leave' : 'Full Day Leave');
+                  return `
+                    <tr>
+                      <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(a.date)}</td>
+                      <td>
+                        <div style="font-weight:600;font-size:12.5px">${emp?.fullName || 'Self'}</div>
+                        <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo}</div>
+                      </td>
+                      <td><span class="badge badge-info" style="font-size:11px;font-weight:600">${typeLabel}</span></td>
+                      <td style="font-weight:700;color:var(--primary)">${a.hours} hrs (${a.minutes || (a.hours*60)} mins)</td>
+                      <td><span class="badge badge-secondary">${a.days || Math.round((a.hours/8)*100)/100} Days</span></td>
+                      <td style="font-size:12px;color:var(--text-2);max-width:280px">${a.reason}</td>
+                      <td><span class="badge badge-success"><i class="fa fa-check-circle"></i> Availed &amp; Deducted</span></td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showClaimOvertimeTokenModal(prefillDate, prefillHours) {
+    const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const myEmp = Auth.employee || DB.find('employees', 4) || allEmps[0];
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isManagement = !isEmployee;
+    const defaultDate = prefillDate || Utils.today();
+    const defaultHours = prefillHours || 1.5;
+
+    // Direct Reporting Manager
+    const mgrId = myEmp?.managerId || myEmp?.reportingTo || 3;
+    const mgr = DB.find('employees', mgrId) || { fullName: 'Usman Baig (Tech Lead / Deputy Manager)' };
+
+    Modal.show('Apply Overtime Token Claim', `
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.1),rgba(168,85,247,0.08));border:1px solid rgba(99,102,241,0.3);border-radius:10px;padding:12px 14px">
+          <div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+            <i class="fa fa-coins" style="color:var(--primary)"></i> Overtime Token Application Policy
+          </div>
+          <div style="font-size:11.5px;color:var(--text-2);margin-top:4px;line-height:1.4">
+            Overtime is <strong>not paid as cash salary</strong>. Claim extra hours worked for approval by your direct reporting manager. Once approved, banked token time can be availed as Short Leave, Half Day, or Full Day compensatory time.
+          </div>
+        </div>
+
+        ${isManagement ? `
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required">Employee</label>
+            <select class="form-control" id="ot-claim-emp" onchange="Leaves.onClaimEmpChange(this.value)">
+              ${allEmps.map(e => `<option value="${e.id}" ${e.id === myEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+            </select>
+          </div>
+        ` : `
+          <input type="hidden" id="ot-claim-emp" value="${myEmp.id}">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:10px 14px;display:flex;align-items:center;gap:12px">
+            <div class="avatar avatar-sm" style="background:${Utils.avatarColor(myEmp.id)}">${Utils.avatarInitials(myEmp.fullName)}</div>
+            <div style="flex:1">
+              <div style="font-weight:700;font-size:13px">${myEmp.fullName} (${myEmp.empNo})</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Reporting to: <strong>${mgr.fullName}</strong></div>
+            </div>
+            <span class="badge badge-primary" style="font-size:11px"><i class="fa fa-coins"></i> OT Token</span>
+          </div>
+        `}
+
+        <div class="form-row form-row-2" style="margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date Overtime Worked</label>
+            <input type="date" class="form-control" id="ot-claim-date" value="${defaultDate}">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required"><i class="fa fa-business-time" style="color:var(--primary);margin-right:4px"></i> Extra Hours Worked</label>
+            <input type="number" class="form-control" id="ot-claim-hours" value="${defaultHours}" min="0.5" max="12" step="0.5" placeholder="e.g. 1.5, 2.0">
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label required"><i class="fa fa-user-check" style="color:var(--primary);margin-right:4px"></i> Reporting Manager for Approval</label>
+          <input type="text" class="form-control" id="ot-claim-mgr-display" value="${mgr.fullName}" readonly style="background:var(--surface);font-weight:600">
+          <input type="hidden" id="ot-claim-mgr-id" value="${mgrId}">
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label required"><i class="fa fa-briefcase" style="color:var(--primary);margin-right:4px"></i> Assigned Task / Work Description</label>
+          <textarea class="form-control" id="ot-claim-desc" rows="3" placeholder="Describe the specific work, task, or client issue assigned by your manager that required extra hours (e.g. critical cloud deployment, emergency bug fix, client delivery)..."></textarea>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Reporting manager will review this description to verify the assigned work before approving.</div>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Leaves.submitClaimOvertimeToken()"><i class="fa fa-paper-plane"></i> Submit Token Claim</button>
+      `
+    });
+  },
+
+  onClaimEmpChange(empId) {
+    const emp = DB.find('employees', parseInt(empId));
+    if (!emp) return;
+    const mgrId = emp.managerId || emp.reportingTo || 3;
+    const mgr = DB.find('employees', mgrId) || { fullName: 'Usman Baig' };
+    const disp = document.getElementById('ot-claim-mgr-display');
+    const hidden = document.getElementById('ot-claim-mgr-id');
+    if (disp) disp.value = mgr.fullName;
+    if (hidden) hidden.value = mgrId;
+  },
+
+  submitClaimOvertimeToken() {
+    const empId = parseInt(document.getElementById('ot-claim-emp').value);
+    const date = document.getElementById('ot-claim-date').value;
+    const hours = parseFloat(document.getElementById('ot-claim-hours').value);
+    const managerId = parseInt(document.getElementById('ot-claim-mgr-id').value) || 3;
+    const taskDescription = document.getElementById('ot-claim-desc').value.trim();
+
+    if (!date) { Toast.show('Please select date overtime was worked', 'error'); return; }
+    if (isNaN(hours) || hours <= 0) { Toast.show('Please specify valid extra hours worked', 'error'); return; }
+    if (!taskDescription || taskDescription.length < 5) {
+      Toast.show('Please explain the assigned work or task description (minimum 5 characters)', 'error');
+      return;
+    }
+
+    const tokens = DB.get('overtime_tokens') || [];
+    const newClaim = {
+      id: DB.nextId('overtime_tokens'),
+      employeeId: empId,
+      date,
+      hours: Math.round(hours * 10) / 10,
+      taskDescription,
+      status: 'pending',
+      appliedOn: Utils.today(),
+      managerId,
+      managerApprovedAt: null,
+      managerRemarks: ''
+    };
+
+    tokens.push(newClaim);
+    DB.set('overtime_tokens', tokens);
+    DB.log('APPLY', 'Leaves', `Submitted overtime token claim (${hours}h) for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show('Overtime token claim submitted successfully!', 'success', `Sent to ${Utils.getEmpName(managerId)} for verification.`);
+    this.render();
+  },
+
+  showAvailTokenModal() {
+    const myEmp = Auth.employee || DB.find('employees', 4);
+    const myEmpId = myEmp?.id || 4;
+    const metrics = this.getEmployeeTokenMetrics(myEmpId);
+
+    Modal.show('Avail Token as Compensatory Leave', `
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
+        <!-- Live Token Balance Header -->
+        <div style="background:linear-gradient(135deg,rgba(16,185,129,0.12),rgba(99,102,241,0.08));border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:14px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:12px;color:var(--text-3);font-weight:600">Your Current Available Token Balance</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:2px">
+              ${metrics.balanceHours} <span style="font-size:14px;font-weight:600">Hours (${metrics.balanceDays} Days)</span>
+            </div>
+          </div>
+          <span class="badge badge-success" style="font-size:12px;padding:6px 12px">
+            <i class="fa fa-coins"></i> Banked Non-Cash Time
+          </span>
+        </div>
+
+        ${metrics.balanceHours < 0.75 ? `
+          <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px;font-size:12px;color:var(--danger)">
+            <i class="fa fa-triangle-exclamation" style="margin-right:6px"></i>
+            <strong>Insufficient Token Balance:</strong> The minimum required time to avail a token is <strong>45 minutes (0.75 hours)</strong>. You currently have <strong>${metrics.balanceHours} hours</strong>. Please earn approved overtime tokens before availing.
+          </div>
+        ` : ''}
+
+        <div class="form-row form-row-2" style="margin-bottom:0">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date of Leave</label>
+            <input type="date" class="form-control" id="tk-avail-date" value="${Utils.today()}">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required"><i class="fa fa-layer-group" style="color:var(--primary);margin-right:4px"></i> Avail Leave As</label>
+            <select class="form-control" id="tk-avail-type" onchange="Leaves.onAvailTypeChange(this.value)">
+              <option value="short" selected>Short Leave (45 mins – 2 hrs)</option>
+              <option value="half">Half Day Leave (4.0 Hours)</option>
+              <option value="full">Full Day Leave (8.0 Hours)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Short Leave Duration Configuration (Strictly Minimum 45 min) -->
+        <div id="tk-short-section" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
+          <label class="form-label required" style="font-size:12.5px;font-weight:700">
+            <i class="fa fa-stopwatch" style="color:var(--primary);margin-right:4px"></i> Select Short Leave Duration
+          </label>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <select class="form-control" id="tk-short-preset" style="flex:1" onchange="document.getElementById('tk-avail-mins').value=this.value; Leaves.updateAvailLiveCalculation()">
+              <option value="45" selected>45 Minutes (0.75 hrs) — Standard Policy Minimum</option>
+              <option value="60">60 Minutes (1.0 hr)</option>
+              <option value="90">90 Minutes (1.5 hrs)</option>
+              <option value="120">120 Minutes (2.0 hrs)</option>
+            </select>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="number" id="tk-avail-mins" class="form-control" style="width:90px" value="45" min="45" max="240" step="5" oninput="Leaves.updateAvailLiveCalculation()">
+              <span style="font-size:12px;font-weight:600;color:var(--text-3)">mins</span>
+            </div>
+          </div>
+          <div style="font-size:11px;color:#d97706;font-weight:600;margin-top:6px">
+            <i class="fa fa-circle-info"></i> System Rule: The minimum time to avail an overtime token is 45 minutes.
+          </div>
+        </div>
+
+        <!-- Live Calculation Preview Card -->
+        <div id="tk-calc-preview" style="background:var(--surface-2);border-radius:8px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;font-size:12px">
+          <div>
+            Requested Token Time: <strong id="tk-calc-hrs" style="color:var(--primary);font-size:13px">0.75 Hours (45 mins)</strong>
+          </div>
+          <div id="tk-calc-rem" style="color:var(--text-3)">
+            Remaining Balance After: <strong>${Math.max(0, Math.round((metrics.balanceHours - 0.75)*100)/100)} hrs</strong>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label required"><i class="fa fa-comment-dots" style="color:var(--primary);margin-right:4px"></i> Purpose / Reason for Token Leave</label>
+          <textarea class="form-control" id="tk-avail-reason" rows="2" placeholder="e.g. Urgent banking errand, personal doctor visit, family obligation..."></textarea>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-success" id="tk-submit-btn" onclick="Leaves.submitAvailToken()"><i class="fa fa-check"></i> Avail Token Leave</button>
+      `
+    });
+
+    setTimeout(() => this.updateAvailLiveCalculation(), 20);
+  },
+
+  onAvailTypeChange(type) {
+    const shortSec = document.getElementById('tk-short-section');
+    if (shortSec) {
+      shortSec.style.display = type === 'short' ? 'block' : 'none';
+    }
+    this.updateAvailLiveCalculation();
+  },
+
+  updateAvailLiveCalculation() {
+    const myEmp = Auth.employee || DB.find('employees', 4);
+    const metrics = this.getEmployeeTokenMetrics(myEmp?.id || 4);
+    const type = document.getElementById('tk-avail-type')?.value || 'short';
+    let reqHours = 0.75;
+    let reqMins = 45;
+
+    if (type === 'short') {
+      reqMins = parseInt(document.getElementById('tk-avail-mins')?.value) || 45;
+      reqHours = Math.round((reqMins / 60) * 100) / 100;
+    } else if (type === 'half') {
+      reqHours = 4.0;
+      reqMins = 240;
+    } else if (type === 'full') {
+      reqHours = 8.0;
+      reqMins = 480;
+    }
+
+    const hrsEl = document.getElementById('tk-calc-hrs');
+    const remEl = document.getElementById('tk-calc-rem');
+    const btn = document.getElementById('tk-submit-btn');
+
+    if (hrsEl) {
+      hrsEl.textContent = `${reqHours} Hours (${reqMins} mins)`;
+    }
+    if (remEl) {
+      const rem = Math.round((metrics.balanceHours - reqHours) * 100) / 100;
+      if (rem < 0) {
+        remEl.innerHTML = `<span style="color:var(--danger);font-weight:700"><i class="fa fa-circle-exclamation"></i> Exceeds Balance by ${Math.abs(rem)}h</span>`;
+        if (btn) btn.disabled = true;
+      } else if (type === 'short' && reqMins < 45) {
+        remEl.innerHTML = `<span style="color:var(--danger);font-weight:700"><i class="fa fa-circle-exclamation"></i> Min 45 mins required</span>`;
+        if (btn) btn.disabled = true;
+      } else {
+        remEl.innerHTML = `Remaining Balance After: <strong style="color:var(--success)">${rem} hrs</strong>`;
+        if (btn) btn.disabled = false;
+      }
+    }
+  },
+
+  submitAvailToken() {
+    const myEmp = Auth.employee || DB.find('employees', 4);
+    const myEmpId = myEmp?.id || 4;
+    const metrics = this.getEmployeeTokenMetrics(myEmpId);
+
+    const date = document.getElementById('tk-avail-date').value;
+    const type = document.getElementById('tk-avail-type').value;
+    const reason = document.getElementById('tk-avail-reason').value.trim();
+
+    if (!date) { Toast.show('Please select date of leave', 'error'); return; }
+    if (!reason) { Toast.show('Please provide a reason for availing token leave', 'error'); return; }
+
+    let reqHours = 0;
+    let reqMins = 0;
+
+    if (type === 'short') {
+      reqMins = parseInt(document.getElementById('tk-avail-mins')?.value) || 0;
+      // Minimum duration validation (45 minutes)
+      if (reqMins < 45) {
+        Toast.show('Minimum duration to avail an overtime token is 45 minutes.', 'error');
+        return;
+      }
+      reqHours = Math.round((reqMins / 60) * 100) / 100;
+    } else if (type === 'half') {
+      reqHours = 4.0;
+      reqMins = 240;
+    } else if (type === 'full') {
+      reqHours = 8.0;
+      reqMins = 480;
+    }
+
+    // Balance check
+    if (reqHours > metrics.balanceHours) {
+      Toast.show(`Insufficient token balance! Requested: ${reqHours}h, Available: ${metrics.balanceHours}h`, 'error');
+      return;
+    }
+
+    const availments = DB.get('token_availments') || [];
+    const newAvail = {
+      id: DB.nextId('token_availments'),
+      employeeId: myEmpId,
+      date,
+      leaveDuration: type,
+      minutes: reqMins,
+      hours: reqHours,
+      days: Math.round((reqHours / 8) * 100) / 100,
+      reason,
+      status: 'approved',
+      appliedOn: new Date().toISOString()
+    };
+    availments.push(newAvail);
+    DB.set('token_availments', availments);
+
+    // Also insert into leave_requests as Type 10 (Token Leave) to integrate seamlessly with calendar & Leave Quota matrix
+    const leaves = DB.get('leave_requests') || [];
+    const typeName = type === 'short' ? `Short Leave (${reqMins}m)` : (type === 'half' ? 'Half Day' : 'Full Day');
+    const newLeaveReq = {
+      id: DB.nextId('leave_requests'),
+      employeeId: myEmpId,
+      typeId: 10, // Token Leave
+      fromDate: date,
+      toDate: date,
+      days: Math.round((reqHours / 8) * 100) / 100,
+      status: 'approved',
+      managerStatus: 'approved',
+      hrStatus: 'approved',
+      reason: `[Overtime Token Availment: ${typeName}] ${reason}`,
+      appliedOn: Utils.today(),
+      remarks: `Availed from banked overtime tokens (${reqHours}h)`
+    };
+    leaves.push(newLeaveReq);
+    DB.set('leave_requests', leaves);
+
+    DB.log('APPLY', 'Leaves', `Availed ${reqHours}h (${type}) Overtime Token Leave for ${myEmp.fullName} on ${date}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(`Token leave applied successfully! Deducted ${reqHours}h from your token balance.`, 'success');
+    this.render();
+  },
+
+  approveOvertimeToken(tokenId) {
+    const tokens = DB.get('overtime_tokens') || [];
+    const token = tokens.find(t => t.id === tokenId);
+    if (!token) { Toast.show('Token not found', 'error'); return; }
+
+    const emp = DB.find('employees', token.employeeId);
+    Modal.confirm('Approve Overtime Token Claim', `
+      Are you sure you want to approve this overtime token claim for <strong>${emp?.fullName || 'Employee'}</strong>?
+      <div style="background:var(--surface);border-radius:8px;padding:12px;margin-top:10px;font-size:12px;line-height:1.5">
+        <div>Date: <strong>${Utils.formatDate(token.date)}</strong></div>
+        <div>Extra Hours: <strong style="color:var(--primary)">${token.hours} hrs</strong></div>
+        <div>Task / Assigned Work: <em>"${token.taskDescription}"</em></div>
+      </div>
+      <div class="form-group" style="margin-top:12px;margin-bottom:0">
+        <label class="form-label">Manager Approval Remarks</label>
+        <input type="text" id="ot-appr-remarks" class="form-control" value="Verified assigned work. Approved ${token.hours}h Overtime Token." placeholder="Approval note...">
+      </div>
+    `, () => {
+      const remarks = document.getElementById('ot-appr-remarks')?.value.trim() || 'Approved by reporting manager';
+      token.status = 'approved';
+      token.managerApprovedAt = new Date().toISOString();
+      token.managerRemarks = remarks;
+      DB.set('overtime_tokens', tokens);
+      DB.log('APPROVE', 'Leaves', `Manager approved ${token.hours}h Overtime Token for ${emp?.fullName}`, Auth.user?.id);
+      Modal.close('dynamic-modal');
+      Toast.show(`Approved ${token.hours}h Overtime Token! Banked into employee token balance.`, 'success');
+      this.render();
+    });
+  },
+
+  rejectOvertimeToken(tokenId) {
+    const tokens = DB.get('overtime_tokens') || [];
+    const token = tokens.find(t => t.id === tokenId);
+    if (!token) { Toast.show('Token not found', 'error'); return; }
+
+    const emp = DB.find('employees', token.employeeId);
+    Modal.confirm('Reject Overtime Token Claim', `
+      Are you sure you want to reject this overtime claim for <strong>${emp?.fullName || 'Employee'}</strong>?
+      <div class="form-group" style="margin-top:12px;margin-bottom:0">
+        <label class="form-label required">Reason for Rejection</label>
+        <input type="text" id="ot-rej-remarks" class="form-control" placeholder="Explain why extra time cannot be approved (e.g. unassigned work, exceeded authorized scope)...">
+      </div>
+    `, () => {
+      const remarks = document.getElementById('ot-rej-remarks')?.value.trim() || 'Rejected by reporting manager';
+      token.status = 'rejected';
+      token.managerRemarks = remarks;
+      DB.set('overtime_tokens', tokens);
+      DB.log('REJECT', 'Leaves', `Manager rejected Overtime Token for ${emp?.fullName}: ${remarks}`, Auth.user?.id);
+      Modal.close('dynamic-modal');
+      Toast.show('Overtime token claim rejected.', 'info');
+      this.render();
+    });
   },
 };

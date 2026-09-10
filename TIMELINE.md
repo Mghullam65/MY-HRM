@@ -371,6 +371,30 @@
   - **Automated Verification Suite (`scratch/test-leave-quota-table.js`)**:
     - 15 / 15 tests passed (100%) covering leave catalog, metric calculations, 20 columns, status filters, sorting, CSV export, and role scoping *(Completed)*.
 
+- [x] **Attendance Break In/Out Tracking, Non-Cash Overtime, and Leave Overtime Token Management (`js/attendance.js`, `js/leaves.js`, `js/payroll.js`, `js/dashboard.js`, `js/data.js`)**:
+  - **Attendance Check In / Out & Break In / Out Tracking**:
+    - Mapped `Time In` = `Check In` and `Time Out` = `Check Out`.
+    - Added dedicated punch actions and table/modal columns for **Break Out** and **Break In**.
+    - Updated net working hours calculation: `(Check Out - Check In) - (Break In - Break Out)`.
+    - Automated extra time calculation: any time worked beyond required shift (8.0h) is counted as **Overtime**.
+    - Re-architected Single-Day Daily Dossier with 6 dedicated KPI cards (`Check In (Time In)`, `Break Out`, `Break In`, `Check Out (Time Out)`, `Working Hours`, `Overtime`), 4-state contextual punch buttons, and direct "Claim Overtime Token" triggers.
+    - Updated table headers and rows in `renderMyAttTable()`, `renderDaily()`, manual attendance entry, and CSV exports to include all break punches.
+  - **Non-Cash Overtime Policy Enforced in Payroll**:
+    - Overtime is **NOT paid as cash in salary slips** (`otPay = 0` in `syncPayrollFromAttendanceAndTax`).
+    - Overtime hours are tracked in payroll metadata (`syncedDetails`) and banked exclusively as non-cash compensatory leave tokens.
+  - **Leave Section: Overtime Tokens & Compensatory Leave Bank**:
+    - Added dedicated **Overtime Tokens** tab (`#tokens`) in the Leave Management module.
+    - Banked token hero metrics: Available Token Balance, Approved Overtime Hours, Availed Token Hours, Pending Claims.
+    - **Apply Overtime Token Claim Modal**: Employee selects date, extra hours worked, direct reporting manager, and detailed task description of work assigned.
+    - **Reporting Manager Verification Workflow**: Reporting manager reviews assigned work description with one-click **Approve Token** or **Reject Token** actions with manager remarks and audit timestamps.
+    - **Avail Token as Compensatory Leave Modal**:
+      - Compensatory leave options: **Short Leave** (minimum 45 minutes up to 2 hours), **Half Day Leave** (4 hours / 0.5 days), or **Full Day Leave** (8 hours / 1.0 day).
+      - **Strict Minimum Duration Rule**: Availing less than 45 minutes for Short Leave is strictly blocked with validation warnings.
+      - **Balance Check**: Ensures requested leave does not exceed available approved token hours.
+      - **Leave Quota Matrix Integration**: Availing token leave automatically creates records in `token_availments` and `leave_requests` (Type 10: `Token Leave`), seamlessly reflecting under the `Token Leave` column in the 20-column Leave Quota & Balance matrix.
+  - **Automated Regression Suite (`scratch/test-attendance-breaks-tokens.js`)**:
+    - 17 / 17 tests passed (100%) validating break deductions, net minutes, non-cash overtime payroll rule, token claim workflow, manager approvals, minimum 45m availment validation, and Leave Quota sync *(Completed)*.
+
 ---
 
 *File automatically maintained and synchronized with the repository.*

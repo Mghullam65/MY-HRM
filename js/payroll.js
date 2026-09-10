@@ -2356,6 +2356,7 @@ const Payroll = {
     let totalLOPDeductions = 0;
     let totalLatePenalties = 0;
     let totalOTPay = 0;
+    let totalOTHours = 0;
 
     emps.forEach(emp => {
       const empAtt = attMonth.filter(a => a.employeeId === emp.id);
@@ -2370,7 +2371,8 @@ const Payroll = {
       const lopAmount = Math.round((baseSalary / 30) * absentDays);
       const latePenaltyAmount = Math.round((baseSalary / 60) * lateDays);
       const unpaidLeaveAmount = Math.round((baseSalary / 30) * unpaidLeaveDays);
-      const otPay = Math.round((baseSalary / 240) * 1.5 * otHours);
+      // Overtime is NON-CASH compensatory time (banked as Leave Overtime Tokens, not paid in salary)
+      const otPay = 0;
       
       const allowanceAmount = Math.round(baseSalary * 0.25);
       const pfShare = Math.round(baseSalary * 0.05);
@@ -2384,7 +2386,7 @@ const Payroll = {
 
       totalLOPDeductions += (lopAmount + unpaidLeaveAmount);
       totalLatePenalties += latePenaltyAmount;
-      totalOTPay += otPay;
+      totalOTHours += otHours;
 
       let rec = salaries.find(s => s.employeeId === emp.id && s.month === month);
       if (!rec) {
@@ -2451,13 +2453,14 @@ const Payroll = {
             <div style="font-size:20px;font-weight:800;color:var(--danger)">${Utils.formatCurrency(totalLOPDeductions + totalLatePenalties)}</div>
           </div>
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
-            <div style="font-size:12px;color:var(--text-3);margin-bottom:4px">Approved Overtime Added</div>
-            <div style="font-size:20px;font-weight:800;color:var(--success)">${Utils.formatCurrency(totalOTPay)}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:4px">Overtime Banked as Tokens</div>
+            <div style="font-size:20px;font-weight:800;color:#8b5cf6">${totalOTHours} hrs (Non-Cash)</div>
           </div>
         </div>
 
         <div style="background:var(--surface-2);border-radius:8px;padding:12px 16px;font-size:12px;color:var(--text-2);line-height:1.6">
           <div style="font-weight:700;color:var(--text);margin-bottom:4px"><i class="fa fa-info-circle" style="color:var(--primary);margin-right:6px"></i>Automatic Tax & Statutory Compliance:</div>
+          <div>&bull; <strong>Overtime Tokens:</strong> Overtime is non-cash compensatory time banked in Leave Tokens (PKR 0 cash salary payout).</div>
           <div>&bull; <strong>Progressive FBR Income Tax:</strong> Recalculated for each employee per Finance Act 2024&ndash;2026 progressive slabs.</div>
           <div>&bull; <strong>PF & EOBI Withholding:</strong> 5% Employee Provident Fund & PKR 370 EOBI automatically applied.</div>
           <div>&bull; <strong>Cutoff Rules:</strong> Any check-in past 11:00 AM window cutoff has been flagged and assessed.</div>

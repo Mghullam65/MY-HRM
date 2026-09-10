@@ -493,10 +493,8 @@ const Attendance = {
         else if (rec.status === 'absent') absentCount++;
 
         if (rec.timeIn && rec.timeOut) {
-          const [ih, im] = rec.timeIn.split(':').map(Number);
-          const [oh, om] = rec.timeOut.split(':').map(Number);
-          const diff = (oh * 60 + om) - (ih * 60 + im);
-          if (diff > 0) totalMinutesWorked += diff;
+          const netMins = this.calcWorkingMinutes(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn);
+          if (netMins > 0) totalMinutesWorked += netMins;
         }
         totalOvertimeHours += (rec.overtime || 0);
       } else if (isWorkDay && dStr < Utils.today()) {
@@ -631,7 +629,8 @@ const Attendance = {
     const isToday = dStr === Utils.today();
     const isWeekend = (dt.getDay() === 0 || dt.getDay() === 6);
     const holiday = holidays.find(h => h.date === dStr);
-    const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut) : '—';
+    const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
+    const overtimeHours = rec?.overtime || (rec?.timeIn && rec?.timeOut ? this.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : 0);
 
     let statusBadge = '<span class="badge badge-secondary">Not Marked</span>';
     if (rec) statusBadge = Utils.statusBadge(rec.status);
@@ -655,65 +654,103 @@ const Attendance = {
             </div>
           </div>
 
-          <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             ${isToday ? `
               ${(!rec || !rec.timeIn) ? `
                 <button class="btn btn-success" style="padding:8px 18px;font-weight:700" onclick="Dashboard.quickSelfPunch('in');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-fingerprint"></i> Clock In for Today
+                  <i class="fa fa-fingerprint"></i> Check In (Time In)
+                </button>
+              ` : (!rec.breakOut ? `
+                <button class="btn btn-warning" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('b_out');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-mug-hot"></i> Break Out
+                </button>
+                <button class="btn btn-danger" style="padding:8px 16px;font-weight:700" onclick="Dashboard.quickSelfPunch('out');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out (Time Out)
+                </button>
+              ` : (!rec.breakIn ? `
+                <button class="btn btn-info" style="padding:8px 16px;font-weight:700;color:white" onclick="Dashboard.quickSelfPunch('b_in');setTimeout(()=>Attendance.renderView(),300)">
+                  <i class="fa fa-rotate-left"></i> Break In (Resume)
                 </button>
               ` : (!rec.timeOut ? `
                 <button class="btn btn-danger" style="padding:8px 18px;font-weight:700" onclick="Dashboard.quickSelfPunch('out');setTimeout(()=>Attendance.renderView(),300)">
-                  <i class="fa fa-arrow-right-from-bracket"></i> Clock Out for Today
+                  <i class="fa fa-arrow-right-from-bracket"></i> Check Out (Time Out)
                 </button>
               ` : `
-                <span class="badge badge-success" style="padding:6px 12px;font-size:12px"><i class="fa fa-circle-check"></i> Day Completed</span>
-              `)}
+                <span class="badge badge-success" style="padding:6px 12px;font-size:12px"><i class="fa fa-circle-check"></i> Shift Completed</span>
+              `)))}
+            ` : ''}
+
+            ${overtimeHours > 0 ? `
+              <button class="btn btn-primary btn-sm" style="padding:8px 16px;font-weight:700;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white" onclick="Leaves.showClaimOvertimeTokenModal('${dStr}', ${overtimeHours})">
+                <i class="fa fa-coins"></i> Claim Overtime Token (${overtimeHours}h)
+              </button>
             ` : ''}
 
             <button class="btn btn-warning btn-sm" onclick="Attendance.showApplyCorrectionModal('${dStr}')">
-              <i class="fa fa-wrench"></i> Request Attendance Correction
+              <i class="fa fa-wrench"></i> Request Attendance Correction / WFH
             </button>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px">
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
-            <div style="font-size:11.5px;color:var(--text-3);font-weight:600"><i class="fa fa-arrow-right-to-bracket" style="color:var(--success);margin-right:6px"></i>Clock In Timestamp</div>
-            <div style="font-size:24px;font-weight:800;color:${rec?.timeIn?'var(--success)':'var(--text-muted)'};margin-top:6px">
+        <!-- 6 KPI Dossier Cards: Check In, Break Out, Break In, Check Out, Working Hours, Overtime -->
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid var(--success)">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-to-bracket" style="color:var(--success);margin-right:5px"></i>Check In (Time In) / Clock In Timestamp</div>
+            <div style="font-size:22px;font-weight:800;color:${rec?.timeIn?'var(--success)':'var(--text-muted)'};margin-top:6px">
               ${rec?.timeIn || '—'}
             </div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:4px">
-              ${rec?.timeIn ? (rec.timeIn <= (myShift.timeInWindowEnd || '11:00') ? '✓ On-Time Arrival' : '⚠ Late Arrival after Cutoff') : 'No check-in record'}
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+              ${rec?.timeIn ? (rec.timeIn <= (myShift.timeInWindowEnd || '11:00') ? '✓ On-Time Arrival' : '⚠ Late Arrival') : 'No punch recorded'}
             </div>
           </div>
 
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
-            <div style="font-size:11.5px;color:var(--text-3);font-weight:600"><i class="fa fa-arrow-right-from-bracket" style="color:var(--danger);margin-right:6px"></i>Clock Out Timestamp</div>
-            <div style="font-size:24px;font-weight:800;color:${rec?.timeOut?'var(--danger)':'var(--text-muted)'};margin-top:6px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #d97706">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-mug-hot" style="color:#d97706;margin-right:5px"></i>Break Out</div>
+            <div style="font-size:22px;font-weight:800;color:${rec?.breakOut?'#d97706':'var(--text-muted)'};margin-top:6px">
+              ${rec?.breakOut || '—'}
+            </div>
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+              ${rec?.breakOut ? 'Lunch / Tea break start' : 'No break out logged'}
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #2563eb">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-rotate-left" style="color:#2563eb;margin-right:5px"></i>Break In</div>
+            <div style="font-size:22px;font-weight:800;color:${rec?.breakIn?'#2563eb':'var(--text-muted)'};margin-top:6px">
+              ${rec?.breakIn || '—'}
+            </div>
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+              ${rec?.breakIn ? 'Returned from break' : 'No break in logged'}
+            </div>
+          </div>
+
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid var(--danger)">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-arrow-right-from-bracket" style="color:var(--danger);margin-right:5px"></i>Check Out (Time Out) / Clock Out Timestamp</div>
+            <div style="font-size:22px;font-weight:800;color:${rec?.timeOut?'var(--danger)':'var(--text-muted)'};margin-top:6px">
               ${rec?.timeOut || '—'}
             </div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:4px">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
               ${rec?.timeOut ? 'Standard evening punch-out' : 'Awaiting punch-out'}
             </div>
           </div>
 
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
-            <div style="font-size:11.5px;color:var(--text-3);font-weight:600"><i class="fa fa-business-time" style="color:var(--primary);margin-right:6px"></i>Total Duration Logged</div>
-            <div style="font-size:24px;font-weight:800;color:var(--primary);margin-top:6px">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid var(--primary)">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-business-time" style="color:var(--primary);margin-right:5px"></i>Working Hours / Total Duration Logged</div>
+            <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">
               ${hours}
             </div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:4px">
-              Scheduled baseline: 8.0 hrs
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+              Net duration (deducts breaks)
             </div>
           </div>
 
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px">
-            <div style="font-size:11.5px;color:var(--text-3);font-weight:600"><i class="fa fa-plus-circle" style="color:#6366f1;margin-right:6px"></i>Overtime Approved</div>
-            <div style="font-size:24px;font-weight:800;color:#6366f1;margin-top:6px">
-              ${rec?.overtime ? rec.overtime + ' hrs' : '0.0 hrs'}
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;border-top:3px solid #8b5cf6">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700"><i class="fa fa-coins" style="color:#8b5cf6;margin-right:5px"></i>Overtime</div>
+            <div style="font-size:22px;font-weight:800;color:#8b5cf6;margin-top:6px">
+              ${overtimeHours ? overtimeHours + ' hrs' : '0.0 hrs'}
             </div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:4px">
-              Eligible for compensatory claim
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:4px">
+              Non-cash compensatory token
             </div>
           </div>
         </div>
@@ -762,10 +799,12 @@ const Attendance = {
           <table>
             <thead>
               <tr>
-                <th style="min-width:140px">Date &amp; Day</th>
+                <th style="min-width:130px">Date &amp; Day</th>
                 <th>Shift</th>
-                <th>Time In</th>
-                <th>Time Out</th>
+                <th>Check In (Time In)</th>
+                <th>Break Out</th>
+                <th>Break In</th>
+                <th>Check Out (Time Out)</th>
                 <th>Working Hours</th>
                 <th>Overtime</th>
                 <th>Source / Device</th>
@@ -781,7 +820,8 @@ const Attendance = {
                 const isWeekend = (dt.getDay() === 0 || dt.getDay() === 6);
                 const holiday = holidays.find(h => h.date === dStr);
                 const dayName = dt.toLocaleDateString('en-PK', { weekday:'short' });
-                const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut) : '—';
+                const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
+                const otHours = rec?.overtime || (rec?.timeIn && rec?.timeOut ? this.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : 0);
 
                 let statusPill = '<span class="badge badge-secondary">Not Marked</span>';
                 if (rec) statusPill = Utils.statusBadge(rec.status);
@@ -802,28 +842,39 @@ const Attendance = {
                       <span style="font-size:12px;font-weight:500;color:var(--text-2)">${myShift.name}</span>
                     </td>
                     <td style="color:var(--success);font-weight:700">
-                      ${rec?.timeIn ? `<i class="fa fa-clock" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.timeIn}` : '—'}
+                      ${rec?.timeIn ? `<i class="fa fa-arrow-right-to-bracket" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.timeIn}` : '—'}
+                    </td>
+                    <td style="color:#d97706;font-weight:600">
+                      ${rec?.breakOut ? `<i class="fa fa-mug-hot" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.breakOut}` : '—'}
+                    </td>
+                    <td style="color:#2563eb;font-weight:600">
+                      ${rec?.breakIn ? `<i class="fa fa-rotate-left" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.breakIn}` : '—'}
                     </td>
                     <td style="color:var(--danger);font-weight:700">
-                      ${rec?.timeOut ? `<i class="fa fa-clock" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.timeOut}` : '—'}
+                      ${rec?.timeOut ? `<i class="fa fa-arrow-right-from-bracket" style="font-size:10px;margin-right:4px;opacity:0.8"></i>${rec.timeOut}` : '—'}
                     </td>
-                    <td style="font-weight:600;font-size:12.5px">${hours}</td>
-                    <td>${rec?.overtime ? `<span class="badge badge-primary">${rec.overtime}h</span>` : '—'}</td>
+                    <td style="font-weight:700;font-size:12.5px;color:var(--primary)">${hours}</td>
+                    <td>${otHours > 0 ? `<span class="badge badge-primary" style="font-weight:700">${otHours}h</span>` : '—'}</td>
                     <td style="font-size:11.5px;color:var(--text-3)">
                       ${rec?.device || (isWeekend ? 'Rest Day' : (holiday ? holiday.name : '—'))}
                     </td>
                     <td>${statusPill}</td>
-                    <td style="max-width:200px;font-size:11.5px;color:var(--text-2);text-overflow:ellipsis;overflow:hidden;white-space:nowrap" title="${rec?.remarks || ''}">
+                    <td style="max-width:180px;font-size:11.5px;color:var(--text-2);text-overflow:ellipsis;overflow:hidden;white-space:nowrap" title="${rec?.remarks || ''}">
                       ${rec?.remarks || (isWeekend ? 'Rest Day' : (holiday ? holiday.name : '—'))}
                     </td>
-                    <td style="text-align:center">
+                    <td style="text-align:center;white-space:nowrap">
+                      ${otHours > 0 ? `
+                        <button class="btn btn-ghost btn-sm" style="color:var(--primary);padding:3px 7px;font-size:11px;font-weight:700" onclick="Leaves.showClaimOvertimeTokenModal('${dStr}', ${otHours})" title="Claim Overtime Token">
+                          <i class="fa fa-coins text-warning"></i> Token
+                        </button>
+                      ` : ''}
                       ${needsCorrection ? `
-                        <button class="btn btn-ghost btn-sm" style="color:var(--warning);padding:3px 8px;font-size:11px" onclick="Attendance.showApplyCorrectionModal('${dStr}')" title="Request Attendance Correction">
+                        <button class="btn btn-ghost btn-sm" style="color:var(--warning);padding:3px 7px;font-size:11px" onclick="Attendance.showApplyCorrectionModal('${dStr}')" title="Request Attendance Correction">
                           <i class="fa fa-wrench"></i> Fix
                         </button>
-                      ` : `
+                      ` : (!otHours ? `
                         <span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-check text-success"></i> Normal</span>
-                      `}
+                      ` : '')}
                     </td>
                   </tr>
                 `;
@@ -858,20 +909,23 @@ const Attendance = {
       return;
     }
 
-    const headers = ['Date', 'Day', 'Employee #', 'Name', 'Time In', 'Time Out', 'Working Hours', 'Overtime (hrs)', 'Status', 'Device', 'Remarks'];
+    const headers = ['Date', 'Day', 'Employee #', 'Name', 'Check In (Time In)', 'Break Out', 'Break In', 'Check Out (Time Out)', 'Working Hours', 'Overtime (hrs)', 'Status', 'Device', 'Remarks'];
     const rows = records.map(a => {
       const d = new Date(a.date);
       const dayName = d.toLocaleDateString('en-PK', { weekday: 'short' });
-      const hours = a.timeIn && a.timeOut ? this.calcHours(a.timeIn, a.timeOut) : '';
+      const hours = a.timeIn && a.timeOut ? this.calcHours(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : '';
+      const ot = a.overtime || (a.timeIn && a.timeOut ? this.calcOvertime(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : 0);
       return [
         a.date,
         dayName,
         myEmp.empNo,
         `"${myEmp.fullName.replace(/"/g, '""')}"`,
         a.timeIn || '',
+        a.breakOut || '',
+        a.breakIn || '',
         a.timeOut || '',
         `"${hours}"`,
-        a.overtime || 0,
+        ot,
         a.status,
         `"${(a.device || '').replace(/"/g, '""')}"`,
         `"${(a.remarks || '').replace(/"/g, '""')}"`
@@ -899,11 +953,12 @@ const Attendance = {
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
-            <thead><tr><th>Employee</th><th>Time In</th><th>Time Out</th><th>Working Hours</th><th>Overtime</th><th>Device</th><th>Status</th><th>Action</th></tr></thead>
+            <thead><tr><th>Employee</th><th>Check In (Time In)</th><th>Break Out</th><th>Break In</th><th>Check Out (Time Out)</th><th>Working Hours</th><th>Overtime</th><th>Device</th><th>Status</th><th>Action</th></tr></thead>
             <tbody>
               ${emps.map(emp => {
                 const rec = att.find(a => a.employeeId === emp.id);
-                const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut) : '—';
+                const hours = rec?.timeIn && rec?.timeOut ? this.calcHours(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : '—';
+                const ot = rec?.overtime || (rec?.timeIn && rec?.timeOut ? this.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn) : 0);
                 return `
                   <tr>
                     <td><div style="display:flex;align-items:center;gap:10px">
@@ -911,9 +966,11 @@ const Attendance = {
                       <div><div style="font-weight:600;font-size:13px">${emp.fullName}</div><div style="font-size:11px;color:var(--text-3)">${emp.empNo}</div></div>
                     </div></td>
                     <td style="color:var(--success);font-weight:600">${rec?.timeIn || '—'}</td>
+                    <td style="color:#d97706;font-weight:600">${rec?.breakOut || '—'}</td>
+                    <td style="color:#2563eb;font-weight:600">${rec?.breakIn || '—'}</td>
                     <td style="color:var(--danger);font-weight:600">${rec?.timeOut || '—'}</td>
-                    <td>${hours}</td>
-                    <td>${rec?.overtime ? `<span class="badge badge-primary">${rec.overtime}h</span>` : '—'}</td>
+                    <td style="font-weight:600">${hours}</td>
+                    <td>${ot ? `<span class="badge badge-primary">${ot}h</span>` : '—'}</td>
                     <td style="font-size:12px">${rec?.device || '—'}</td>
                     <td>${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Marked</span>'}</td>
                     <td><button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.editRecord(${emp.id},'${this.currentDate}')"><i class="fa fa-pen"></i></button></td>
@@ -1224,8 +1281,12 @@ const Attendance = {
           </div>
         </div>
         <div class="form-row form-row-2">
-          <div class="form-group"><label class="form-label required">Time In</label><input type="time" class="form-control" id="man-in" value="09:00"></div>
-          <div class="form-group"><label class="form-label required">Time Out</label><input type="time" class="form-control" id="man-out" value="18:00"></div>
+          <div class="form-group"><label class="form-label required">Time In (Check In)</label><input type="time" class="form-control" id="man-in" value="09:00"></div>
+          <div class="form-group"><label class="form-label required">Time Out (Check Out)</label><input type="time" class="form-control" id="man-out" value="18:00"></div>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group"><label class="form-label">Break Out</label><input type="time" class="form-control" id="man-break-out" value="13:00"></div>
+          <div class="form-group"><label class="form-label">Break In</label><input type="time" class="form-control" id="man-break-in" value="14:00"></div>
         </div>
         <div class="form-row form-row-2">
           <div class="form-group"><label class="form-label">Status</label>
@@ -1236,7 +1297,7 @@ const Attendance = {
               <option value="absent">Absent</option>
             </select>
           </div>
-          <div class="form-group"><label class="form-label">Overtime (hours)</label><input type="number" class="form-control" id="man-ot" value="0" min="0" max="12"></div>
+          <div class="form-group"><label class="form-label">Overtime (hours)</label><input type="number" step="0.5" class="form-control" id="man-ot" value="0" min="0" max="12"></div>
         </div>
         <div class="form-group"><label class="form-label">Remarks</label><input class="form-control" id="man-remarks" placeholder="Optional remarks"></div>
         <button class="btn btn-primary w-full" onclick="Attendance.saveManual()"><i class="fa fa-save"></i> Save Attendance</button>
@@ -1253,15 +1314,20 @@ const Attendance = {
     const date    = document.getElementById('man-date').value;
     const timeIn  = document.getElementById('man-in').value;
     const timeOut = document.getElementById('man-out').value;
+    const breakOut = document.getElementById('man-break-out')?.value || '';
+    const breakIn  = document.getElementById('man-break-in')?.value || '';
     const status  = document.getElementById('man-status').value;
-    const overtime = parseInt(document.getElementById('man-ot').value) || 0;
+    let overtime  = parseFloat(document.getElementById('man-ot').value);
+    if (isNaN(overtime) || overtime === 0) {
+      overtime = this.calcOvertime(timeIn, timeOut, breakOut, breakIn);
+    }
     const remarks = document.getElementById('man-remarks').value;
 
     const existing = DB.get('attendance').find(a => a.employeeId === empId && a.date === date);
     if (existing) {
-      DB.update('attendance', existing.id, { timeIn, timeOut, status, overtime, remarks, device: 'Manual' });
+      DB.update('attendance', existing.id, { timeIn, timeOut, breakOut, breakIn, status, overtime, remarks, device: 'Manual' });
     } else {
-      DB.add('attendance', { id: DB.nextId('attendance'), employeeId: empId, date, timeIn, timeOut, status, overtime, device: 'Manual', remarks });
+      DB.add('attendance', { id: DB.nextId('attendance'), employeeId: empId, date, timeIn, timeOut, breakOut, breakIn, status, overtime, device: 'Manual', remarks });
     }
     DB.log('ADD', 'Attendance', `Manual attendance for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
     Toast.show('Attendance saved!', 'success');
@@ -1304,18 +1370,28 @@ const Attendance = {
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
-          <label class="form-label">Time In</label>
+          <label class="form-label">Time In (Check In)</label>
           <input type="time" class="form-control" id="ed-att-in" value="${rec?.timeIn || '09:00'}">
         </div>
         <div class="form-group">
-          <label class="form-label">Time Out</label>
+          <label class="form-label">Time Out (Check Out)</label>
           <input type="time" class="form-control" id="ed-att-out" value="${rec?.timeOut || '18:00'}">
         </div>
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
+          <label class="form-label">Break Out</label>
+          <input type="time" class="form-control" id="ed-att-break-out" value="${rec?.breakOut || '13:00'}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Break In</label>
+          <input type="time" class="form-control" id="ed-att-break-in" value="${rec?.breakIn || '14:00'}">
+        </div>
+      </div>
+      <div class="form-row form-row-2">
+        <div class="form-group">
           <label class="form-label">Overtime (hours)</label>
-          <input type="number" class="form-control" id="ed-att-ot" value="${rec?.overtime || 0}" min="0" max="12">
+          <input type="number" step="0.5" class="form-control" id="ed-att-ot" value="${rec?.overtime || 0}" min="0" max="12">
         </div>
         <div class="form-group">
           <label class="form-label">Device / Source</label>
@@ -1361,7 +1437,12 @@ const Attendance = {
     const rawStatus = document.getElementById('ed-att-status').value;
     const timeIn = rawStatus === 'absent' ? '' : (document.getElementById('ed-att-in')?.value || '');
     const timeOut = rawStatus === 'absent' ? '' : (document.getElementById('ed-att-out')?.value || '');
-    const overtime = parseInt(document.getElementById('ed-att-ot')?.value) || 0;
+    const breakOut = rawStatus === 'absent' ? '' : (document.getElementById('ed-att-break-out')?.value || '');
+    const breakIn = rawStatus === 'absent' ? '' : (document.getElementById('ed-att-break-in')?.value || '');
+    let overtime = parseFloat(document.getElementById('ed-att-ot')?.value);
+    if (isNaN(overtime) || overtime === 0) {
+      overtime = this.calcOvertime(timeIn, timeOut, breakOut, breakIn);
+    }
     const device = document.getElementById('ed-att-device')?.value.trim() || 'Manual';
     let remarks = document.getElementById('ed-att-remarks')?.value.trim() || '';
 
@@ -1373,13 +1454,13 @@ const Attendance = {
     }
 
     if (recId) {
-      DB.update('attendance', recId, { date, status: finalStatus, timeIn, timeOut, overtime, device, remarks });
+      DB.update('attendance', recId, { date, status: finalStatus, timeIn, timeOut, breakOut, breakIn, overtime, device, remarks });
       DB.log('UPDATE', 'Attendance', `Updated attendance for ${Utils.getEmpName(empId)} on ${date} (${finalStatus})`, Auth.user?.id);
     } else {
       DB.add('attendance', {
         id: DB.nextId('attendance'),
         employeeId: empId,
-        date, status: finalStatus, timeIn, timeOut, overtime, device, remarks
+        date, status: finalStatus, timeIn, timeOut, breakOut, breakIn, overtime, device, remarks
       });
       DB.log('ADD', 'Attendance', `Created attendance for ${Utils.getEmpName(empId)} on ${date} (${finalStatus})`, Auth.user?.id);
     }
@@ -1628,11 +1709,12 @@ const Attendance = {
       return;
     }
 
-    const headers = ['Employee #', 'Employee Name', 'Department', 'Date', 'Status', 'Time In', 'Time Out', 'Working Hours', 'Overtime (hrs)', 'Device', 'Remarks'];
+    const headers = ['Employee #', 'Employee Name', 'Department', 'Date', 'Status', 'Check In (Time In)', 'Break Out', 'Break In', 'Check Out (Time Out)', 'Working Hours', 'Overtime (hrs)', 'Device', 'Remarks'];
     const rows = filtered.map(a => {
       const emp = emps.find(e => e.id === a.employeeId);
       const dept = emp ? Utils.getDeptName(emp.departmentId) : '';
-      const hours = (a.timeIn && a.timeOut) ? this.calcHours(a.timeIn, a.timeOut) : '';
+      const hours = (a.timeIn && a.timeOut) ? this.calcHours(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : '';
+      const ot = a.overtime || (a.timeIn && a.timeOut ? this.calcOvertime(a.timeIn, a.timeOut, a.breakOut, a.breakIn) : 0);
       return [
         emp?.empNo || a.employeeId,
         `"${(emp?.fullName || '').replace(/"/g, '""')}"`,
@@ -1640,9 +1722,11 @@ const Attendance = {
         a.date,
         a.status,
         a.timeIn || '',
+        a.breakOut || '',
+        a.breakIn || '',
         a.timeOut || '',
         `"${hours}"`,
-        a.overtime || 0,
+        ot,
         `"${(a.device || '').replace(/"/g, '""')}"`,
         `"${(a.remarks || '').replace(/"/g, '""')}"`
       ];
@@ -1951,13 +2035,42 @@ const Attendance = {
     this.render();
   },
 
-  calcHours(timeIn, timeOut) {
+  calcHours(timeIn, timeOut, breakOut, breakIn) {
     if (!timeIn || !timeOut) return '—';
     const [inH, inM] = timeIn.split(':').map(Number);
     const [outH, outM] = timeOut.split(':').map(Number);
-    const mins = (outH * 60 + outM) - (inH * 60 + inM);
-    if (mins <= 0) return '—';
-    return `${Math.floor(mins/60)}h ${mins%60}m`;
+    let totalMins = (outH * 60 + outM) - (inH * 60 + inM);
+    if (breakOut && breakIn) {
+      const [bOutH, bOutM] = breakOut.split(':').map(Number);
+      const [bInH, bInM] = breakIn.split(':').map(Number);
+      const breakMins = (bInH * 60 + bInM) - (bOutH * 60 + bOutM);
+      if (breakMins > 0) totalMins -= breakMins;
+    }
+    if (totalMins <= 0) return '—';
+    return `${Math.floor(totalMins / 60)}h ${totalMins % 60}m`;
+  },
+
+  calcWorkingMinutes(timeIn, timeOut, breakOut, breakIn) {
+    if (!timeIn || !timeOut) return 0;
+    const [inH, inM] = timeIn.split(':').map(Number);
+    const [outH, outM] = timeOut.split(':').map(Number);
+    let totalMins = (outH * 60 + outM) - (inH * 60 + inM);
+    if (breakOut && breakIn) {
+      const [bOutH, bOutM] = breakOut.split(':').map(Number);
+      const [bInH, bInM] = breakIn.split(':').map(Number);
+      const breakMins = (bInH * 60 + bInM) - (bOutH * 60 + bOutM);
+      if (breakMins > 0) totalMins -= breakMins;
+    }
+    return Math.max(0, totalMins);
+  },
+
+  calcOvertime(timeIn, timeOut, breakOut, breakIn, shiftHours = 8.0) {
+    const workingMins = this.calcWorkingMinutes(timeIn, timeOut, breakOut, breakIn);
+    const reqMins = Math.round(shiftHours * 60);
+    if (workingMins > reqMins) {
+      return Math.round(((workingMins - reqMins) / 60) * 10) / 10;
+    }
+    return 0;
   },
 
   prevDay() {
