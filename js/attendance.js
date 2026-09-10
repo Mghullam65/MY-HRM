@@ -1808,8 +1808,19 @@ const Attendance = {
                     </td>
                     <td style="font-weight:600;font-size:12.5px">${Utils.formatDate(c.date)}</td>
                     <td style="font-size:12px">
-                      <span style="color:var(--success);font-weight:600">${c.timeIn || '09:00'}</span> – 
-                      <span style="color:var(--danger);font-weight:600">${c.timeOut || '18:00'}</span>
+                      <div style="font-weight:600">
+                        <span style="color:var(--success)">${c.timeIn || '09:00'}</span> – 
+                        <span style="color:var(--danger)">${c.timeOut || '18:00'}</span>
+                      </div>
+                      <div style="font-size:11px;color:#d97706;margin-top:2px">
+                        ${(c.breakOut && c.breakIn) 
+                          ? `<i class="fa fa-mug-hot"></i> Break: ${c.breakOut} – ${c.breakIn}` 
+                          : `<span style="color:var(--text-muted);font-style:italic"><i class="fa fa-mug-hot"></i> No break deducted</span>`}
+                      </div>
+                      <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">
+                        Net: <strong>${this.calcHours(c.timeIn, c.timeOut, c.breakOut, c.breakIn)}</strong>
+                        ${this.calcOvertime(c.timeIn, c.timeOut, c.breakOut, c.breakIn) > 0 ? `<span class="badge badge-success" style="font-size:9.5px;padding:1px 4px;margin-left:4px">+${this.calcOvertime(c.timeIn, c.timeOut, c.breakOut, c.breakIn)}h OT</span>` : ''}
+                      </div>
                     </td>
                     <td style="max-width:240px;font-size:12px">
                       <div style="font-weight:500;color:var(--text)">${c.reason || '—'}</div>
@@ -1892,11 +1903,17 @@ const Attendance = {
       const isWFH = item.type === 'work_from_home';
       const deviceName = isWFH ? 'Work From Home' : 'Biometric Correction';
       const note = `${isWFH ? 'WFH Approved' : 'Correction Approved'}: ${item.reason}`;
+      const workingHours = this.calcHours(item.timeIn, item.timeOut, item.breakOut, item.breakIn);
+      const overtime = this.calcOvertime(item.timeIn, item.timeOut, item.breakOut, item.breakIn);
 
       if (existing) {
         existing.status = 'present';
         existing.timeIn = item.timeIn || '09:00';
         existing.timeOut = item.timeOut || '18:00';
+        existing.breakOut = item.breakOut || '';
+        existing.breakIn = item.breakIn || '';
+        existing.workingHours = workingHours;
+        existing.overtime = overtime;
         existing.device = deviceName;
         existing.remarks = note;
       } else {
@@ -1907,7 +1924,10 @@ const Attendance = {
           status: 'present',
           timeIn: item.timeIn || '09:00',
           timeOut: item.timeOut || '18:00',
-          overtime: 0,
+          breakOut: item.breakOut || '',
+          breakIn: item.breakIn || '',
+          workingHours: workingHours,
+          overtime: overtime,
           device: deviceName,
           remarks: note
         });
@@ -1941,6 +1961,14 @@ const Attendance = {
     const defaultDate = prefillDate || Utils.today();
     const myId = Auth.employee?.id || 4;
 
+    // Check if attendance record exists for prefilling
+    const allAtt = DB.get('attendance') || [];
+    const existingRec = allAtt.find(a => a.employeeId === myId && a.date === defaultDate);
+    const initialIn = existingRec?.timeIn || '09:00';
+    const initialOut = existingRec?.timeOut || '18:00';
+    const initialBreakOut = (existingRec?.breakOut !== undefined && existingRec?.breakOut !== null) ? existingRec.breakOut : '13:00';
+    const initialBreakIn = (existingRec?.breakIn !== undefined && existingRec?.breakIn !== null) ? existingRec.breakIn : '14:00';
+
     Modal.show('Apply Attendance Correction / Work From Home', `
       <div class="form-row form-row-2">
         <div class="form-group">
@@ -1969,11 +1997,51 @@ const Attendance = {
         </div>
         <div class="form-group">
           <label class="form-label required">Time In</label>
-          <input type="time" class="form-control" id="ac-in" value="09:00">
+          <input type="time" class="form-control" id="ac-in" value="${initialIn}" oninput="Attendance.calcCorrectionPreview()" onchange="Attendance.calcCorrectionPreview()">
         </div>
         <div class="form-group">
           <label class="form-label required">Time Out</label>
-          <input type="time" class="form-control" id="ac-out" value="18:00">
+          <input type="time" class="form-control" id="ac-out" value="${initialOut}" oninput="Attendance.calcCorrectionPreview()" onchange="Attendance.calcCorrectionPreview()">
+        </div>
+      </div>
+
+      <!-- Break Times Configuration Section: Add, Edit, Delete -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+          <div style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;color:var(--text)">
+            <i class="fa fa-mug-hot" style="color:#d97706"></i> Break Time Adjustment
+            <span style="font-size:11px;font-weight:normal;color:var(--text-3)">(Optional)</span>
+          </div>
+          <div style="display:flex;gap:6px">
+            <button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;color:var(--primary);border:1px solid var(--border);padding:2px 8px" onclick="Attendance.setStandardBreakTimes()" title="Set standard 1-hour lunch break (13:00 - 14:00)">
+              <i class="fa fa-plus-circle"></i> Standard Break (1h)
+            </button>
+            <button type="button" class="btn btn-ghost btn-xs" style="font-size:11px;color:var(--danger);border:1px solid var(--border);padding:2px 8px" onclick="Attendance.clearBreakTimes()" title="Delete break deduction for continuous working shift">
+              <i class="fa fa-trash-can"></i> Delete Break
+            </button>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2" style="margin-bottom:8px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:12px">Break Out (Start)</label>
+            <input type="time" class="form-control" id="ac-break-out" value="${initialBreakOut}" oninput="Attendance.calcCorrectionPreview()" onchange="Attendance.calcCorrectionPreview()">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:12px">Break In (End)</label>
+            <input type="time" class="form-control" id="ac-break-in" value="${initialBreakIn}" oninput="Attendance.calcCorrectionPreview()" onchange="Attendance.calcCorrectionPreview()">
+          </div>
+        </div>
+
+        <!-- Live Calculation Preview strip -->
+        <div id="ac-calc-preview" style="display:flex;align-items:center;justify-content:space-between;background:rgba(217,119,6,0.06);border:1px dashed #d97706;border-radius:6px;padding:7px 12px;font-size:11.5px;color:#92400e;margin-top:6px">
+          <div id="ac-preview-break-label">
+            <i class="fa fa-stopwatch"></i> Break Duration: <strong>1h 0m</strong>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span>Net Work Hours: <strong id="ac-preview-net-hours" style="color:var(--text)">8h 0m</strong></span>
+            <span id="ac-preview-ot-badge" class="badge badge-success" style="font-size:10px;padding:2px 6px;display:none">+0h Overtime</span>
+          </div>
         </div>
       </div>
 
@@ -2000,7 +2068,70 @@ const Attendance = {
 
     setTimeout(() => {
       this.checkCorrectionDateConflict();
+      this.calcCorrectionPreview();
     }, 50);
+  },
+
+  setStandardBreakTimes() {
+    const bOut = document.getElementById('ac-break-out');
+    const bIn = document.getElementById('ac-break-in');
+    if (bOut && bIn) {
+      bOut.value = '13:00';
+      bIn.value = '14:00';
+      this.calcCorrectionPreview();
+      Toast.show('Standard 1-hour break (13:00 - 14:00) applied.', 'info');
+    }
+  },
+
+  clearBreakTimes() {
+    const bOut = document.getElementById('ac-break-out');
+    const bIn = document.getElementById('ac-break-in');
+    if (bOut && bIn) {
+      bOut.value = '';
+      bIn.value = '';
+      this.calcCorrectionPreview();
+      Toast.show('Break deleted. No break will be deducted.', 'warning');
+    }
+  },
+
+  calcCorrectionPreview() {
+    const timeIn = document.getElementById('ac-in')?.value;
+    const timeOut = document.getElementById('ac-out')?.value;
+    const breakOut = document.getElementById('ac-break-out')?.value || '';
+    const breakIn = document.getElementById('ac-break-in')?.value || '';
+    
+    const breakLabel = document.getElementById('ac-preview-break-label');
+    const netHoursEl = document.getElementById('ac-preview-net-hours');
+    const otBadge = document.getElementById('ac-preview-ot-badge');
+    if (!breakLabel || !netHoursEl) return;
+
+    if (breakOut && breakIn) {
+      const [bOutH, bOutM] = breakOut.split(':').map(Number);
+      const [bInH, bInM] = breakIn.split(':').map(Number);
+      const breakMins = (bInH * 60 + bInM) - (bOutH * 60 + bOutM);
+      if (breakMins > 0) {
+        breakLabel.innerHTML = `<i class="fa fa-stopwatch"></i> Break Duration: <strong>${Math.floor(breakMins / 60)}h ${breakMins % 60}m</strong>`;
+      } else {
+        breakLabel.innerHTML = `<span style="color:var(--danger)"><i class="fa fa-circle-exclamation"></i> Break In must be after Break Out</span>`;
+      }
+    } else if (breakOut || breakIn) {
+      breakLabel.innerHTML = `<span style="color:var(--warning)"><i class="fa fa-circle-info"></i> Incomplete break (both required)</span>`;
+    } else {
+      breakLabel.innerHTML = `<span style="color:var(--success)"><i class="fa fa-check"></i> No Break Deducted (Continuous Shift)</span>`;
+    }
+
+    const netHours = this.calcHours(timeIn, timeOut, breakOut, breakIn);
+    netHoursEl.textContent = netHours;
+
+    const ot = this.calcOvertime(timeIn, timeOut, breakOut, breakIn);
+    if (otBadge) {
+      if (ot > 0) {
+        otBadge.textContent = `+${ot}h Overtime`;
+        otBadge.style.display = 'inline-block';
+      } else {
+        otBadge.style.display = 'none';
+      }
+    }
   },
 
   checkCorrectionDateConflict() {
@@ -2034,6 +2165,20 @@ const Attendance = {
         submitBtn.style.opacity = '1';
         submitBtn.style.cursor = 'pointer';
       }
+      // Check if existing attendance record exists to prefill
+      const allAtt = DB.get('attendance') || [];
+      const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
+      if (attRec) {
+        const inEl = document.getElementById('ac-in');
+        const outEl = document.getElementById('ac-out');
+        const bOutEl = document.getElementById('ac-break-out');
+        const bInEl = document.getElementById('ac-break-in');
+        if (inEl && attRec.timeIn) inEl.value = attRec.timeIn;
+        if (outEl && attRec.timeOut) outEl.value = attRec.timeOut;
+        if (bOutEl && attRec.breakOut !== undefined) bOutEl.value = attRec.breakOut || '';
+        if (bInEl && attRec.breakIn !== undefined) bInEl.value = attRec.breakIn || '';
+      }
+      this.calcCorrectionPreview();
     }
   },
 
@@ -2043,11 +2188,27 @@ const Attendance = {
     const date = document.getElementById('ac-date').value;
     const timeIn = document.getElementById('ac-in').value;
     const timeOut = document.getElementById('ac-out').value;
+    const breakOut = document.getElementById('ac-break-out')?.value || '';
+    const breakIn = document.getElementById('ac-break-in')?.value || '';
     const reason = document.getElementById('ac-reason').value.trim();
 
     if (!date || !reason) {
       Toast.show('Please provide a date and reason', 'error');
       return;
+    }
+
+    if ((breakOut && !breakIn) || (!breakOut && breakIn)) {
+      Toast.show('Please provide both Break Out and Break In times, or click "Delete Break" if no break was taken.', 'warning');
+      return;
+    }
+
+    if (breakOut && breakIn) {
+      const [bOutH, bOutM] = breakOut.split(':').map(Number);
+      const [bInH, bInM] = breakIn.split(':').map(Number);
+      if ((bInH * 60 + bInM) <= (bOutH * 60 + bOutM)) {
+        Toast.show('Break In (end) time must be after Break Out (start) time', 'error');
+        return;
+      }
     }
 
     const emp = DB.find('employees', empId);
@@ -2081,6 +2242,8 @@ const Attendance = {
       type,
       timeIn,
       timeOut,
+      breakOut,
+      breakIn,
       reason,
       status: 'pending',
       managerId: emp?.managerId || 3,

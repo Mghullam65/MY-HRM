@@ -343,6 +343,8 @@ const DB = {
           type: 'attendance_correction',
           timeIn: '09:05',
           timeOut: '18:15',
+          breakOut: '13:00',
+          breakIn: '14:00',
           reason: 'Biometric fingerprint scanner glitch at main entrance',
           status: 'pending',
           managerId: 3,
@@ -361,6 +363,8 @@ const DB = {
           type: 'work_from_home',
           timeIn: '09:00',
           timeOut: '18:00',
+          breakOut: '13:00',
+          breakIn: '14:00',
           reason: 'Severe rain and urban road blockage in Karachi',
           status: 'manager_approved',
           managerId: 3,
@@ -379,6 +383,8 @@ const DB = {
           type: 'attendance_correction',
           timeIn: '09:10',
           timeOut: '18:30',
+          breakOut: '13:00',
+          breakIn: '14:00',
           reason: 'Official off-site client deployment meeting',
           status: 'approved',
           managerId: 3,
@@ -393,6 +399,15 @@ const DB = {
       ];
       this.set('attendance_corrections', corrections);
     } else {
+      // Ensure existing records have breakOut and breakIn fields
+      let breaksUpdated = false;
+      corrections.forEach(c => {
+        if (c.breakOut === undefined) { c.breakOut = '13:00'; breaksUpdated = true; }
+        if (c.breakIn === undefined) { c.breakIn = '14:00'; breaksUpdated = true; }
+      });
+      if (breaksUpdated) {
+        this.set('attendance_corrections', corrections);
+      }
       // Ensure uniqueness: One active correction per employee per date.
       // Deduplicate any duplicate non-rejected requests for the same employee and date.
       const seenActive = new Set();
@@ -5143,6 +5158,8 @@ const attendanceCorrections = [
     type: 'attendance_correction',
     timeIn: '09:05',
     timeOut: '18:15',
+    breakOut: '13:00',
+    breakIn: '14:00',
     reason: 'Biometric fingerprint scanner glitch at main entrance',
     status: 'pending',
     managerId: 3,
@@ -5161,6 +5178,8 @@ const attendanceCorrections = [
     type: 'work_from_home',
     timeIn: '09:00',
     timeOut: '18:00',
+    breakOut: '13:00',
+    breakIn: '14:00',
     reason: 'Severe rain and urban road blockage in Karachi',
     status: 'manager_approved',
     managerId: 3,
@@ -5179,6 +5198,8 @@ const attendanceCorrections = [
     type: 'attendance_correction',
     timeIn: '09:10',
     timeOut: '18:30',
+    breakOut: '13:00',
+    breakIn: '14:00',
     reason: 'Official off-site client deployment meeting',
     status: 'approved',
     managerId: 3,
