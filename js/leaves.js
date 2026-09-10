@@ -9,6 +9,12 @@ const Leaves = {
   calEmpSearch: '',
   calYear: new Date().getFullYear(),
   calMonth: new Date().getMonth(),
+  quotaSortCol: 'sr',
+  quotaSortAsc: true,
+  quotaDeptFilter: 'all',
+  quotaStatusFilter: 'all',
+  quotaSearchQuery: '',
+  quotaYear: 2026,
 
   getScopedEmployees() {
     const emps = DB.get('employees') || [];
@@ -432,33 +438,427 @@ const Leaves = {
   },
 
 
-  renderQuota(container) {
-    const isEmployee = Auth.role === 'employee';
-    const types = DB.get('leave_types') || [];
+  renderSortArrow(col) {
+    if (this.quotaSortCol !== col) {
+      return '<i class="fa fa-caret-up" style="color:#7dd3fc;margin-left:3px;font-size:10px"></i>';
+    }
+    return this.quotaSortAsc 
+      ? '<i class="fa fa-caret-up" style="color:#0284c7;margin-left:3px;font-size:11px;font-weight:bold"></i>' 
+      : '<i class="fa fa-caret-down" style="color:#0284c7;margin-left:3px;font-size:11px;font-weight:bold"></i>';
+  },
+
+  setQuotaSort(col) {
+    if (this.quotaSortCol === col) {
+      this.quotaSortAsc = !this.quotaSortAsc;
+    } else {
+      this.quotaSortCol = col;
+      this.quotaSortAsc = true;
+    }
+    this.renderView();
+  },
+
+  setQuotaStatusFilter(st) {
+    this.quotaStatusFilter = st;
+    this.renderView();
+  },
+
+  setQuotaDeptFilter(deptId) {
+    this.quotaDeptFilter = deptId;
+    this.renderView();
+  },
+
+  searchQuota(q) {
+    this.quotaSearchQuery = q;
+    this.renderView();
+  },
+
+  getEmployeeLeaveQuotaMetrics(emp, year = 2026) {
     const balances = DB.get('leave_balances') || [];
-    const allEmps = DB.get('employees') || [];
+    const bal = balances.find(b => b.employeeId === emp.id && (b.year === year || !b.year));
+    const allApprovedLeaves = (DB.get('leave_requests') || []).filter(l => 
+      l.employeeId === emp.id && 
+      (l.status === 'approved' || l.status === 'manager_approved') &&
+      (!l.from || l.from.startsWith(String(year)))
+    );
+
+    // 1. LEAVE IN QUOTA
+    const qAnnual = bal?.quotas?.[2] ?? 20;
+    const qCasual = bal?.quotas?.[1] ?? 12;
+    const qSick = bal?.quotas?.[3] ?? 15;
+    const qSickCasual = qCasual + qSick; // Combined Sick/Casual
+    const qComp = bal?.quotas?.[7] ?? 5;
+    const qTotal = qAnnual + qSickCasual + qComp;
+
+    // 2. AVAILED LEAVE
+    const avAnnual = allApprovedLeaves.filter(l => l.typeId === 2).reduce((s, l) => s + l.days, 0);
+    const avSickCasual = allApprovedLeaves.filter(l => l.typeId === 1 || l.typeId === 3).reduce((s, l) => s + l.days, 0);
+    const avComp = allApprovedLeaves.filter(l => l.typeId === 7).reduce((s, l) => s + l.days, 0);
+    const avHalf = allApprovedLeaves.filter(l => l.typeId === 8).reduce((s, l) => s + l.days, 0);
+    const avShort = allApprovedLeaves.filter(l => l.typeId === 9).reduce((s, l) => s + l.days, 0);
+    const avSalary = allApprovedLeaves.filter(l => l.salaryDeduction === true).reduce((s, l) => s + l.days, 0);
+    const avTotal = avAnnual + avSickCasual + avComp + avHalf + avShort + avSalary;
+
+    // 3. REMAINING LEAVES (Image order: Sick/Casual, Compensation, Annual, Total)
+    const remSickCasual = Math.max(0, qSickCasual - avSickCasual);
+    const remComp = Math.max(0, qComp - avComp);
+    const remAnnual = Math.max(0, qAnnual - avAnnual);
+    const remTotal = remSickCasual + remComp + remAnnual;
+
+    // 4. OTHER LEAVE
+    const otherUnpaid = allApprovedLeaves.filter(l => l.typeId === 6).reduce((s, l) => s + l.days, 0);
+    const otherToken = allApprovedLeaves.filter(l => l.typeId === 10).reduce((s, l) => s + l.days, 0);
+
+    return {
+      empId: emp.id,
+      empNo: emp.empNo,
+      fullName: emp.fullName,
+      departmentId: emp.departmentId,
+      designationId: emp.designationId,
+      // Leave in quota
+      qAnnual,
+      qSickCasual,
+      qComp,
+      qTotal,
+      // Availed leave
+      avAnnual,
+      avSickCasual,
+      avComp,
+      avHalf,
+      avShort,
+      avSalary,
+      avTotal,
+      // Remaining leaves
+      remSickCasual,
+      remComp,
+      remAnnual,
+      remTotal,
+      // Other leave
+      otherUnpaid,
+      otherToken,
+    };
+  },
+
+  sortQuotaRows(rows) {
+    const col = this.quotaSortCol || 'sr';
+    const asc = this.quotaSortAsc !== false;
+    return [...rows].sort((a, b) => {
+      let vA = a[col];
+      let vB = b[col];
+      if (col === 'sr') {
+        vA = a.sr;
+        vB = b.sr;
+      } else if (col === 'name') {
+        vA = (a.fullName || '').toLowerCase();
+        vB = (b.fullName || '').toLowerCase();
+      } else if (col === 'empNo') {
+        vA = (a.empNo || '').toLowerCase();
+        vB = (b.empNo || '').toLowerCase();
+      } else {
+        vA = Number(vA) || 0;
+        vB = Number(vB) || 0;
+      }
+      if (vA < vB) return asc ? -1 : 1;
+      if (vA > vB) return asc ? 1 : -1;
+      return 0;
+    });
+  },
+
+  getFilteredQuotaRows(allRows) {
+    return allRows.filter(r => {
+      // Dept filter
+      if (this.quotaDeptFilter !== 'all' && r.departmentId !== parseInt(this.quotaDeptFilter)) {
+        return false;
+      }
+      // Search query
+      if (this.quotaSearchQuery) {
+        const q = this.quotaSearchQuery.toLowerCase().trim();
+        const matchName = r.fullName.toLowerCase().includes(q);
+        const matchEmpNo = r.empNo.toLowerCase().includes(q);
+        if (!matchName && !matchEmpNo) return false;
+      }
+      // Status filter
+      if (this.quotaStatusFilter === 'full') {
+        return r.avTotal === 0;
+      } else if (this.quotaStatusFilter === 'low') {
+        return r.remTotal > 0 && r.remTotal <= 10;
+      } else if (this.quotaStatusFilter === 'exhausted') {
+        return r.remTotal === 0;
+      } else if (this.quotaStatusFilter === 'availed') {
+        return r.avTotal > 0;
+      }
+      return true;
+    });
+  },
+
+  renderQuotaMatrixTable(displayedRows, isEmployeeView, isHrOrAdmin) {
+    const sumQAnnual = displayedRows.reduce((s, r) => s + r.qAnnual, 0);
+    const sumQSickCasual = displayedRows.reduce((s, r) => s + r.qSickCasual, 0);
+    const sumQComp = displayedRows.reduce((s, r) => s + r.qComp, 0);
+    const sumQTotal = displayedRows.reduce((s, r) => s + r.qTotal, 0);
+
+    const sumAvAnnual = displayedRows.reduce((s, r) => s + r.avAnnual, 0);
+    const sumAvSickCasual = displayedRows.reduce((s, r) => s + r.avSickCasual, 0);
+    const sumAvComp = displayedRows.reduce((s, r) => s + r.avComp, 0);
+    const sumAvHalf = displayedRows.reduce((s, r) => s + r.avHalf, 0);
+    const sumAvShort = displayedRows.reduce((s, r) => s + r.avShort, 0);
+    const sumAvSalary = displayedRows.reduce((s, r) => s + r.avSalary, 0);
+    const sumAvTotal = displayedRows.reduce((s, r) => s + r.avTotal, 0);
+
+    const sumRemSickCasual = displayedRows.reduce((s, r) => s + r.remSickCasual, 0);
+    const sumRemComp = displayedRows.reduce((s, r) => s + r.remComp, 0);
+    const sumRemAnnual = displayedRows.reduce((s, r) => s + r.remAnnual, 0);
+    const sumRemTotal = displayedRows.reduce((s, r) => s + r.remTotal, 0);
+
+    const sumOtherUnpaid = displayedRows.reduce((s, r) => s + r.otherUnpaid, 0);
+    const sumOtherToken = displayedRows.reduce((s, r) => s + r.otherToken, 0);
+
+    return `
+      <div class="table-responsive" style="overflow-x:auto;border:1px solid #bae6fd;border-radius:10px;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,0.02)">
+        <table class="quota-matrix-table" style="width:100%;min-width:1200px;border-collapse:separate;border-spacing:0;font-size:12px">
+          <thead>
+            <!-- Grouping Row 1 -->
+            <tr>
+              <th rowspan="2" class="qm-th-sortable" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:9px 6px;text-align:center;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('sr')">
+                Sr.# ${this.renderSortArrow('sr')}
+              </th>
+              <th rowspan="2" class="qm-th-sortable" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:9px 8px;text-align:left;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('empNo')">
+                Employee ID ${this.renderSortArrow('empNo')}
+              </th>
+              <th rowspan="2" class="qm-th-sortable" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:9px 10px;text-align:left;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('name')">
+                Employee ${this.renderSortArrow('name')}
+              </th>
+
+              <!-- Group 1: Leave In Quota (4 cols) -->
+              <th colspan="4" style="background:#bae6fd;color:#0369a1;border:1px solid #93c5fd;padding:8px 6px;text-align:center;font-weight:800;font-size:12.5px;letter-spacing:0.3px">
+                Leave In Quota
+              </th>
+
+              <!-- Group 2: Availed Leave (7 cols) -->
+              <th colspan="7" style="background:#bae6fd;color:#0369a1;border:1px solid #93c5fd;padding:8px 6px;text-align:center;font-weight:800;font-size:12.5px;letter-spacing:0.3px">
+                Availed Leave
+              </th>
+
+              <!-- Group 3: Remaining Leaves (4 cols) -->
+              <th colspan="4" style="background:#bae6fd;color:#0369a1;border:1px solid #93c5fd;padding:8px 6px;text-align:center;font-weight:800;font-size:12.5px;letter-spacing:0.3px">
+                Remaining Leaves
+              </th>
+
+              <!-- Group 4: Other Leave (2 cols) -->
+              <th colspan="2" style="background:#bae6fd;color:#0369a1;border:1px solid #93c5fd;padding:8px 6px;text-align:center;font-weight:800;font-size:12.5px;letter-spacing:0.3px">
+                Other Leave
+              </th>
+
+              ${!isEmployeeView && isHrOrAdmin ? `
+                <th rowspan="2" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:9px 8px;text-align:right;font-weight:700">
+                  Action
+                </th>
+              ` : ''}
+            </tr>
+
+            <!-- Sub-headers Row 2 -->
+            <tr>
+              <!-- Under Leave In Quota -->
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('qAnnual')">Annual ${this.renderSortArrow('qAnnual')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('qSickCasual')">Sick/Casual ${this.renderSortArrow('qSickCasual')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('qComp')">Compensation ${this.renderSortArrow('qComp')}</th>
+              <th class="qm-th-sortable" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bae6fd;padding:7px 6px;font-weight:800;white-space:nowrap" onclick="Leaves.setQuotaSort('qTotal')">Total ${this.renderSortArrow('qTotal')}</th>
+
+              <!-- Under Availed Leave -->
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avAnnual')">Annual ${this.renderSortArrow('avAnnual')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avSickCasual')">Sick/Casual ${this.renderSortArrow('avSickCasual')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avComp')">Compensation ${this.renderSortArrow('avComp')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avHalf')">Half Leave ${this.renderSortArrow('avHalf')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avShort')">Short Leave ${this.renderSortArrow('avShort')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('avSalary')">Salary ${this.renderSortArrow('avSalary')}</th>
+              <th class="qm-th-sortable" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bae6fd;padding:7px 6px;font-weight:800;white-space:nowrap" onclick="Leaves.setQuotaSort('avTotal')">Total ${this.renderSortArrow('avTotal')}</th>
+
+              <!-- Under Remaining Leaves -->
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('remSickCasual')">Sick/Casual ${this.renderSortArrow('remSickCasual')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('remComp')">Compensation ${this.renderSortArrow('remComp')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('remAnnual')">Annual ${this.renderSortArrow('remAnnual')}</th>
+              <th class="qm-th-sortable" style="background:#dbeafe;color:#1d4ed8;border:1px solid #bae6fd;padding:7px 6px;font-weight:800;white-space:nowrap" onclick="Leaves.setQuotaSort('remTotal')">Total ${this.renderSortArrow('remTotal')}</th>
+
+              <!-- Under Other Leave -->
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('otherUnpaid')">Un Paid Leave ${this.renderSortArrow('otherUnpaid')}</th>
+              <th class="qm-th-sortable" style="background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:7px 6px;font-weight:700;white-space:nowrap" onclick="Leaves.setQuotaSort('otherToken')">Token Leave ${this.renderSortArrow('otherToken')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${displayedRows.length === 0 ? `
+              <tr>
+                <td colspan="${!isEmployeeView && isHrOrAdmin ? 21 : 20}" style="padding:32px;text-align:center;color:var(--text-muted)">
+                  <i class="fa fa-scale-balanced" style="font-size:24px;margin-bottom:8px"></i>
+                  <div>No employee quota records match the selected filters.</div>
+                </td>
+              </tr>
+            ` : displayedRows.map((r, idx) => `
+              <tr class="qm-data-row" style="transition:background .15s" onmouseenter="this.style.background='rgba(224, 242, 254, 0.35)'" onmouseleave="this.style.background='transparent'">
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;font-size:11.5px;color:var(--text-3);text-align:center">${idx + 1}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 8px;font-weight:600;font-size:12px;color:var(--primary);text-align:left">${r.empNo}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 10px;text-align:left">
+                  <div style="font-weight:700;font-size:12.5px;color:var(--text)">${r.fullName}</div>
+                  <div style="font-size:10.5px;color:var(--text-3)">${Utils.getDeptName(r.departmentId)}</div>
+                </td>
+                
+                <!-- Leave In Quota -->
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center">${r.qAnnual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center">${r.qSickCasual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center">${r.qComp}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;font-weight:800;background:rgba(59,130,246,0.06);color:#1d4ed8">${r.qTotal}</td>
+
+                <!-- Availed Leave -->
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avAnnual>0?'var(--warning)':'var(--text-3)'}">${r.avAnnual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avSickCasual>0?'var(--warning)':'var(--text-3)'}">${r.avSickCasual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avComp>0?'var(--warning)':'var(--text-3)'}">${r.avComp}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avHalf>0?'var(--warning)':'var(--text-3)'}">${r.avHalf}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avShort>0?'var(--warning)':'var(--text-3)'}">${r.avShort}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.avSalary>0?'var(--danger)':'var(--text-3)'}">${r.avSalary}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;font-weight:800;background:rgba(245,158,11,0.08);color:#d97706">${r.avTotal}</td>
+
+                <!-- Remaining Leaves -->
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.remSickCasual===0?'var(--danger)':'var(--success)'}">${r.remSickCasual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.remComp===0?'var(--danger)':'var(--success)'}">${r.remComp}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.remAnnual===0?'var(--danger)':'var(--success)'}">${r.remAnnual}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;font-weight:800;background:rgba(16,185,129,0.08);color:#059669">${r.remTotal}</td>
+
+                <!-- Other Leave -->
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.otherUnpaid>0?'var(--danger)':'var(--text-3)'}">${r.otherUnpaid}</td>
+                <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.otherToken>0?'#a855f7':'var(--text-3)'}">${r.otherToken}</td>
+
+                ${!isEmployeeView && isHrOrAdmin ? `
+                  <td style="border:1px solid #e0f2fe;padding:7px 8px;text-align:right">
+                    <button class="btn btn-ghost btn-sm" onclick="Leaves.showSetQuotaModal(${r.empId})" title="Edit Leave Quotas for ${r.fullName}" style="padding:3px 8px">
+                      <i class="fa fa-pen" style="font-size:11px"></i>
+                    </button>
+                  </td>
+                ` : ''}
+              </tr>
+            `).join('')}
+          </tbody>
+          ${displayedRows.length > 0 ? `
+            <tfoot>
+              <tr style="background:#e0f2fe;font-weight:800;color:#0369a1;border-top:2px solid #93c5fd">
+                <td colspan="3" style="border:1px solid #bae6fd;padding:9px 12px;text-align:right">
+                  Grand Total (${displayedRows.length} ${displayedRows.length===1?'Employee':'Employees'}):
+                </td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumQAnnual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumQSickCasual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumQComp}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center;font-weight:900;background:#dbeafe;color:#1d4ed8">${sumQTotal}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvAnnual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvSickCasual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvComp}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvHalf}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvShort}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumAvSalary}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center;font-weight:900;background:#dbeafe;color:#b45309">${sumAvTotal}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumRemSickCasual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumRemComp}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumRemAnnual}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center;font-weight:900;background:#dbeafe;color:#047857">${sumRemTotal}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumOtherUnpaid}</td>
+                <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumOtherToken}</td>
+                ${!isEmployeeView && isHrOrAdmin ? '<td style="border:1px solid #bae6fd"></td>' : ''}
+              </tr>
+            </tfoot>
+          ` : ''}
+        </table>
+      </div>
+    `;
+  },
+
+  exportQuotaMatrixCSV() {
+    const activeEmps = this.getScopedEmployees();
+    const rows = activeEmps.map(emp => this.getEmployeeLeaveQuotaMetrics(emp, this.quotaYear || 2026));
+    
+    if (!rows.length) {
+      Toast.show('No leave quota records to export', 'warning');
+      return;
+    }
+
+    const headers = [
+      'Sr.#',
+      'Employee ID',
+      'Employee Name',
+      'Department',
+      'Designation',
+      'Quota Annual',
+      'Quota Sick/Casual',
+      'Quota Compensation',
+      'Quota Total',
+      'Availed Annual',
+      'Availed Sick/Casual',
+      'Availed Compensation',
+      'Availed Half Leave',
+      'Availed Short Leave',
+      'Availed Salary Deduction',
+      'Availed Total',
+      'Remaining Sick/Casual',
+      'Remaining Compensation',
+      'Remaining Annual',
+      'Remaining Total',
+      'Other Unpaid Leave',
+      'Other Token Leave'
+    ];
+
+    const csvData = rows.map((r, idx) => [
+      idx + 1,
+      r.empNo,
+      `"${r.fullName.replace(/"/g, '""')}"`,
+      `"${Utils.getDeptName(r.departmentId).replace(/"/g, '""')}"`,
+      `"${Utils.getDesigName(r.designationId).replace(/"/g, '""')}"`,
+      r.qAnnual,
+      r.qSickCasual,
+      r.qComp,
+      r.qTotal,
+      r.avAnnual,
+      r.avSickCasual,
+      r.avComp,
+      r.avHalf,
+      r.avShort,
+      r.avSalary,
+      r.avTotal,
+      r.remSickCasual,
+      r.remComp,
+      r.remAnnual,
+      r.remTotal,
+      r.otherUnpaid,
+      r.otherToken
+    ]);
+
+    const csv = [headers.join(','), ...csvData.map(c => c.join(','))].join('\n');
+    const filename = `leave_quota_balance_${this.quotaYear || 2026}_${Utils.today()}.csv`;
+    Utils.downloadCSV(csv, filename);
+    Toast.show(`Exported ${rows.length} employee quotas to ${filename}`, 'success');
+  },
+
+  renderQuota(container) {
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isDeptMgr = Auth.role === 'dept_manager';
     const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const types = DB.get('leave_types') || [];
+    const allEmps = DB.get('employees') || [];
 
     if (isEmployee) {
-      // ── EMPLOYEE VIEW: PERSONAL LEAVE QUOTA ONLY (VIEW-ONLY, NO EDIT/ADD) ──
+      // ── EMPLOYEE VIEW: PERSONAL LEAVE QUOTA BREAKDOWN & HISTORY ──
       const myEmp = Auth.employee || allEmps.find(e => e.id === Auth.user?.employeeId) || allEmps[0];
-      const myBal = balances.find(b => b.employeeId === myEmp.id);
+      const myRow = this.getEmployeeLeaveQuotaMetrics(myEmp, this.quotaYear || 2026);
+      myRow.sr = 1;
       const myLeaves = (DB.get('leave_requests') || []).filter(l => l.employeeId === myEmp.id && l.status === 'approved');
 
-      let totalAllocated = 0;
-      let totalUsed = 0;
-
       const typeStats = types.map(t => {
-        const allocated = myBal?.quotas?.[t.id] ?? t.maxDays;
+        let allocated = 0;
+        if (t.id === 2) allocated = myRow.qAnnual;
+        else if (t.id === 1) allocated = 12;
+        else if (t.id === 3) allocated = 15;
+        else if (t.id === 7) allocated = myRow.qComp;
+        else allocated = t.maxDays;
+
         const used = myLeaves.filter(l => l.typeId === t.id).reduce((s, l) => s + l.days, 0);
-        const rem = myBal?.balances?.[t.id] ?? Math.max(0, allocated - used);
+        const rem = Math.max(0, allocated - used);
         const pct = allocated > 0 ? Math.min(100, Math.round((used / allocated) * 100)) : 0;
-        totalAllocated += allocated;
-        totalUsed += used;
         return { type: t, allocated, used, rem, pct };
       });
-
-      const totalRemaining = Math.max(0, totalAllocated - totalUsed);
 
       container.innerHTML = `
         <div class="animate-fade-in">
@@ -469,7 +869,7 @@ const Leaves = {
                 <span class="badge" style="background:rgba(236,72,153,0.2);color:#ec4899;font-size:11px"><i class="fa fa-lock" style="margin-right:4px"></i>Personal Quota (View-Only)</span>
                 <span class="chip" style="font-size:11px">Entitlement Year: 2026</span>
               </div>
-              <h2 style="font-size:20px;font-weight:800;margin:0 0 4px 0">${myEmp.fullName} — Leave Quota & Entitlement</h2>
+              <h2 style="font-size:20px;font-weight:800;margin:0 0 4px 0">${myEmp.fullName} — Leave Quota &amp; Entitlement</h2>
               <div style="font-size:12.5px;color:var(--text-3)">${Utils.getDeptName(myEmp.departmentId)} • ${Utils.getDesigName(myEmp.designationId)} • Emp #: ${myEmp.empNo}</div>
             </div>
             <div>
@@ -480,17 +880,30 @@ const Leaves = {
           <!-- Overall Summary Cards -->
           <div class="grid-3 mb-20">
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--primary)">
-              <div style="font-size:26px;font-weight:800;color:var(--primary)">${totalAllocated}</div>
+              <div style="font-size:26px;font-weight:800;color:var(--primary)">${myRow.qTotal}</div>
               <div style="font-size:12px;color:var(--text-3)">Total Annual Quota Entitled</div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--warning)">
-              <div style="font-size:26px;font-weight:800;color:var(--warning)">${totalUsed}</div>
+              <div style="font-size:26px;font-weight:800;color:var(--warning)">${myRow.avTotal}</div>
               <div style="font-size:12px;color:var(--text-3)">Approved Leave Days Taken</div>
             </div>
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;border-left:4px solid var(--success)">
-              <div style="font-size:26px;font-weight:800;color:var(--success)">${totalRemaining}</div>
+              <div style="font-size:26px;font-weight:800;color:var(--success)">${myRow.remTotal}</div>
               <div style="font-size:12px;color:var(--text-3)">Total Balance Remaining</div>
             </div>
+          </div>
+
+          <!-- Exact 20-Column Quota & Balance Matrix for this Employee -->
+          <div style="margin-bottom:24px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+              <div style="font-size:15px;font-weight:800;color:var(--text)">
+                <i class="fa fa-table-cells" style="color:var(--primary);margin-right:6px"></i> My Leave Quota &amp; Balance Breakdown (2026)
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()">
+                <i class="fa fa-download"></i> Download My Ledger
+              </button>
+            </div>
+            ${this.renderQuotaMatrixTable([myRow], true, false)}
           </div>
 
           <!-- Per Leave Type Quota Cards -->
@@ -560,94 +973,106 @@ const Leaves = {
       return;
     }
 
-    // ── HR MANAGER & SUPERADMIN VIEW: MANAGEMENT & ALLOCATION CONSOLE ──
-    const activeEmps = isDeptMgr ? allEmps.filter(e => (e.managerId === myEmp?.id || e.reportingTo === myEmp?.id) && e.status === 'active') : allEmps.filter(e => e.status === 'active');
-    const allApprovedLeaves = DB.get('leave_requests') || [];
+    // ── HR MANAGER & SUPERADMIN & DEPT MANAGER VIEW ──
+    const scopedEmps = this.getScopedEmployees();
+    const rawRows = scopedEmps.map((emp, idx) => {
+      const metrics = this.getEmployeeLeaveQuotaMetrics(emp, this.quotaYear || 2026);
+      metrics.sr = idx + 1;
+      return metrics;
+    });
+
+    const filteredRows = this.getFilteredQuotaRows(rawRows);
+    const sortedRows = this.sortQuotaRows(filteredRows);
+
+    // Summary aggregates across active scoped employees
+    const totalStaffCount = rawRows.length;
+    const totalCompanyQuota = rawRows.reduce((s, r) => s + r.qTotal, 0);
+    const totalCompanyAvailed = rawRows.reduce((s, r) => s + r.avTotal, 0);
+    const totalCompanyRemaining = rawRows.reduce((s, r) => s + r.remTotal, 0);
 
     container.innerHTML = `
       <div class="animate-fade-in">
+        
+        <!-- Header & Action Controls Bar -->
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
           <div>
-            <h3 style="font-size:18px;font-weight:800;margin:0 0 4px 0">Annual Leave Quotas & Balances — 2026</h3>
-            <div style="font-size:12.5px;color:var(--text-3)">Set, adjust, and regulate employee annual leave entitlements per leave type</div>
+            <h3 style="font-size:18px;font-weight:800;margin:0 0 4px 0">
+              <i class="fa fa-scale-balanced" style="color:var(--primary);margin-right:6px"></i> Annual Leave Quotas &amp; Balances — ${this.quotaYear || 2026}
+            </h3>
+            <div style="font-size:12.5px;color:var(--text-3)">
+              Comprehensive multi-tier leave matrix tracking quotas, availed days, remaining balances, and unpaid deductions.
+            </div>
           </div>
-          ${isHrOrAdmin ? `
-            <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()" title="Export complete matrix to CSV">
+              <i class="fa fa-file-export"></i> Export CSV
+            </button>
+            ${isHrOrAdmin ? `
               <button class="btn btn-ghost btn-sm" onclick="Leaves.bulkAllocateQuotas()"><i class="fa fa-wand-magic-sparkles"></i> Bulk Allocate 2026 Quotas</button>
               <button class="btn btn-primary btn-sm" onclick="Leaves.showSetQuotaModal()"><i class="fa fa-plus"></i> Set / Allocate Quota</button>
-            </div>
-          ` : ''}
-        </div>
-
-        <div class="card" style="padding:0">
-          <div class="table-wrapper" style="border:none;border-radius:0">
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Department</th>
-                  ${types.map(t => `<th style="text-align:center">${t.code}<br><span style="font-size:10px;font-weight:400;color:var(--text-muted)">Alloc/Used/Rem</span></th>`).join('')}
-                  <th style="text-align:center">Total Quota</th>
-                  <th style="text-align:center">Total Remaining</th>
-                  <th style="text-align:right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${activeEmps.map(emp => {
-                  const bal = balances.find(b => b.employeeId === emp.id);
-                  const empLeaves = allApprovedLeaves.filter(l => l.employeeId === emp.id && l.status === 'approved');
-                  
-                  let totalAlloc = 0;
-                  let totalUsed = 0;
-                  let totalRem = 0;
-
-                  const typeCols = types.map(t => {
-                    const alloc = bal?.quotas?.[t.id] ?? t.maxDays;
-                    const used = empLeaves.filter(l => l.typeId === t.id).reduce((s, l) => s + l.days, 0);
-                    const rem = bal?.balances?.[t.id] ?? Math.max(0, alloc - used);
-                    totalAlloc += alloc;
-                    totalUsed += used;
-                    totalRem += rem;
-
-                    const color = rem > alloc * 0.5 ? 'var(--success)' : rem > alloc * 0.2 ? 'var(--warning)' : 'var(--danger)';
-                    return `
-                      <td style="text-align:center;font-size:12px">
-                        <span style="color:var(--text-3)">${alloc}</span> /
-                        <span style="color:var(--warning)">${used}</span> /
-                        <strong style="color:${color}">${rem}</strong>
-                      </td>
-                    `;
-                  }).join('');
-
-                  return `
-                    <tr>
-                      <td>
-                        <div style="display:flex;align-items:center;gap:10px">
-                          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
-                          <div>
-                            <div style="font-weight:700;font-size:13px">${emp.fullName}</div>
-                            <div style="font-size:11px;color:var(--text-3)">${emp.empNo}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td>${Utils.getDeptName(emp.departmentId)}</td>
-                      ${typeCols}
-                      <td style="text-align:center;font-weight:700">${totalAlloc} days</td>
-                      <td style="text-align:center"><strong style="color:var(--success);font-size:13px">${totalRem} days</strong></td>
-                      <td style="text-align:right">
-                        ${isHrOrAdmin ? `
-                          <button class="btn btn-ghost btn-sm" onclick="Leaves.showSetQuotaModal(${emp.id})" title="Edit Quotas">
-                            <i class="fa fa-pen"></i> Edit Quota
-                          </button>
-                        ` : '—'}
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
+            ` : ''}
           </div>
         </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid-4 mb-20" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid var(--primary)">
+            <div style="font-size:24px;font-weight:800;color:var(--primary)">${totalStaffCount}</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Scoped Employees</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid #3b82f6">
+            <div style="font-size:24px;font-weight:800;color:#3b82f6">${totalCompanyQuota} days</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Total Quota Days Entitled</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid var(--warning)">
+            <div style="font-size:24px;font-weight:800;color:var(--warning)">${totalCompanyAvailed} days</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Total Leave Days Availed</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 18px;border-left:4px solid var(--success)">
+            <div style="font-size:24px;font-weight:800;color:var(--success)">${totalCompanyRemaining} days</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Net Balance Days Available</div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Sub-Bar (Matching Image 1) -->
+        <div class="card" style="padding:14px 18px;margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            
+            <!-- STATUS Filter Pills -->
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px;margin-right:4px">STATUS:</span>
+              ${[
+                { id: 'all', label: 'All Records' },
+                { id: 'full', label: 'Full Quota Available' },
+                { id: 'low', label: 'Low Balance (< 10d)' },
+                { id: 'exhausted', label: 'Exhausted (0d)' },
+                { id: 'availed', label: 'Has Availed Leaves' }
+              ].map(st => `
+                <button class="btn btn-sm ${this.quotaStatusFilter === st.id ? 'btn-primary' : 'btn-ghost'}" style="padding:4px 12px;font-size:11.5px;border-radius:20px;font-weight:600" onclick="Leaves.setQuotaStatusFilter('${st.id}')">
+                  ${st.label}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- Department Filter + Search Input -->
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select class="form-control" style="width:160px;height:32px;font-size:12px;border-radius:6px" onchange="Leaves.setQuotaDeptFilter(this.value)">
+                <option value="all">All Departments</option>
+                ${(DB.get('departments') || []).map(d => `<option value="${d.id}" ${this.quotaDeptFilter == d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+              </select>
+
+              <div style="position:relative">
+                <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text-muted)"></i>
+                <input type="text" class="form-control" style="padding-left:28px;width:180px;font-size:12px;height:32px;border-radius:6px" placeholder="Search employee..." value="${this.quotaSearchQuery || ''}" oninput="Leaves.searchQuota(this.value)">
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 20-Column Multi-Group Quota Table (Matching Image 2) -->
+        ${this.renderQuotaMatrixTable(sortedRows, false, isHrOrAdmin)}
+
       </div>
     `;
   },

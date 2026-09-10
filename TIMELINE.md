@@ -350,6 +350,27 @@
     - Executed 31-test end-to-end verification suite covering tab visibility, switchView 403 access control, action gating, dropdown menu period filtering (Daily, Weekly, Monthly, Custom), correction request locking, and deputy manager/admin privilege tiers.
     - 31 / 31 tests passed (100% pass rate) with zero regressions across existing role hierarchy, IDOR, and blueprint explorer suites *(Completed)*.
 
+- [x] **Leave Quota & Balance Multi-Group Table Architecture & Status Filter Bar (`js/leaves.js`, `js/data.js`)**:
+  - **Exact 20-Column Multi-Group Table Architecture**:
+    - Replaced basic quota list with the exact 20-column grouped table structure matching the enterprise specification:
+      - **Leading Base Columns (3)**: `Sr.#`, `Employee ID`, and `Employee`.
+      - **Leave In Quota (4)**: `Annual`, `Sick/Casual`, `Compensation`, and `Total`.
+      - **Availed Leave (7)**: `Annual`, `Sick/Casual`, `Compensation`, `Half Leave`, `Short Leave`, `Salary` (Loss of Pay / deduction), and `Total`.
+      - **Remaining Leaves (4)**: `Sick/Casual`, `Compensation`, `Annual`, and `Total`.
+      - **Other Leave (2)**: `Un Paid Leave` and `Token Leave`.
+    - **Header & Cell Styling**: Applied light sky blue header styling (`#e0f2fe` background, `#0369a1` text, `#bae6fd` border) with subtle group header contrasts matching reference screenshots.
+    - **Grand Total Footer (`<tfoot>`)**: Calculates and renders sum totals across all 17 leave metric columns for all displayed staff.
+  - **Interactive Sorting & Filter Sub-Bar**:
+    - **Interactive Sorting**: Clicking any column header triggers dynamic ascending/descending sorting (`▲` / `▼`) on all columns.
+    - **STATUS Filter Pills (Matching Image 1)**: Quick triage pills (`All Records`, `Full Quota Available`, `Low Balance (< 10d)`, `Exhausted (0d)`, `Has Availed Leaves`).
+    - **Department & Search Filters**: Department dropdown filter and instant client-side name/empNo search bar.
+    - **Comprehensive CSV Export (`exportQuotaMatrixCSV()`)**: 22-column CSV export containing complete quota, availed, remaining, and other leave records.
+  - **Role-Based Experience**:
+    - **Employees**: View their personal 20-column breakdown matrix alongside high-level KPI cards and per-type breakdowns (view-only).
+    - **Managers & Admins**: Full multi-employee matrix with allocation and adjustment modal triggers.
+  - **Automated Verification Suite (`scratch/test-leave-quota-table.js`)**:
+    - 15 / 15 tests passed (100%) covering leave catalog, metric calculations, 20 columns, status filters, sorting, CSV export, and role scoping *(Completed)*.
+
 ---
 
 *File automatically maintained and synchronized with the repository.*

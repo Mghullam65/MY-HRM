@@ -228,6 +228,19 @@ const DB = {
         this.set('leave_requests', leaves);
       }
     }
+
+    // Ensure Short Leave and Token Leave exist in stored leave_types
+    const currentLeaveTypes = this.get('leave_types') || [];
+    let ltUpdated = false;
+    if (!currentLeaveTypes.some(t => t.id === 9 || t.code === 'SHL')) {
+      currentLeaveTypes.push({ id: 9, name: 'Short Leave', code: 'SHL', maxDays: 12, carryForward: false, color: '#06b6d4' });
+      ltUpdated = true;
+    }
+    if (!currentLeaveTypes.some(t => t.id === 10 || t.code === 'TL')) {
+      currentLeaveTypes.push({ id: 10, name: 'Token Leave', code: 'TL', maxDays: 6, carryForward: false, color: '#a855f7' });
+      ltUpdated = true;
+    }
+    if (ltUpdated) this.set('leave_types', currentLeaveTypes);
   },
 
   ensureHierarchyAndCorrections() {
@@ -4600,6 +4613,8 @@ const leaveTypes = [
   { id: 6, name: 'Unpaid Leave', code: 'UL', maxDays: 30, carryForward: false, color: '#6b7280' },
   { id: 7, name: 'Compensatory', code: 'COMP', maxDays: 5, carryForward: true, color: '#14b8a6' },
   { id: 8, name: 'Half Day', code: 'HD', maxDays: 24, carryForward: false, color: '#f97316' },
+  { id: 9, name: 'Short Leave', code: 'SHL', maxDays: 12, carryForward: false, color: '#06b6d4' },
+  { id: 10, name: 'Token Leave', code: 'TL', maxDays: 6, carryForward: false, color: '#a855f7' },
 ];
 
 const leaveRequests = [
