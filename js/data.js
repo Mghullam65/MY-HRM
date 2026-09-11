@@ -4435,6 +4435,124 @@ const DB = {
       ];
       this.set('employee_increments', increments);
     }
+
+    // 4. Ensure Ghulam Mustafa (00063) and overtime tokens for Token Report
+    let ghulam = emps.find(e => e.empNo === '00063' || e.empNo === 'EMP-063' || e.fullName === 'Ghulam Mustafa');
+    if (!ghulam) {
+      ghulam = {
+        id: 63,
+        empNo: '00063',
+        fullName: 'Ghulam Mustafa',
+        email: 'ghulam.mustafa@company.com',
+        phone: '+92 300 9876543',
+        cnic: '35202-9876543-1',
+        departmentId: 2,
+        designationId: 3,
+        branchId: 2,
+        managerId: 3,
+        divisionId: 2,
+        role: 'employee',
+        status: 'active',
+        jobStatus: 'Permanent',
+        employmentType: 'Permanent',
+        salary: 145000,
+        joinDate: '2023-03-15',
+        gender: 'Male',
+        religion: 'Islam',
+        smoking: 'Non-Smoker',
+        maritalStatus: 'Married',
+        nationality: 'Pakistani',
+        state: 'Punjab',
+        city: 'Lahore',
+        workspace: 'On-site Office',
+        technology: 'React & Node.js'
+      };
+      emps.push(ghulam);
+      this.set('employees', emps);
+    }
+
+    let tokens = this.get('overtime_tokens') || [];
+    if (!tokens.some(t => t.employeeId === 63 || t.employeeId === ghulam.id)) {
+      tokens.push(
+        {
+          id: 101,
+          employeeId: ghulam.id,
+          tokenNumber: 'TOK-2026-0063',
+          date: Utils.today(),
+          hours: 2,
+          activityType: 'Overtime Sprint Delivery',
+          reason: 'Critical microservice deployment and API optimization',
+          approvedBy: 'Usman Baig (Lead Architect)',
+          status: 'Approved',
+          createdAt: Utils.today()
+        },
+        {
+          id: 102,
+          employeeId: ghulam.id,
+          tokenNumber: 'TOK-2026-0042',
+          date: '2026-03-05',
+          hours: 1.5,
+          activityType: 'Short Leave Token',
+          reason: 'Emergency banking and biometric passport verification',
+          approvedBy: 'Usman Baig (Lead Architect)',
+          status: 'Approved',
+          createdAt: '2026-03-05'
+        },
+        {
+          id: 103,
+          employeeId: 4,
+          tokenNumber: 'TOK-2026-0018',
+          date: Utils.today(),
+          hours: 1,
+          activityType: 'Overtime Token',
+          reason: 'Production bug triage and customer hotfix release',
+          approvedBy: 'Ahmed Khan (CEO)',
+          status: 'Approved',
+          createdAt: Utils.today()
+        }
+      );
+      this.set('overtime_tokens', tokens);
+    }
+
+    // 5. Ensure performance reviews coverage
+    let reviews = this.get('performance_reviews') || [];
+    if (!reviews.some(r => r.employeeId === ghulam.id)) {
+      reviews.push(
+        {
+          id: 101,
+          employeeId: ghulam.id,
+          reviewPeriod: 'Q1 2026',
+          quarter: 'Q1',
+          year: '2026',
+          managerRating: 4.5,
+          selfRating: 4.2,
+          finalScore: 4.4,
+          status: 'Completed',
+          reviewerScore: 4.5,
+          rating: 4.4,
+          recommendation: 'Promotion to Senior Full Stack Architect',
+          reviewerId: 3,
+          comments: 'Exceptional delivery on React & Node.js architecture'
+        },
+        {
+          id: 102,
+          employeeId: 4,
+          reviewPeriod: 'Q1 2026',
+          quarter: 'Q1',
+          year: '2026',
+          managerRating: 4.8,
+          selfRating: 4.5,
+          finalScore: 4.7,
+          status: 'Completed',
+          reviewerScore: 4.8,
+          rating: 4.7,
+          recommendation: 'Leadership Track & Stock Option Bonus',
+          reviewerId: 1,
+          comments: 'Outstanding performance across product sprints'
+        }
+      );
+      this.set('performance_reviews', reviews);
+    }
   },
 
   reset() {
