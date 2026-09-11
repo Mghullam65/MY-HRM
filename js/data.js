@@ -40,6 +40,7 @@ const DB = {
       this.ensureProfileMastersData();
       this.ensureGovernanceMastersData();
       this.ensureLoansData();
+      this.ensureReportsSeedData();
       return;
     }
     this.seed();
@@ -76,6 +77,7 @@ const DB = {
     this.ensureProfileMastersData();
     this.ensureGovernanceMastersData();
     this.ensureLoansData();
+    this.ensureReportsSeedData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -4212,6 +4214,226 @@ const DB = {
 
     if (updated) {
       this.set('loans', loans);
+    }
+  },
+
+  ensureReportsSeedData() {
+    // 1. Ensure employee demographics for all 15 dimensions
+    const emps = this.get('employees') || [];
+    let empChanged = false;
+    emps.forEach((e, idx) => {
+      if (!e.religion) {
+        e.religion = idx === 5 ? 'Christianity' : (idx === 14 ? 'Hinduism' : 'Islam');
+        empChanged = true;
+      }
+      if (!e.smoking) {
+        e.smoking = (idx % 4 === 0) ? 'Smoker' : 'Non-Smoker';
+        empChanged = true;
+      }
+      if (!e.maritalStatus) {
+        e.maritalStatus = (idx % 2 === 0) ? 'Married' : 'Single';
+        empChanged = true;
+      }
+      if (!e.nationality) {
+        e.nationality = idx === 10 ? 'Expatriate' : 'Pakistani';
+        empChanged = true;
+      }
+      if (!e.workspace) {
+        if (e.role === 'onboarding' || idx % 7 === 0) e.workspace = 'Work From Home';
+        else if (idx % 4 === 0) e.workspace = 'Hybrid Desk';
+        else e.workspace = 'On-site Office';
+        empChanged = true;
+      }
+      if (!e.technology) {
+        if (e.departmentId === 2) {
+          const techs = ['React & Node.js', 'Python & AI', 'DevOps & AWS', 'Java / Spring', 'UI/UX & Design System'];
+          e.technology = techs[idx % techs.length];
+        } else if (e.departmentId === 1) {
+          e.technology = 'HR Tech & People Analytics';
+        } else if (e.departmentId === 3) {
+          e.technology = 'Finance ERP & SAP Ledger';
+        } else if (e.departmentId === 4) {
+          e.technology = 'Digital Marketing & MarTech';
+        } else {
+          e.technology = 'Enterprise Operations';
+        }
+        empChanged = true;
+      }
+      if (!e.state || !e.city) {
+        if (e.branchId === 2) {
+          e.city = 'Lahore'; e.state = 'Punjab';
+        } else if (e.branchId === 1) {
+          e.city = 'Karachi'; e.state = 'Sindh';
+        } else {
+          e.city = 'Islamabad'; e.state = 'Islamabad Capital Territory';
+        }
+        empChanged = true;
+      }
+      if (!e.jobStatus) {
+        e.jobStatus = e.status === 'inactive' ? 'Ex-Employee' : (e.employmentType || 'Permanent');
+        empChanged = true;
+      }
+      if (!e.divisionId) {
+        const dept = (this.get('departments') || []).find(d => d.id === e.departmentId);
+        e.divisionId = dept?.divisionId || (e.departmentId === 2 || e.departmentId === 4 ? 2 : (e.departmentId === 3 ? 3 : 4));
+        empChanged = true;
+      }
+    });
+    if (empChanged) {
+      this.set('employees', emps);
+    }
+
+    // 2. Ensure office_layouts collection
+    let layouts = this.get('office_layouts');
+    if (!layouts || !layouts.length) {
+      layouts = [
+        {
+          id: 1,
+          centerId: 2,
+          centerName: 'Lahore Center I',
+          zones: [
+            { location: 'C1 - Dinning', totalSpaces: 0, occupied: 0, free: 0, occupants: [] },
+            { location: 'C1 - Main Hall', totalSpaces: 48, occupied: 30, free: 18, occupants: [3, 4, 9, 11, 12, 17, 21, 25, 13] },
+            { location: 'C1 - Reception', totalSpaces: 0, occupied: 0, free: 0, occupants: [] },
+            { location: 'C1 - Room 01', totalSpaces: 0, occupied: 0, free: 0, occupants: [] },
+            { location: 'C1 - Room 02', totalSpaces: 0, occupied: 0, free: 0, occupants: [] },
+            { location: 'Work From Home', totalSpaces: 0, occupied: 0, free: 0, occupants: [] }
+          ]
+        },
+        {
+          id: 2,
+          centerId: 1,
+          centerName: 'Karachi Head Office',
+          zones: [
+            { location: 'K1 - Executive Wing', totalSpaces: 12, occupied: 8, free: 4, occupants: [1, 2] },
+            { location: 'K1 - Main Engineering Floor', totalSpaces: 50, occupied: 38, free: 12, occupants: [5, 6, 7, 8] },
+            { location: 'K1 - Conference Hub', totalSpaces: 10, occupied: 4, free: 6, occupants: [] },
+            { location: 'K1 - Cafeteria Lounge', totalSpaces: 0, occupied: 0, free: 0, occupants: [] },
+            { location: 'Work From Home', totalSpaces: 0, occupied: 0, free: 0, occupants: [] }
+          ]
+        },
+        {
+          id: 3,
+          centerId: 3,
+          centerName: 'Islamabad Tech Hub',
+          zones: [
+            { location: 'ISB - Cloud Ops Hall', totalSpaces: 35, occupied: 22, free: 13, occupants: [26] },
+            { location: 'ISB - Meeting Pods', totalSpaces: 8, occupied: 5, free: 3, occupants: [] },
+            { location: 'Work From Home', totalSpaces: 0, occupied: 0, free: 0, occupants: [] }
+          ]
+        }
+      ];
+      this.set('office_layouts', layouts);
+    }
+
+    // 3. Ensure employee_increments collection
+    let increments = this.get('employee_increments');
+    if (!increments || !increments.length) {
+      increments = [
+        {
+          id: 1,
+          employeeId: 4,
+          empNo: 'EMP-004',
+          fullName: 'Fatima Raza',
+          departmentId: 2,
+          designationId: 3,
+          previousSalary: 130000,
+          incrementAmount: 20000,
+          incrementPct: 15.38,
+          revisedSalary: 150000,
+          effectiveDate: '2026-07-01',
+          reason: 'Annual Merit Appraisal & Cloud Lead Promotion',
+          approvedBy: 'Ahmed Khan (CEO)',
+          approvalDate: '2026-06-25',
+          status: 'applied'
+        },
+        {
+          id: 2,
+          employeeId: 3,
+          empNo: 'EMP-003',
+          fullName: 'Usman Baig',
+          departmentId: 2,
+          designationId: 4,
+          previousSalary: 180000,
+          incrementAmount: 25000,
+          incrementPct: 13.89,
+          revisedSalary: 205000,
+          effectiveDate: '2026-07-01',
+          reason: 'Outstanding Technical Architecture Leadership',
+          approvedBy: 'Ahmed Khan (CEO)',
+          approvalDate: '2026-06-25',
+          status: 'applied'
+        },
+        {
+          id: 3,
+          employeeId: 6,
+          empNo: 'EMP-006',
+          fullName: 'Zara Siddiqui',
+          departmentId: 1,
+          designationId: 10,
+          previousSalary: 55000,
+          incrementAmount: 10000,
+          incrementPct: 18.18,
+          revisedSalary: 65000,
+          effectiveDate: '2026-04-01',
+          reason: 'Post-Probation Confirmation Adjustment',
+          approvedBy: 'Sara Malik (HR Manager)',
+          approvalDate: '2026-03-28',
+          status: 'applied'
+        },
+        {
+          id: 4,
+          employeeId: 7,
+          empNo: 'EMP-007',
+          fullName: 'Hassan Qureshi',
+          departmentId: 4,
+          designationId: 7,
+          previousSalary: 68000,
+          incrementAmount: 7000,
+          incrementPct: 10.29,
+          revisedSalary: 75000,
+          effectiveDate: '2026-07-01',
+          reason: 'Quarterly Sales Target Achievement',
+          approvedBy: 'Ahmed Khan (CEO)',
+          approvalDate: '2026-06-28',
+          status: 'applied'
+        },
+        {
+          id: 5,
+          employeeId: 17,
+          empNo: 'EMP-017',
+          fullName: 'Faisal Mahmood',
+          departmentId: 3,
+          designationId: 6,
+          previousSalary: 70000,
+          incrementAmount: 8000,
+          incrementPct: 11.43,
+          revisedSalary: 78000,
+          effectiveDate: '2026-07-01',
+          reason: 'Statutory Audit & Tax Filing Excellence',
+          approvedBy: 'Ahmed Khan (CEO)',
+          approvalDate: '2026-06-26',
+          status: 'applied'
+        },
+        {
+          id: 6,
+          employeeId: 9,
+          empNo: 'EMP-009',
+          fullName: 'Tariq Hussain',
+          departmentId: 2,
+          designationId: 5,
+          previousSalary: 85000,
+          incrementAmount: 12000,
+          incrementPct: 14.12,
+          revisedSalary: 97000,
+          effectiveDate: '2026-01-01',
+          reason: 'DevOps Automation & CI/CD Pipeline Overhaul',
+          approvedBy: 'Usman Baig (Lead Eng)',
+          approvalDate: '2025-12-28',
+          status: 'applied'
+        }
+      ];
+      this.set('employee_increments', increments);
     }
   },
 

@@ -66,7 +66,7 @@ const Dashboard = {
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    if (type === 'in') {
+    if (type === 'in' || type === 'check_in') {
       if (rec && rec.timeIn) {
         Toast.show('Already checked in today at ' + rec.timeIn, 'info');
         return;
@@ -114,7 +114,7 @@ const Dashboard = {
       }
       rec.breakIn = timeStr;
       DB.set('attendance', allAtt);
-    } else if (type === 'out') {
+    } else if (type === 'out' || type === 'check_out') {
       if (!rec || !rec.timeIn) {
         Toast.show('Please check in first before checking out', 'warning');
         return;
@@ -128,8 +128,8 @@ const Dashboard = {
     }
 
     // Record in attendance_logs machine telemetry
-    const punchLabel = type === 'in' ? 'Check-In' : (type === 'ot_out' || type === 'b_out' ? 'OT-Out' : (type === 'ot_in' || type === 'b_in' ? 'OT-In' : 'Check-Out'));
-    const punchType = type === 'in' ? 'check_in' : (type === 'ot_out' || type === 'b_out' ? 'ot_out' : (type === 'ot_in' || type === 'b_in' ? 'ot_in' : 'check_out'));
+    const punchLabel = (type === 'in' || type === 'check_in') ? 'Check-In' : (type === 'ot_out' || type === 'b_out' ? 'OT-Out' : (type === 'ot_in' || type === 'b_in' ? 'OT-In' : 'Check-Out'));
+    const punchType = (type === 'in' || type === 'check_in') ? 'check_in' : (type === 'ot_out' || type === 'b_out' ? 'ot_out' : (type === 'ot_in' || type === 'b_in' ? 'ot_in' : 'check_out'));
     const allLogs = DB.get('attendance_logs') || [];
     const empDayLogs = allLogs.filter(l => l.employeeId === myId && l.date === today);
     const punchNumber = empDayLogs.length + 1;
