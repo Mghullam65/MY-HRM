@@ -1024,7 +1024,9 @@ const Payroll = {
             <button class="btn btn-secondary btn-sm" onclick="Payroll.processAll()"><i class="fa fa-cogs"></i> Process All for Month</button>
             <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(null, Payroll.currentMonth)"><i class="fa fa-plus"></i> Generate Payslip</button>
           ` : `
-            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportEmpSlipsCSV(Auth.employee?.id)"><i class="fa fa-file-csv"></i> Download My Payslips (CSV)</button>
+            <div style="background:var(--surface);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+              <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Self-Service &bull; Official Payslips Issued by HR &amp; Finance
+            </div>
           `}
         </div>
       </div>
@@ -1040,9 +1042,13 @@ const Payroll = {
               ${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Generated</span>'}
               <div style="margin-top:14px;display:flex;gap:6px">
                 ${rec ? `
-                  <button class="btn btn-primary btn-sm" style="flex:1" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
-                  <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Print / PDF"><i class="fa fa-print"></i></button>
-                  ${canManage ? `<button class="btn btn-ghost btn-icon btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')" title="Edit Slip"><i class="fa fa-pen"></i></button>` : ''}
+                  ${canManage ? `
+                    <button class="btn btn-primary btn-sm" style="flex:1" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
+                    <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Print / PDF"><i class="fa fa-print"></i></button>
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')" title="Edit Slip"><i class="fa fa-pen"></i></button>
+                  ` : `
+                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
+                  `}
                 ` : `
                   ${canManage ? `
                     <button class="btn btn-primary btn-sm w-full" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')"><i class="fa fa-cogs"></i> Generate Payslip</button>
@@ -1175,9 +1181,15 @@ const Payroll = {
       size: 'modal-lg',
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-        <button class="btn btn-secondary" onclick="Payroll.exportSingleSlipCSV(${emp.id}, '${month}')"><i class="fa fa-file-csv"></i> Download CSV</button>
-        <button class="btn btn-secondary" onclick="Toast.show('Payslip emailed to ${emp.email}', 'success', 'Notification sent')"><i class="fa fa-envelope"></i> Email Slip</button>
-        <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-print"></i> Print / Save as PDF</button>
+        ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
+          <button class="btn btn-secondary" onclick="Payroll.exportSingleSlipCSV(${emp.id}, '${month}')"><i class="fa fa-file-csv"></i> Download CSV</button>
+          <button class="btn btn-secondary" onclick="Toast.show('Payslip emailed to ${emp.email}', 'success', 'Notification sent')"><i class="fa fa-envelope"></i> Email Slip</button>
+          <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-print"></i> Print / Save as PDF</button>
+        ` : `
+          <div style="font-size:11.5px;color:var(--text-3);display:inline-flex;align-items:center;gap:6px;margin-right:auto">
+            <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Access &bull; Official signed/stamped payslips are provided by HR Administration.
+          </div>
+        `}
       `
     });
   },
@@ -1846,8 +1858,14 @@ const Payroll = {
             <div style="font-size:13px;opacity:0.9">Accumulated balance available in employee fund trust</div>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportEmpPFCSV(${emp.id})"><i class="fa fa-file-csv"></i> Download Statement (CSV)</button>
-            <button class="btn btn-primary btn-sm" onclick="Payroll.printPFStatement(${emp.id})"><i class="fa fa-print"></i> Print / Save Statement (PDF)</button>
+            ${isHrOrAdmin ? `
+              <button class="btn btn-secondary btn-sm" onclick="Payroll.exportEmpPFCSV(${emp.id})"><i class="fa fa-file-csv"></i> Download Statement (CSV)</button>
+              <button class="btn btn-primary btn-sm" onclick="Payroll.printPFStatement(${emp.id})"><i class="fa fa-print"></i> Print / Save Statement (PDF)</button>
+            ` : `
+              <div style="background:rgba(255,255,255,0.12);padding:7px 14px;border-radius:8px;font-size:11.5px;display:flex;align-items:center;gap:7px">
+                <i class="fa fa-shield-halved"></i> View-Only Portfolio &bull; Official PF Statements Issued by HR Trust
+              </div>
+            `}
           </div>
         </div>
 
@@ -2196,8 +2214,10 @@ const Payroll = {
       size: 'modal-lg',
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-        <button class="btn btn-secondary" onclick="Payroll.exportEmpPFCSV(${emp.id})"><i class="fa fa-file-csv"></i> Download CSV</button>
-        <button class="btn btn-primary" onclick="Payroll.printPFStatement(${emp.id})"><i class="fa fa-print"></i> Print / PDF Statement</button>
+        ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
+          <button class="btn btn-secondary" onclick="Payroll.exportEmpPFCSV(${emp.id})"><i class="fa fa-file-csv"></i> Download CSV</button>
+          <button class="btn btn-primary" onclick="Payroll.printPFStatement(${emp.id})"><i class="fa fa-print"></i> Print / PDF Statement</button>
+        ` : ''}
       `
     });
   },
@@ -2367,6 +2387,10 @@ const Payroll = {
   },
 
   printSlip(empId, month) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Printing and downloading payslips is reserved for HR & Admin', 'warning');
+      return;
+    }
     const emp = DB.find('employees', Number(empId));
     const rec = DB.get('salary').find(s => s.employeeId === Number(empId) && s.month === month);
     if (!emp || !rec) { Toast.show('Salary record not found', 'error'); return; }
@@ -2579,6 +2603,10 @@ const Payroll = {
   },
 
   printPFStatement(empId) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Printing and downloading Provident Fund statements is reserved for HR & Admin', 'warning');
+      return;
+    }
     const emp = DB.find('employees', Number(empId));
     if (!emp) return;
     const summary = this.getEmployeePFSummary(emp.id);
@@ -2828,6 +2856,10 @@ const Payroll = {
   },
 
   exportSingleSlipCSV(empId, month) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Downloading payslips is reserved for HR & Admin', 'warning');
+      return;
+    }
     const emp = DB.find('employees', Number(empId));
     const s = DB.get('salary').find(x => x.employeeId === Number(empId) && x.month === month);
     if (!emp || !s) { Toast.show('Salary record not found', 'error'); return; }
@@ -2891,6 +2923,10 @@ const Payroll = {
   },
 
   exportEmpPFCSV(empId) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Downloading Provident Fund statements is reserved for HR & Admin', 'warning');
+      return;
+    }
     const emp = DB.find('employees', Number(empId));
     if (!emp) return;
     const summary = this.getEmployeePFSummary(emp.id);
