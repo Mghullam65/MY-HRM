@@ -104,6 +104,10 @@ const Payroll = {
     this.renderView();
   },
 
+  switchTab(tab) {
+    this.switchView(tab);
+  },
+
   renderView() {
     const container = document.getElementById('payroll-content');
     if (!container) return;
@@ -1181,7 +1185,7 @@ const Payroll = {
       size: 'modal-lg',
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-        ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
+        ${(['superadmin', 'hr_manager'].includes(Auth.role) || Number(emp.id) === Auth.employee?.id) ? `
           <button class="btn btn-secondary" onclick="Payroll.exportSingleSlipCSV(${emp.id}, '${month}')"><i class="fa fa-file-csv"></i> Download CSV</button>
           <button class="btn btn-secondary" onclick="Toast.show('Payslip emailed to ${emp.email}', 'success', 'Notification sent')"><i class="fa fa-envelope"></i> Email Slip</button>
           <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-print"></i> Print / Save as PDF</button>
@@ -1658,44 +1662,48 @@ const Payroll = {
   // ════════════════════════════════════════════════════════════
 
   ensurePFData() {
-    let pfRecords = DB.get('provident_fund');
-    if (pfRecords && pfRecords.length > 0) return pfRecords;
-
+    let pfRecords = DB.get('provident_fund') || [];
     const emps = DB.get('employees').filter(e => e.status === 'active');
-    const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08'];
-    const seeded = [];
-    let idCounter = 1;
+    const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'];
+    let modified = false;
+    let idCounter = pfRecords.reduce((max, r) => Math.max(max, Number(r.id) || 0), 0) + 1;
 
     emps.forEach(emp => {
-      const basic = emp.salary || 50000;
-      const joinMonth = (emp.joiningDate || '2020-01-01').slice(0, 7);
-      const empShare = Math.round(basic * 0.05);
-      const emprShare = Math.round(basic * 0.05);
+      const existing = pfRecords.filter(r => r.employeeId === emp.id && r.type !== 'withdrawal');
+      if (existing.length === 0) {
+        const basic = emp.salary || 50000;
+        const joinMonth = (emp.joiningDate || '2020-01-01').slice(0, 7);
+        const empShare = Math.round(basic * 0.05);
+        const emprShare = Math.round(basic * 0.05);
 
-      months.forEach(m => {
-        if (m >= joinMonth) {
-          seeded.push({
-            id: idCounter++,
-            employeeId: emp.id,
-            month: m,
-            basicSalary: basic,
-            employeeRate: 5,
-            employeeShare: empShare,
-            employerRate: 5,
-            employerShare: emprShare,
-            interest: 0,
-            totalMonthly: empShare + emprShare,
-            type: 'contribution',
-            notes: 'Monthly payroll contribution',
-            date: `${m}-28`,
-            createdAt: `${m}-28T10:00:00.000Z`
-          });
-        }
-      });
+        months.forEach(m => {
+          if (m >= joinMonth) {
+            pfRecords.push({
+              id: idCounter++,
+              employeeId: emp.id,
+              month: m,
+              basicSalary: basic,
+              employeeRate: 5,
+              employeeShare: empShare,
+              employerRate: 5,
+              employerShare: emprShare,
+              interest: 0,
+              totalMonthly: empShare + emprShare,
+              type: 'contribution',
+              notes: 'Monthly payroll contribution',
+              date: `${m}-28`,
+              createdAt: `${m}-28T10:00:00.000Z`
+            });
+            modified = true;
+          }
+        });
+      }
     });
 
-    DB.set('provident_fund', seeded);
-    return seeded;
+    if (modified || !DB.get('provident_fund')) {
+      DB.set('provident_fund', pfRecords);
+    }
+    return pfRecords;
   },
 
   getPFSettings() {
