@@ -1663,21 +1663,21 @@ const Payroll = {
 
   ensurePFData() {
     let pfRecords = DB.get('provident_fund') || [];
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const months = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09'];
     let modified = false;
     let idCounter = pfRecords.reduce((max, r) => Math.max(max, Number(r.id) || 0), 0) + 1;
 
     emps.forEach(emp => {
-      const existing = pfRecords.filter(r => r.employeeId === emp.id && r.type !== 'withdrawal');
-      if (existing.length === 0) {
-        const basic = emp.salary || 50000;
-        const joinMonth = (emp.joiningDate || '2020-01-01').slice(0, 7);
-        const empShare = Math.round(basic * 0.05);
-        const emprShare = Math.round(basic * 0.05);
+      const basic = emp.salary || 50000;
+      const joinMonth = (emp.joiningDate || '2020-01-01').slice(0, 7);
+      const empShare = Math.round(basic * 0.05);
+      const emprShare = Math.round(basic * 0.05);
 
-        months.forEach(m => {
-          if (m >= joinMonth) {
+      months.forEach(m => {
+        if (m >= joinMonth) {
+          const hasRecord = pfRecords.some(r => r.employeeId === emp.id && r.month === m && r.type === 'contribution');
+          if (!hasRecord) {
             pfRecords.push({
               id: idCounter++,
               employeeId: emp.id,
@@ -1696,8 +1696,8 @@ const Payroll = {
             });
             modified = true;
           }
-        });
-      }
+        }
+      });
     });
 
     if (modified || !DB.get('provident_fund')) {
@@ -1841,7 +1841,8 @@ const Payroll = {
   },
 
   renderEmployeePFView(container) {
-    const emp = Auth.employee;
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const emp = Auth.employee || DB.find('employees', Auth.user?.employeeId) || DB.find('employees', Auth.user?.id) || (DB.get('employees') || [])[0];
     if (!emp) {
       container.innerHTML = `<div class="card" style="text-align:center;padding:40px">Employee profile not linked to user account.</div>`;
       return;
