@@ -477,31 +477,176 @@ const Payroll = {
   },
 
 
+  loanFilterStatus: 'all',
+  loanFilterType: 'all',
+
   renderLoans(container) {
     const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
-    let loans = DB.get('loans');
-    if (!isHrOrAdmin) {
-      loans = loans.filter(l => l.employeeId === Auth.employee?.id);
+    let allLoans = DB.get('loans') || [];
+    let displayLoans = isHrOrAdmin ? allLoans : allLoans.filter(l => l.employeeId === Auth.employee?.id);
+
+    if (this.loanFilterStatus && this.loanFilterStatus !== 'all') {
+      displayLoans = displayLoans.filter(l => l.status === this.loanFilterStatus);
     }
+    if (this.loanFilterType && this.loanFilterType !== 'all') {
+      displayLoans = displayLoans.filter(l => (l.loanType || 'standard') === this.loanFilterType);
+    }
+
+    const activeLoans = displayLoans.filter(l => l.status === 'active');
+    const pendingLoans = displayLoans.filter(l => l.status === 'pending_approval');
+    const totalActiveAmount = activeLoans.reduce((sum, l) => sum + (l.amount || 0), 0);
+    const totalMonthlyDeduction = activeLoans.reduce((sum, l) => sum + (l.monthlyDeduction || 0), 0);
+    const pfLoansCount = activeLoans.filter(l => l.loanType === 'pf_loan').length;
+
+    // For personal view: calculate PF borrowing capacity
+    const empPFSummary = !isHrOrAdmin ? this.getEmployeePFSummary(Auth.employee?.id) : null;
+    const maxPFLoanEligible = empPFSummary ? Math.round(empPFSummary.totalBalance * 0.80) : 0;
+
     container.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `<button class="btn btn-primary btn-sm" onclick="Payroll.showAddLoan()"><i class="fa fa-plus"></i> New Loan</button>` : ''}
+      <!-- KPI Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">${isHrOrAdmin ? 'Active Company Loans' : 'My Active Loans'}</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${activeLoans.length} active</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${Utils.formatCurrency(totalActiveAmount)} principal</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Monthly Salary Deductions</div>
+          <div style="font-size:22px;font-weight:800;color:var(--danger);margin-top:6px">${Utils.formatCurrency(totalMonthlyDeduction)}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Auto-recovered per month</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">${isHrOrAdmin ? 'Loans Against PF' : 'PF Loan Eligible Limit'}</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${isHrOrAdmin ? pfLoansCount + ' PF loans' : Utils.formatCurrency(maxPFLoanEligible)}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${isHrOrAdmin ? 'Secured by PF Trust equity' : '80% of your PF balance'}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">${isHrOrAdmin ? 'Pending Approval' : 'Application Status'}</div>
+          <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:6px">${pendingLoans.length} pending</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${isHrOrAdmin ? 'Awaiting HR authorization' : (pendingLoans.length > 0 ? 'Under review by HR' : 'All clear')}</div>
+        </div>
       </div>
+
+      <!-- Action & Filter Bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <select class="filter-select" onchange="Payroll.loanFilterStatus=this.value;Payroll.renderLoans(document.getElementById('payroll-content'))" style="width:160px">
+            <option value="all" ${this.loanFilterStatus==='all'?'selected':''}>All Statuses</option>
+            <option value="active" ${this.loanFilterStatus==='active'?'selected':''}>Active</option>
+            <option value="pending_approval" ${this.loanFilterStatus==='pending_approval'?'selected':''}>Pending Approval</option>
+            <option value="completed" ${this.loanFilterStatus==='completed'?'selected':''}>Completed / Paid</option>
+            <option value="rejected" ${this.loanFilterStatus==='rejected'?'selected':''}>Rejected</option>
+          </select>
+          <select class="filter-select" onchange="Payroll.loanFilterType=this.value;Payroll.renderLoans(document.getElementById('payroll-content'))" style="width:190px">
+            <option value="all" ${this.loanFilterType==='all'?'selected':''}>All Loan Types</option>
+            <option value="standard" ${this.loanFilterType==='standard'?'selected':''}>Standard Loan</option>
+            <option value="pf_loan" ${this.loanFilterType==='pf_loan'?'selected':''}>Loan Against PF</option>
+            <option value="advance" ${this.loanFilterType==='advance'?'selected':''}>Salary Advance</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${isHrOrAdmin ? `
+            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportLoansCSV()"><i class="fa fa-file-csv"></i> Export Loans (CSV)</button>
+            <button class="btn btn-primary btn-sm" onclick="Payroll.showAddLoan(false)"><i class="fa fa-plus"></i> Grant New Loan</button>
+          ` : `
+            <button class="btn btn-primary btn-sm" onclick="Payroll.showAddLoan(true)"><i class="fa fa-paper-plane"></i> Apply for Loan / PF Loan</button>
+          `}
+        </div>
+      </div>
+
+      <!-- Loans Master Table -->
       <div class="card" style="padding:0">
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
-            <thead><tr><th>Employee</th><th>Amount</th><th>Purpose</th><th>Monthly</th><th>Installments</th><th>Remaining</th><th>Start Date</th><th>Status</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Loan Type</th>
+                <th>Principal Amount</th>
+                <th>Monthly Deduction</th>
+                <th>Installments Progress</th>
+                <th>Outstanding Balance</th>
+                <th>Start Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
             <tbody>
-              ${loans.map(l => `<tr>
-                <td>${Utils.getEmpName(l.employeeId)}</td>
-                <td style="font-weight:700">${Utils.formatCurrency(l.amount)}</td>
-                <td>${l.purpose}</td>
-                <td style="color:var(--danger)">${Utils.formatCurrency(l.monthlyDeduction)}</td>
-                <td>${l.installments}</td>
-                <td><strong>${l.remaining}</strong> left</td>
-                <td>${Utils.formatDate(l.startDate)}</td>
-                <td>${Utils.statusBadge(l.status)}</td>
-              </tr>`).join('')}
+              ${displayLoans.length === 0 ? `
+                <tr><td colspan="9" style="text-align:center;padding:36px;color:var(--text-muted)">No loan records found matching the current filters.</td></tr>
+              ` : displayLoans.map(l => {
+                const emp = DB.find('employees', l.employeeId);
+                const isPFLoan = l.loanType === 'pf_loan';
+                const isAdvance = l.loanType === 'advance';
+                const paidCount = l.installments - (l.remaining || 0);
+                const outstanding = (l.remaining || 0) * (l.monthlyDeduction || 0);
+                const progressPct = Math.round((paidCount / l.installments) * 100);
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(l.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'E')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${emp?.fullName || Utils.getEmpName(l.employeeId)}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || '—'} &bull; ${Utils.getDeptName(emp?.departmentId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      ${isPFLoan ? `
+                        <span class="badge badge-primary" style="display:inline-flex;align-items:center;gap:4px">
+                          <i class="fa fa-piggy-bank"></i> Loan Against PF
+                        </span>
+                      ` : isAdvance ? `
+                        <span class="badge badge-warning" style="display:inline-flex;align-items:center;gap:4px">
+                          <i class="fa fa-money-bill-transfer"></i> Salary Advance
+                        </span>
+                      ` : `
+                        <span class="badge badge-secondary" style="display:inline-flex;align-items:center;gap:4px">
+                          <i class="fa fa-hand-holding-dollar"></i> Personal Loan
+                        </span>
+                      `}
+                      <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">${l.purpose}</div>
+                    </td>
+                    <td style="font-weight:700">${Utils.formatCurrency(l.amount)}</td>
+                    <td style="color:var(--danger);font-weight:700">${Utils.formatCurrency(l.monthlyDeduction)}</td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600;margin-bottom:3px">${paidCount} of ${l.installments} paid (${progressPct}%)</div>
+                      <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;width:110px">
+                        <div style="height:100%;background:${l.status==='completed'?'var(--success)':'var(--primary)'};width:${progressPct}%"></div>
+                      </div>
+                    </td>
+                    <td style="font-weight:800;color:${outstanding > 0 ? 'var(--warning)' : 'var(--success)'}">
+                      ${outstanding > 0 ? Utils.formatCurrency(outstanding) : '<span style="color:var(--success)"><i class="fa fa-check-circle"></i> Nil</span>'}
+                    </td>
+                    <td>${Utils.formatDate(l.startDate)}</td>
+                    <td>
+                      ${l.status === 'pending_approval' ? '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Approval</span>' :
+                        l.status === 'completed' ? '<span class="badge badge-success"><i class="fa fa-check-double"></i> Fully Paid</span>' :
+                        l.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times-circle"></i> Rejected</span>' :
+                        '<span class="badge badge-primary"><i class="fa fa-spinner fa-spin-pulse"></i> Active</span>'}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:5px;align-items:center">
+                        ${l.status === 'pending_approval' && isHrOrAdmin ? `
+                          <button class="btn btn-success btn-xs" onclick="Payroll.approveLoan(${l.id})" title="Authorize Loan"><i class="fa fa-check"></i> Approve</button>
+                          <button class="btn btn-danger btn-xs" onclick="Payroll.rejectLoan(${l.id})" title="Reject Request"><i class="fa fa-times"></i> Reject</button>
+                        ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Payroll.showLoanRepaymentModal(${l.id})" title="View Repayment Ledger & Installments">
+                          <i class="fa fa-receipt"></i> Ledger
+                        </button>
+                        ${l.status === 'active' && l.remaining > 0 ? `
+                          <button class="btn btn-secondary btn-xs" onclick="Payroll.showPayInstallmentModal(${l.id})" title="Pay / Return Installment Outside Salary">
+                            <i class="fa fa-credit-card"></i> Pay
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -509,30 +654,107 @@ const Payroll = {
     `;
   },
 
-  showAddLoan() {
+  showAddLoan(isSelfApply = false) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role) && !isSelfApply;
     const emps = DB.get('employees').filter(e => e.status === 'active');
-    Modal.show('New Loan Application', `
-      <div class="form-group"><label class="form-label required">Employee</label>
-        <select class="form-control" id="ln-emp">${emps.map(e=>`<option value="${e.id}">${e.fullName} (${e.empNo})</option>`).join('')}</select>
+    const myEmp = Auth.employee || emps[0];
+    const targetEmpId = isHrOrAdmin ? (emps[0]?.id || 1) : myEmp.id;
+    const pfSummary = this.getEmployeePFSummary(targetEmpId);
+    const maxPFLoan = Math.round((pfSummary?.totalBalance || 0) * 0.80);
+
+    Modal.show(!isHrOrAdmin ? 'Apply for Personal or PF Loan' : 'Grant New Employee Loan', `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        ${!isHrOrAdmin ? `
+          <input type="hidden" id="ln-emp" value="${myEmp.id}">
+          <input class="form-control" value="${myEmp.fullName} (${myEmp.empNo}) — ${Utils.getDeptName(myEmp.departmentId)}" disabled style="background:var(--surface)">
+        ` : `
+          <select class="form-control" id="ln-emp" onchange="Payroll._onLoanEmpChange(this.value)">
+            ${emps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo})</option>`).join('')}
+          </select>
+        `}
       </div>
+
+      <div class="form-group">
+        <label class="form-label required">Loan Type</label>
+        <select class="form-control" id="ln-type" onchange="Payroll._onLoanTypeChange(this.value)">
+          <option value="standard">Standard Personal Loan</option>
+          <option value="pf_loan">Loan Against Provident Fund (PF Collateral)</option>
+          <option value="advance">Salary Advance</option>
+        </select>
+      </div>
+
+      <!-- Dynamic PF Collateral Box -->
+      <div id="ln-pf-info" style="display:none;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px 14px;margin-bottom:14px">
+        <div style="font-weight:700;font-size:12.5px;color:var(--primary);display:flex;align-items:center;gap:6px">
+          <i class="fa fa-piggy-bank"></i> Provident Fund Collateral Coverage
+        </div>
+        <div style="font-size:12px;color:var(--text-2);margin-top:4px">
+          Accumulated PF Balance: <strong id="ln-pf-bal">${Utils.formatCurrency(pfSummary?.totalBalance || 0)}</strong><br>
+          Max Eligible PF Loan (80% of fund): <strong id="ln-pf-max" style="color:var(--success)">${Utils.formatCurrency(maxPFLoan)}</strong>
+        </div>
+      </div>
+
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label required">Loan Amount (PKR)</label><input class="form-control" id="ln-amount" type="number" placeholder="100000" min="0"></div>
-        <div class="form-group"><label class="form-label required">No. of Installments</label><input class="form-control" id="ln-inst" type="number" placeholder="12" min="1" max="60"></div>
+        <div class="form-group">
+          <label class="form-label required">Loan Amount (PKR)</label>
+          <input class="form-control" id="ln-amount" type="number" placeholder="50000" min="1000" oninput="Payroll._updateLoanPreview()">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Repayment Tenure (Months / Installments)</label>
+          <input class="form-control" id="ln-inst" type="number" placeholder="12" min="1" max="60" value="12" oninput="Payroll._updateLoanPreview()">
+        </div>
       </div>
+
       <div class="form-row form-row-2">
-        <div class="form-group"><label class="form-label required">Purpose</label><input class="form-control" id="ln-purpose" placeholder="Medical, Education, etc."></div>
-        <div class="form-group"><label class="form-label required">Start Date</label><input class="form-control" id="ln-start" type="date" value="${Utils.today()}"></div>
+        <div class="form-group">
+          <label class="form-label required">Purpose / Reason</label>
+          <input class="form-control" id="ln-purpose" placeholder="Medical, Home Renovation, Education, etc.">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Deduction Start Month</label>
+          <input class="form-control" id="ln-start" type="date" value="${Utils.today()}">
+        </div>
       </div>
-      <div id="ln-monthly-preview" style="background:var(--surface);border-radius:8px;padding:12px;margin-top:8px;display:none">
-        <div style="font-size:12px;color:var(--text-3)">Monthly Deduction</div>
-        <div id="ln-monthly-val" style="font-size:22px;font-weight:800;color:var(--danger)">—</div>
+
+      <div id="ln-monthly-preview" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px;display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Estimated Monthly Salary Deduction</div>
+            <div id="ln-monthly-val" style="font-size:20px;font-weight:800;color:var(--danger)">—</div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge badge-info" style="font-size:11px">Auto-Deducted from Monthly Payslip</span>
+          </div>
+        </div>
       </div>
-      <script>document.getElementById('ln-amount')?.addEventListener('input',()=>Payroll._updateLoanPreview());document.getElementById('ln-inst')?.addEventListener('input',()=>Payroll._updateLoanPreview());</script>
     `, {
-      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-               <button class="btn btn-primary" onclick="Payroll.saveLoan()"><i class="fa fa-save"></i> Create Loan</button>`
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Payroll.saveLoan(${!isHrOrAdmin})">
+          <i class="fa fa-save"></i> ${!isHrOrAdmin ? 'Submit Loan Application' : 'Create & Activate Loan'}
+        </button>
+      `
     });
   },
+
+  _onLoanTypeChange(type) {
+    const pfBox = document.getElementById('ln-pf-info');
+    if (pfBox) {
+      pfBox.style.display = type === 'pf_loan' ? 'block' : 'none';
+    }
+  },
+
+  _onLoanEmpChange(empId) {
+    const summary = this.getEmployeePFSummary(Number(empId));
+    const balEl = document.getElementById('ln-pf-bal');
+    const maxEl = document.getElementById('ln-pf-max');
+    if (balEl && maxEl) {
+      balEl.textContent = Utils.formatCurrency(summary.totalBalance);
+      maxEl.textContent = Utils.formatCurrency(Math.round(summary.totalBalance * 0.80));
+    }
+  },
+
   _updateLoanPreview() {
     const amount = parseFloat(document.getElementById('ln-amount')?.value) || 0;
     const inst = parseInt(document.getElementById('ln-inst')?.value) || 0;
@@ -545,23 +767,230 @@ const Payroll = {
       preview.style.display = 'none';
     }
   },
-  saveLoan() {
-    const empId = parseInt(document.getElementById('ln-emp').value);
-    const amount = parseFloat(document.getElementById('ln-amount').value) || 0;
-    const installments = parseInt(document.getElementById('ln-inst').value) || 1;
-    const purpose = document.getElementById('ln-purpose').value.trim();
-    const startDate = document.getElementById('ln-start').value;
-    if (!amount || !purpose || !startDate) { Toast.show('Please fill all required fields', 'error'); return; }
+
+  saveLoan(isSelfApply = false) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role) && !isSelfApply;
+    const empId = parseInt(document.getElementById('ln-emp')?.value);
+    const loanType = document.getElementById('ln-type')?.value || 'standard';
+    const amount = parseFloat(document.getElementById('ln-amount')?.value) || 0;
+    const installments = parseInt(document.getElementById('ln-inst')?.value) || 1;
+    const purpose = document.getElementById('ln-purpose')?.value.trim();
+    const startDate = document.getElementById('ln-start')?.value;
+
+    if (!amount || !purpose || !startDate) {
+      Toast.show('Please fill all required fields', 'error');
+      return;
+    }
+
+    if (loanType === 'pf_loan') {
+      const pfSummary = this.getEmployeePFSummary(empId);
+      if (amount > (pfSummary?.totalBalance || 0)) {
+        Toast.show(`PF Loan cannot exceed total accumulated Provident Fund balance of ${Utils.formatCurrency(pfSummary.totalBalance)}!`, 'error');
+        return;
+      }
+    }
+
     const monthly = Math.ceil(amount / installments);
-    DB.add('loans', {
-      id: DB.nextId('loans'), employeeId: empId, amount, purpose,
-      installments, remaining: installments, monthlyDeduction: monthly,
-      startDate, status: 'active', approvedBy: Auth.user?.id
-    });
-    DB.log('ADD', 'Payroll', `Loan PKR ${amount.toLocaleString()} for ${Utils.getEmpName(empId)}`, Auth.user?.id);
+    const newLoan = {
+      id: DB.nextId('loans'),
+      employeeId: empId,
+      loanType,
+      amount,
+      purpose,
+      installments,
+      remaining: installments,
+      monthlyDeduction: monthly,
+      startDate,
+      status: isHrOrAdmin ? 'active' : 'pending_approval',
+      approvedBy: isHrOrAdmin ? Auth.user?.id : null,
+      approvedAt: isHrOrAdmin ? new Date().toISOString() : null,
+      repayments: []
+    };
+
+    DB.add('loans', newLoan);
+    DB.log('ADD', 'Payroll', `${loanType === 'pf_loan' ? 'PF Loan' : 'Loan'} PKR ${amount.toLocaleString()} for ${Utils.getEmpName(empId)} (${newLoan.status})`, Auth.user?.id);
     Modal.close('dynamic-modal');
-    Toast.show('Loan created!', 'success', `${installments} installments of ${Utils.formatCurrency(monthly)}`);
+    if (isHrOrAdmin) {
+      Toast.show('Loan created & activated!', 'success', `${installments} installments of ${Utils.formatCurrency(monthly)} auto-deducted from salary.`);
+    } else {
+      Toast.show('Loan application submitted!', 'success', 'Your request has been forwarded to HR & Admin for approval.');
+    }
     this.renderView();
+  },
+
+  approveLoan(id) {
+    const loan = DB.find('loans', id);
+    if (!loan) return;
+    Modal.confirm('Authorize Loan Application', `Approve loan of <strong>${Utils.formatCurrency(loan.amount)}</strong> for <strong>${Utils.getEmpName(loan.employeeId)}</strong>? Monthly salary deduction of ${Utils.formatCurrency(loan.monthlyDeduction)} will be activated.`, () => {
+      loan.status = 'active';
+      loan.approvedBy = Auth.user?.id;
+      loan.approvedAt = new Date().toISOString();
+      DB.update('loans', id, loan);
+      DB.log('APPROVE', 'Payroll', `Approved loan PKR ${loan.amount} for ${Utils.getEmpName(loan.employeeId)}`, Auth.user?.id);
+      Toast.show('Loan Approved!', 'success', 'Active starting from next salary payroll run.');
+      this.renderView();
+    });
+  },
+
+  rejectLoan(id) {
+    const loan = DB.find('loans', id);
+    if (!loan) return;
+    Modal.confirm('Reject Loan Application', `Reject loan request for <strong>${Utils.getEmpName(loan.employeeId)}</strong>?`, () => {
+      loan.status = 'rejected';
+      DB.update('loans', id, loan);
+      DB.log('REJECT', 'Payroll', `Rejected loan request for ${Utils.getEmpName(loan.employeeId)}`, Auth.user?.id);
+      Toast.show('Loan request rejected', 'info');
+      this.renderView();
+    });
+  },
+
+  showLoanRepaymentModal(id) {
+    const loan = DB.find('loans', id);
+    if (!loan) return;
+    const emp = DB.find('employees', loan.employeeId);
+    const paidInstallments = loan.installments - (loan.remaining || 0);
+    const outstanding = (loan.remaining || 0) * loan.monthlyDeduction;
+
+    Modal.show(`Loan Ledger & Repayment Schedule — ${emp?.fullName || 'Employee'}`, `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;color:var(--text-3);font-weight:700">Loan Type</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text);margin-top:2px">
+              ${loan.loanType === 'pf_loan' ? '<i class="fa fa-piggy-bank" style="color:var(--primary);margin-right:6px"></i>Loan Against Provident Fund (PF Collateral)' : (loan.loanType === 'advance' ? '<i class="fa fa-money-bill-transfer" style="margin-right:6px"></i>Salary Advance' : '<i class="fa fa-hand-holding-dollar" style="margin-right:6px"></i>Standard Personal Loan')}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;text-transform:uppercase;color:var(--text-3);font-weight:700">Status</div>
+            <div>${Utils.statusBadge(loan.status)}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+          <div><span style="font-size:11px;color:var(--text-3)">Principal:</span><div style="font-weight:700">${Utils.formatCurrency(loan.amount)}</div></div>
+          <div><span style="font-size:11px;color:var(--text-3)">Monthly Deduction:</span><div style="font-weight:700;color:var(--danger)">${Utils.formatCurrency(loan.monthlyDeduction)}</div></div>
+          <div><span style="font-size:11px;color:var(--text-3)">Installments Paid:</span><div style="font-weight:700">${paidCount} of ${loan.installments}</div></div>
+          <div><span style="font-size:11px;color:var(--text-3)">Outstanding:</span><div style="font-weight:800;color:var(--warning)">${Utils.formatCurrency(outstanding)}</div></div>
+        </div>
+      </div>
+
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Repayment Transaction History (Salary Deductions & Returns)</div>
+      <div class="table-wrapper" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+        <table>
+          <thead>
+            <tr><th>Date / Month</th><th>Repayment Channel</th><th>Amount Paid</th><th>Remaining After</th></tr>
+          </thead>
+          <tbody>
+            ${(!loan.repayments || loan.repayments.length === 0) ? `
+              <tr><td colspan="4" style="text-align:center;padding:18px;color:var(--text-muted)">No installments returned yet. Monthly deductions will automatically appear once salary slips are processed.</td></tr>
+            ` : loan.repayments.map((r, idx) => `
+              <tr>
+                <td><strong>${r.month || Utils.formatDate(r.paidOn)}</strong></td>
+                <td><span class="badge ${r.method==='salary_deduction'?'badge-primary':'badge-success'}">${r.method==='salary_deduction'?'Salary Auto-Deduction':'Direct Return / Deposit'}</span></td>
+                <td style="color:var(--success);font-weight:700">${Utils.formatCurrency(r.amount)}</td>
+                <td>${Math.max(0, loan.installments - (idx + 1))} installments left</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        ${loan.status === 'active' && loan.remaining > 0 ? `
+          <button class="btn btn-success" onclick="Payroll.showPayInstallmentModal(${loan.id})"><i class="fa fa-circle-check"></i> Pay / Return Installment Now</button>
+        ` : ''}
+      `
+    });
+  },
+
+  showPayInstallmentModal(id) {
+    const loan = DB.find('loans', id);
+    if (!loan || loan.remaining <= 0) return;
+    const emp = DB.find('employees', loan.employeeId);
+
+    Modal.show(`Pay / Return Loan Installment — ${emp?.fullName}`, `
+      <div style="margin-bottom:12px;font-size:13px;color:var(--text-2)">
+        Record a direct loan installment repayment for <strong>${emp?.fullName}</strong> outside regular monthly salary deduction (e.g. employee returned cash or bank transfer early).
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Repayment Option</label>
+        <select class="form-control" id="pay-ln-type" onchange="document.getElementById('pay-ln-amt').value = this.value === 'single' ? ${loan.monthlyDeduction} : ${loan.remaining * loan.monthlyDeduction}">
+          <option value="single">Single Monthly Installment (${Utils.formatCurrency(loan.monthlyDeduction)})</option>
+          <option value="full">Full Outstanding Balance (${Utils.formatCurrency(loan.remaining * loan.monthlyDeduction)})</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Repayment Amount (PKR)</label>
+        <input type="number" class="form-control" id="pay-ln-amt" value="${loan.monthlyDeduction}">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Payment Method</label>
+        <select class="form-control" id="pay-ln-method">
+          <option value="direct_deposit">Direct Bank Transfer / Deposit</option>
+          <option value="cash_return">Cash Payment to Accounts</option>
+          <option value="salary_adjustment">Early Salary Adjustment</option>
+        </select>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Payroll.submitLoanRepayment(${loan.id})"><i class="fa fa-save"></i> Confirm Repayment</button>
+      `
+    });
+  },
+
+  submitLoanRepayment(id) {
+    const loan = DB.find('loans', id);
+    if (!loan) return;
+    const payType = document.getElementById('pay-ln-type')?.value;
+    const amt = parseFloat(document.getElementById('pay-ln-amt')?.value) || loan.monthlyDeduction;
+    const method = document.getElementById('pay-ln-method')?.value || 'direct_deposit';
+
+    loan.repayments = loan.repayments || [];
+    loan.repayments.push({
+      month: Utils.thisMonth(),
+      amount: amt,
+      paidOn: Utils.today(),
+      method: method,
+      notes: `Direct installment payment (${method})`
+    });
+
+    if (payType === 'full' || amt >= (loan.remaining * loan.monthlyDeduction)) {
+      loan.remaining = 0;
+      loan.status = 'completed';
+    } else {
+      const installmentsCovered = Math.max(1, Math.round(amt / loan.monthlyDeduction));
+      loan.remaining = Math.max(0, loan.remaining - installmentsCovered);
+      if (loan.remaining === 0) loan.status = 'completed';
+    }
+
+    DB.update('loans', id, loan);
+    DB.log('PROCESS', 'Payroll', `Manual loan repayment PKR ${amt} recorded for ${Utils.getEmpName(loan.employeeId)}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Repayment recorded successfully!', 'success', `${loan.remaining} installments remaining`);
+    this.renderView();
+  },
+
+  exportLoansCSV() {
+    const loans = DB.get('loans') || [];
+    const headers = ['Loan ID', 'Employee ID', 'Employee Name', 'Department', 'Loan Type', 'Principal Amount', 'Monthly Deduction', 'Installments Total', 'Remaining Installments', 'Start Date', 'Status'];
+    const rows = loans.map(l => {
+      const emp = DB.find('employees', l.employeeId);
+      return [
+        l.id,
+        l.employeeId,
+        emp?.fullName || '',
+        Utils.getDeptName(emp?.departmentId),
+        l.loanType || 'standard',
+        l.amount,
+        l.monthlyDeduction,
+        l.installments,
+        l.remaining,
+        l.startDate,
+        l.status
+      ];
+    });
+    Utils.exportToCSV([headers, ...rows], `Loans_Report_${Utils.today()}.csv`);
   },
 
 
@@ -654,7 +1083,9 @@ const Payroll = {
 
     const pfEmployee = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
     const pfEmployer = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
-    const otherDeductions = Math.max(0, (rec.deductions || 0) - pfEmployee);
+    const loanDeduction = rec.loanDeduction || 0;
+    const unpaidDeduction = rec.unpaidLeaveDeduction || 0;
+    const otherDeductions = Math.max(0, (rec.deductions || 0) - pfEmployee - unpaidDeduction - loanDeduction);
 
     Modal.show(`Payslip — ${emp.fullName} — ${monthLabel}`, `
       <div style="background:white;color:#1a1a1a;border-radius:12px;overflow:hidden">
@@ -700,11 +1131,17 @@ const Payroll = {
           <div style="background:white;padding:18px 20px">
             <div style="font-size:12px;font-weight:700;color:#ef4444;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.8px">Deductions</div>
             <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Provident Fund (Employee ${pfSettings.employeeRate}%)</span><span style="color:#ef4444;font-weight:600">PKR ${pfEmployee.toLocaleString()}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Income Tax</span><span style="color:#ef4444">PKR ${rec.tax.toLocaleString()}</span></div>
-            ${rec.unpaidLeaveDeduction > 0 ? `
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Income Tax (FBR)</span><span style="color:#ef4444">PKR ${rec.tax.toLocaleString()}</span></div>
+            ${loanDeduction > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
+                <span style="color:#d97706;font-weight:600"><i class="fa fa-hand-holding-dollar" style="margin-right:4px"></i>Loan / PF Loan Recovery</span>
+                <span style="color:#d97706;font-weight:700">PKR ${loanDeduction.toLocaleString()}</span>
+              </div>
+            ` : ''}
+            ${unpaidDeduction > 0 ? `
               <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
                 <span style="color:#dc2626;font-weight:600">Unpaid Leave / Loss of Pay (${rec.unpaidLeaveDays || 1}d)</span>
-                <span style="color:#dc2626;font-weight:700">PKR ${rec.unpaidLeaveDeduction.toLocaleString()}</span>
+                <span style="color:#dc2626;font-weight:700">PKR ${unpaidDeduction.toLocaleString()}</span>
               </div>
             ` : ''}
             ${otherDeductions > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Other Deductions (EOBI / SESSI)</span><span style="color:#ef4444">PKR ${otherDeductions.toLocaleString()}</span></div>` : ''}
@@ -756,6 +1193,16 @@ const Payroll = {
     const existingRec = DB.get('salary').find(s => s.employeeId === selectedEmp.id && s.month === targetMonth);
     const pfSettings = this.getPFSettings();
 
+    const basic = existingRec ? existingRec.basic : (selectedEmp.salary || 50000);
+    const allowances = existingRec ? existingRec.allowances : Math.round(basic * 0.45);
+    const dailyWage = Math.round(basic / 30);
+
+    // Auto-detect active loans (Standard, Advance, or PF Loan)
+    const allLoans = DB.get('loans') || [];
+    const activeEmpLoans = allLoans.filter(l => l.employeeId === selectedEmp.id && l.status === 'active' && (l.remaining || 0) > 0);
+    const autoLoanDeduction = activeEmpLoans.reduce((sum, l) => sum + (l.monthlyDeduction || 0), 0);
+    const loanDeduction = existingRec?.loanDeduction !== undefined ? existingRec.loanDeduction : autoLoanDeduction;
+
     // Auto-detect unpaid leave deductions for this employee & targetMonth
     const allLeaves = DB.get('leave_requests') || [];
     const salaryLeaves = allLeaves.filter(l => 
@@ -764,21 +1211,19 @@ const Payroll = {
       l.status === 'approved' && 
       ((l.from && l.from.slice(0,7) === targetMonth) || (l.to && l.to.slice(0,7) === targetMonth))
     );
-    const dailyWage = Math.round(basic / 30);
     const autoUnpaidDays = salaryLeaves.reduce((sum, l) => sum + (l.deductionDays || l.days || 1), 0);
     const autoUnpaidDeduction = salaryLeaves.reduce((sum, l) => sum + (l.deductionAmount || (dailyWage * (l.days || 1))), 0);
     const unpaidLeaveDeduction = existingRec?.unpaidLeaveDeduction !== undefined ? existingRec.unpaidLeaveDeduction : autoUnpaidDeduction;
     const unpaidLeaveDays = existingRec?.unpaidLeaveDays !== undefined ? existingRec.unpaidLeaveDays : autoUnpaidDays;
 
-    const basic = existingRec ? existingRec.basic : (selectedEmp.salary || 50000);
-    const allowances = existingRec ? existingRec.allowances : Math.round(basic * 0.45);
     const pfEmployee = existingRec?.pfEmployee !== undefined ? existingRec.pfEmployee : Math.round(basic * (pfSettings.employeeRate / 100));
     const pfEmployer = existingRec?.pfEmployer !== undefined ? existingRec.pfEmployer : Math.round(basic * (pfSettings.employerRate / 100));
-    const deductions = existingRec ? Math.max(0, existingRec.deductions - pfEmployee - (existingRec.unpaidLeaveDeduction || 0)) : 2000;
+    const deductions = existingRec ? Math.max(0, (existingRec.deductions || 0) - pfEmployee - (existingRec.unpaidLeaveDeduction || 0) - (existingRec.loanDeduction || 0)) : 2000;
     const overtime = existingRec ? (existingRec.overtime || 0) : 0;
     const bonus = existingRec ? (existingRec.bonus || 0) : 0;
-    const tax = existingRec ? existingRec.tax : Math.round(basic * 0.10);
-    const net = Math.max(0, basic + allowances + overtime + bonus - (deductions + pfEmployee + unpaidLeaveDeduction) - tax);
+    const autoTax = DB.calculateFBRTax(basic + allowances).monthlyTax;
+    const tax = existingRec ? existingRec.tax : autoTax;
+    const net = Math.max(0, basic + allowances + overtime + bonus - (deductions + pfEmployee + unpaidLeaveDeduction + loanDeduction) - tax);
 
     const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
 
@@ -827,7 +1272,7 @@ const Payroll = {
         <div class="form-group">
           <label class="form-label">Provident Fund — Employee Share (${pfSettings.employeeRate}%)</label>
           <input type="number" class="form-control" id="slp-pf-emp" value="${pfEmployee}" oninput="Payroll.calcSlipNet()">
-          <span style="font-size:11px;color:var(--text-3)">Deducted from net pay</span>
+          <span style="font-size:11px;color:var(--text-3)">Deducted from net pay into PF trust</span>
         </div>
         <div class="form-group">
           <label class="form-label">Employer PF Match (${pfSettings.employerRate}%)</label>
@@ -838,28 +1283,34 @@ const Payroll = {
 
       <div class="form-row form-row-2">
         <div class="form-group">
-          <label class="form-label">Unpaid Leave / Loss of Pay Deduction (PKR)</label>
+          <label class="form-label">Loan &amp; PF Installment Recovery (PKR)</label>
+          <input type="number" class="form-control" id="slp-loan-ded" value="${loanDeduction}" oninput="Payroll.calcSlipNet()">
+          <span style="font-size:11px;color:${loanDeduction > 0 ? 'var(--warning)' : 'var(--text-3)'}">
+            ${activeEmpLoans.length > 0 ? `${activeEmpLoans.length} active loan(s): ${activeEmpLoans.map(l => (l.loanType==='pf_loan'?'PF Loan':'Loan')+` (PKR ${l.monthlyDeduction.toLocaleString()})`).join(', ')}` : 'No active loans for this employee'}
+          </span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unpaid Leave / Loss of Pay (PKR)</label>
           <input type="number" class="form-control" id="slp-unpaid-ded" value="${unpaidLeaveDeduction}" oninput="Payroll.calcSlipNet()">
           <span style="font-size:11px;color:${unpaidLeaveDeduction > 0 ? 'var(--danger)' : 'var(--text-3)'}">
             ${unpaidLeaveDays > 0 ? `Auto-detected: ${unpaidLeaveDays} day(s) approved unpaid leave` : 'Deducted for unpaid leaves/absences'}
           </span>
         </div>
+      </div>
+
+      <div class="form-row form-row-2">
         <div class="form-group">
-          <label class="form-label">Other Deductions (EOBI / SESSI / Loan)</label>
+          <label class="form-label">Other Deductions (EOBI / SESSI / Incidental)</label>
           <input type="number" class="form-control" id="slp-deductions" value="${deductions}" oninput="Payroll.calcSlipNet()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Income Tax (2026–27 Slab Schedule)</label>
+          <input type="number" class="form-control" id="slp-tax" value="${tax}" oninput="Payroll.calcSlipNet()">
         </div>
       </div>
 
       <div class="form-row form-row-2">
         <div class="form-group">
-          <label class="form-label">Income Tax (PKR)</label>
-          <input type="number" class="form-control" id="slp-tax" value="${tax}" oninput="Payroll.calcSlipNet()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Overtime Pay (PKR)</label>
-          <input type="number" class="form-control" id="slp-ot" value="${overtime}" oninput="Payroll.calcSlipNet()">
-        </div>
-      </div>
           <label class="form-label">Overtime Pay (PKR)</label>
           <input type="number" class="form-control" id="slp-ot" value="${overtime}" oninput="Payroll.calcSlipNet()">
         </div>
@@ -873,7 +1324,7 @@ const Payroll = {
         <div class="form-group">
           <label class="form-label">Payment Status</label>
           <select class="form-control" id="slp-status">
-            <option value="processed" ${existingRec?.status === 'processed' || !existingRec ? 'selected' : ''}>Processed (Paid)</option>
+            <option value="processed" ${existingRec?.status === 'processed' || !existingRec ? 'selected' : ''}>Processed (Paid &amp; Ledger Settled)</option>
             <option value="pending" ${existingRec?.status === 'pending' ? 'selected' : ''}>Pending Approval</option>
           </select>
         </div>
@@ -886,8 +1337,8 @@ const Payroll = {
       <!-- Live Calculation Card -->
       <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-top:10px;display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-size:12px;color:var(--text-3)">Calculated Net Payable</div>
-          <div style="font-size:11px;color:var(--text-muted)">Basic + Allowances + Overtime + Bonus - (Other Deductions + PF) - Tax</div>
+          <div style="font-size:12px;color:var(--text-3)">Calculated Net Take-Home Salary</div>
+          <div style="font-size:11px;color:var(--text-muted)">Basic + Allowances + OT + Bonus - (PF + Loan Recovery + LOP + Other) - Tax</div>
         </div>
         <div style="font-size:24px;font-weight:800;color:var(--success)" id="slp-net-display">
           ${Utils.formatCurrency(net)}
@@ -897,7 +1348,7 @@ const Payroll = {
       size: 'modal-lg',
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Payroll.saveAndGenerateSlip()"><i class="fa fa-file-invoice-dollar"></i> Generate & View Payslip</button>
+        <button class="btn btn-primary" onclick="Payroll.saveAndGenerateSlip()"><i class="fa fa-file-invoice-dollar"></i> Generate &amp; View Payslip</button>
       `
     });
   },
@@ -910,13 +1361,15 @@ const Payroll = {
     const basic = parseFloat(document.getElementById('slp-basic')?.value) || 0;
     const allowances = parseFloat(document.getElementById('slp-allowances')?.value) || 0;
     const pfEmp = parseFloat(document.getElementById('slp-pf-emp')?.value) || 0;
-    const deductions = parseFloat(document.getElementById('slp-deductions')?.value) || 0;
+    const loanDed = parseFloat(document.getElementById('slp-loan-ded')?.value) || 0;
     const unpaidDeduct = parseFloat(document.getElementById('slp-unpaid-ded')?.value) || 0;
+    const other = parseFloat(document.getElementById('slp-deductions')?.value) || 0;
     const tax = parseFloat(document.getElementById('slp-tax')?.value) || 0;
     const ot = parseFloat(document.getElementById('slp-ot')?.value) || 0;
     const bonus = parseFloat(document.getElementById('slp-bonus')?.value) || 0;
 
-    const net = Math.max(0, basic + allowances + ot + bonus - (deductions + pfEmp + unpaidDeduct) - tax);
+    const totalDeductions = other + pfEmp + unpaidDeduct + loanDed;
+    const net = Math.max(0, basic + allowances + ot + bonus - totalDeductions - tax);
     const display = document.getElementById('slp-net-display');
     if (display) display.textContent = Utils.formatCurrency(net);
     return net;
@@ -929,9 +1382,10 @@ const Payroll = {
     const allowances = parseFloat(document.getElementById('slp-allowances').value) || 0;
     const pfEmployee = parseFloat(document.getElementById('slp-pf-emp').value) || 0;
     const pfEmployer = parseFloat(document.getElementById('slp-pf-empr').value) || 0;
-    const otherDeductions = parseFloat(document.getElementById('slp-deductions').value) || 0;
+    const loanDeduction = parseFloat(document.getElementById('slp-loan-ded')?.value) || 0;
     const unpaidLeaveDeduction = parseFloat(document.getElementById('slp-unpaid-ded')?.value) || 0;
-    const totalDeductions = otherDeductions + pfEmployee + unpaidLeaveDeduction;
+    const otherDeductions = parseFloat(document.getElementById('slp-deductions').value) || 0;
+    const totalDeductions = otherDeductions + pfEmployee + unpaidLeaveDeduction + loanDeduction;
     const tax = parseFloat(document.getElementById('slp-tax').value) || 0;
     const overtime = parseFloat(document.getElementById('slp-ot').value) || 0;
     const bonus = parseFloat(document.getElementById('slp-bonus').value) || 0;
@@ -943,21 +1397,50 @@ const Payroll = {
     if (!emp) return;
 
     const existing = DB.get('salary').find(s => s.employeeId === empId && s.month === month);
+    let slipId;
     if (existing) {
+      slipId = existing.id;
       DB.update('salary', existing.id, {
-        basic, allowances, deductions: totalDeductions, pfEmployee, pfEmployer, unpaidLeaveDeduction, overtime, bonus, tax, netSalary, status, notes,
+        basic, allowances, deductions: totalDeductions, pfEmployee, pfEmployer,
+        loanDeduction, unpaidLeaveDeduction, overtime, bonus, tax, netSalary, status, notes,
         paidOn: status === 'processed' ? (existing.paidOn || Utils.today()) : null
       });
-      DB.log('PROCESS', 'Payroll', `Updated salary slip for ${emp.fullName} (${month}) with LOP deduction PKR ${unpaidLeaveDeduction}`, Auth.user?.id);
+      DB.log('PROCESS', 'Payroll', `Updated salary slip for ${emp.fullName} (${month}) [Loan Recovery: PKR ${loanDeduction}]`, Auth.user?.id);
     } else {
+      slipId = DB.nextId('salary');
       DB.add('salary', {
-        id: DB.nextId('salary'),
+        id: slipId,
         employeeId: empId,
         month,
-        basic, allowances, deductions: totalDeductions, pfEmployee, pfEmployer, unpaidLeaveDeduction, overtime, bonus, tax, netSalary, status, notes,
+        basic, allowances, deductions: totalDeductions, pfEmployee, pfEmployer,
+        loanDeduction, unpaidLeaveDeduction, overtime, bonus, tax, netSalary, status, notes,
         paidOn: status === 'processed' ? Utils.today() : null
       });
-      DB.log('PROCESS', 'Payroll', `Generated salary slip for ${emp.fullName} (${month}) with LOP deduction PKR ${unpaidLeaveDeduction}`, Auth.user?.id);
+      DB.log('PROCESS', 'Payroll', `Generated salary slip for ${emp.fullName} (${month}) [Loan Recovery: PKR ${loanDeduction}]`, Auth.user?.id);
+    }
+
+    // Auto-record installment payment and decrement remaining on active loans
+    if (status === 'processed' && loanDeduction > 0) {
+      const allLoans = DB.get('loans') || [];
+      const empActiveLoans = allLoans.filter(l => l.employeeId === empId && l.status === 'active' && (l.remaining || 0) > 0);
+      empActiveLoans.forEach(l => {
+        l.repayments = l.repayments || [];
+        if (!l.repayments.some(r => r.month === month)) {
+          l.repayments.push({
+            month,
+            amount: l.monthlyDeduction,
+            paidOn: Utils.today(),
+            method: 'salary_deduction',
+            slipId
+          });
+          l.remaining = Math.max(0, l.remaining - 1);
+          if (l.remaining === 0) {
+            l.status = 'completed';
+          }
+          DB.update('loans', l.id, l);
+          DB.log('PROCESS', 'Payroll', `Recovered loan installment PKR ${l.monthlyDeduction} from salary for ${emp.fullName} (${l.remaining} left)`, Auth.user?.id);
+        }
+      });
     }
 
     // Synchronize with Provident Fund ledger
@@ -1062,7 +1545,7 @@ const Payroll = {
 
     const pfSettings = this.getPFSettings();
 
-    Modal.confirm('Process All Salaries', `Generate salary slips for <strong>${ungenerated.length} employees</strong> for <strong>${monthLabel}</strong>? Automatic leave deductions will be applied.`, () => {
+    Modal.confirm('Process All Salaries', `Generate salary slips for <strong>${ungenerated.length} employees</strong> for <strong>${monthLabel}</strong>? Automatic loan recoveries, leave deductions, and 2026-27 FBR tax will be applied.`, () => {
       let count = 0;
       ungenerated.forEach(emp => {
         const basic = emp.salary || 50000;
@@ -1070,6 +1553,11 @@ const Payroll = {
         const pfEmp = Math.round(basic * (pfSettings.employeeRate / 100));
         const pfEmpr = Math.round(basic * (pfSettings.employerRate / 100));
         const otherDeductions = 2000;
+
+        // Auto-detect active loans & deductions
+        const allLoans = DB.get('loans') || [];
+        const empActiveLoans = allLoans.filter(l => l.employeeId === emp.id && l.status === 'active' && (l.remaining || 0) > 0);
+        const loanDeduction = empActiveLoans.reduce((sum, l) => sum + (l.monthlyDeduction || 0), 0);
 
         // Auto-calculate Loss of Pay / Leave Salary Deductions for current month
         const allLeaves = DB.get('leave_requests') || [];
@@ -1083,19 +1571,41 @@ const Payroll = {
         const unpaidLeaveDays = salaryLeaves.reduce((sum, l) => sum + (l.deductionDays || l.days || 1), 0);
         const unpaidLeaveDeduction = salaryLeaves.reduce((sum, l) => sum + (l.deductionAmount || (dailyWage * (l.days || 1))), 0);
 
-        const totalDeductions = pfEmp + otherDeductions + unpaidLeaveDeduction;
-        const tax = Math.round(basic * 0.10);
+        const totalDeductions = pfEmp + otherDeductions + unpaidLeaveDeduction + loanDeduction;
+        const taxCalc = DB.calculateFBRTax(basic + allowances);
+        const tax = taxCalc.monthlyTax;
         const net = Math.max(0, basic + allowances - totalDeductions - tax);
 
+        const newSlipId = DB.nextId('salary');
         DB.add('salary', {
-          id: DB.nextId('salary'),
+          id: newSlipId,
           employeeId: emp.id,
           month: this.currentMonth,
           basic, allowances, deductions: totalDeductions, pfEmployee: pfEmp, pfEmployer: pfEmpr,
           unpaidLeaveDeduction, unpaidLeaveDays,
+          loanDeduction,
           overtime: 0, bonus: 0, tax, netSalary: net,
           status: 'processed', paidOn: Utils.today()
         });
+
+        // Deduct installment on active loans
+        if (loanDeduction > 0) {
+          empActiveLoans.forEach(l => {
+            l.repayments = l.repayments || [];
+            if (!l.repayments.some(r => r.month === this.currentMonth)) {
+              l.repayments.push({
+                month: this.currentMonth,
+                amount: l.monthlyDeduction,
+                paidOn: Utils.today(),
+                method: 'salary_deduction',
+                slipId: newSlipId
+              });
+              l.remaining = Math.max(0, l.remaining - 1);
+              if (l.remaining === 0) l.status = 'completed';
+              DB.update('loans', l.id, l);
+            }
+          });
+        }
 
         // Sync with PF ledger
         const pfRecords = DB.get('provident_fund');
@@ -1319,9 +1829,15 @@ const Payroll = {
     const summary = this.getEmployeePFSummary(emp.id);
     const pfSettings = this.getPFSettings();
 
+    const allLoans = DB.get('loans') || [];
+    const myPFLoans = allLoans.filter(l => l.employeeId === emp.id && l.loanType === 'pf_loan');
+    const activePFLoan = myPFLoans.find(l => l.status === 'active' && (l.remaining || 0) > 0);
+    const outstandingPFLoan = activePFLoan ? ((activePFLoan.remaining || 0) * (activePFLoan.monthlyDeduction || 0)) : 0;
+    const maxLoanEligible = Math.max(0, Math.round((summary.totalBalance - outstandingPFLoan) * 0.80));
+
     container.innerHTML = `
       <!-- Employee Hero Portfolio Card -->
-      <div style="background:linear-gradient(135deg, hsl(221,83%,20%), hsl(262,83%,25%));border:1px solid var(--border);border-radius:16px;padding:26px;color:white;margin-bottom:24px;position:relative;overflow:hidden">
+      <div style="background:linear-gradient(135deg, hsl(221,83%,20%), hsl(262,83%,25%));border:1px solid var(--border);border-radius:16px;padding:26px;color:white;margin-bottom:20px;position:relative;overflow:hidden">
         <div style="position:absolute;right:-20px;bottom:-30px;font-size:160px;opacity:0.05"><i class="fa fa-piggy-bank"></i></div>
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px;position:relative;z-index:1">
           <div>
@@ -1329,7 +1845,7 @@ const Payroll = {
             <div style="font-size:36px;font-weight:800;margin:6px 0">${Utils.formatCurrency(summary.totalBalance)}</div>
             <div style="font-size:13px;opacity:0.9">Accumulated balance available in employee fund trust</div>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-secondary btn-sm" onclick="Payroll.exportEmpPFCSV(${emp.id})"><i class="fa fa-file-csv"></i> Download Statement (CSV)</button>
             <button class="btn btn-primary btn-sm" onclick="Payroll.printPFStatement(${emp.id})"><i class="fa fa-print"></i> Print / Save Statement (PDF)</button>
           </div>
@@ -1351,6 +1867,48 @@ const Payroll = {
           <div style="background:rgba(255,255,255,0.08);backdrop-filter:blur(8px);border-radius:10px;padding:14px">
             <div style="font-size:11px;opacity:0.8">Vesting Status</div>
             <div style="font-size:18px;font-weight:700;margin-top:2px;color:#86efac"><i class="fa fa-check-circle"></i> 100% Vested</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PF Loan & Collateral Facility Card -->
+      <div class="card" style="margin-bottom:20px;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(168,85,247,0.06));border:1px solid rgba(99,102,241,0.25)">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-hand-holding-dollar" style="color:var(--primary)"></i> Loan Facility Against Provident Fund
+            </div>
+            <div style="font-size:12.5px;color:var(--text-2);margin-top:4px">
+              You are entitled to borrow up to <strong>80% of your accumulated PF balance</strong> as a collateral-backed loan with automatic salary recovery.
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            ${activePFLoan ? `
+              <button class="btn btn-secondary btn-sm" onclick="Payroll.showLoanRepaymentModal(${activePFLoan.id})"><i class="fa fa-receipt"></i> View Active Loan Ledger</button>
+            ` : `
+              <button class="btn btn-primary btn-sm" onclick="Payroll.showAddLoan(true)"><i class="fa fa-paper-plane"></i> Apply for Loan Against PF</button>
+            `}
+            <button class="btn btn-ghost btn-sm" onclick="Payroll.switchTab('loans')"><i class="fa fa-arrow-right"></i> All My Loans</button>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Available Borrowing Limit (80%)</div>
+            <div style="font-size:20px;font-weight:800;color:var(--success);margin-top:2px">${Utils.formatCurrency(maxLoanEligible)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Unencumbered collateral ceiling</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Active PF Loan Exposure</div>
+            <div style="font-size:20px;font-weight:800;color:${outstandingPFLoan > 0 ? 'var(--warning)' : 'var(--text-muted)'};margin-top:2px">
+              ${outstandingPFLoan > 0 ? Utils.formatCurrency(outstandingPFLoan) : 'No Active Loan'}
+            </div>
+            <div style="font-size:11px;color:var(--text-muted)">${activePFLoan ? `${activePFLoan.remaining} installments left (${Utils.formatCurrency(activePFLoan.monthlyDeduction)}/mo)` : 'Zero encumbrance'}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Unencumbered Net Trust Balance</div>
+            <div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:2px">${Utils.formatCurrency(Math.max(0, summary.totalBalance - outstandingPFLoan))}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Net equity after loan collateral</div>
           </div>
         </div>
       </div>
@@ -1409,35 +1967,46 @@ const Payroll = {
     const emps = DB.get('employees').filter(e => e.status === 'active');
     const pfSettings = this.getPFSettings();
 
+    const allLoans = DB.get('loans') || [];
+    const activePFLoans = allLoans.filter(l => l.loanType === 'pf_loan' && l.status === 'active' && (l.remaining || 0) > 0);
+    const totalPFLoanExposure = activePFLoans.reduce((sum, l) => sum + ((l.remaining || 0) * (l.monthlyDeduction || 0)), 0);
+
     container.innerHTML = `
       <!-- KPI Cards -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
-          <div style="width:48px;height:48px;border-radius:12px;background:var(--success)22;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--success)"><i class="fa fa-piggy-bank"></i></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:var(--success)22;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--success)"><i class="fa fa-piggy-bank"></i></div>
           <div>
-            <div style="font-size:20px;font-weight:800;color:var(--success)">${Utils.formatCurrency(summary.totalPool)}</div>
-            <div style="font-size:12px;color:var(--text-3)">Total PF Fund Pool</div>
+            <div style="font-size:18px;font-weight:800;color:var(--success)">${Utils.formatCurrency(summary.totalPool)}</div>
+            <div style="font-size:11px;color:var(--text-3)">Total PF Fund Pool</div>
           </div>
         </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
-          <div style="width:48px;height:48px;border-radius:12px;background:var(--primary)22;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary)"><i class="fa fa-hand-holding-dollar"></i></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:var(--primary)22;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--primary)"><i class="fa fa-hand-holding-dollar"></i></div>
           <div>
-            <div style="font-size:20px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(summary.totalEmployee)}</div>
-            <div style="font-size:12px;color:var(--text-3)">Total Employee Contributions</div>
+            <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(summary.totalEmployee)}</div>
+            <div style="font-size:11px;color:var(--text-3)">Employee Contributions</div>
           </div>
         </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
-          <div style="width:48px;height:48px;border-radius:12px;background:#a855f722;display:flex;align-items:center;justify-content:center;font-size:20px;color:#a855f7"><i class="fa fa-building-columns"></i></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:#a855f722;display:flex;align-items:center;justify-content:center;font-size:18px;color:#a855f7"><i class="fa fa-building-columns"></i></div>
           <div>
-            <div style="font-size:20px;font-weight:800;color:#a855f7">${Utils.formatCurrency(summary.totalEmployer)}</div>
-            <div style="font-size:12px;color:var(--text-3)">Total Employer Match</div>
+            <div style="font-size:18px;font-weight:800;color:#a855f7">${Utils.formatCurrency(summary.totalEmployer)}</div>
+            <div style="font-size:11px;color:var(--text-3)">Employer Match</div>
           </div>
         </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
-          <div style="width:48px;height:48px;border-radius:12px;background:var(--info)22;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--info)"><i class="fa fa-users"></i></div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:var(--warning)22;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--warning)"><i class="fa fa-file-invoice-dollar"></i></div>
           <div>
-            <div style="font-size:20px;font-weight:800;color:var(--info)">${summary.activeMembers} / ${summary.totalEmployees}</div>
-            <div style="font-size:12px;color:var(--text-3)">Enrolled Active Members</div>
+            <div style="font-size:18px;font-weight:800;color:var(--warning)">${Utils.formatCurrency(totalPFLoanExposure)}</div>
+            <div style="font-size:11px;color:var(--text-3)">${activePFLoans.length} Active PF Loans</div>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:10px;background:var(--info)22;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--info)"><i class="fa fa-users"></i></div>
+          <div>
+            <div style="font-size:18px;font-weight:800;color:var(--info)">${summary.activeMembers} / ${summary.totalEmployees}</div>
+            <div style="font-size:11px;color:var(--text-3)">Enrolled Members</div>
           </div>
         </div>
       </div>
@@ -2499,10 +3068,10 @@ const Payroll = {
             <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(99,102,241,0.12);color:var(--primary)">
               <i class="fa fa-scale-balanced"></i>
             </span>
-            Pakistan FBR Income Tax Engine (Finance Act 2024&ndash;2026)
+            Pakistan FBR Income Tax Engine (Finance Act 2026&ndash;2027)
           </h2>
           <div style="font-size:12.5px;color:var(--text-3);margin-top:4px">
-            Progressive slab-based income withholding tax calculator & Official Section 149 Tax Certificates
+            Salaried Individuals Tax Year 2026&ndash;2027 progressive slab calculator &amp; Section 149 certificates
           </div>
         </div>
 
@@ -2537,8 +3106,8 @@ const Payroll = {
         </div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
           <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Active Tax Law</div>
-          <div style="font-size:16px;font-weight:800;color:var(--success);margin-top:6px">Finance Act 2024</div>
-          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Slabs 1 to 6 Progressive SRO</div>
+          <div style="font-size:16px;font-weight:800;color:var(--success);margin-top:6px">Finance Act 2026–27</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Slabs 1 to 8 Progressive Schedule</div>
         </div>
       </div>
 
@@ -2547,32 +3116,40 @@ const Payroll = {
         <!-- Progressive Slabs Info Grid -->
         <div class="card" style="padding:18px">
           <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px">
-            <i class="fa fa-layer-group" style="color:var(--primary)"></i> Progressive Slabs for Salaried Individuals (Tax Year 2025&ndash;2026)
+            <i class="fa fa-layer-group" style="color:var(--primary)"></i> Progressive Slabs for Salaried Individuals (Tax Year 2026&ndash;2027)
           </div>
-          <div style="display:grid;gap:8px">
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(16,185,129,0.08);border-left:4px solid var(--success);border-radius:6px;font-size:12.5px">
+          <div style="display:grid;gap:7px">
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(16,185,129,0.08);border-left:4px solid var(--success);border-radius:6px;font-size:12px">
               <div><strong>Slab 1: Up to PKR 600,000 / annum</strong> (Up to PKR 50,000/mo)</div>
-              <div style="font-weight:800;color:var(--success)">0% Tax Free</div>
+              <div style="font-weight:800;color:var(--success)">0% (Tax-Free)</div>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(59,130,246,0.08);border-left:4px solid var(--primary);border-radius:6px;font-size:12.5px">
-              <div><strong>Slab 2: PKR 600,001 to 1,200,000</strong> (50K to 100K/mo)</div>
-              <div style="font-weight:700;color:var(--primary)">5% of amount > 600K</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(59,130,246,0.08);border-left:4px solid var(--primary);border-radius:6px;font-size:12px">
+              <div><strong>Slab 2: PKR 600,001 – 1,200,000</strong> (50K – 100K/mo)</div>
+              <div style="font-weight:700;color:var(--primary)">1% of amount > 600K</div>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(245,158,11,0.08);border-left:4px solid var(--warning);border-radius:6px;font-size:12.5px">
-              <div><strong>Slab 3: PKR 1,200,001 to 2,200,000</strong> (100K to 183.3K/mo)</div>
-              <div style="font-weight:700;color:var(--warning)">PKR 30,000 + 15% of amount > 1.2M</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(245,158,11,0.08);border-left:4px solid var(--warning);border-radius:6px;font-size:12px">
+              <div><strong>Slab 3: PKR 1,200,001 – 2,200,000</strong> (100K – 183.3K/mo)</div>
+              <div style="font-weight:700;color:var(--warning)">PKR 6,000 + 11% of amount > 1.2M</div>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(236,72,153,0.08);border-left:4px solid #ec4899;border-radius:6px;font-size:12.5px">
-              <div><strong>Slab 4: PKR 2,200,001 to 3,200,000</strong> (183.3K to 266.6K/mo)</div>
-              <div style="font-weight:700;color:#ec4899">PKR 180,000 + 25% of amount > 2.2M</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(236,72,153,0.08);border-left:4px solid #ec4899;border-radius:6px;font-size:12px">
+              <div><strong>Slab 4: PKR 2,200,001 – 3,200,000</strong> (183.3K – 266.6K/mo)</div>
+              <div style="font-weight:700;color:#ec4899">PKR 116,000 + 20% of amount > 2.2M</div>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(139,92,246,0.08);border-left:4px solid #8b5cf6;border-radius:6px;font-size:12.5px">
-              <div><strong>Slab 5: PKR 3,200,001 to 4,100,000</strong> (266.6K to 341.6K/mo)</div>
-              <div style="font-weight:700;color:#8b5cf6">PKR 430,000 + 30% of amount > 3.2M</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(139,92,246,0.08);border-left:4px solid #8b5cf6;border-radius:6px;font-size:12px">
+              <div><strong>Slab 5: PKR 3,200,001 – 4,100,000</strong> (266.6K – 341.6K/mo)</div>
+              <div style="font-weight:700;color:#8b5cf6">PKR 316,000 + 25% of amount > 3.2M</div>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 12px;background:rgba(239,68,68,0.08);border-left:4px solid var(--danger);border-radius:6px;font-size:12.5px">
-              <div><strong>Slab 6: Exceeding PKR 4,100,000</strong> (> 341.6K/mo)</div>
-              <div style="font-weight:800;color:var(--danger)">PKR 700,000 + 35% of amount > 4.1M</div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(14,165,233,0.08);border-left:4px solid #0ea5e9;border-radius:6px;font-size:12px">
+              <div><strong>Slab 6: PKR 4,100,001 – 5,600,000</strong> (341.6K – 466.6K/mo)</div>
+              <div style="font-weight:700;color:#0ea5e9">PKR 541,000 + 29% of amount > 4.1M</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(249,115,22,0.08);border-left:4px solid #f97316;border-radius:6px;font-size:12px">
+              <div><strong>Slab 7: PKR 5,600,001 – 7,000,000</strong> (466.6K – 583.3K/mo)</div>
+              <div style="font-weight:700;color:#f97316">PKR 976,000 + 32% of amount > 5.6M</div>
+            </div>
+            <div style="display:flex;justify-content:space-between;padding:7px 12px;background:rgba(239,68,68,0.08);border-left:4px solid var(--danger);border-radius:6px;font-size:12px">
+              <div><strong>Slab 8: Exceeding PKR 7,000,000</strong> (> 583.3K/mo)</div>
+              <div style="font-weight:800;color:var(--danger)">PKR 1,424,000 + 35% of amount > 7.0M</div>
             </div>
           </div>
         </div>

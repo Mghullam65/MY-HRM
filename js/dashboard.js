@@ -75,9 +75,8 @@ const Dashboard = {
       if (rec) {
         rec.timeIn = timeStr;
         rec.status = isLate ? 'late' : 'present';
-        DB.set('attendance', allAtt);
       } else {
-        const newRec = {
+        rec = {
           id: DB.nextId('attendance'),
           employeeId: myId,
           date: today,
@@ -90,9 +89,9 @@ const Dashboard = {
           device: 'ZKTeco-Main-Gate',
           remarks: 'Self Check-In'
         };
-        DB.add('attendance', newRec);
-        rec = newRec;
+        allAtt.push(rec);
       }
+      DB.set('attendance', allAtt);
     } else if (type === 'ot_out' || type === 'b_out') {
       if (!rec || !rec.timeIn) {
         Toast.show('Please check in first before recording OT-Out', 'warning');
@@ -152,7 +151,7 @@ const Dashboard = {
 
     if (rec) {
       rec.punchCount = punchNumber;
-      rec.completionStatus = (rec.timeIn && rec.breakOut && rec.breakIn && rec.timeOut) ? 'Complete' : 'In Progress';
+      rec.completionStatus = (rec.timeIn && rec.breakOut && rec.breakIn && rec.timeOut) ? 'complete' : 'in_progress';
       DB.set('attendance', allAtt);
     }
 

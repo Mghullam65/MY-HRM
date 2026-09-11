@@ -39,6 +39,7 @@ const DB = {
       this.ensureRosterAndAttendanceData();
       this.ensureProfileMastersData();
       this.ensureGovernanceMastersData();
+      this.ensureLoansData();
       return;
     }
     this.seed();
@@ -74,6 +75,7 @@ const DB = {
     this.ensureRosterAndAttendanceData();
     this.ensureProfileMastersData();
     this.ensureGovernanceMastersData();
+    this.ensureLoansData();
     localStorage.setItem('hrm_initialized', '1');
   },
 
@@ -917,33 +919,41 @@ const DB = {
   calculateFBRTax(monthlyIncome) {
     const annualIncome = Math.max(0, Number(monthlyIncome) || 0) * 12;
     let annualTax = 0;
-    let slabDesc = 'Slab 1 (Up to PKR 600K: 0%)';
+    let slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
     let slabId = 1;
 
     if (annualIncome <= 600000) {
       annualTax = 0;
-      slabDesc = 'Slab 1 (Up to PKR 600,000: 0%)';
+      slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
       slabId = 1;
     } else if (annualIncome <= 1200000) {
-      annualTax = (annualIncome - 600000) * 0.05;
-      slabDesc = 'Slab 2 (PKR 600K - 1.2M: 5% of excess)';
+      annualTax = (annualIncome - 600000) * 0.01;
+      slabDesc = 'Slab 2 (PKR 600,001 – 1,200,000: 1% of excess over PKR 600,000)';
       slabId = 2;
     } else if (annualIncome <= 2200000) {
-      annualTax = 30000 + (annualIncome - 1200000) * 0.15;
-      slabDesc = 'Slab 3 (PKR 1.2M - 2.2M: PKR 30K + 15%)';
+      annualTax = 6000 + (annualIncome - 1200000) * 0.11;
+      slabDesc = 'Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)';
       slabId = 3;
     } else if (annualIncome <= 3200000) {
-      annualTax = 180000 + (annualIncome - 2200000) * 0.25;
-      slabDesc = 'Slab 4 (PKR 2.2M - 3.2M: PKR 180K + 25%)';
+      annualTax = 116000 + (annualIncome - 2200000) * 0.20;
+      slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 20% of excess over PKR 2.2M)';
       slabId = 4;
     } else if (annualIncome <= 4100000) {
-      annualTax = 430000 + (annualIncome - 3200000) * 0.30;
-      slabDesc = 'Slab 5 (PKR 3.2M - 4.1M: PKR 430K + 30%)';
+      annualTax = 316000 + (annualIncome - 3200000) * 0.25;
+      slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 316,000 + 25% of excess over PKR 3.2M)';
       slabId = 5;
-    } else {
-      annualTax = 700000 + (annualIncome - 4100000) * 0.35;
-      slabDesc = 'Slab 6 (Above PKR 4.1M: PKR 700K + 35%)';
+    } else if (annualIncome <= 5600000) {
+      annualTax = 541000 + (annualIncome - 4100000) * 0.29;
+      slabDesc = 'Slab 6 (PKR 4,100,001 – 5,600,000: PKR 541,000 + 29% of excess over PKR 4.1M)';
       slabId = 6;
+    } else if (annualIncome <= 7000000) {
+      annualTax = 976000 + (annualIncome - 5600000) * 0.32;
+      slabDesc = 'Slab 7 (PKR 5,600,001 – 7,000,000: PKR 976,000 + 32% of excess over PKR 5.6M)';
+      slabId = 7;
+    } else {
+      annualTax = 1424000 + (annualIncome - 7000000) * 0.35;
+      slabDesc = 'Slab 8 (Above PKR 7,000,000: PKR 1,424,000 + 35% of excess over PKR 7.0M)';
+      slabId = 8;
     }
 
     const monthlyTax = Math.round(annualTax / 12);
@@ -960,20 +970,22 @@ const DB = {
   },
 
   ensureTaxAndStatutoryData() {
-    // 1. Ensure tax_config
+    // 1. Ensure tax_config with 2026–2027 Slabs
     let config = this.get('tax_config');
-    if (!config || !config.slabs) {
+    if (!config || !config.slabs || config.financialYear !== '2026–2027' || config.slabs.length < 8) {
       config = {
-        financialYear: '2024–2026',
-        act: 'Finance Act 2024 / FBR SRO',
+        financialYear: '2026–2027',
+        act: 'Finance Act 2026–27 / FBR SRO',
         statutoryMinWage: 37000,
         slabs: [
-          { slab: 1, min: 0, max: 600000, rate: 0, fixed: 0, desc: 'Up to PKR 600,000 (Tax Free)' },
-          { slab: 2, min: 600000, max: 1200000, rate: 0.05, fixed: 0, desc: '5% of amount exceeding PKR 600,000' },
-          { slab: 3, min: 1200000, max: 2200000, rate: 0.15, fixed: 30000, desc: 'PKR 30,000 + 15% of amount exceeding PKR 1,200,000' },
-          { slab: 4, min: 2200000, max: 3200000, rate: 0.25, fixed: 180000, desc: 'PKR 180,000 + 25% of amount exceeding PKR 2,200,000' },
-          { slab: 5, min: 3200000, max: 4100000, rate: 0.30, fixed: 430000, desc: 'PKR 430,000 + 30% of amount exceeding PKR 3,200,000' },
-          { slab: 6, min: 4100000, max: Infinity, rate: 0.35, fixed: 700000, desc: 'PKR 700,000 + 35% of amount exceeding PKR 4,100,000' }
+          { slab: 1, min: 0, max: 600000, rate: 0, fixed: 0, desc: 'Up to PKR 600,000: 0% (Tax-free)' },
+          { slab: 2, min: 600000, max: 1200000, rate: 0.01, fixed: 0, desc: 'PKR 600,001 – 1,200,000: 1% of excess over PKR 600,000' },
+          { slab: 3, min: 1200000, max: 2200000, rate: 0.11, fixed: 6000, desc: 'PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1,200,000' },
+          { slab: 4, min: 2200000, max: 3200000, rate: 0.20, fixed: 116000, desc: 'PKR 2,200,001 – 3,200,000: PKR 116,000 + 20% of excess over PKR 2,200,000' },
+          { slab: 5, min: 3200000, max: 4100000, rate: 0.25, fixed: 316000, desc: 'PKR 3,200,001 – 4,100,000: PKR 316,000 + 25% of excess over PKR 3,200,000' },
+          { slab: 6, min: 4100000, max: 5600000, rate: 0.29, fixed: 541000, desc: 'PKR 4,100,001 – 5,600,000: PKR 541,000 + 29% of excess over PKR 4,100,000' },
+          { slab: 7, min: 5600000, max: 7000000, rate: 0.32, fixed: 976000, desc: 'PKR 5,600,001 – 7,000,000: PKR 976,000 + 32% of excess over PKR 5,600,000' },
+          { slab: 8, min: 7000000, max: Infinity, rate: 0.35, fixed: 1424000, desc: 'Above PKR 7,000,000: PKR 1,424,000 + 35% of excess over PKR 7,000,000' }
         ],
         eobi: { employerRate: 0.05, employeeRate: 0.01, wageBase: 37000, employerAmt: 1850, employeeAmt: 370, totalAmt: 2220 },
         sessi: { employerRate: 0.06, employeeRate: 0, wageBase: 37000, employerAmt: 2220, employeeAmt: 0, totalAmt: 2220 },
@@ -3963,6 +3975,24 @@ const DB = {
       this.set('attendance_logs', genMachinePunchLogs());
     }
 
+    let attendance = this.get('attendance');
+    if (attendance && attendance.length) {
+      let updated = false;
+      attendance.forEach(a => {
+        if (!a.punchCount || !a.completionStatus) {
+          let count = 0;
+          if (a.timeIn) count++;
+          if (a.breakOut) count++;
+          if (a.breakIn) count++;
+          if (a.timeOut) count++;
+          a.punchCount = count;
+          a.completionStatus = (a.timeIn && a.timeOut && a.breakOut && a.breakIn) ? 'complete' : (a.timeIn && !a.timeOut ? 'in_progress' : 'incomplete');
+          updated = true;
+        }
+      });
+      if (updated) this.set('attendance', attendance);
+    }
+
     let rosters = this.get('rosters');
     if (!rosters || !rosters.length) {
       rosters = [
@@ -4111,6 +4141,77 @@ const DB = {
         { id: 2, employeeId: 3, title: 'Corporate Laptop Insurance Guarantee', amount: 2000, type: 'standard', effectiveFrom: '2026-01-01' }
       ];
       this.set('deductions', deductions);
+    }
+  },
+
+  ensureLoansData() {
+    let loans = this.get('loans') || [];
+    let updated = false;
+
+    if (!loans.length) {
+      loans = [
+        { id: 1, employeeId: 1, loanType: 'pf_loan', amount: 80000, purpose: 'Home Renovation (Against PF Balance)', installments: 10, monthlyDeduction: 8000, startDate: '2026-06-01', remaining: 7, status: 'active', collateralPF: true, repayments: [
+          { month: '2026-06', amount: 8000, paidOn: '2026-06-28', method: 'salary_deduction' },
+          { month: '2026-07', amount: 8000, paidOn: '2026-07-28', method: 'salary_deduction' },
+          { month: '2026-08', amount: 8000, paidOn: '2026-08-28', method: 'salary_deduction' }
+        ] },
+        { id: 2, employeeId: 7, loanType: 'personal', amount: 200000, purpose: 'Home appliances', installments: 12, monthlyDeduction: 16667, startDate: '2026-06-01', remaining: 10, status: 'active', collateralPF: false, repayments: [
+          { month: '2026-06', amount: 16667, paidOn: '2026-06-28', method: 'salary_deduction' },
+          { month: '2026-07', amount: 16667, paidOn: '2026-07-28', method: 'salary_deduction' }
+        ] },
+        { id: 3, employeeId: 4, loanType: 'pf_loan', amount: 120000, purpose: 'Children Higher Education (Against PF)', installments: 12, monthlyDeduction: 10000, startDate: '2026-05-01', remaining: 8, status: 'active', collateralPF: true, repayments: [
+          { month: '2026-05', amount: 10000, paidOn: '2026-05-28', method: 'salary_deduction' },
+          { month: '2026-06', amount: 10000, paidOn: '2026-06-28', method: 'salary_deduction' },
+          { month: '2026-07', amount: 10000, paidOn: '2026-07-28', method: 'salary_deduction' },
+          { month: '2026-08', amount: 10000, paidOn: '2026-08-28', method: 'salary_deduction' }
+        ] }
+      ];
+      this.set('loans', loans);
+      return;
+    }
+
+    // Ensure all existing loans have loanType, collateralPF, and repayments array
+    loans.forEach(l => {
+      if (!l.loanType) {
+        l.loanType = (l.purpose && l.purpose.toLowerCase().includes('pf')) ? 'pf_loan' : 'personal';
+        updated = true;
+      }
+      if (l.collateralPF === undefined) {
+        l.collateralPF = l.loanType === 'pf_loan';
+        updated = true;
+      }
+      if (!l.repayments) {
+        l.repayments = [];
+        updated = true;
+      }
+    });
+
+    // If no PF Loan exists at all, seed one for Emp 1
+    if (!loans.some(l => l.loanType === 'pf_loan')) {
+      const nextId = loans.length > 0 ? Math.max(...loans.map(l => l.id || 0)) + 1 : 1;
+      loans.push({
+        id: nextId,
+        employeeId: 1,
+        loanType: 'pf_loan',
+        amount: 80000,
+        purpose: 'Home Renovation (Against PF Balance)',
+        installments: 10,
+        monthlyDeduction: 8000,
+        startDate: '2026-06-01',
+        remaining: 7,
+        status: 'active',
+        collateralPF: true,
+        repayments: [
+          { month: '2026-06', amount: 8000, paidOn: '2026-06-28', method: 'salary_deduction' },
+          { month: '2026-07', amount: 8000, paidOn: '2026-07-28', method: 'salary_deduction' },
+          { month: '2026-08', amount: 8000, paidOn: '2026-08-28', method: 'salary_deduction' }
+        ]
+      });
+      updated = true;
+    }
+
+    if (updated) {
+      this.set('loans', loans);
     }
   },
 
@@ -4771,7 +4872,9 @@ const overtimeTokens = [
 function genMachinePunchLogs() {
   const logs = [];
   let logId = 1;
+  const todayStr = new Date().toISOString().split('T')[0];
   const dates = ['2026-09-08', '2026-09-09', '2026-09-10'];
+  if (!dates.includes(todayStr)) dates.push(todayStr);
   const emps = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 13, 14, 15];
   const devices = [
     { name: 'ZKTeco-Main-Gate', ip: '192.168.1.201' },
@@ -5197,8 +5300,22 @@ const teams = [
 ];
 
 const loans = [
-  { id: 1, employeeId: 7, amount: 200000, purpose: 'Home appliances', installments: 12, monthlyDeduction: 16667, startDate: '2026-06-01', remaining: 10, status: 'active' },
-  { id: 2, employeeId: 9, amount: 100000, purpose: 'Medical emergency', installments: 6, monthlyDeduction: 16667, startDate: '2026-05-01', remaining: 0, status: 'completed' },
+  { id: 1, employeeId: 1, loanType: 'pf_loan', amount: 80000, purpose: 'Home Renovation (Against PF Balance)', installments: 10, monthlyDeduction: 8000, startDate: '2026-06-01', remaining: 7, status: 'active', collateralPF: true, repayments: [
+    { month: '2026-06', amount: 8000, paidOn: '2026-06-28', method: 'salary_deduction' },
+    { month: '2026-07', amount: 8000, paidOn: '2026-07-28', method: 'salary_deduction' },
+    { month: '2026-08', amount: 8000, paidOn: '2026-08-28', method: 'salary_deduction' }
+  ] },
+  { id: 2, employeeId: 7, loanType: 'personal', amount: 200000, purpose: 'Home appliances', installments: 12, monthlyDeduction: 16667, startDate: '2026-06-01', remaining: 10, status: 'active', collateralPF: false, repayments: [
+    { month: '2026-06', amount: 16667, paidOn: '2026-06-28', method: 'salary_deduction' },
+    { month: '2026-07', amount: 16667, paidOn: '2026-07-28', method: 'salary_deduction' }
+  ] },
+  { id: 3, employeeId: 4, loanType: 'pf_loan', amount: 120000, purpose: 'Children Higher Education (Against PF)', installments: 12, monthlyDeduction: 10000, startDate: '2026-05-01', remaining: 8, status: 'active', collateralPF: true, repayments: [
+    { month: '2026-05', amount: 10000, paidOn: '2026-05-28', method: 'salary_deduction' },
+    { month: '2026-06', amount: 10000, paidOn: '2026-06-28', method: 'salary_deduction' },
+    { month: '2026-07', amount: 10000, paidOn: '2026-07-28', method: 'salary_deduction' },
+    { month: '2026-08', amount: 10000, paidOn: '2026-08-28', method: 'salary_deduction' }
+  ] },
+  { id: 4, employeeId: 9, loanType: 'medical', amount: 100000, purpose: 'Medical emergency', installments: 6, monthlyDeduction: 16667, startDate: '2026-01-01', remaining: 0, status: 'completed', collateralPF: false, repayments: [] }
 ];
 
 const documents = [
