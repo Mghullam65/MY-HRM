@@ -3870,6 +3870,27 @@ const DB = {
       this.set('talent_pools', talentPools);
     }
 
+    let assessments = this.get('candidate_assessments');
+    if (!assessments || !assessments.length) {
+      assessments = [
+        // ACCOUNTS PAYABLE EXECUTIVE (PositionId: 5, Tracked: 14)
+        { id: 1, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 1', shortlistedDate: '2026-08-15', experience: 3.5, currentSalary: 75000, expectedSalary: 90000, score: 75, interviewDate: '2026-08-20', noticePeriod: '30 Days', address: 'Gulshan-e-Iqbal, Karachi', priority: 'P2', recommendation: 'Recommended for Offer', isShortlisted: true, hired: true },
+        { id: 2, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 2', shortlistedDate: '2026-08-16', experience: 4.0, currentSalary: 80000, expectedSalary: 100000, score: 77, interviewDate: '2026-08-21', noticePeriod: '15 Days', address: 'Clifton, Karachi', priority: 'P2', recommendation: 'Recommended for Offer', isShortlisted: true, hired: false },
+        { id: 3, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 3', shortlistedDate: '2026-08-17', experience: 2.0, currentSalary: 55000, expectedSalary: 70000, score: 62, interviewDate: '2026-08-22', noticePeriod: 'Immediate', address: 'North Nazimabad, Karachi', priority: 'P3', recommendation: 'Hold / Backup', isShortlisted: false, hired: false },
+        { id: 4, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 4', shortlistedDate: '2026-08-18', experience: 5.0, currentSalary: 85000, expectedSalary: 110000, score: 74, interviewDate: '2026-08-23', noticePeriod: '45 Days', address: 'PECHS Block 2, Karachi', priority: 'P2', recommendation: 'Recommended for Offer', isShortlisted: true, hired: false },
+        { id: 5, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 5', shortlistedDate: '2026-08-19', experience: 2.5, currentSalary: 60000, expectedSalary: 75000, score: 50, interviewDate: '2026-08-24', noticePeriod: '30 Days', address: 'Malir Cantt, Karachi', priority: 'Not Recommended', recommendation: 'Not Recommended', isShortlisted: false, hired: false },
+        { id: 6, jobId: 5, jobTitle: 'Accounts Payable Executive', candidateName: 'Candidate 6', shortlistedDate: '2026-08-20', experience: 1.5, currentSalary: 50000, expectedSalary: 65000, score: 60, interviewDate: '2026-08-25', noticePeriod: 'Immediate', address: 'Korangi Creek, Karachi', priority: 'P3', recommendation: 'Hold / Backup', isShortlisted: false, hired: false },
+
+        // ACCOUNTS EXECUTIVE (PositionId: 6, Tracked: 7)
+        { id: 7, jobId: 6, jobTitle: 'Accounts Executive', candidateName: 'Candidate 1', shortlistedDate: '2026-08-12', experience: 3.5, currentSalary: 75000, expectedSalary: 90000, score: 75, interviewDate: '2026-08-18', noticePeriod: '30 Days', address: 'Gulberg Town, Karachi', priority: 'P2', recommendation: 'Recommended for Offer', isShortlisted: true, hired: true },
+
+        // SENIOR TAX OFFICER (PositionId: 7, Tracked: 5)
+        { id: 8, jobId: 7, jobTitle: 'Senior Tax Officer', candidateName: 'Candidate 1', shortlistedDate: '2026-08-10', experience: 4.0, currentSalary: 80000, expectedSalary: 100000, score: 77, interviewDate: '2026-08-16', noticePeriod: '30 Days', address: 'DHA Phase 6, Karachi', priority: 'P2', recommendation: 'Recommended for Offer', isShortlisted: true, hired: true },
+        { id: 9, jobId: 7, jobTitle: 'Senior Tax Officer', candidateName: 'Candidate 2', shortlistedDate: '2026-08-12', experience: 2.0, currentSalary: 55000, expectedSalary: 70000, score: 62, interviewDate: '2026-08-19', noticePeriod: '15 Days', address: 'Federal B Area, Karachi', priority: 'P3', recommendation: 'Hold / Backup', isShortlisted: true, hired: false },
+      ];
+      this.set('candidate_assessments', assessments);
+    }
+
     let refChecks = this.get('reference_checks');
     if (!refChecks || !refChecks.length) {
       refChecks = [
@@ -5428,6 +5449,9 @@ const recruitmentJobs = [
   { id: 2, title: 'HR Executive', departmentId: 1, positions: 1, status: 'open', postedOn: '2026-08-10', deadline: '2026-09-15', salary: '60000-80000', experience: '2-3 years', description: 'HR executive for daily operations', applicantCount: 8 },
   { id: 3, title: 'Sales Manager', departmentId: 4, positions: 1, status: 'interviewing', postedOn: '2026-07-15', deadline: '2026-08-31', salary: '120000-160000', experience: '5-8 years', description: 'Sales manager for enterprise clients', applicantCount: 5 },
   { id: 4, title: 'Accountant', departmentId: 3, positions: 1, status: 'closed', postedOn: '2026-06-01', deadline: '2026-07-31', salary: '70000-90000', experience: '3-5 years', description: 'Experienced accountant needed', applicantCount: 15 },
+  { id: 5, title: 'Accounts Payable Executive', departmentId: 3, positions: 1, status: 'open', postedOn: '2026-08-01', deadline: '2026-09-30', salary: '80000-100000', experience: '3-5 years', description: 'Accounts payable processing and vendor reconciliations', applicantCount: 14 },
+  { id: 6, title: 'Accounts Executive', departmentId: 3, positions: 1, status: 'open', postedOn: '2026-08-05', deadline: '2026-09-25', salary: '70000-90000', experience: '2-4 years', description: 'General ledger, daily vouchers, and accounting records', applicantCount: 7 },
+  { id: 7, title: 'Senior Tax Officer', departmentId: 3, positions: 1, status: 'open', postedOn: '2026-08-01', deadline: '2026-09-20', salary: '90000-120000', experience: '4-6 years', description: 'Direct/indirect corporate taxation, withholding, and FBR filings', applicantCount: 5 },
 ];
 
 const applications = [

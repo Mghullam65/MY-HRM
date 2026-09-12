@@ -2154,6 +2154,9 @@ const Recruitment = {
             <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')">
               <i class="fa fa-user-plus" style="margin-right:6px"></i>Onboarding Checklists
             </button>
+            <button class="tab-toggle-btn ${this.currentView==='assessment_sheets'?'active':''}" onclick="Recruitment.switchView('assessment_sheets')">
+              <i class="fa fa-table-list" style="margin-right:6px"></i>Assessment Sheets & Funnel
+            </button>
             ${isHR ? `
               <button class="tab-toggle-btn ${this.currentView==='offers'?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative">
                 <i class="fa fa-file-signature" style="margin-right:6px"></i>Offer Letters
@@ -2174,6 +2177,18 @@ const Recruitment = {
                 <i class="fa fa-plus"></i> Create Offer Letter
               </button>
             </div>
+          ` : this.currentView === 'assessment_sheets' ? `
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="Recruitment.exportAssessmentCSV()">
+                <i class="fa fa-file-csv"></i> Export CSV
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="Recruitment.printAssessmentSheet()">
+                <i class="fa fa-print"></i> Print Sheet
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddAssessmentModal()">
+                <i class="fa fa-plus"></i> Add Candidate Evaluation
+              </button>
+            </div>
           ` : ''}
         </div>
         <style>
@@ -2190,11 +2205,7 @@ const Recruitment = {
 
   switchView(view) {
     this.currentView = view;
-    document.querySelectorAll('.tab-toggle-btn').forEach(b => {
-      const isMatch = b.getAttribute('onclick')?.includes(`'${view}'`);
-      b.classList.toggle('active', !!isMatch);
-    });
-    this.renderView();
+    this.render();
   },
 
   renderView() {
@@ -2207,6 +2218,7 @@ const Recruitment = {
     else if (this.currentView === 'interviews') this.renderInterviews(container);
     else if (this.currentView === 'talent_pools') this.renderTalentPools(container);
     else if (this.currentView === 'onboarding') this.renderOnboarding(container);
+    else if (this.currentView === 'assessment_sheets') this.renderAssessmentSheets(container);
   },
 
   renderJobs(container) {
@@ -2613,25 +2625,26 @@ const Recruitment = {
   // CREATE / GENERATE OFFER LETTER MODAL
   // ═══════════════════════════════════════════════
 
-  showGenerateOfferLetterModal(appId = null) {
+  showGenerateOfferLetterModal(appId = null, prefillData = null) {
     if (!this.isHROrAdmin()) {
       Toast.show('Permission denied: Only HR Manager and Super Admin can generate offer letters.', 'error');
       return;
     }
 
     const app = appId ? DB.find('applications', Number(appId)) : null;
-    const job = app ? DB.find('recruitment', app.jobId) : null;
+    const job = app ? DB.find('recruitment', app.jobId) : (prefillData?.jobId ? DB.find('recruitment', prefillData.jobId) : null);
     const depts = DB.get('departments') || [];
     const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const apps = (DB.get('applications') || []).filter(a => a.stage !== 'hired' && a.stage !== 'rejected');
 
     // Candidate default values
-    const candidateName = app?.name || '';
-    const email = app?.email || '';
-    const phone = app?.phone || '';
-    const cnic = app?.cnic || '';
-    const designation = job?.title || '';
-    const deptId = job?.departmentId || 1;
+    const candidateName = prefillData?.candidateName || app?.name || '';
+    const email = prefillData?.email || app?.email || '';
+    const phone = prefillData?.phone || app?.phone || '';
+    const cnic = prefillData?.cnic || app?.cnic || '';
+    const designation = prefillData?.designation || job?.title || '';
+    const deptId = prefillData?.deptId || job?.departmentId || 1;
+    const defaultSalary = prefillData?.salary || 120000;
 
     // Proposed joining date (+10 days from today)
     const d = new Date();
@@ -2710,7 +2723,7 @@ const Recruitment = {
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label required" id="of-salary-label">Monthly Gross Remuneration / Stipend (PKR)</label>
-          <input class="form-control" id="of-salary" type="number" placeholder="120000" value="120000">
+          <input class="form-control" id="of-salary" type="number" placeholder="120000" value="${defaultSalary}">
         </div>
         <div class="form-group">
           <label class="form-label required">Proposed Joining Date</label>
@@ -4817,4 +4830,844 @@ const Recruitment = {
     DB.log('UPDATE', 'Recruitment', `Updated onboarding task #${taskIdx} for Onboarding #${onboardingId}`, Auth.user?.id);
     this.renderView();
   },
+
+  // ═══════════════════════════════════════════════
+  // RECRUITMENT INTERVIEW ASSESSMENT SHEETS & FUNNEL ANALYTICS
+  // ═══════════════════════════════════════════════
+
+  assessmentFilter: { jobId: 'all', search: '', recommendation: 'all' },
+
+  renderAssessmentSheets(container) {
+    const jobs = DB.get('recruitment') || [];
+    let assessments = DB.get('candidate_assessments') || [];
+
+    // Summary calculations across relevant jobs
+    const trackedJobs = jobs.filter(j => j.applicantCount || assessments.some(a => a.jobId === j.id));
+    const totalTracked = trackedJobs.reduce((sum, j) => sum + (j.applicantCount || assessments.filter(a => a.jobId === j.id).length || 0), 0);
+    const totalInterviewed = assessments.length;
+    const totalShortlisted = assessments.filter(a => a.isShortlisted !== undefined ? a.isShortlisted : (['P1', 'P2'].includes(a.priority) || a.recommendation === 'Recommended for Offer')).length;
+    const totalHired = assessments.filter(a => a.hired).length;
+    const overallYield = totalTracked > 0 ? ((totalHired / totalTracked) * 100).toFixed(1) : '0.0';
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Top Metrics Ribbon -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(37,99,235,0.12);color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-users"></i>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#2563eb">${totalTracked}</div>
+              <div style="font-size:12px;color:var(--text-3)">Total Tracked</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(14,165,233,0.12);color:#0ea5e9;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-comments"></i>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#0ea5e9">${totalInterviewed}</div>
+              <div style="font-size:12px;color:var(--text-3)">Interviewed Candidates</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(217,119,6,0.12);color:#d97706;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-list-check"></i>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#d97706">${totalShortlisted}</div>
+              <div style="font-size:12px;color:var(--text-3)">Shortlisted (P1/P2/P3)</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(5,150,105,0.12);color:#059669;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-user-check"></i>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#059669">${totalHired}</div>
+              <div style="font-size:12px;color:var(--text-3)">Selected / Hired</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(124,58,237,0.12);color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-chart-line"></i>
+            </div>
+            <div>
+              <div style="font-size:22px;font-weight:800;color:#7c3aed">${overallYield}%</div>
+              <div style="font-size:12px;color:var(--text-3)">Overall Conversion Rate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="card" style="padding:14px 18px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <div style="font-size:13px;font-weight:700;color:var(--text-2)">
+              <i class="fa fa-filter" style="margin-right:6px"></i>Filter Cohorts:
+            </div>
+            <select class="form-control" style="width:230px;font-size:12.5px" onchange="Recruitment.setAssessmentFilter('jobId', this.value)">
+              <option value="all" ${this.assessmentFilter.jobId === 'all' ? 'selected' : ''}>All Positions (${jobs.length})</option>
+              ${jobs.map(j => `<option value="${j.id}" ${String(this.assessmentFilter.jobId) === String(j.id) ? 'selected' : ''}>${j.title}</option>`).join('')}
+            </select>
+            <select class="form-control" style="width:190px;font-size:12.5px" onchange="Recruitment.setAssessmentFilter('recommendation', this.value)">
+              <option value="all" ${this.assessmentFilter.recommendation === 'all' ? 'selected' : ''}>All Recommendations</option>
+              <option value="Recommended for Offer" ${this.assessmentFilter.recommendation === 'Recommended for Offer' ? 'selected' : ''}>Recommended for Offer</option>
+              <option value="Hold / Backup" ${this.assessmentFilter.recommendation === 'Hold / Backup' ? 'selected' : ''}>Hold / Backup</option>
+              <option value="Not Recommended" ${this.assessmentFilter.recommendation === 'Not Recommended' ? 'selected' : ''}>Not Recommended</option>
+            </select>
+            <div style="position:relative">
+              <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:12px"></i>
+              <input type="text" class="form-control" style="padding-left:30px;width:200px;font-size:12.5px" placeholder="Search candidate..." value="${this.assessmentFilter.search}" oninput="Recruitment.setAssessmentFilter('search', this.value)">
+            </div>
+            ${(this.assessmentFilter.jobId !== 'all' || this.assessmentFilter.recommendation !== 'all' || this.assessmentFilter.search) ? `
+              <button class="btn btn-ghost btn-xs text-danger" onclick="Recruitment.resetAssessmentFilter()">
+                <i class="fa fa-times"></i> Clear Filters
+              </button>
+            ` : ''}
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-sm" onclick="Recruitment.exportAssessmentCSV()">
+              <i class="fa fa-file-csv"></i> Export CSV
+            </button>
+            <button class="btn btn-outline btn-sm" onclick="Recruitment.printAssessmentSheet()">
+              <i class="fa fa-print"></i> Print Sheet
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddAssessmentModal()">
+              <i class="fa fa-plus"></i> Add Candidate Evaluation
+            </button>
+          </div>
+        </div>
+
+        <!-- Section 1: Position-Wise Assessment Sheets -->
+        <div id="position-assessment-sheets-wrap">
+          ${this.renderAssessmentCards(jobs, assessments)}
+        </div>
+
+        <!-- Section 2: Recruitment Funnel & Conversion Analytics Table -->
+        <div id="recruitment-funnel-analytics-wrap" style="margin-top:20px">
+          ${this.renderFunnelAnalyticsTable(jobs, assessments)}
+        </div>
+      </div>
+    `;
+  },
+
+  setAssessmentFilter(key, val) {
+    this.assessmentFilter[key] = val;
+    this.renderView();
+  },
+
+  resetAssessmentFilter() {
+    this.assessmentFilter = { jobId: 'all', search: '', recommendation: 'all' };
+    this.renderView();
+  },
+
+  renderAssessmentCards(jobs, allAssessments) {
+    let targetJobs = jobs;
+    if (this.assessmentFilter.jobId !== 'all') {
+      targetJobs = jobs.filter(j => String(j.id) === String(this.assessmentFilter.jobId));
+    }
+
+    // Keep jobs that have assessments or applicant count or were explicitly selected
+    if (this.assessmentFilter.jobId === 'all') {
+      targetJobs = targetJobs.filter(j => j.applicantCount || allAssessments.some(a => a.jobId === j.id));
+    }
+
+    if (targetJobs.length === 0) {
+      return `
+        <div class="card" style="text-align:center;padding:40px;color:var(--text-3)">
+          <i class="fa fa-filter" style="font-size:36px;opacity:0.3;margin-bottom:12px;display:block"></i>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">No Assessment Sheets Match Current Filters</div>
+          <p style="font-size:12.5px;max-width:400px;margin:6px auto 14px">Try adjusting your position filter or search terms, or add candidate evaluations.</p>
+          <button class="btn btn-primary btn-sm" onclick="Recruitment.resetAssessmentFilter()">Reset Filters</button>
+        </div>
+      `;
+    }
+
+    return targetJobs.map(job => {
+      let jobAssessments = allAssessments.filter(a => a.jobId === job.id || (a.jobTitle && a.jobTitle.toLowerCase() === job.title.toLowerCase()));
+      
+      // Apply recommendation and search filters
+      if (this.assessmentFilter.recommendation !== 'all') {
+        jobAssessments = jobAssessments.filter(a => a.recommendation === this.assessmentFilter.recommendation);
+      }
+      if (this.assessmentFilter.search) {
+        const q = this.assessmentFilter.search.toLowerCase();
+        jobAssessments = jobAssessments.filter(a => 
+          (a.candidateName && a.candidateName.toLowerCase().includes(q)) ||
+          (a.address && a.address.toLowerCase().includes(q)) ||
+          (a.noticePeriod && a.noticePeriod.toLowerCase().includes(q))
+        );
+      }
+
+      const trackedCount = job.applicantCount !== undefined ? job.applicantCount : jobAssessments.length;
+      const interviewedCount = jobAssessments.length;
+
+      // Cohort averages
+      let totalExp = 0, totalScore = 0, totalCurSalary = 0, totalExpSalary = 0;
+      let validSalaryCount = 0;
+      jobAssessments.forEach(c => {
+        totalExp += (Number(c.experience) || 0);
+        totalScore += (Number(c.score) || 0);
+        if (c.currentSalary) { totalCurSalary += Number(c.currentSalary); validSalaryCount++; }
+        if (c.expectedSalary) { totalExpSalary += Number(c.expectedSalary); }
+      });
+
+      const avgExp = interviewedCount > 0 ? (totalExp / interviewedCount).toFixed(1) : '-';
+      const avgScore = interviewedCount > 0 ? (totalScore / interviewedCount).toFixed(1) : '-';
+      const avgPct = avgScore !== '-' ? (Number(avgScore)).toFixed(1) + '%' : '-';
+      const avgCurSalary = validSalaryCount > 0 ? Math.round(totalCurSalary / validSalaryCount) : '-';
+      const avgExpSalary = interviewedCount > 0 ? Math.round(totalExpSalary / interviewedCount) : '-';
+
+      const priorityBadge = (p) => {
+        if (p === 'P1') return `<span class="badge" style="background:#05966922;color:#059669;border:1px solid #05966955;font-weight:700">P1</span>`;
+        if (p === 'P2') return `<span class="badge" style="background:#2563eb22;color:#2563eb;border:1px solid #2563eb55;font-weight:700">P2</span>`;
+        if (p === 'P3') return `<span class="badge" style="background:#d9770622;color:#d97706;border:1px solid #d9770655;font-weight:700">P3</span>`;
+        return `<span class="badge" style="background:#dc262622;color:#dc2626;border:1px solid #dc262655;font-weight:700">Not Recommended</span>`;
+      };
+
+      const recBadge = (r) => {
+        if (r === 'Recommended for Offer') {
+          return `<span class="badge" style="background:#10b98122;color:#10b981;border:1px solid #10b98155;font-weight:700;display:inline-flex;align-items:center;gap:4px"><i class="fa fa-check-circle"></i> Recommended for Offer</span>`;
+        }
+        if (r === 'Hold / Backup') {
+          return `<span class="badge" style="background:#f59e0b22;color:#f59e0b;border:1px solid #f59e0b55;font-weight:700;display:inline-flex;align-items:center;gap:4px"><i class="fa fa-pause-circle"></i> Hold / Backup</span>`;
+        }
+        return `<span class="badge" style="background:#ef444422;color:#ef4444;border:1px solid #ef444455;font-weight:700;display:inline-flex;align-items:center;gap:4px"><i class="fa fa-times-circle"></i> Not Recommended</span>`;
+      };
+
+      return `
+        <div style="margin-bottom:24px;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid var(--border)">
+          <!-- Position Header Banner -->
+          <div style="background:#0f3562;color:#ffffff;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div>
+              <div style="font-size:14px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase">
+                <i class="fa fa-clipboard-list" style="margin-right:8px;color:#60a5fa"></i>
+                ${job.title} - INTERVIEW ASSESSMENT SHEET
+              </div>
+              <div style="font-size:11.5px;color:#93c5fd;font-style:italic;margin-top:2px">
+                Funnel Tracking: ${trackedCount} Candidates Tracked | ${interviewedCount} Candidates Interviewed
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-xs" style="background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.3)" onclick="Recruitment.showAddAssessmentModal(${job.id})">
+                <i class="fa fa-user-plus"></i> Add Candidate Evaluation
+              </button>
+            </div>
+          </div>
+
+          <!-- Assessment Table -->
+          <div class="table-responsive" style="overflow-x:auto;background:var(--card)">
+            <table style="width:100%;border-collapse:collapse;font-size:12px">
+              <thead>
+                <tr style="background:#13335b;color:#ffffff;font-size:11.5px;text-align:center">
+                  <th style="padding:10px 12px;border:1px solid #1e497f;text-align:left">Candidate Name</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Shortlisted Date</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Experience</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f;text-align:right">Current Salary</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f;text-align:right">Expected Salary</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Total Score(/100)</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Percentage(%)</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Interview Date</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Notice Period</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f;text-align:left">Address/Residence</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Priority level</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Recommendation</th>
+                  <th style="padding:10px 12px;border:1px solid #1e497f">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${jobAssessments.length === 0 ? `
+                  <tr>
+                    <td colspan="13" style="text-align:center;padding:26px;color:var(--text-3)">
+                      <i class="fa fa-info-circle" style="margin-right:6px"></i>
+                      No candidate interview evaluations recorded for this position yet.
+                      <a href="javascript:void(0)" style="color:var(--primary);font-weight:700;margin-left:4px" onclick="Recruitment.showAddAssessmentModal(${job.id})">Add Candidate</a>
+                    </td>
+                  </tr>
+                ` : jobAssessments.map(c => `
+                  <tr style="border-bottom:1px solid var(--border);transition:background .15s" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background='transparent'">
+                    <td style="padding:9px 12px;border:1px solid var(--border);font-weight:700">
+                      <div style="display:flex;align-items:center;gap:8px">
+                        <div style="width:26px;height:26px;border-radius:50%;background:rgba(15,53,98,0.12);color:#0f3562;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">
+                          ${c.candidateName ? c.candidateName.charAt(0) : 'C'}
+                        </div>
+                        <div>
+                          ${c.candidateName}
+                          ${c.hired ? `<span class="badge badge-success" style="font-size:9px;padding:1px 5px;margin-left:4px">Hired</span>` : ''}
+                        </div>
+                      </div>
+                    </td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${c.shortlistedDate || '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${c.experience !== undefined ? c.experience + ' yrs' : '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:right;font-family:monospace">${c.currentSalary ? Number(c.currentSalary).toLocaleString() : '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:right;font-family:monospace;font-weight:600">${c.expectedSalary ? Number(c.expectedSalary).toLocaleString() : '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center;font-weight:800;font-size:13px">${c.score !== undefined ? c.score : '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center;font-weight:800;color:var(--primary);font-size:13px">${c.score !== undefined ? Number(c.score).toFixed(1) + '%' : '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${c.interviewDate || '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${c.noticePeriod || '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:left">${c.address || '-'}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${priorityBadge(c.priority)}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">${recBadge(c.recommendation)}</td>
+                    <td style="padding:9px 12px;border:1px solid var(--border);text-align:center">
+                      <div style="display:flex;gap:4px;justify-content:center;align-items:center">
+                        ${c.recommendation === 'Recommended for Offer' ? `
+                          <button class="btn btn-xs btn-success" title="Generate Employment Offer Letter" onclick="Recruitment.convertCandidateToOffer(${c.id})">
+                            <i class="fa fa-file-signature"></i> Offer
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-xs btn-outline" title="Edit Assessment" onclick="Recruitment.showEditAssessmentModal(${c.id})">
+                          <i class="fa fa-edit"></i>
+                        </button>
+                        <button class="btn btn-xs btn-ghost text-danger" title="Delete Candidate" onclick="Recruitment.deleteAssessment(${c.id})">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr style="background:var(--surface-2);font-weight:800;border-top:2px solid #0f3562">
+                  <td style="padding:10px 12px;border:1px solid var(--border)">Cohort Average / Summary</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">${avgExp !== '-' ? avgExp + ' yrs' : '-'}</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:right;font-family:monospace">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:right;font-family:monospace">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center;font-size:13px;color:#2563eb">${avgScore}</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center;font-size:13px;color:#2563eb">${avgPct}</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:left">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                  <td style="padding:10px 12px;border:1px solid var(--border);text-align:center">-</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  renderFunnelAnalyticsTable(jobs, allAssessments) {
+    // Collect distinct jobs to report in conversion matrix
+    const matrixJobs = jobs.filter(j => j.applicantCount || allAssessments.some(a => a.jobId === j.id));
+
+    let sumTracked = 0;
+    let sumInterviewed = 0;
+    let sumShortlisted = 0;
+    let sumHired = 0;
+
+    const rowsHTML = matrixJobs.map(job => {
+      const jobAssessments = allAssessments.filter(a => a.jobId === job.id || (a.jobTitle && a.jobTitle.toLowerCase() === job.title.toLowerCase()));
+      const tracked = job.applicantCount !== undefined ? job.applicantCount : jobAssessments.length;
+      const interviewed = jobAssessments.length;
+      const shortlisted = jobAssessments.filter(a => a.isShortlisted !== undefined ? a.isShortlisted : (['P1', 'P2'].includes(a.priority) || a.recommendation === 'Recommended for Offer')).length;
+      const hired = jobAssessments.filter(a => a.hired).length;
+
+      sumTracked += tracked;
+      sumInterviewed += interviewed;
+      sumShortlisted += shortlisted;
+      sumHired += hired;
+
+      const interviewRate = tracked > 0 ? ((interviewed / tracked) * 100).toFixed(1) + '%' : '0.0%';
+      const shortlistRate = interviewed > 0 ? ((shortlisted / interviewed) * 100).toFixed(1) + '%' : '0.0%';
+      const offerShortlistRate = shortlisted > 0 ? ((hired / shortlisted) * 100).toFixed(1) + '%' : '0.0%';
+      const interviewToHireRate = interviewed > 0 ? ((hired / interviewed) * 100).toFixed(1) + '%' : '0.0%';
+      const overallConversionRate = tracked > 0 ? ((hired / tracked) * 100).toFixed(1) + '%' : '0.0%';
+
+      return `
+        <tr style="border-bottom:1px solid var(--border);transition:background .15s" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background='transparent'">
+          <td style="padding:11px 14px;border:1px solid var(--border);font-weight:700">
+            <i class="fa fa-briefcase" style="color:#2563eb;margin-right:6px"></i>
+            ${job.title}
+          </td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700">${tracked}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700">${interviewed}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#d97706">${shortlisted}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#059669">${hired}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#2563eb">${interviewRate}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#059669">${shortlistRate}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#d97706">${offerShortlistRate}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:700;color:#7c3aed">${interviewToHireRate}</td>
+          <td style="padding:11px 14px;border:1px solid var(--border);text-align:center;font-weight:800;color:#dc2626">${overallConversionRate}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const totalInterviewRate = sumTracked > 0 ? ((sumInterviewed / sumTracked) * 100).toFixed(1) + '%' : '0.0%';
+    const totalShortlistRate = sumInterviewed > 0 ? ((sumShortlisted / sumInterviewed) * 100).toFixed(1) + '%' : '0.0%';
+    const totalOfferShortlist = sumShortlisted > 0 ? ((sumHired / sumShortlisted) * 100).toFixed(1) + '%' : '0.0%';
+    const totalInterviewToHire = sumInterviewed > 0 ? ((sumHired / sumInterviewed) * 100).toFixed(1) + '%' : '0.0%';
+    const totalOverallConversion = sumTracked > 0 ? ((sumHired / sumTracked) * 100).toFixed(1) + '%' : '0.0%';
+
+    return `
+      <div style="border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);border:1px solid var(--border)">
+        <div style="background:#0a2540;color:#ffffff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:14px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase">
+              <i class="fa fa-filter" style="margin-right:8px;color:#38bdf8"></i>
+              RECRUITMENT FUNNEL & CONVERSION ANALYTICS
+            </div>
+            <div style="font-size:11.5px;color:#93c5fd;margin-top:2px">
+              Multi-stage recruitment velocity matrix and yield benchmarking across job profiles
+            </div>
+          </div>
+          <div>
+            <span class="badge" style="background:rgba(56,189,248,0.2);color:#38bdf8;border:1px solid rgba(56,189,248,0.4)">
+              <i class="fa fa-chart-pie"></i> Exact Cohort Benchmarks
+            </span>
+          </div>
+        </div>
+
+        <div class="table-responsive" style="overflow-x:auto;background:var(--card)">
+          <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+            <thead>
+              <tr style="background:#13335b;color:#ffffff;font-size:11.5px;text-align:center">
+                <th style="padding:11px 14px;border:1px solid #1e497f;text-align:left">Position Title</th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Total Tracked</th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Interviewed</th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Shortlisted<br><span style="font-size:10px;font-weight:normal">(P1/P2/P3)</span></th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Hired</th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Interview Rate<br><span style="font-size:10px;font-weight:normal">(Interviewed / Tracked)</span></th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Shortlist Rate<br><span style="font-size:10px;font-weight:normal">(Shortlisted / Interviewed)</span></th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Offer / Hire from Shortlist<br><span style="font-size:10px;font-weight:normal">(Hired / Shortlisted)</span></th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Interview-to-Hire Rate<br><span style="font-size:10px;font-weight:normal">(Hired / Interviewed)</span></th>
+                <th style="padding:11px 14px;border:1px solid #1e497f">Overall Conversion Rate<br><span style="font-size:10px;font-weight:normal">(Hired / Total Tracked)</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHTML}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--surface-2);font-weight:800;font-size:13px;border-top:2px solid #0a2540">
+                <td style="padding:12px 14px;border:1px solid var(--border)">Total / Pipeline Average</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center">${sumTracked}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center">${sumInterviewed}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#d97706">${sumShortlisted}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#059669">${sumHired}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#2563eb">${totalInterviewRate}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#059669">${totalShortlistRate}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#d97706">${totalOfferShortlist}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#7c3aed">${totalInterviewToHire}</td>
+                <td style="padding:12px 14px;border:1px solid var(--border);text-align:center;color:#dc2626;font-size:13.5px">${totalOverallConversion}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddAssessmentModal(prefillJobId = null) {
+    const jobs = DB.get('recruitment') || [];
+    const today = new Date().toISOString().split('T')[0];
+
+    Modal.show('Add Candidate Interview Evaluation', `
+      <form onsubmit="Recruitment.saveAssessment(event)">
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Job Position</label>
+            <select class="form-control" id="ev-job-id" required>
+              ${jobs.map(j => `<option value="${j.id}" ${String(j.id) === String(prefillJobId) ? 'selected' : ''}>${j.title}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Candidate Full Name</label>
+            <input class="form-control" id="ev-name" required placeholder="e.g. Candidate 7 or Full Name">
+          </div>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label">Shortlisted Date</label>
+            <input type="date" class="form-control" id="ev-shortlist-date" value="${today}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Experience (Years)</label>
+            <input type="number" step="0.5" min="0" class="form-control" id="ev-exp" required placeholder="3.5" value="3.0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interview Date</label>
+            <input type="date" class="form-control" id="ev-interview-date" value="${today}">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Current Salary (PKR)</label>
+            <input type="number" class="form-control" id="ev-curr-sal" placeholder="e.g. 75000" value="70000">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Expected Salary (PKR)</label>
+            <input type="number" class="form-control" id="ev-exp-sal" required placeholder="e.g. 90000" value="90000">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Total Score (/100)</label>
+            <input type="number" min="0" max="100" class="form-control" id="ev-score" required placeholder="75" value="75" oninput="document.getElementById('ev-pct-display').textContent = this.value + '%'">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Calculated Percentage</label>
+            <div id="ev-pct-display" style="padding:10px;background:var(--surface);border-radius:8px;font-weight:800;font-size:15px;color:var(--primary)">75%</div>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Notice Period</label>
+            <select class="form-control" id="ev-notice">
+              <option value="Immediate">Immediate</option>
+              <option value="15 Days">15 Days</option>
+              <option value="30 Days" selected>30 Days</option>
+              <option value="45 Days">45 Days</option>
+              <option value="60 Days">60 Days</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address / Residence</label>
+            <input class="form-control" id="ev-address" placeholder="e.g. Clifton, Karachi" value="Karachi">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Priority Level</label>
+            <select class="form-control" id="ev-priority" required onchange="Recruitment.onAssessmentPriorityChange(this.value)">
+              <option value="P1">P1 — Top Tier / Immediate Fit</option>
+              <option value="P2" selected>P2 — Solid Fit / Shortlist</option>
+              <option value="P3">P3 — Backup / Moderate Fit</option>
+              <option value="Not Recommended">Not Recommended</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Recommendation</label>
+            <select class="form-control" id="ev-recommendation" required>
+              <option value="Recommended for Offer" selected>Recommended for Offer</option>
+              <option value="Hold / Backup">Hold / Backup</option>
+              <option value="Not Recommended">Not Recommended</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;gap:20px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="ev-is-shortlisted" checked>
+            Include in Shortlisted Pool (P1/P2/P3)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="ev-hired">
+            Mark Candidate as Hired / Selected
+          </label>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" class="btn btn-secondary" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save Evaluation</button>
+        </div>
+      </form>
+    `);
+  },
+
+  onAssessmentPriorityChange(val) {
+    const recSelect = document.getElementById('ev-recommendation');
+    const shortCheck = document.getElementById('ev-is-shortlisted');
+    if (!recSelect) return;
+    if (val === 'Not Recommended') {
+      recSelect.value = 'Not Recommended';
+      if (shortCheck) shortCheck.checked = false;
+    } else if (val === 'P3') {
+      recSelect.value = 'Hold / Backup';
+      if (shortCheck) shortCheck.checked = true;
+    } else {
+      recSelect.value = 'Recommended for Offer';
+      if (shortCheck) shortCheck.checked = true;
+    }
+  },
+
+  showEditAssessmentModal(id) {
+    const assessments = DB.get('candidate_assessments') || [];
+    const item = assessments.find(a => a.id === Number(id));
+    if (!item) return;
+    const jobs = DB.get('recruitment') || [];
+
+    Modal.show(`Edit Candidate Evaluation — ${item.candidateName}`, `
+      <form onsubmit="Recruitment.saveAssessment(event, ${item.id})">
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Job Position</label>
+            <select class="form-control" id="ev-job-id" required>
+              ${jobs.map(j => `<option value="${j.id}" ${String(j.id) === String(item.jobId) ? 'selected' : ''}>${j.title}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Candidate Full Name</label>
+            <input class="form-control" id="ev-name" required value="${item.candidateName}">
+          </div>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label">Shortlisted Date</label>
+            <input type="date" class="form-control" id="ev-shortlist-date" value="${item.shortlistedDate || ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Experience (Years)</label>
+            <input type="number" step="0.5" min="0" class="form-control" id="ev-exp" required value="${item.experience || 0}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Interview Date</label>
+            <input type="date" class="form-control" id="ev-interview-date" value="${item.interviewDate || ''}">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Current Salary (PKR)</label>
+            <input type="number" class="form-control" id="ev-curr-sal" value="${item.currentSalary || 0}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Expected Salary (PKR)</label>
+            <input type="number" class="form-control" id="ev-exp-sal" required value="${item.expectedSalary || 0}">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Total Score (/100)</label>
+            <input type="number" min="0" max="100" class="form-control" id="ev-score" required value="${item.score || 0}" oninput="document.getElementById('ev-pct-display').textContent = this.value + '%'">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Calculated Percentage</label>
+            <div id="ev-pct-display" style="padding:10px;background:var(--surface);border-radius:8px;font-weight:800;font-size:15px;color:var(--primary)">${item.score || 0}%</div>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Notice Period</label>
+            <input class="form-control" id="ev-notice" value="${item.noticePeriod || '30 Days'}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address / Residence</label>
+            <input class="form-control" id="ev-address" value="${item.address || ''}">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Priority Level</label>
+            <select class="form-control" id="ev-priority" required onchange="Recruitment.onAssessmentPriorityChange(this.value)">
+              <option value="P1" ${item.priority === 'P1' ? 'selected' : ''}>P1 — Top Tier / Immediate Fit</option>
+              <option value="P2" ${item.priority === 'P2' ? 'selected' : ''}>P2 — Solid Fit / Shortlist</option>
+              <option value="P3" ${item.priority === 'P3' ? 'selected' : ''}>P3 — Backup / Moderate Fit</option>
+              <option value="Not Recommended" ${item.priority === 'Not Recommended' ? 'selected' : ''}>Not Recommended</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Recommendation</label>
+            <select class="form-control" id="ev-recommendation" required>
+              <option value="Recommended for Offer" ${item.recommendation === 'Recommended for Offer' ? 'selected' : ''}>Recommended for Offer</option>
+              <option value="Hold / Backup" ${item.recommendation === 'Hold / Backup' ? 'selected' : ''}>Hold / Backup</option>
+              <option value="Not Recommended" ${item.recommendation === 'Not Recommended' ? 'selected' : ''}>Not Recommended</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;gap:20px">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="ev-is-shortlisted" ${item.isShortlisted ? 'checked' : ''}>
+            Include in Shortlisted Pool (P1/P2/P3)
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600">
+            <input type="checkbox" id="ev-hired" ${item.hired ? 'checked' : ''}>
+            Mark Candidate as Hired / Selected
+          </label>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" class="btn btn-secondary" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Update Evaluation</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveAssessment(e, id = null) {
+    e.preventDefault();
+    const jobId = Number(document.getElementById('ev-job-id').value);
+    const job = DB.find('recruitment', jobId);
+    const candidateName = document.getElementById('ev-name').value.trim();
+    const shortlistedDate = document.getElementById('ev-shortlist-date').value;
+    const experience = parseFloat(document.getElementById('ev-exp').value) || 0;
+    const currentSalary = parseFloat(document.getElementById('ev-curr-sal').value) || 0;
+    const expectedSalary = parseFloat(document.getElementById('ev-exp-sal').value) || 0;
+    const score = parseFloat(document.getElementById('ev-score').value) || 0;
+    const interviewDate = document.getElementById('ev-interview-date').value;
+    const noticePeriod = document.getElementById('ev-notice').value.trim();
+    const address = document.getElementById('ev-address').value.trim();
+    const priority = document.getElementById('ev-priority').value;
+    const recommendation = document.getElementById('ev-recommendation').value;
+    const isShortlisted = document.getElementById('ev-is-shortlisted').checked;
+    const hired = document.getElementById('ev-hired').checked;
+
+    const assessments = DB.get('candidate_assessments') || [];
+
+    if (id) {
+      const idx = assessments.findIndex(a => a.id === Number(id));
+      if (idx !== -1) {
+        assessments[idx] = {
+          ...assessments[idx],
+          jobId,
+          jobTitle: job?.title || assessments[idx].jobTitle,
+          candidateName,
+          shortlistedDate,
+          experience,
+          currentSalary,
+          expectedSalary,
+          score,
+          interviewDate,
+          noticePeriod,
+          address,
+          priority,
+          recommendation,
+          isShortlisted,
+          hired
+        };
+        DB.set('candidate_assessments', assessments);
+        Toast.show('Candidate interview evaluation updated successfully.', 'success');
+      }
+    } else {
+      const newId = assessments.length ? Math.max(...assessments.map(a => a.id)) + 1 : 1;
+      assessments.push({
+        id: newId,
+        jobId,
+        jobTitle: job?.title || 'Open Position',
+        candidateName,
+        shortlistedDate,
+        experience,
+        currentSalary,
+        expectedSalary,
+        score,
+        interviewDate,
+        noticePeriod,
+        address,
+        priority,
+        recommendation,
+        isShortlisted,
+        hired
+      });
+      DB.set('candidate_assessments', assessments);
+      Toast.show('New candidate interview evaluation saved successfully.', 'success');
+    }
+
+    Modal.close('dynamic-modal');
+    this.renderView();
+  },
+
+  deleteAssessment(id) {
+    if (!confirm('Are you sure you want to remove this candidate interview evaluation?')) return;
+    let assessments = DB.get('candidate_assessments') || [];
+    assessments = assessments.filter(a => a.id !== Number(id));
+    DB.set('candidate_assessments', assessments);
+    Toast.show('Candidate evaluation deleted.', 'info');
+    this.renderView();
+  },
+
+  convertCandidateToOffer(id) {
+    const assessments = DB.get('candidate_assessments') || [];
+    const item = assessments.find(a => a.id === Number(id));
+    if (!item) return;
+
+    const job = DB.find('recruitment', item.jobId);
+    this.showGenerateOfferLetterModal(null, {
+      candidateName: item.candidateName,
+      designation: item.jobTitle || job?.title || '',
+      salary: item.expectedSalary || 100000,
+      jobId: item.jobId,
+      deptId: job?.departmentId || 1
+    });
+    Toast.show(`Candidate ${item.candidateName} prefilled into employment offer letter generator.`, 'info');
+  },
+
+  exportAssessmentCSV() {
+    const jobs = DB.get('recruitment') || [];
+    const assessments = DB.get('candidate_assessments') || [];
+
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += 'POSITION INTERVIEW ASSESSMENT SHEETS\r\n';
+    csvContent += 'Job Title,Candidate Name,Shortlisted Date,Experience (Yrs),Current Salary,Expected Salary,Total Score (/100),Percentage (%),Interview Date,Notice Period,Address,Priority,Recommendation,Hired Status\r\n';
+
+    assessments.forEach(c => {
+      const row = [
+        `"${c.jobTitle || ''}"`,
+        `"${c.candidateName || ''}"`,
+        `"${c.shortlistedDate || ''}"`,
+        c.experience || 0,
+        c.currentSalary || 0,
+        c.expectedSalary || 0,
+        c.score || 0,
+        `${c.score || 0}%`,
+        `"${c.interviewDate || ''}"`,
+        `"${c.noticePeriod || ''}"`,
+        `"${c.address || ''}"`,
+        `"${c.priority || ''}"`,
+        `"${c.recommendation || ''}"`,
+        c.hired ? 'Hired' : 'Pending'
+      ];
+      csvContent += row.join(',') + '\r\n';
+    });
+
+    csvContent += '\r\nRECRUITMENT FUNNEL & CONVERSION ANALYTICS\r\n';
+    csvContent += 'Position Title,Total Tracked,Interviewed,Shortlisted (P1/P2/P3),Hired,Interview Rate (%),Shortlist Rate (%),Offer / Hire from Shortlist (%),Interview-to-Hire Rate (%),Overall Conversion Rate (%)\r\n';
+
+    const matrixJobs = jobs.filter(j => j.applicantCount || assessments.some(a => a.jobId === j.id));
+    let sumTracked = 0, sumInterviewed = 0, sumShortlisted = 0, sumHired = 0;
+
+    matrixJobs.forEach(job => {
+      const jobAssessments = assessments.filter(a => a.jobId === job.id || (a.jobTitle && a.jobTitle.toLowerCase() === job.title.toLowerCase()));
+      const tracked = job.applicantCount !== undefined ? job.applicantCount : jobAssessments.length;
+      const interviewed = jobAssessments.length;
+      const shortlisted = jobAssessments.filter(a => a.isShortlisted !== undefined ? a.isShortlisted : (['P1', 'P2'].includes(a.priority) || a.recommendation === 'Recommended for Offer')).length;
+      const hired = jobAssessments.filter(a => a.hired).length;
+
+      sumTracked += tracked;
+      sumInterviewed += interviewed;
+      sumShortlisted += shortlisted;
+      sumHired += hired;
+
+      const interviewRate = tracked > 0 ? ((interviewed / tracked) * 100).toFixed(1) + '%' : '0.0%';
+      const shortlistRate = interviewed > 0 ? ((shortlisted / interviewed) * 100).toFixed(1) + '%' : '0.0%';
+      const offerShortlistRate = shortlisted > 0 ? ((hired / shortlisted) * 100).toFixed(1) + '%' : '0.0%';
+      const interviewToHireRate = interviewed > 0 ? ((hired / interviewed) * 100).toFixed(1) + '%' : '0.0%';
+      const overallConversionRate = tracked > 0 ? ((hired / tracked) * 100).toFixed(1) + '%' : '0.0%';
+
+      csvContent += `"${job.title}",${tracked},${interviewed},${shortlisted},${hired},${interviewRate},${shortlistRate},${offerShortlistRate},${interviewToHireRate},${overallConversionRate}\r\n`;
+    });
+
+    const totalInterviewRate = sumTracked > 0 ? ((sumInterviewed / sumTracked) * 100).toFixed(1) + '%' : '0.0%';
+    const totalShortlistRate = sumInterviewed > 0 ? ((sumShortlisted / sumInterviewed) * 100).toFixed(1) + '%' : '0.0%';
+    const totalOfferShortlist = sumShortlisted > 0 ? ((sumHired / sumShortlisted) * 100).toFixed(1) + '%' : '0.0%';
+    const totalInterviewToHire = sumInterviewed > 0 ? ((sumHired / sumInterviewed) * 100).toFixed(1) + '%' : '0.0%';
+    const totalOverallConversion = sumTracked > 0 ? ((sumHired / sumTracked) * 100).toFixed(1) + '%' : '0.0%';
+
+    csvContent += `Total / Pipeline Average,${sumTracked},${sumInterviewed},${sumShortlisted},${sumHired},${totalInterviewRate},${totalShortlistRate},${totalOfferShortlist},${totalInterviewToHire},${totalOverallConversion}\r\n`;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `recruitment_assessment_and_funnel_analytics_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    Toast.show('Recruitment Assessment & Funnel CSV exported.', 'success');
+  },
+
+  printAssessmentSheet() {
+    window.print();
+  }
 };

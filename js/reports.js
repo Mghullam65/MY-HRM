@@ -227,6 +227,7 @@ const Reports = {
               { id: 'performance_report', label: 'Performance Review Report', icon: 'fa-award' },
               { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket' },
               { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up' },
+              { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar' },
               { id: 'executive', label: 'Executive BI Analytics', icon: 'fa-chart-line' },
               { id: 'builder', label: 'Custom Report Builder', icon: 'fa-wrench' }
             ].map(tab => `
@@ -246,6 +247,13 @@ const Reports = {
               </button>
               <button class="btn btn-primary btn-sm" onclick="Reports.printExecutiveReport()">
                 <i class="fa fa-print"></i> Print Executive PDF
+              </button>
+            ` : this.currentTab === 'recruitment_funnel' ? `
+              <button class="btn btn-ghost btn-sm" onclick="Recruitment.exportAssessmentCSV()">
+                <i class="fa fa-file-csv"></i> Export CSV
+              </button>
+              <button class="btn btn-primary btn-sm" style="background:#0f3562" onclick="window.print()">
+                <i class="fa fa-print"></i> Print Assessment Sheet
               </button>
             ` : `
               <button class="btn btn-primary btn-sm" style="background:#0099cc" onclick="window.print()">
@@ -284,6 +292,8 @@ const Reports = {
       this.renderTokenReportManagement(container);
     } else if (this.currentTab === 'increment_details') {
       this.renderEmployeeIncrementDetails(container);
+    } else if (this.currentTab === 'recruitment_funnel') {
+      this.renderRecruitmentFunnelReport(container);
     } else if (this.currentTab === 'executive') {
       this.renderExecutiveBI(container);
     } else if (this.currentTab === 'builder') {
@@ -2668,5 +2678,21 @@ const Reports = {
     const csv = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
     Utils.downloadCSV(csv, `employee_increments_${Utils.today()}.csv`);
     Toast.show(`Exported ${incs.length} increment records to Excel!`, 'success');
+  },
+
+  // ═══════════════════════════════════════════════
+  // RECRUITMENT FUNNEL & ASSESSMENT ANALYTICS REPORT
+  // ═══════════════════════════════════════════════
+  renderRecruitmentFunnelReport(container) {
+    if (typeof Recruitment !== 'undefined' && typeof Recruitment.renderAssessmentSheets === 'function') {
+      Recruitment.renderAssessmentSheets(container);
+    } else {
+      container.innerHTML = `
+        <div class="card" style="padding:40px;text-align:center">
+          <i class="fa fa-spinner fa-spin" style="font-size:32px;color:var(--primary);margin-bottom:12px"></i>
+          <div>Loading Recruitment Assessment & Funnel Matrix...</div>
+        </div>
+      `;
+    }
   }
 };
