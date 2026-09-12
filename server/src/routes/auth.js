@@ -32,6 +32,13 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
 
+    if (user.employee && (user.employee.status === 'inactive' || user.employee.status === 'terminated')) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Account Inactive: Your employee profile has been deactivated. Please contact HR Administration.' 
+      });
+    }
+
     // Support both bcrypt hash and initial plain password for seamless upgrade
     let isValid = false;
     if (user.password.startsWith('$2a$') || user.password.startsWith('$2b$')) {

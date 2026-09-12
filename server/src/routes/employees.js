@@ -227,11 +227,14 @@ router.put('/:id', authenticate, authorize('superadmin', 'hr_manager', 'dept_man
       data
     });
 
-    // Update corresponding user role if changed
-    if (data.role) {
+    // Update corresponding user role and status if changed
+    const userUpdates = {};
+    if (data.role) userUpdates.role = data.role;
+    if (data.status) userUpdates.status = (data.status === 'active' ? 'active' : 'inactive');
+    if (Object.keys(userUpdates).length > 0) {
       await prisma.user.updateMany({
         where: { employeeId: id },
-        data: { role: data.role }
+        data: userUpdates
       });
     }
 

@@ -35,7 +35,9 @@ const Employees = {
       const days = Math.ceil((new Date(d.expiryDate) - new Date()) / (1000*60*60*24));
       return days <= 30;
     }).length;
-    const pendingExits = isStaff ? 0 : (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress').length;
+    const pendingExits = isStaff 
+      ? (DB.get('exit_clearances') || []).filter(c => c.employeeId === myEmpId && c.status !== 'completed').length 
+      : (DB.get('exit_clearances') || []).filter(c => c.status === 'in_progress' || c.status === 'pending_review').length;
     const pendingDiscipline = isStaff 
       ? (DB.get('warning_letters')||[]).filter(w=>w.employeeId===myEmpId && !w.acknowledged).length 
       : (DB.get('disciplinary_actions')||[]).filter(a=>a.status==='under_investigation').length;
@@ -51,6 +53,7 @@ const Employees = {
         { id:'hr_letters', label:'My Official HR Letters', icon:'fa-file-signature', badge: (DB.get('hr_letters')||[]).filter(l=>l.employeeId===myEmpId && !l.acknowledged).length },
         { id:'discipline', label:'My Discipline & Notices', icon:'fa-gavel', badge: pendingDiscipline },
         { id:'doc_expiry', label:'My Document Expiries', icon:'fa-id-card-clip', badge: urgentDocs },
+        { id:'exit_clearance', label:'Resignation & Exit (F&F)', icon:'fa-person-walking-arrow-right', badge: pendingExits || null },
         { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.employeeId===myEmpId && d.verificationStatus==='pending').length },
         { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof' },
         { id:'directory', label:'Company Directory', icon:'fa-id-card' },
@@ -273,9 +276,17 @@ const Employees = {
                   <td>
                     ${e.status === 'inactive' 
                       ? `<span class="badge badge-danger" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-user-slash"></i> Ex-Employee</span>`
-                      : (e.role === 'onboarding' 
-                        ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
-                        : `<span class="badge badge-success" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-check-circle"></i> Active</span>`)}
+                      : (() => {
+                          const activeExit = (DB.get('exit_clearances')||[]).find(c => c.employeeId === e.id && (c.status === 'in_progress' || c.status === 'pending_review'));
+                          if (activeExit) {
+                            return activeExit.status === 'pending_review'
+                              ? `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-envelope"></i> Resign Pending</span>`
+                              : `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-clock"></i> In Notice</span>`;
+                          }
+                          return e.role === 'onboarding' 
+                            ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
+                            : `<span class="badge badge-success" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-check-circle"></i> Active</span>`;
+                        })()}
                     <div style="margin-top:3px"><span class="chip" style="font-size:10.5px">${e.role || 'employee'}</span></div>
                   </td>
                   <td style="text-align:right">
@@ -355,6 +366,42 @@ const Employees = {
             <span>${emp.fullName}</span>
           </div>
         ` : ''}
+
+        ${(() => {
+          const activeExit = (DB.get('exit_clearances') || []).find(c => c.employeeId === emp.id && c.status !== 'withdrawn');
+          if (activeExit) {
+            const badge = this.getNoticeCountdownBadge(activeExit.lastWorkingDay, activeExit.status);
+            return `
+              <div class="card" style="background:rgba(245,158,11,0.08);border:1.5px solid rgba(245,158,11,0.35);border-radius:12px;padding:14px 20px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;color:#b45309;font-size:18px">
+                    <i class="fa fa-person-walking-arrow-right"></i>
+                  </div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <strong style="font-size:14px;color:var(--text)">Separation & Exit Process Active</strong>
+                      ${badge}
+                    </div>
+                    <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                      Resigned: <strong>${activeExit.resignationDate}</strong> | 
+                      ${activeExit.status === 'pending_review' ? 'Proposed LWD' : 'Confirmed Last Working Day'}: <strong>${activeExit.lastWorkingDay}</strong> | 
+                      Reason: <em>${activeExit.reason}</em>
+                    </div>
+                  </div>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn btn-secondary btn-sm" onclick="Employees.showFandFModal(${activeExit.id})">
+                    <i class="fa fa-calculator"></i> F&F Settlement
+                  </button>
+                  <button class="btn btn-outline-primary btn-sm" onclick="Employees.printRelievingCertificate(${activeExit.id})">
+                    <i class="fa fa-file-contract"></i> Letterhead Relieving Certificate
+                  </button>
+                </div>
+              </div>
+            `;
+          }
+          return '';
+        })()}
 
         ${emp.role === 'onboarding' ? `
           <!-- New Joiner Onboarding Active Banner -->
@@ -4017,6 +4064,11 @@ const Employees = {
       approvedBy: Auth.user?.id, createdOn: Utils.today()
     });
     DB.update('employees', empId, { status: 'inactive', exitDate });
+    const users = DB.get('users') || [];
+    const linkedUser = users.find(u => u.employeeId === empId);
+    if (linkedUser) {
+      DB.update('users', linkedUser.id, { status: 'inactive' });
+    }
     DB.log('EXIT', 'Employees', `${Utils.getEmpName(empId)} exit initiated. Reason: ${reason}`, Auth.user?.id);
     Modal.close('dynamic-modal');
     Toast.show('Exit process initiated!', 'warning', Utils.getEmpName(empId));
@@ -4446,6 +4498,11 @@ const Employees = {
       `Are you sure you want to ${newStatus === 'inactive' ? 'deactivate' : 'activate'} <strong>${emp.fullName}</strong>?`,
       () => {
         DB.update('employees', empId, { status: newStatus });
+        const users = DB.get('users') || [];
+        const linkedUser = users.find(u => u.employeeId === empId);
+        if (linkedUser) {
+          DB.update('users', linkedUser.id, { status: newStatus });
+        }
         DB.log(newStatus === 'inactive' ? 'DEACTIVATE' : 'ACTIVATE', 'Employees', `${emp.fullName} status changed to ${newStatus}`, Auth.user?.id);
         Toast.show(`Employee ${newStatus === 'inactive' ? 'deactivated' : 'activated'}!`, newStatus === 'inactive' ? 'warning' : 'success');
         this.render();
@@ -6151,12 +6208,61 @@ const Employees = {
   // ============================================================
   // BATCH 1: EXIT CLEARANCE & FULL & FINAL (F&F) SETTLEMENT
   // ============================================================
+  getNoticeCountdownBadge(lastWorkingDay, status) {
+    if (status === 'pending_review') {
+      return `<span class="badge badge-warning" style="font-size:11px;padding:4px 9px;background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.3)"><i class="fa fa-envelope-open-text"></i> Resignation Pending Review</span>`;
+    }
+    if (status === 'retained' || status === 'withdrawn') {
+      return `<span class="badge badge-info" style="font-size:11px;padding:4px 9px;background:rgba(59,130,246,0.15);color:#1d4ed8;border:1px solid rgba(59,130,246,0.3)"><i class="fa fa-handshake"></i> Retained / Resignation Withdrawn</span>`;
+    }
+    if (status === 'completed') {
+      return `<span class="badge badge-success" style="font-size:11px;padding:4px 9px;background:rgba(16,185,129,0.15);color:#047857;border:1px solid rgba(16,185,129,0.3)"><i class="fa fa-check-double"></i> Exit Completed (Ex-Employee)</span>`;
+    }
+    if (!lastWorkingDay) return '';
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const lwd = new Date(lastWorkingDay);
+    lwd.setHours(0,0,0,0);
+    const diffTime = lwd.getTime() - today.getTime();
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (days > 20) {
+      return `<span class="badge badge-success" style="font-size:11px;padding:4px 9px;background:rgba(16,185,129,0.15);color:#047857;border:1px solid rgba(16,185,129,0.3)"><i class="fa fa-clock"></i> Notice Period: ${days} days left</span>`;
+    } else if (days >= 6) {
+      return `<span class="badge badge-warning" style="font-size:11px;padding:4px 9px;background:rgba(245,158,11,0.15);color:#b45309;border:1px solid rgba(245,158,11,0.3)"><i class="fa fa-hourglass-half"></i> Notice Period: ${days} days left</span>`;
+    } else if (days >= 0) {
+      return `<span class="badge badge-danger" style="font-size:11px;padding:4px 9px;background:rgba(239,68,68,0.15);color:#b91c1c;border:1px solid rgba(239,68,68,0.3);font-weight:700"><i class="fa fa-triangle-exclamation"></i> Notice Period: ${days === 0 ? 'Today is Last Day!' : `Final ${days} day(s)`}</span>`;
+    } else {
+      return `<span class="badge badge-secondary" style="font-size:11px;padding:4px 9px"><i class="fa fa-calendar-xmark"></i> Notice Ended (${Math.abs(days)}d ago)</span>`;
+    }
+  },
+
   renderExitClearance(container) {
     const clearances = DB.get('exit_clearances') || [];
     const allEmps = DB.get('employees') || [];
+    const isStaff = Auth.role === 'employee';
+    const myEmpId = Auth.employee?.id;
 
-    const inProgress = clearances.filter(c => c.status === 'in_progress').length;
-    const completed = clearances.filter(c => c.status === 'completed').length;
+    this.exitFilter = this.exitFilter || 'all';
+
+    // Staff filter: scoped to their own record
+    let displayCases = clearances;
+    if (isStaff && myEmpId) {
+      displayCases = clearances.filter(c => c.employeeId === myEmpId);
+    } else {
+      if (this.exitFilter === 'pending') {
+        displayCases = clearances.filter(c => c.status === 'pending_review');
+      } else if (this.exitFilter === 'notice') {
+        displayCases = clearances.filter(c => c.status === 'in_progress');
+      } else if (this.exitFilter === 'completed') {
+        displayCases = clearances.filter(c => c.status === 'completed');
+      }
+    }
+
+    const pendingCount = clearances.filter(c => c.status === 'pending_review').length;
+    const inProgressCount = clearances.filter(c => c.status === 'in_progress').length;
+    const completedCount = clearances.filter(c => c.status === 'completed').length;
     const totalDisbursed = clearances.reduce((sum, c) => sum + (c.settlement?.netPayable || 0), 0);
 
     container.innerHTML = `
@@ -6165,9 +6271,9 @@ const Employees = {
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
           ${[
             { label:'Total Resignations & Exits', val: clearances.length, color:'var(--primary)', icon:'fa-user-minus' },
-            { label:'Clearances in Progress', val: inProgress, color:'#f59e0b', icon:'fa-spinner' },
-            { label:'Clearances Completed', val: completed, color:'#10b981', icon:'fa-circle-check' },
-            { label:'Total F&F Settlement Value', val: Utils.formatCurrency(totalDisbursed), color:'var(--accent)', icon:'fa-money-bill-transfer' },
+            { label:'Awaiting Review / Resignations', val: pendingCount, color:'#b45309', icon:'fa-envelope-open-text' },
+            { label:'Serving Notice Period', val: inProgressCount, color:'#0284c7', icon:'fa-clock' },
+            { label:'Clearances Completed (Ex-Emps)', val: completedCount, color:'#10b981', icon:'fa-circle-check' },
           ].map(s => `
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px">
               <div style="width:44px;height:44px;border-radius:10px;background:${s.color}22;display:flex;align-items:center;justify-content:center;color:${s.color};font-size:20px">
@@ -6181,30 +6287,75 @@ const Employees = {
           `).join('')}
         </div>
 
-        <!-- Action Header -->
+        <!-- Action Header & Filters -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:12px">
           <div>
-            <h3 style="font-size:16px;font-weight:700;margin:0 0 2px 0">Exit Clearance & Final Settlement Cases</h3>
-            <div style="font-size:12px;color:var(--text-3)">Multi-department clearance checklist across IT, Admin, Finance, and HR</div>
+            <h3 style="font-size:16.5px;font-weight:700;margin:0 0 3px 0">
+              ${isStaff ? 'My Resignation & Exit Clearance Portal' : 'Exit & Clearance Management (Full & Final Lifecycle)'}
+            </h3>
+            <div style="font-size:12px;color:var(--text-3)">
+              ${isStaff 
+                ? 'Submit resignation, track your notice period countdown, departmental clearances, and final settlement' 
+                : 'Manage resignations, notice period countdowns, multi-department clearances, and letterhead certificates'}
+            </div>
           </div>
-          <div>
-            <button class="btn btn-primary btn-sm" onclick="Employees.showInitiateExitModal()">
-              <i class="fa fa-user-xmark"></i> Initiate Exit Clearance
+
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${!isStaff ? `
+              <!-- Filter tabs for HR/Admin -->
+              <div style="display:flex;gap:4px;background:var(--surface);padding:3px;border-radius:8px;border:1px solid var(--border)">
+                <button class="btn btn-sm ${this.exitFilter==='all'?'btn-primary':'btn-ghost'}" onclick="Employees.exitFilter='all';Employees.renderExitClearance(document.getElementById('emp-content'))" style="font-size:11.5px;padding:4px 10px">
+                  All (${clearances.length})
+                </button>
+                <button class="btn btn-sm ${this.exitFilter==='pending'?'btn-primary':'btn-ghost'}" onclick="Employees.exitFilter='pending';Employees.renderExitClearance(document.getElementById('emp-content'))" style="font-size:11.5px;padding:4px 10px">
+                  Pending Review (${pendingCount})
+                </button>
+                <button class="btn btn-sm ${this.exitFilter==='notice'?'btn-primary':'btn-ghost'}" onclick="Employees.exitFilter='notice';Employees.renderExitClearance(document.getElementById('emp-content'))" style="font-size:11.5px;padding:4px 10px">
+                  In Notice (${inProgressCount})
+                </button>
+                <button class="btn btn-sm ${this.exitFilter==='completed'?'btn-primary':'btn-ghost'}" onclick="Employees.exitFilter='completed';Employees.renderExitClearance(document.getElementById('emp-content'))" style="font-size:11.5px;padding:4px 10px">
+                  Completed (${completedCount})
+                </button>
+              </div>
+
+              <button class="btn btn-secondary btn-sm" onclick="Employees.showInitiateExitModal()">
+                <i class="fa fa-user-xmark"></i> Initiate Exit / Separation
+              </button>
+            ` : ''}
+
+            <button class="btn btn-danger btn-sm" onclick="Employees.showSubmitResignationModal()">
+              <i class="fa fa-pen-nib"></i> ${isStaff ? 'Tender Resignation Letter' : 'Record Employee Resignation'}
             </button>
           </div>
         </div>
 
         <!-- Clearance Cases List -->
         <div style="display:flex;flex-direction:column;gap:18px">
-          ${clearances.length === 0 ? `
-            <div class="card"><div class="empty-state"><i class="fa fa-user-shield"></i><h3>No exit clearance cases recorded</h3></div></div>
-          ` : clearances.map(c => {
-            const emp = allEmps.find(e => e.id === c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', departmentId: 1, designationId: 1 };
+          ${displayCases.length === 0 ? `
+            <div class="card" style="padding:40px;text-align:center">
+              <div class="empty-state">
+                <i class="fa fa-file-contract" style="font-size:44px;color:var(--text-muted);margin-bottom:14px"></i>
+                <h3 style="font-size:16px;margin-bottom:6px">No Exit or Resignation Cases Found</h3>
+                <p style="color:var(--text-3);font-size:13px;max-width:500px;margin:0 auto 18px">
+                  ${isStaff 
+                    ? 'You have not submitted a resignation letter. If you intend to resign, click the button below to submit formal notification with your proposed last working day.' 
+                    : 'There are no exit or clearance records matching this filter.'}
+                </p>
+                ${isStaff ? `
+                  <button class="btn btn-danger" onclick="Employees.showSubmitResignationModal()">
+                    <i class="fa fa-pen-nib"></i> Submit Formal Resignation
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          ` : displayCases.map(c => {
+            const emp = allEmps.find(e => e.id === c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', departmentId: 1, designationId: 1, joiningDate: '2023-01-01' };
+            const isEmpActive = emp.status === 'active';
             
-            // Calculate progress percentage across all 4 departments
+            // Calculate progress percentage across all checkpoints
             let totalItems = 0;
             let doneItems = 0;
-            ['it', 'admin', 'finance', 'hr'].forEach(deptKey => {
+            ['it', 'admin', 'finance', 'hr', 'handover'].forEach(deptKey => {
               const d = c.departments?.[deptKey];
               if (d && d.items) {
                 totalItems += d.items.length;
@@ -6213,83 +6364,141 @@ const Employees = {
             });
             const pct = totalItems > 0 ? Math.round((doneItems / totalItems) * 100) : 0;
 
+            const noticeBadge = this.getNoticeCountdownBadge(c.lastWorkingDay, c.status);
+
             return `
-              <div class="card" style="padding:20px">
+              <div class="card" style="padding:22px;border:1px solid ${c.status==='pending_review'?'rgba(245,158,11,0.4)':c.status==='completed'?'rgba(16,185,129,0.3)':'var(--border)'}">
+                
+                <!-- Pending Review Notice Alert Banner -->
+                ${c.status === 'pending_review' ? `
+                  <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.2);display:flex;align-items:center;justify-content:center;color:#b45309">
+                        <i class="fa fa-bell"></i>
+                      </div>
+                      <div>
+                        <strong style="color:#92400e;font-size:13.5px">Formal Resignation Letter Tendered — Awaiting HR & Admin Acceptance</strong>
+                        <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                          Submitted on: <strong>${c.resignationDate}</strong> | Proposed Last Working Day: <strong>${c.lastWorkingDay}</strong> | Policy Notice: <strong>${c.noticePeriodDays || 30} days</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <button class="btn btn-ghost btn-sm" onclick="Employees.showViewResignationLetter(${c.id})">
+                        <i class="fa fa-envelope-open-text"></i> Read Resignation Letter
+                      </button>
+                      ${!isStaff ? `
+                        <button class="btn btn-primary btn-sm" onclick="Employees.showReviewResignationModal(${c.id})">
+                          <i class="fa fa-check-circle"></i> Review & Accept Resignation
+                        </button>
+                      ` : `
+                        <span class="badge badge-warning" style="font-size:11px">Under Review by HR Administration</span>
+                      `}
+                    </div>
+                  </div>
+                ` : ''}
+
                 <!-- Case Header -->
-                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
-                  <div style="display:flex;align-items:center;gap:12px">
-                    <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)}">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px">
+                  <div style="display:flex;align-items:center;gap:14px">
+                    <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)};position:relative">
                       ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : Utils.avatarInitials(emp.fullName)}
                     </div>
                     <div>
-                      <div style="display:flex;align-items:center;gap:8px">
+                      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
                         <span style="font-size:16px;font-weight:700;color:var(--primary);cursor:pointer" onclick="Employees.renderProfile(${emp.id})">${emp.fullName}</span>
-                        <span class="chip" style="font-size:10.5px">${emp.empNo}</span>
-                        <span class="badge ${c.status==='completed'?'badge-success':'badge-warning'}" style="font-size:10px">
-                          ${c.status === 'completed' ? '<i class="fa fa-check-double"></i> Fully Cleared & Settled' : '<i class="fa fa-spinner"></i> Clearance In Progress'}
+                        <span class="chip" style="font-size:11px">${emp.empNo}</span>
+                        ${noticeBadge}
+                        <span class="badge ${isEmpActive?'badge-success':'badge-danger'}" style="font-size:10px">
+                          ${isEmpActive ? '<i class="fa fa-user-check"></i> Profile Active' : '<i class="fa fa-user-slash"></i> Account Inactive / Ex-Employee'}
                         </span>
                       </div>
-                      <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                      <div style="font-size:12px;color:var(--text-3);margin-top:4px">
                         ${Utils.getDesigName(emp.designationId)} • ${Utils.getDeptName(emp.departmentId)} | 
-                        Resignation: <strong>${c.resignationDate}</strong> | Last Working Day: <strong>${c.lastWorkingDay}</strong>
+                        Resigned: <strong>${c.resignationDate}</strong> | 
+                        ${c.status === 'pending_review' ? 'Proposed LWD' : 'Confirmed Last Working Day'}: <strong style="color:var(--text-1)">${c.lastWorkingDay}</strong> | 
+                        Reason: <em>${c.reason}</em>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Actions -->
-                  <div style="display:flex;align-items:center;gap:8px">
+                  <!-- Actions Header -->
+                  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                    ${c.resignationLetter ? `
+                      <button class="btn btn-ghost btn-sm" onclick="Employees.showViewResignationLetter(${c.id})" title="View Resignation Letter">
+                        <i class="fa fa-file-lines"></i> Letter
+                      </button>
+                    ` : ''}
+
                     <button class="btn btn-secondary btn-sm" onclick="Employees.showFandFModal(${c.id})">
-                      <i class="fa fa-calculator"></i> View / Edit F&F
+                      <i class="fa fa-calculator"></i> ${isStaff ? 'My F&F Breakdown' : 'F&F Calculator'}
                     </button>
-                    <button class="btn btn-primary btn-sm" onclick="Employees.printFandFStatement(${c.id})">
-                      <i class="fa fa-print"></i> Print F&F Statement
+
+                    <button class="btn btn-outline-primary btn-sm" onclick="Employees.printFandFStatement(${c.id})">
+                      <i class="fa fa-print"></i> F&F Slip
                     </button>
+
+                    <button class="btn btn-outline-primary btn-sm" onclick="Employees.printRelievingCertificate(${c.id})" title="Official Relieving & Experience Letter on Corporate Letterhead">
+                      <i class="fa fa-file-contract"></i> Letterhead Relieving
+                    </button>
+
+                    ${!isStaff && c.status !== 'completed' ? `
+                      <button class="btn btn-danger btn-sm" onclick="Employees.completeExit(${c.id})">
+                        <i class="fa fa-user-slash"></i> Finalize Exit & Inactivate Account
+                      </button>
+                    ` : ''}
                   </div>
                 </div>
 
-                <!-- Progress Bar -->
+                <!-- Progress Bar & Checkpoint Summary -->
                 <div style="margin-bottom:18px">
                   <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px">
-                    <span><strong>Overall Clearance Progress:</strong> ${doneItems} of ${totalItems} checkpoints completed</span>
-                    <span style="font-weight:700;color:${pct===100?'var(--success)':'var(--primary)'}">${pct}%</span>
+                    <span><strong>Clearance Handover Progress:</strong> ${doneItems} of ${totalItems} checkpoints completed</span>
+                    <span style="font-weight:700;color:${pct===100?'var(--success)':'var(--primary)'}">${pct}% Completed</span>
                   </div>
-                  <div class="progress" style="height:8px;background:var(--surface)">
+                  <div class="progress" style="height:8px;background:var(--surface);border-radius:4px;overflow:hidden">
                     <div class="progress-bar" style="width:${pct}%;background:${pct===100?'var(--success)':'var(--primary)'}"></div>
                   </div>
                 </div>
 
-                <!-- 4 Department Checkpoint Cards Grid -->
-                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px">
+                <!-- Department Checkpoint Cards Grid -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:16px">
                   ${[
                     { key:'it', label:'IT Dept', icon:'fa-laptop', data: c.departments?.it },
-                    { key:'admin', label:'Admin & Facility', icon:'fa-building', data: c.departments?.admin },
-                    { key:'finance', label:'Finance Dept', icon:'fa-landmark', data: c.departments?.finance },
+                    { key:'admin', label:'Admin & Facilities', icon:'fa-building', data: c.departments?.admin },
+                    { key:'finance', label:'Finance & Accounts', icon:'fa-landmark', data: c.departments?.finance },
                     { key:'hr', label:'Human Resources', icon:'fa-user-tie', data: c.departments?.hr },
+                    { key:'handover', label:'Knowledge Transfer (KT)', icon:'fa-handshake-angle', data: c.departments?.handover },
                   ].map(dept => {
-                    const isCleared = dept.data?.cleared;
+                    const dData = dept.data || { cleared: false, items: [] };
+                    const isCleared = dData.cleared;
                     return `
-                      <div style="background:var(--surface);border:1px solid ${isCleared?'var(--success)':'var(--border)'};border-radius:10px;padding:12px;position:relative">
-                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                          <div style="font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:6px">
-                            <i class="fa ${dept.icon}" style="color:var(--primary)"></i> ${dept.label}
+                      <div style="background:var(--surface);border:1px solid ${isCleared?'var(--success)':'var(--border)'};border-radius:10px;padding:12px;display:flex;flex-direction:column;justify-content:space-between">
+                        <div>
+                          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                            <div style="font-weight:700;font-size:12px;display:flex;align-items:center;gap:6px">
+                              <i class="fa ${dept.icon}" style="color:var(--primary)"></i> ${dept.label}
+                            </div>
+                            <span class="badge ${isCleared?'badge-success':'badge-warning'}" style="font-size:9.5px;padding:1px 6px">
+                              ${isCleared ? 'Cleared' : 'Pending'}
+                            </span>
                           </div>
-                          <span class="badge ${isCleared?'badge-success':'badge-warning'}" style="font-size:9.5px;padding:1px 6px">
-                            ${isCleared ? 'Cleared' : 'Pending'}
-                          </span>
-                        </div>
 
-                        <!-- Checkbox items -->
-                        <div style="display:flex;flex-direction:column;gap:6px;font-size:11.5px;margin-bottom:10px">
-                          ${(dept.data?.items || []).map((item, idx) => `
-                            <label style="display:flex;align-items:flex-start;gap:6px;cursor:pointer;line-height:1.3">
-                              <input type="checkbox" ${item.done?'checked':''} onchange="Employees.toggleClearanceItem(${c.id}, '${dept.key}', ${idx})" style="margin-top:2px">
-                              <span style="${item.done?'text-decoration:line-through;color:var(--text-3)':''}">${item.name}</span>
-                            </label>
-                          `).join('')}
+                          <!-- Checkbox items -->
+                          <div style="display:flex;flex-direction:column;gap:6px;font-size:11.5px;margin-bottom:10px">
+                            ${(dData.items || []).map((item, idx) => `
+                              <label style="display:flex;align-items:flex-start;gap:6px;cursor:${!isStaff?'pointer':'default'};line-height:1.3">
+                                <input type="checkbox" ${item.done?'checked':''} ${isStaff?'disabled':''} 
+                                  onchange="Employees.toggleClearanceItem(${c.id}, '${dept.key}', ${idx})" style="margin-top:2px">
+                                <span style="${item.done?'text-decoration:line-through;color:var(--text-3)':''}">${item.name}</span>
+                              </label>
+                            `).join('')}
+                          </div>
                         </div>
 
                         <div style="font-size:10px;color:var(--text-3);border-top:1px dashed var(--border);padding-top:6px">
-                          ${isCleared ? `<span style="color:var(--success)"><i class="fa fa-check"></i> ${dept.data.clearedBy || 'Verified'} (${dept.data.clearedDate || ''})</span>` : 'Awaiting final sign-off'}
+                          ${isCleared ? `<span style="color:var(--success)"><i class="fa fa-check"></i> ${dData.clearedBy || 'Verified'} (${dData.clearedDate || ''})</span>` : 'Awaiting sign-off'}
                         </div>
                       </div>
                     `;
@@ -6302,16 +6511,17 @@ const Employees = {
                     <div><span style="color:var(--text-3)">Basic Salary:</span> <strong>${Utils.formatCurrency(c.settlement?.basicSalary || 0)}</strong></div>
                     <div><span style="color:var(--text-3)">Leave Encashment:</span> <strong>${Utils.formatCurrency(c.settlement?.leaveEncashmentAmount || 0)}</strong> (${c.settlement?.leaveBalanceDays || 0} days)</div>
                     <div><span style="color:var(--text-3)">Gratuity:</span> <strong>${Utils.formatCurrency(c.settlement?.gratuityAmount || 0)}</strong> (${c.settlement?.gratuityYears || 0} yrs)</div>
-                    <div><span style="color:var(--text-3)">Deductions:</span> <strong style="color:var(--danger)">${Utils.formatCurrency((c.settlement?.noticeDeduction||0) + (c.settlement?.loanDeduction||0))}</strong></div>
+                    <div><span style="color:var(--text-3)">Deductions:</span> <strong style="color:var(--danger)">${Utils.formatCurrency((c.settlement?.noticeDeduction||0) + (c.settlement?.loanDeduction||0) + (c.settlement?.otherDeductions||0))}</strong></div>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px">
+                  <div style="display:flex;align-items:center;gap:10px">
                     <span style="font-size:13px;color:var(--text-2);font-weight:600">Net Payable:</span>
                     <span style="font-size:18px;font-weight:800;color:var(--success)">${Utils.formatCurrency(c.settlement?.netPayable || 0)}</span>
                     <span class="badge ${c.settlement?.paymentStatus==='paid'?'badge-success':'badge-warning'}" style="font-size:10px;margin-left:4px">
-                      ${c.settlement?.paymentStatus === 'paid' ? 'Paid' : 'Pending Payment'}
+                      ${c.settlement?.paymentStatus === 'paid' ? 'Paid & Disbursed' : 'Pending Payment'}
                     </span>
                   </div>
                 </div>
+
               </div>
             `;
           }).join('')}
@@ -6321,6 +6531,10 @@ const Employees = {
   },
 
   toggleClearanceItem(caseId, deptKey, itemIdx) {
+    if (Auth.role === 'employee') {
+      Toast.show('Permission denied: Only department officers and HR can check off clearances.', 'error');
+      return;
+    }
     const clearances = DB.get('exit_clearances') || [];
     const c = clearances.find(x => x.id === caseId);
     if (!c || !c.departments?.[deptKey]?.items?.[itemIdx]) return;
@@ -6331,16 +6545,8 @@ const Employees = {
     const allDone = c.departments[deptKey].items.every(i => i.done);
     c.departments[deptKey].cleared = allDone;
     if (allDone) {
-      c.departments[deptKey].clearedBy = Auth.user?.name || 'Authorized Officer';
+      c.departments[deptKey].clearedBy = Auth.user?.username || 'Authorized Officer';
       c.departments[deptKey].clearedDate = Utils.today();
-    }
-
-    // Check if all 4 depts are cleared
-    const allDeptsCleared = ['it', 'admin', 'finance', 'hr'].every(d => c.departments[d]?.cleared);
-    if (allDeptsCleared) {
-      c.status = 'completed';
-    } else {
-      c.status = 'in_progress';
     }
 
     DB.set('exit_clearances', clearances);
@@ -6348,9 +6554,322 @@ const Employees = {
     this.renderExitClearance(document.getElementById('emp-content'));
   },
 
+  showSubmitResignationModal() {
+    const isStaff = Auth.role === 'employee';
+    const allActiveEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const myEmp = isStaff ? Auth.employee : (allActiveEmps[0] || null);
+
+    // Calculate proposed last working day 30 days ahead
+    const proposedDate = new Date();
+    proposedDate.setDate(proposedDate.getDate() + 30);
+    const proposedLWD = proposedDate.toISOString().split('T')[0];
+
+    Modal.show('Tender Resignation Letter & Notice Notification', `
+      <form onsubmit="Employees.saveSubmitResignation(event)">
+        <div class="form-group mb-14">
+          <label class="form-label required">Employee</label>
+          ${isStaff && myEmp ? `
+            <input type="hidden" id="resig-emp-id" value="${myEmp.id}">
+            <input type="text" class="form-control" value="${myEmp.fullName} (${myEmp.empNo}) — ${Utils.getDesigName(myEmp.designationId)}" readonly disabled>
+          ` : `
+            <select class="form-control" id="resig-emp-id" required>
+              ${allActiveEmps.map(e => `<option value="${e.id}">${e.fullName} (${e.empNo}) — ${Utils.getDesigName(e.designationId)}</option>`).join('')}
+            </select>
+          `}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Resignation Date</label>
+            <input type="date" class="form-control" id="resig-date" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Notice Period (Days)</label>
+            <input type="number" class="form-control" id="resig-notice-days" value="30" min="0" oninput="
+              const d = new Date(document.getElementById('resig-date').value || new Date());
+              d.setDate(d.getDate() + (parseInt(this.value)||30));
+              document.getElementById('resig-lwd').value = d.toISOString().split('T')[0];
+            ">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Proposed Last Working Day</label>
+            <input type="date" class="form-control" id="resig-lwd" value="${proposedLWD}" required>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Primary Reason for Leaving</label>
+          <select class="form-control" id="resig-reason" required>
+            <option value="Better Career Opportunity / Higher Compensation">Better Career Opportunity / Higher Compensation</option>
+            <option value="Relocation / Family Reasons">Relocation / Family Reasons</option>
+            <option value="Pursuing Higher Studies">Pursuing Higher Studies</option>
+            <option value="Health / Personal Reasons">Health / Personal Reasons</option>
+            <option value="Career Transition / Entrepreneurship">Career Transition / Entrepreneurship</option>
+            <option value="End of Contract Tenure">End of Contract Tenure</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Formal Resignation Letter Body</label>
+          <textarea class="form-control" id="resig-letter" rows="6" required style="line-height:1.5;font-size:13px">Dear Management and Human Resources,
+
+Please accept this letter as formal notification that I am tendering my resignation from my position at the company. In accordance with my employment contract, my proposed last working day will be ${proposedLWD}.
+
+I would like to thank the organization and my colleagues for the valuable experiences and opportunities during my tenure. I remain fully committed to completing all pending tasks and ensuring a comprehensive knowledge transfer to my team members prior to my last day.
+
+Sincerely,
+${myEmp ? myEmp.fullName : 'Employee'}</textarea>
+        </div>
+
+        <div class="modal-footer" style="padding:0;margin-top:20px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-paper-plane"></i> Submit Resignation</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveSubmitResignation(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('resig-emp-id').value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const clearances = DB.get('exit_clearances') || [];
+    // Check if there is already an active case
+    const existing = clearances.find(c => c.employeeId === empId && c.status !== 'completed' && c.status !== 'withdrawn');
+    if (existing) {
+      Toast.show('An active exit clearance / resignation process is already underway for this employee.', 'warning');
+      return;
+    }
+
+    const resigDate = document.getElementById('resig-date').value || Utils.today();
+    const proposedLWD = document.getElementById('resig-lwd').value;
+    const noticeDays = parseInt(document.getElementById('resig-notice-days').value) || 30;
+    const reason = document.getElementById('resig-reason').value;
+    const letter = document.getElementById('resig-letter').value.trim();
+
+    const basicSalary = emp.salary || 70000;
+    const leaveBalance = 10;
+    const gratuityYears = Math.max(1, new Date().getFullYear() - parseInt((emp.joiningDate||'2022').slice(0,4)));
+
+    const newCase = {
+      id: DB.nextId('exit_clearances'),
+      employeeId: empId,
+      resignationDate: resigDate,
+      lastWorkingDay: proposedLWD,
+      noticePeriodDays: noticeDays,
+      reason,
+      resignationLetter: letter,
+      status: 'pending_review',
+      submittedBy: Auth.user?.id,
+      submissionDate: Utils.today(),
+      departments: {
+        it: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting asset return & credential deactivation',
+          items: [
+            { name: 'Laptop, Charger & Peripheral Accessories Returned', done: false },
+            { name: 'Corporate Email & Cloud Workspace Deactivated', done: false },
+            { name: 'GitHub / GitLab Repos & VPN Credentials Revoked', done: false }
+          ]
+        },
+        admin: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting physical badge and office keys',
+          items: [
+            { name: 'Building Access Card & Smart ID Badge Returned', done: false },
+            { name: 'Locker Keys & Office Drawer Keys Handed In', done: false },
+            { name: 'Parking Permit & Vehicle Access Revoked', done: false }
+          ]
+        },
+        finance: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Awaiting final dues & loan reconciliation',
+          items: [
+            { name: 'Company Loans & Salary Advance Balances Settled', done: false },
+            { name: 'Petty Cash Advances & Expense Claims Reconciled', done: false },
+            { name: 'Corporate Credit Card Cancelled & Surrendered', done: false }
+          ]
+        },
+        hr: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Exit interview & insurance pending',
+          items: [
+            { name: 'Health Insurance De-enrolled & Cards Returned', done: false },
+            { name: 'Exit Interview Questionnaire Form Completed', done: false },
+            { name: 'Post-Employment NDA & IP Obligations Reaffirmed', done: false },
+            { name: 'Final F&F Settlement Statement Approved', done: false }
+          ]
+        },
+        handover: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Knowledge transfer and active project handover',
+          items: [
+            { name: 'Knowledge Transfer (KT) Completed & Signed by Manager', done: false },
+            { name: 'Active Client Accounts & Shared Credentials Handed Over', done: false },
+            { name: 'Project Documentation & Technical Repos Updated', done: false }
+          ]
+        }
+      },
+      settlement: {
+        basicSalary,
+        workedDays: 30,
+        unpaidSalary: basicSalary,
+        leaveBalanceDays: leaveBalance,
+        leaveEncashmentAmount: Math.round((basicSalary / 30) * leaveBalance),
+        gratuityYears,
+        gratuityAmount: basicSalary * gratuityYears,
+        noticeShortfallDays: 0,
+        noticeDeduction: 0,
+        loanDeduction: 0,
+        otherDeductions: 0,
+        netPayable: basicSalary + Math.round((basicSalary / 30) * leaveBalance) + (basicSalary * gratuityYears),
+        paymentStatus: 'pending',
+        paidDate: null,
+        chequeNo: ''
+      }
+    };
+
+    clearances.push(newCase);
+    DB.set('exit_clearances', clearances);
+    DB.log('RESIGNATION_SUBMITTED', 'Employees', `Formal resignation submitted by ${emp.fullName}. Proposed LWD: ${proposedLWD}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(`Resignation tendered for ${emp.fullName}! HR and Admin notified for review.`, 'warning');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  showReviewResignationModal(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+
+    Modal.show(`Review Resignation — ${emp.fullName}`, `
+      <div>
+        <div style="background:var(--surface);padding:14px;border-radius:10px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-weight:700;font-size:15px;color:var(--primary)">${emp.fullName} (${emp.empNo})</div>
+            <span class="chip">${c.reason}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-3)">
+            Tendered On: <strong>${c.resignationDate}</strong> | Proposed Last Working Day: <strong>${c.lastWorkingDay}</strong>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label" style="font-size:11px;font-weight:700;text-transform:uppercase">Employee Resignation Letter</label>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12.5px;line-height:1.6;white-space:pre-wrap;max-height:140px;overflow-y:auto">
+            ${c.resignationLetter || 'Standard resignation tendered.'}
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Official Accepted Last Working Day</label>
+            <input type="date" class="form-control" id="review-lwd" value="${c.lastWorkingDay}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Notice Period Terms</label>
+            <select class="form-control" id="review-notice-terms">
+              <option value="Standard 30 Days Notice Served">Standard 30 Days Notice Served</option>
+              <option value="Notice Shortened / Waived by Management">Notice Shortened / Waived by Management</option>
+              <option value="Early Release with Notice Buyout Recovery">Early Release with Notice Buyout Recovery</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">HR Acceptance / Discussion Notes</label>
+          <textarea class="form-control" id="review-notes" rows="2" placeholder="Notes on resignation acceptance, exit conditions, or retention conversation..."></textarea>
+        </div>
+
+        <div class="modal-footer" style="padding:0;margin-top:20px;display:flex;justify-content:space-between">
+          <button type="button" class="btn btn-ghost" onclick="Employees.saveRetainResignation(${c.id})">
+            <i class="fa fa-handshake"></i> Retain Employee / Withdraw
+          </button>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+            <button type="button" class="btn btn-success" onclick="Employees.saveAcceptResignation(${c.id})">
+              <i class="fa fa-check"></i> Accept Resignation & Start Notice Period
+            </button>
+          </div>
+        </div>
+      </div>
+    `);
+  },
+
+  saveAcceptResignation(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId);
+
+    const acceptedLWD = document.getElementById('review-lwd').value;
+    const terms = document.getElementById('review-notice-terms').value;
+    const notes = document.getElementById('review-notes').value.trim();
+
+    c.status = 'in_progress';
+    c.lastWorkingDay = acceptedLWD;
+    c.noticeTerms = terms;
+    c.acceptanceNotes = notes;
+    c.acceptedBy = Auth.user?.username || 'HR Administration';
+    c.acceptedDate = Utils.today();
+
+    DB.set('exit_clearances', clearances);
+    DB.log('RESIGNATION_ACCEPTED', 'Employees', `Resignation accepted for ${emp?.fullName}. Official Last Working Day: ${acceptedLWD}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(`Resignation accepted for ${emp?.fullName}! Notice period countdown active.`, 'success');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  saveRetainResignation(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId);
+    const notes = document.getElementById('review-notes').value.trim() || 'Retained following discussion with management.';
+
+    c.status = 'retained';
+    c.retentionNotes = notes;
+    c.retainedDate = Utils.today();
+
+    DB.set('exit_clearances', clearances);
+    DB.log('RESIGNATION_RETAINED', 'Employees', `${emp?.fullName} retained after resignation review. Discussion: ${notes}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(`Employee ${emp?.fullName} retained! Resignation case closed.`, 'info');
+    this.renderExitClearance(document.getElementById('emp-content'));
+  },
+
+  showViewResignationLetter(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+
+    Modal.show(`Resignation Letter — ${emp.fullName}`, `
+      <div style="background:var(--surface);padding:16px;border-radius:10px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:15px">${emp.fullName} (${emp.empNo})</div>
+            <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(emp.designationId)} • ${Utils.getDeptName(emp.departmentId)}</div>
+          </div>
+          ${this.getNoticeCountdownBadge(c.lastWorkingDay, c.status)}
+        </div>
+      </div>
+
+      <div style="background:#fff;color:#1e293b;padding:24px;border-radius:8px;border:1px solid #e2e8f0;font-family:'Segoe UI',sans-serif;font-size:13.5px;line-height:1.7;white-space:pre-wrap;box-shadow:0 2px 8px rgba(0,0,0,0.04)">${c.resignationLetter || 'Formal resignation letter submitted in person.'}</div>
+
+      <div class="modal-footer" style="padding:0;margin-top:20px">
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+      </div>
+    `);
+  },
+
   showInitiateExitModal() {
     const activeEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
-    Modal.show('Initiate Exit Clearance', `
+    Modal.show('Initiate Separation / Exit Clearance', `
       <form onsubmit="Employees.saveInitiateExit(event)">
         <div class="form-group mb-14">
           <label class="form-label required">Employee</label>
@@ -6360,11 +6879,11 @@ const Employees = {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px" class="mb-14">
           <div class="form-group">
-            <label class="form-label required">Resignation Date</label>
+            <label class="form-label required">Effective Resignation / Exit Date</label>
             <input type="date" class="form-control" id="m-exit-resig" value="${Utils.today()}" required>
           </div>
           <div class="form-group">
-            <label class="form-label required">Last Working Day (LWD)</label>
+            <label class="form-label required">Confirmed Last Working Day (LWD)</label>
             <input type="date" class="form-control" id="m-exit-lwd" required>
           </div>
         </div>
@@ -6373,7 +6892,7 @@ const Employees = {
           <input type="number" class="form-control" id="m-exit-notice" value="30">
         </div>
         <div class="form-group mb-14">
-          <label class="form-label required">Reason for Leaving</label>
+          <label class="form-label required">Reason for Separation</label>
           <select class="form-control" id="m-exit-reason" required>
             <option value="Better Career Opportunity / Higher Compensation">Better Career Opportunity / Higher Compensation</option>
             <option value="Relocation / Family Reasons">Relocation / Family Reasons</option>
@@ -6381,6 +6900,7 @@ const Employees = {
             <option value="Health / Personal Reasons">Health / Personal Reasons</option>
             <option value="End of Contract Tenure">End of Contract Tenure</option>
             <option value="Mutual Separation / Redundancy">Mutual Separation / Redundancy</option>
+            <option value="Retirement">Retirement</option>
           </select>
         </div>
         <div class="modal-footer" style="padding:0;margin-top:20px">
@@ -6399,7 +6919,7 @@ const Employees = {
 
     const clearances = DB.get('exit_clearances') || [];
     const basicSalary = emp.salary || 70000;
-    const leaveBalance = 10; // default estimated
+    const leaveBalance = 10;
     const gratuityYears = Math.max(1, new Date().getFullYear() - parseInt((emp.joiningDate||'2022').slice(0,4)));
 
     const newCase = {
@@ -6415,37 +6935,46 @@ const Employees = {
           cleared: false, clearedBy: '', clearedDate: '',
           remarks: 'Awaiting asset return & credential deactivation',
           items: [
-            { name: 'Laptop & Charger Returned', done: false },
-            { name: 'Email & Cloud Accounts Deactivated', done: false },
-            { name: 'Source Code & VPN Access Revoked', done: false }
+            { name: 'Laptop, Charger & Peripheral Accessories Returned', done: false },
+            { name: 'Corporate Email & Cloud Workspace Deactivated', done: false },
+            { name: 'GitHub / GitLab Repos & VPN Credentials Revoked', done: false }
           ]
         },
         admin: {
           cleared: false, clearedBy: '', clearedDate: '',
-          remarks: 'Awaiting badge and keys return',
+          remarks: 'Awaiting physical badge and office keys',
           items: [
-            { name: 'Building Access Card Handed In', done: false },
-            { name: 'Locker Keys Returned & Cleared', done: false },
-            { name: 'Cafeteria Card Deactivated', done: false }
+            { name: 'Building Access Card & Smart ID Badge Returned', done: false },
+            { name: 'Locker Keys & Office Drawer Keys Handed In', done: false },
+            { name: 'Parking Permit & Vehicle Access Revoked', done: false }
           ]
         },
         finance: {
           cleared: false, clearedBy: '', clearedDate: '',
-          remarks: 'Awaiting final account reconciliation',
+          remarks: 'Awaiting final dues & loan reconciliation',
           items: [
-            { name: 'Company Loan Balances Settled', done: false },
-            { name: 'Petty Cash Advances Reconciled', done: false },
-            { name: 'Corporate Fuel/Credit Card Revoked', done: false }
+            { name: 'Company Loans & Salary Advance Balances Settled', done: false },
+            { name: 'Petty Cash Advances & Expense Claims Reconciled', done: false },
+            { name: 'Corporate Credit Card Cancelled & Surrendered', done: false }
           ]
         },
         hr: {
           cleared: false, clearedBy: '', clearedDate: '',
-          remarks: 'Exit interview pending',
+          remarks: 'Exit interview & insurance pending',
           items: [
-            { name: 'Exit Interview Completed', done: false },
-            { name: 'Health Insurance Cards Returned', done: false },
-            { name: 'Handover Document Signed by Supervisor', done: false },
+            { name: 'Health Insurance De-enrolled & Cards Returned', done: false },
+            { name: 'Exit Interview Questionnaire Form Completed', done: false },
+            { name: 'Post-Employment NDA & IP Obligations Reaffirmed', done: false },
             { name: 'Final F&F Settlement Statement Approved', done: false }
+          ]
+        },
+        handover: {
+          cleared: false, clearedBy: '', clearedDate: '',
+          remarks: 'Knowledge transfer and active project handover',
+          items: [
+            { name: 'Knowledge Transfer (KT) Completed & Signed by Manager', done: false },
+            { name: 'Active Client Accounts & Shared Credentials Handed Over', done: false },
+            { name: 'Project Documentation & Technical Repos Updated', done: false }
           ]
         }
       },
@@ -6481,15 +7010,16 @@ const Employees = {
     if (!c) return;
     const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
     const s = c.settlement || {};
+    const isStaff = Auth.role === 'employee';
 
     Modal.show(`Full & Final Settlement — ${emp.fullName}`, `
       <form onsubmit="Employees.saveFandF(event, ${c.id})">
-        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
           <div>
             <div style="font-weight:700;font-size:14px">${emp.fullName} (${emp.empNo})</div>
             <div style="font-size:11.5px;color:var(--text-3)">Resignation: ${c.resignationDate} | LWD: ${c.lastWorkingDay}</div>
           </div>
-          <span class="chip">${c.reason}</span>
+          ${this.getNoticeCountdownBadge(c.lastWorkingDay, c.status)}
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
@@ -6498,19 +7028,19 @@ const Employees = {
             <h4 style="font-size:13px;font-weight:700;margin:0 0 10px 0;color:var(--success)"><i class="fa fa-circle-plus"></i> Payable Items</h4>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Monthly Basic Salary</label>
-              <input type="number" class="form-control" id="ff-basic" value="${s.basicSalary||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-basic" value="${s.basicSalary||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Worked Days in Last Month</label>
-              <input type="number" class="form-control" id="ff-worked-days" value="${s.workedDays||30}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-worked-days" value="${s.workedDays||30}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Unavailed Leaves to Encash (Days)</label>
-              <input type="number" class="form-control" id="ff-leave-days" value="${s.leaveBalanceDays||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-leave-days" value="${s.leaveBalanceDays||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Gratuity Completed Years</label>
-              <input type="number" class="form-control" id="ff-gratuity-yrs" value="${s.gratuityYears||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-gratuity-yrs" value="${s.gratuityYears||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
           </div>
 
@@ -6519,19 +7049,19 @@ const Employees = {
             <h4 style="font-size:13px;font-weight:700;margin:0 0 10px 0;color:var(--danger)"><i class="fa fa-circle-minus"></i> Deductions</h4>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Notice Period Shortfall (Days)</label>
-              <input type="number" class="form-control" id="ff-notice-days" value="${s.noticeShortfallDays||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-notice-days" value="${s.noticeShortfallDays||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Loan / Advance Deduction</label>
-              <input type="number" class="form-control" id="ff-loan-deduct" value="${s.loanDeduction||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-loan-deduct" value="${s.loanDeduction||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Other Deductions (Assets/Damages)</label>
-              <input type="number" class="form-control" id="ff-other-deduct" value="${s.otherDeductions||0}" oninput="Employees.recalcFF()">
+              <input type="number" class="form-control" id="ff-other-deduct" value="${s.otherDeductions||0}" oninput="Employees.recalcFF()" ${isStaff?'disabled':''}>
             </div>
             <div class="form-group mb-8">
               <label class="form-label" style="font-size:11px">Disbursement Status</label>
-              <select class="form-control" id="ff-status">
+              <select class="form-control" id="ff-status" ${isStaff?'disabled':''}>
                 <option value="pending" ${s.paymentStatus==='pending'?'selected':''}>Pending Payment</option>
                 <option value="paid" ${s.paymentStatus==='paid'?'selected':''}>Paid & Reconciled</option>
               </select>
@@ -6551,8 +7081,10 @@ const Employees = {
         </div>
 
         <div class="modal-footer" style="padding:0">
-          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save F&F Settlement</button>
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+          ${!isStaff ? `
+            <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save F&F Settlement</button>
+          ` : ''}
         </div>
       </form>
     `);
@@ -6712,7 +7244,7 @@ const Employees = {
           <tbody>
             <tr>
               <td>Unpaid Salary for Last Month</td>
-              <td style="text-align:center">${s.workedDays} days worked @ PKR ${Math.round(s.basicSalary/30)}/day</td>
+              <td style="text-align:center">${s.workedDays} days worked @ PKR ${Math.round((s.basicSalary||70000)/30)}/day</td>
               <td style="text-align:right">${Utils.formatCurrency(s.unpaidSalary||0)}</td>
               <td style="text-align:right">—</td>
             </tr>
@@ -6774,6 +7306,204 @@ const Employees = {
       </html>
     `);
     printWin.document.close();
+  },
+
+  printRelievingCertificate(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', joiningDate: '2023-01-01' };
+    const settings = DB.getObj('settings') || {};
+
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyName = settings.companyName || 'HRM Pro Corporation Pvt. Ltd.';
+    const companyAddress = settings.companyAddress || 'Suite 401, Business Plaza, Shahrah-e-Faisal, Karachi';
+    const companyEmail = settings.companyEmail || 'hr@company.com';
+    const companyPhone = settings.companyPhone || '+92-21-1234567';
+    const companyNTN = settings.companyNTN || '1234567-8';
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const companyBanner = safeSrc(settings.companyLetterheadBanner || '');
+    const letterheadType = settings.companyLetterheadType || 'dynamic';
+    const accentColor = settings.companyAccentColor || '#2563eb';
+    const signatoryName = settings.signatoryName || 'Sara Malik';
+    const signatoryTitle = settings.signatoryTitle || 'Authorized Signatory / Head of HR';
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
+    const companyStamp = safeSrc(settings.companyStamp || '');
+    const letterheadFooter = settings.companyLetterheadFooter || 'This document is electronically verified and issued under corporate authority. Printed copies are valid with official corporate seal.';
+
+    const refNo = `REL-${emp.empNo}-${new Date().getFullYear()}`;
+    const issueDate = Utils.today();
+    const joiningDate = emp.joiningDate || '01-Jan-2023';
+    const lastDay = c.lastWorkingDay || Utils.today();
+
+    const printWin = window.open('', '_blank', 'width=950,height=1000');
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Experience & Relieving Certificate — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.7; background: #fff; }
+          .letterhead-header { border-bottom: 3px solid ${accentColor}; padding-bottom: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+          .cert-title { text-align: center; margin: 30px 0 24px 0; }
+          .cert-title h2 { margin: 0; font-size: 20px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; letter-spacing: 1.5px; border-bottom: 2px solid #e2e8f0; display: inline-block; padding-bottom: 6px; }
+          .cert-body { font-size: 14.5px; color: #1e293b; text-align: justify; margin-bottom: 28px; line-height: 1.8; }
+          .cert-body p { margin-bottom: 16px; }
+          .cert-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          .cert-table td { padding: 7px 12px; font-size: 13.5px; border: 1px solid #cbd5e1; }
+          .cert-table td.lbl { background: #f8fafc; font-weight: 700; width: 30%; color: #334155; }
+          .sign-area { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; padding-top: 20px; }
+          .footer-note { border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 50px; font-size: 11px; color: #64748b; text-align: center; }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <!-- Letterhead Header -->
+        <div class="letterhead-header">
+          <div style="display:flex;align-items:center;gap:14px">
+            ${companyLogo ? `
+              <div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <img src="${companyLogo}" style="max-width:100%;max-height:100%;object-fit:contain" alt="Logo">
+              </div>
+            ` : `
+              <div style="width:55px;height:55px;border-radius:10px;background:${accentColor};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;flex-shrink:0">
+                ${companyName.slice(0,2).toUpperCase()}
+              </div>
+            `}
+            <div>
+              <h2 style="margin:0;font-size:21px;color:#1e3a8a;font-weight:800;letter-spacing:0.3px">${companyName}</h2>
+              ${settings.companyTagline ? `<div style="font-size:11.5px;color:${accentColor};font-weight:600;margin-top:1px">${settings.companyTagline}</div>` : ''}
+              <div style="font-size:11px;color:#64748b;margin-top:3px">${companyAddress}</div>
+              <div style="font-size:10.5px;color:#64748b">Phone: ${companyPhone} | Email: ${companyEmail} | NTN: ${companyNTN}</div>
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11.5px;color:#64748b">Ref: <strong style="color:#0f172a">${refNo}</strong></div>
+            <div style="font-size:11.5px;color:#64748b">Date: <strong style="color:#0f172a">${issueDate}</strong></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;font-size:14px;color:#334155">
+          <strong>TO WHOM IT MAY CONCERN</strong>
+        </div>
+
+        <div class="cert-title">
+          <h2>EXPERIENCE & RELIEVING CERTIFICATE</h2>
+        </div>
+
+        <div class="cert-body">
+          <p>This is to formally certify that <strong>Mr./Ms. ${emp.fullName}</strong> (Employee ID: <strong>${emp.empNo}</strong>, CNIC: <strong>${emp.cnic || 'N/A'}</strong>) was in employment with <strong>${companyName}</strong> from <strong>${joiningDate}</strong> to <strong>${lastDay}</strong>.</p>
+
+          <p>During tenure with our organization, ${emp.fullName} served with dedication and diligence, holding the last substantive position of <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department.</p>
+
+          <table class="cert-table">
+            <tr>
+              <td class="lbl">Employee Full Name:</td>
+              <td><strong>${emp.fullName}</strong></td>
+              <td class="lbl">Employee ID No:</td>
+              <td><strong>${emp.empNo}</strong></td>
+            </tr>
+            <tr>
+              <td class="lbl">Designation at Exit:</td>
+              <td><strong>${Utils.getDesigName(emp.designationId)}</strong></td>
+              <td class="lbl">Department / Division:</td>
+              <td><strong>${Utils.getDeptName(emp.departmentId)}</strong></td>
+            </tr>
+            <tr>
+              <td class="lbl">Date of Joining:</td>
+              <td>${joiningDate}</td>
+              <td class="lbl">Date of Relieving:</td>
+              <td><strong>${lastDay}</strong></td>
+            </tr>
+            <tr>
+              <td class="lbl">Clearance Status:</td>
+              <td colspan="3"><span style="color:#15803d;font-weight:700">✓ Fully Cleared Across IT, Finance, Admin & HR (Zero Outstanding Dues)</span></td>
+            </tr>
+          </table>
+
+          <p>Consequent to the acceptance of resignation, ${emp.fullName} stands formally relieved from official duties and responsibilities effective the close of business hours on <strong>${lastDay}</strong>. The employee has surrendered all company property, completed departmental handover and clearance procedures, and has no pending dues or liabilities against the company.</p>
+
+          <p>During the period of service, conduct and professional demeanor were found to be satisfactory. We take this opportunity to thank ${emp.fullName} for contributions to ${companyName} and wish success in all future professional and personal endeavors.</p>
+        </div>
+
+        <!-- Signature Area with Official Stamp -->
+        <div class="sign-area">
+          <div>
+            <div style="font-size:12px;color:#64748b;margin-bottom:8px">Issued for and on behalf of:</div>
+            <div style="font-weight:800;font-size:14px;color:#1e3a8a">${companyName}</div>
+            <div style="margin-top:20px;height:45px">
+              ${signatorySignature ? `<img src="${signatorySignature}" style="max-height:45px;max-width:140px;object-fit:contain" alt="Signature">` : ''}
+            </div>
+            <div style="border-top:1.5px solid #334155;padding-top:6px;margin-top:8px;font-weight:700;font-size:13px">${signatoryName}</div>
+            <div style="font-size:11.5px;color:#64748b">${signatoryTitle}</div>
+          </div>
+
+          <div style="text-align:center">
+            ${companyStamp ? `
+              <img src="${companyStamp}" style="max-height:85px;max-width:85px;object-fit:contain;opacity:0.85" alt="Official Seal">
+            ` : `
+              <div style="width:75px;height:75px;border:2px dashed #94a3b8;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;color:#64748b;margin:0 auto">
+                OFFICIAL SEAL
+              </div>
+            `}
+            <div style="font-size:10px;color:#94a3b8;margin-top:4px">Corporate Seal</div>
+          </div>
+        </div>
+
+        <div class="footer-note">
+          ${letterheadFooter}
+        </div>
+
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  },
+
+  completeExit(caseId) {
+    const clearances = DB.get('exit_clearances') || [];
+    const c = clearances.find(x => x.id === caseId);
+    if (!c) return;
+    const emp = DB.find('employees', c.employeeId);
+    if (!emp) return;
+
+    Modal.confirm(
+      'Complete Exit & Deactivate Employee Login',
+      `Are you sure you want to finalize the exit process for <strong>${emp.fullName} (${emp.empNo})</strong>?<br><br>
+       <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:12px;font-size:12.5px;color:#b91c1c;line-height:1.5">
+         <i class="fa fa-triangle-exclamation"></i> <strong>Critical Account Action:</strong><br>
+         • Employee status will be changed to <strong>Inactive (Ex-Employee)</strong>.<br>
+         • User login account will be <strong>permanently suspended / deactivated</strong>.<br>
+         • Employee will no longer be able to log into the HRM system.
+       </div>`,
+      () => {
+        // 1. Mark clearance case completed
+        c.status = 'completed';
+        c.completedDate = Utils.today();
+        c.completedBy = Auth.user?.id;
+        DB.set('exit_clearances', clearances);
+
+        // 2. Mark employee inactive
+        DB.update('employees', emp.id, { 
+          status: 'inactive', 
+          exitDate: c.lastWorkingDay || Utils.today() 
+        });
+
+        // 3. CRITICAL FIX: Synchronize user account in users table to inactive
+        const users = DB.get('users') || [];
+        const linkedUser = users.find(u => u.employeeId === emp.id);
+        if (linkedUser) {
+          DB.update('users', linkedUser.id, { status: 'inactive' });
+        }
+
+        // 4. Audit Log
+        DB.log('EXIT_COMPLETED', 'Employees', `Full separation finalized for ${emp.fullName} (${emp.empNo}). Profile set to inactive and user login revoked.`, Auth.user?.id, 'WARN');
+
+        Toast.show(`Exit finalized! ${emp.fullName} is now an Ex-Employee and login access is revoked.`, 'warning');
+        this.renderExitClearance(document.getElementById('emp-content'));
+      }
+    );
   },
 
   // ============================================================

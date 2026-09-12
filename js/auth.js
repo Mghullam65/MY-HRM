@@ -11,9 +11,24 @@ const Auth = {
     if (saved) {
       try {
         const s = JSON.parse(saved);
-        this._user = s.user;
-        this._employee = s.employee;
-      } catch { this._user = null; }
+        // Verify user and employee still exist and are active in live DB
+        const liveUser = s.user ? DB.find('users', s.user.id) : null;
+        const liveEmployee = s.employee ? DB.find('employees', s.employee.id) : null;
+        
+        if (!liveUser || liveUser.status === 'inactive' || (liveEmployee && (liveEmployee.status === 'inactive' || liveEmployee.status === 'terminated'))) {
+          this._user = null;
+          this._employee = null;
+          sessionStorage.removeItem('hrm_session');
+          return;
+        }
+
+        this._user = liveUser || s.user;
+        this._employee = liveEmployee || s.employee;
+      } catch { 
+        this._user = null; 
+        this._employee = null;
+        sessionStorage.removeItem('hrm_session');
+      }
     }
   },
 
@@ -28,15 +43,28 @@ const Auth = {
     }
 
     const users = DB.get('users');
-    const user = users.find(u => u.username === username && u.password === password && u.status === 'active');
-    if (!user) return { success: false, message: 'Invalid username or password.' };
-    const employee = DB.find('employees', user.employeeId);
-    if (!employee) return { success: false, message: 'Employee record not found.' };
-    this._user = user;
-    this._employee = employee;
-    DB.update('users', user.id, { lastLogin: new Date().toISOString() });
-    DB.log('LOGIN', 'Auth', `${employee.fullName} logged in`, user.id);
-    sessionStorage.setItem('hrm_session', JSON.stringify({ user, employee }));
+    const matchedUser = users.find(u => u.username === username && u.password === password);
+    if (!matchedUser) return { success: false, message: 'Invalid username or password.' };
+
+    const employee = DB.find('employees', matchedUser.employeeId);
+    
+    // Check if either employee or user is inactive/terminated
+    if (matchedUser.status === 'inactive' || (employee && (employee.status === 'inactive' || employee.status === 'terminated'))) {
+      return { 
+        success: false, 
+        message: 'Account Inactive: Your employee profile has been deactivated. Please contact HR Administration.' 
+      };
+    }
+
+    if (!employee && matchedUser.role !== 'superadmin') {
+      return { success: false, message: 'Employee record not found.' };
+    }
+
+    this._user = matchedUser;
+    this._employee = employee || { id: 0, fullName: matchedUser.username, role: matchedUser.role };
+    DB.update('users', matchedUser.id, { lastLogin: new Date().toISOString() });
+    DB.log('LOGIN', 'Auth', `${this._employee.fullName} logged in`, matchedUser.id);
+    sessionStorage.setItem('hrm_session', JSON.stringify({ user: matchedUser, employee: this._employee }));
     return { success: true };
   },
 
