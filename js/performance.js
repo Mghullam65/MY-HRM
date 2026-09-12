@@ -2954,6 +2954,14 @@ const Recruitment = {
     const signatorySignature = safeSrc(settings.signatorySignature || '');
     const companyStamp = safeSrc(settings.companyStamp || '');
 
+    const isFullPage = (letterheadType === 'full_page' || letterheadType === 'custom_banner') && Boolean(companyBanner);
+    const topMargin = (settings.companyLetterheadTopMargin !== undefined && settings.companyLetterheadTopMargin !== null && settings.companyLetterheadTopMargin !== '') ? Number(settings.companyLetterheadTopMargin) : 160;
+    const bottomMargin = (settings.companyLetterheadBottomMargin !== undefined && settings.companyLetterheadBottomMargin !== null && settings.companyLetterheadBottomMargin !== '') ? Number(settings.companyLetterheadBottomMargin) : 95;
+
+    const docContainerStyle = isFullPage
+      ? `background:#ffffff url('${companyBanner}') no-repeat top center;background-size:100% 100%;padding:${topMargin}px 35px ${bottomMargin}px 35px;box-sizing:border-box;border-radius:8px;border:1px solid #ddd;min-height:1050px;box-shadow:0 4px 20px rgba(0,0,0,0.08)`
+      : ``;
+
     Modal.show({
       size: 'modal-lg',
       title: `<div style="display:flex;align-items:center;gap:10px">
@@ -2962,9 +2970,15 @@ const Recruitment = {
         <span class="badge ${validity.badgeClass}" style="font-size:11px"><i class="fa ${validity.icon}"></i> ${validity.label}</span>
       </div>`,
       body: `
-        <div class="offer-doc-container">
+        <div class="offer-doc-container" ${docContainerStyle ? `style="${docContainerStyle}"` : ''}>
           <!-- Corporate Letterhead -->
-          ${(letterheadType === 'custom_banner' && companyBanner) ? `
+          ${isFullPage ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 10px 0;border-bottom:2px solid #1e3a8a;margin-bottom:18px;font-size:12px;color:#475569">
+              <div>Ref: <span class="offer-ref-no">${offer.refNo}</span></div>
+              <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+              <div style="color:#b45309;font-weight:700">Strict 2-Day Acceptance Notice</div>
+            </div>
+          ` : (letterheadType === 'custom_banner' && companyBanner ? `
             <div style="background:#fff;border-bottom:3px solid #1e3a8a;padding:12px 18px;margin-bottom:12px">
               <img src="${companyBanner}" style="width:100%;max-height:120px;object-fit:contain" alt="${companyName}">
               <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #e2e8f0;font-size:11.5px;color:#475569">
@@ -2993,7 +3007,7 @@ const Recruitment = {
                 <div style="margin-top:3px;color:#facc15;font-weight:700">Strict 2-Day Acceptance Notice</div>
               </div>
             </div>
-          `}
+          `)}
 
           <!-- Document Body -->
           <div class="offer-body">
@@ -3237,6 +3251,10 @@ const Recruitment = {
     const signatorySignature = safeSrc(settings.signatorySignature || '');
     const companyStamp = safeSrc(settings.companyStamp || '');
 
+    const isFullPage = (letterheadType === 'full_page' || letterheadType === 'custom_banner') && Boolean(companyBanner);
+    const topMargin = (settings.companyLetterheadTopMargin !== undefined && settings.companyLetterheadTopMargin !== null && settings.companyLetterheadTopMargin !== '') ? Number(settings.companyLetterheadTopMargin) : 160;
+    const bottomMargin = (settings.companyLetterheadBottomMargin !== undefined && settings.companyLetterheadBottomMargin !== null && settings.companyLetterheadBottomMargin !== '') ? Number(settings.companyLetterheadBottomMargin) : 95;
+
     const printContent = `
       <!DOCTYPE html>
       <html>
@@ -3244,13 +3262,17 @@ const Recruitment = {
         <meta charset="utf-8">
         <title>Offer Letter — ${offer.candidateName} (${offer.refNo})</title>
         <style>
-          @page { size: A4 portrait; margin: 12mm; }
+          @page { size: A4 portrait; margin: 0; }
+          @media print {
+            body { margin: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
             font-family: 'Segoe UI', Arial, sans-serif;
             color: #1e293b;
-            background: #fff;
-            padding: 8px;
+            background: #ffffff;
+            padding: ${isFullPage ? `${topMargin}px 45px ${bottomMargin}px 45px` : '35px 45px'};
+            ${isFullPage ? `background-image: url('${companyBanner}'); background-size: 100% 100%; background-repeat: no-repeat; background-position: top center;` : ''}
             font-size: 13px;
             line-height: 1.6;
           }
@@ -3332,7 +3354,13 @@ const Recruitment = {
         </style>
       </head>
       <body>
-        ${(letterheadType === 'custom_banner' && companyBanner) ? `
+        ${isFullPage ? `
+          <div style="display:flex;justify-content:space-between;padding-bottom:10px;border-bottom:2px solid #1e3a8a;margin-bottom:18px;font-size:11.5px;color:#475569">
+            <div>Reference: <span class="ref-no">${offer.refNo}</span></div>
+            <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+            <div style="color:#b45309;font-weight:700">Accept/Reject Window: 2 Days</div>
+          </div>
+        ` : (letterheadType === 'custom_banner' && companyBanner ? `
           <div style="margin-bottom:16px;border-bottom:3px solid #1e3a8a;padding-bottom:10px">
             <img src="${companyBanner}" style="width:100%;max-height:120px;object-fit:contain" alt="${companyName}">
             <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:11.5px;color:#475569">
@@ -3357,7 +3385,7 @@ const Recruitment = {
               <div style="margin-top:3px;color:#b45309;font-weight:700">Accept/Reject Window: 2 Days</div>
             </div>
           </div>
-        `}
+        `)}
 
         <div class="recipient-block">
           <div>

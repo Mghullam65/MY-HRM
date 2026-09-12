@@ -11,12 +11,19 @@ const Employees = {
   render() {
     const content = document.getElementById('page-content');
     const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isDeptMgr = Auth.role === 'dept_manager';
     const myEmpId = Auth.employee?.id;
 
     // Staff role subtab access guard: redirect unallowed admin subtabs
     const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart'];
     if (isStaff && !staffAllowedViews.includes(this.currentView)) {
       this.currentView = 'hr_letters';
+    }
+
+    // Deputy Manager access guard: restricted strictly to employee lists and orgchart
+    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory'];
+    if (isDeptMgr && !deptMgrAllowedViews.includes(this.currentView)) {
+      this.currentView = 'current';
     }
 
     const depts = DB.get('departments');
@@ -33,27 +40,47 @@ const Employees = {
       ? (DB.get('warning_letters')||[]).filter(w=>w.employeeId===myEmpId && !w.acknowledged).length 
       : (DB.get('disciplinary_actions')||[]).filter(a=>a.status==='under_investigation').length;
 
-    const tabs = isStaff ? [
-      { id:'hr_letters', label:'My Official HR Letters', icon:'fa-file-signature', badge: (DB.get('hr_letters')||[]).filter(l=>l.employeeId===myEmpId && !l.acknowledged).length },
-      { id:'discipline', label:'My Discipline & Notices', icon:'fa-gavel', badge: pendingDiscipline },
-      { id:'doc_expiry', label:'My Document Expiries', icon:'fa-id-card-clip', badge: urgentDocs },
-      { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.employeeId===myEmpId && d.verificationStatus==='pending').length },
-      { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof' },
-      { id:'directory', label:'Company Directory', icon:'fa-id-card' },
-      { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
-    ] : [
-      { id:'current', label:'Active Employees', icon:'fa-users' },
-      { id:'onboarding', label:'New Joiners (Onboarding)', icon:'fa-user-clock', badge: (DB.get('employees')||[]).filter(e=>e.role==='onboarding').length },
-      { id:'ex', label:'Ex Employees', icon:'fa-user-xmark' },
-      { id:'directory', label:'Directory', icon:'fa-id-card' },
-      { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
-      { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
-      { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
-      { id:'discipline', label:'Discipline & Compliance', icon:'fa-gavel', badge: pendingDiscipline },
-      { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
-      { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
-      { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
-    ];
+    const scopedAllEmps = Auth.getScopedEmployees(DB.get('employees') || []);
+    const activeCount = scopedAllEmps.filter(e => e.status === 'active').length;
+    const exCount = scopedAllEmps.filter(e => e.status === 'inactive').length;
+    const totalCount = scopedAllEmps.length;
+
+    let tabs = [];
+    if (isStaff) {
+      tabs = [
+        { id:'hr_letters', label:'My Official HR Letters', icon:'fa-file-signature', badge: (DB.get('hr_letters')||[]).filter(l=>l.employeeId===myEmpId && !l.acknowledged).length },
+        { id:'discipline', label:'My Discipline & Notices', icon:'fa-gavel', badge: pendingDiscipline },
+        { id:'doc_expiry', label:'My Document Expiries', icon:'fa-id-card-clip', badge: urgentDocs },
+        { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.employeeId===myEmpId && d.verificationStatus==='pending').length },
+        { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof' },
+        { id:'directory', label:'Company Directory', icon:'fa-id-card' },
+        { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
+      ];
+    } else if (isDeptMgr) {
+      // Deputy Manager only sees employee rosters and orgchart
+      tabs = [
+        { id:'current', label:'Active Employees', icon:'fa-user-check', badge: activeCount },
+        { id:'ex', label:'Ex Employees', icon:'fa-user-xmark', badge: exCount },
+        { id:'all', label:'All Employees (Active & Ex)', icon:'fa-users', badge: totalCount },
+        { id:'orgchart', label:'Team Org Chart', icon:'fa-sitemap' },
+        { id:'directory', label:'Team Directory', icon:'fa-id-card' },
+      ];
+    } else {
+      // Admin & HR: Primary 3 types of employees requested by user: Active, Ex, All (Active & Ex)
+      tabs = [
+        { id:'current', label:'Active Employees', icon:'fa-user-check', badge: activeCount },
+        { id:'ex', label:'Ex Employees', icon:'fa-user-xmark', badge: exCount },
+        { id:'all', label:'All Employees (Active & Ex)', icon:'fa-users', badge: totalCount },
+        { id:'directory', label:'Directory Cards', icon:'fa-id-card' },
+        { id:'orgchart', label:'Org Chart', icon:'fa-sitemap' },
+        { id:'doc_expiry', label:'Document Expiry', icon:'fa-id-card-clip', badge: urgentDocs },
+        { id:'exit_clearance', label:'Exit & Clearance (F&F)', icon:'fa-user-minus', badge: pendingExits },
+        { id:'discipline', label:'Discipline & Compliance', icon:'fa-gavel', badge: pendingDiscipline },
+        { id:'hr_letters', label:'HR Letters', icon:'fa-file-signature' },
+        { id:'dependents_events', label:'Dependents & Life Events', icon:'fa-people-roof', badge: (DB.get('life_events')||[]).filter(e=>e.status==='pending').length },
+        { id:'edms', label:'e-DMS Document Vault', icon:'fa-folder-open', badge: (DB.get('employee_documents')||[]).filter(d=>d.verificationStatus==='pending').length },
+      ];
+    }
 
     content.innerHTML = `
       <div class="animate-fade-in">
@@ -62,7 +89,7 @@ const Employees = {
           ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView === t.id ? 'active' : ''}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
-              ${t.badge ? `<span class="badge ${t.id==='doc_expiry'||t.id==='hr_letters'||t.id==='discipline'?'badge-danger':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+              ${t.badge !== undefined && t.badge !== null ? `<span class="badge ${t.id==='ex'?'badge-danger':t.id==='current'?'badge-success':t.id==='all'?'badge-primary':'badge-warning'}" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
           `).join('')}
         </div>
@@ -85,7 +112,7 @@ const Employees = {
               <option value="Probation">Probation</option>
               <option value="Contract">Contract</option>
             </select>
-            ${Auth.can('employees.add') || Auth.role === 'superadmin' ? `
+            ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
               <button class="btn btn-primary" onclick="Employees.showAddForm()">
                 <i class="fa fa-plus"></i> Add Employee
               </button>
@@ -118,9 +145,9 @@ const Employees = {
   getFiltered() {
     let emps = DB.get('employees') || [];
     emps = Auth.getScopedEmployees(emps);
-    if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
-    if (this.currentView === 'onboarding') emps = emps.filter(e => e.role === 'onboarding');
+    if (this.currentView === 'current')    emps = emps.filter(e => e.status === 'active');
     if (this.currentView === 'ex')         emps = emps.filter(e => e.status === 'inactive');
+    if (this.currentView === 'all')        emps = emps; // Unified master list of both active and ex employees!
     if (this.currentView === 'my') {
       const myId = Auth.employee?.id;
       emps = emps.filter(e => e.managerId === myId || e.reportingTo === myId);
@@ -175,22 +202,28 @@ const Employees = {
     const emps = this.getFiltered();
 
     if (this.currentView === 'directory') {
+      const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
       container.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
-          ${emps.map(e => `
-            <div class="emp-card" onclick="Employees.renderProfile(${e.id})">
-              <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto;overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
-              <div class="name">${e.fullName}</div>
-              <div class="desig">${Utils.getDesigName(e.designationId)}</div>
-              <div class="dept">${Utils.getDeptName(e.departmentId)}</div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:2px;font-family:monospace">${e.empNo}</div>
-              ${Utils.statusBadge(e.status)}
-            </div>
-          `).join('')}
+          ${emps.map(e => {
+            const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
+            return `
+              <div class="emp-card" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" style="cursor:pointer"` : `style="cursor:default"`}>
+                <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto;overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
+                <div class="name">${e.fullName}</div>
+                <div class="desig">${Utils.getDesigName(e.designationId)}</div>
+                <div class="dept">${Utils.getDeptName(e.departmentId)}</div>
+                <div style="font-size:10px;color:var(--text-3);margin-top:2px;font-family:monospace">${e.empNo}</div>
+                ${e.status === 'inactive' ? `<span class="badge badge-danger" style="font-size:10px;margin-top:4px"><i class="fa fa-user-slash"></i> Ex-Employee</span>` : Utils.statusBadge(e.status)}
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
       return;
     }
+
+    const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
 
     container.innerHTML = `
       <div class="card" style="padding:0">
@@ -210,13 +243,21 @@ const Employees = {
               <th style="text-align:right">Actions</th>
             </tr></thead>
             <tbody>
-              ${emps.length === 0 ? `<tr><td colspan="8"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => `
+              ${emps.length === 0 ? `<tr><td colspan="8"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => {
+                const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
+                return `
                 <tr>
                   <td>
                     <div style="display:flex;align-items:center;gap:10px">
-                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;cursor:pointer" onclick="Employees.renderProfile(${e.id})">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;${canViewProfile ? 'cursor:pointer' : 'cursor:default'}" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" title="View Profile"` : ''}>
+                        ${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}
+                      </div>
                       <div>
-                        <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${e.id})">${e.fullName}</div>
+                        ${canViewProfile ? `
+                          <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${e.id})" title="View Profile">${e.fullName}</div>
+                        ` : `
+                          <div style="font-weight:600;font-size:13px;color:var(--text);cursor:default">${e.fullName}</div>
+                        `}
                         <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${e.email}</div>
                         <div style="font-size:10.5px;color:var(--text-2);margin-top:2px">
                           <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin (CEO)' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
@@ -230,16 +271,20 @@ const Employees = {
                   <td style="font-size:12px">${e.phone}</td>
                   <td style="font-size:12px">${Utils.formatDate(e.joiningDate)}</td>
                   <td>
-                    ${e.role === 'onboarding' 
-                      ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
-                      : `<span class="chip" style="font-size:11px">${e.role || 'employee'}</span>`}
-                    <div style="margin-top:3px">${Utils.statusBadge(e.status)}</div>
+                    ${e.status === 'inactive' 
+                      ? `<span class="badge badge-danger" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-user-slash"></i> Ex-Employee</span>`
+                      : (e.role === 'onboarding' 
+                        ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
+                        : `<span class="badge badge-success" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-check-circle"></i> Active</span>`)}
+                    <div style="margin-top:3px"><span class="chip" style="font-size:10.5px">${e.role || 'employee'}</span></div>
                   </td>
                   <td style="text-align:right">
                     <div class="tbl-actions" style="justify-content:flex-end">
                       <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
-                      <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
-                      ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
+                      ${canViewProfile ? `
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
+                      ` : ''}
+                      ${isHROrAdmin ? `
                         ${e.role === 'onboarding' ? `
                           <button class="btn btn-warning btn-xs" onclick="Employees.showOnboardingApprovalModal(${e.id})" title="Review Onboarding & Assign Role">
                             <i class="fa fa-user-check"></i> Assign Role
@@ -251,7 +296,7 @@ const Employees = {
                     </div>
                   </td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
           </table>
         </div>
@@ -266,11 +311,19 @@ const Employees = {
     this.activeProfileEmpId = emp.id;
     const content = document.getElementById('page-content');
     const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-    // Access guard: Deputy Manager can only view profiles of their direct team
+    // Access guard: Deputy Manager can ONLY view the employee list. Only HR and Admin are allowed to view/edit employee profiles.
     if (Auth.role === 'dept_manager') {
       const myId = Auth.employee?.id;
-      if (emp.id !== myId && emp.managerId !== myId && emp.reportingTo !== myId) {
-        if (content) content.innerHTML = `<div class="animate-fade-in" style="text-align:center;padding:60px 20px"><i class="fa fa-lock" style="font-size:48px;color:var(--danger);margin-bottom:20px;display:block"></i><h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3><p style="color:var(--text-3);margin-bottom:24px;font-size:14px">You can only view profiles of your direct team members.</p><button class="btn btn-primary" onclick="App.navigate('employees')"><i class="fa fa-arrow-left"></i> Back to My Team</button></div>`;
+      if (emp.id !== myId) {
+        if (content) content.innerHTML = `
+          <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+            <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+            <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+            <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+              Only HR Managers and System Administrators are authorized to view and edit employee profile records. Department Managers can only view the employee directory list.
+            </p>
+            <button class="btn btn-primary" onclick="App.navigate('employees')"><i class="fa fa-arrow-left"></i> Back to Employee Directory</button>
+          </div>`;
         return;
       }
     }
@@ -3980,8 +4033,8 @@ const Employees = {
   },
 
   showAddForm(prefill = {}) {
-    if (Auth.role === 'employee') {
-      Toast.show('Permission denied: Employees cannot add new employee records.', 'error');
+    if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
+      Toast.show('Permission denied: Only HR and Admin are authorized to add employee profiles.', 'error');
       return;
     }
     const depts = DB.get('departments');
@@ -4219,8 +4272,8 @@ const Employees = {
   },
 
   showEditForm(empId) {
-    if (Auth.role === 'employee') {
-      Toast.show('Permission denied: Profile is view-only for employees.', 'error');
+    if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
+      Toast.show('Permission denied: Only HR and Admin are authorized to edit employee profiles.', 'error');
       return;
     }
     const emp = DB.find('employees', empId);
@@ -7153,7 +7206,11 @@ const Employees = {
     const companyStamp = safeSrc(settings.companyStamp || '');
     const letterheadFooter = settings.companyLetterheadFooter || 'This document is electronically verified and issued under corporate authority. Printed copies are valid with official corporate seal.';
 
-    const headerHTML = (letterheadType === 'custom_banner' && companyBanner) ? `
+    const isFullPage = (letterheadType === 'full_page' || letterheadType === 'custom_banner') && Boolean(companyBanner);
+    const topMargin = (settings.companyLetterheadTopMargin !== undefined && settings.companyLetterheadTopMargin !== null && settings.companyLetterheadTopMargin !== '') ? Number(settings.companyLetterheadTopMargin) : 160;
+    const bottomMargin = (settings.companyLetterheadBottomMargin !== undefined && settings.companyLetterheadBottomMargin !== null && settings.companyLetterheadBottomMargin !== '') ? Number(settings.companyLetterheadBottomMargin) : 95;
+
+    const headerHTML = isFullPage ? '' : (letterheadType === 'custom_banner' && companyBanner ? `
       <div style="margin-bottom:18px">
         <img src="${companyBanner}" style="width:100%;max-height:140px;object-fit:contain;border-radius:4px" alt="${companyName}">
         <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 4px;border-bottom:2px solid ${accentColor};font-size:11.5px;color:#64748b;margin-top:6px">
@@ -7185,17 +7242,26 @@ const Employees = {
           <div style="font-size:11.5px;color:#64748b">Date: <strong style="color:#0f172a">${l.issueDate}</strong></div>
         </div>
       </div>
-    `;
+    `);
+
+    const containerStyle = isFullPage
+      ? `background:#ffffff url('${companyBanner}') no-repeat top center;background-size:100% 100%;color:#111;padding:${topMargin}px 50px ${bottomMargin}px 50px;min-height:1050px;box-sizing:border-box;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.65;position:relative;box-shadow:0 4px 20px rgba(0,0,0,0.08)`
+      : `background:#fff;color:#111;padding:32px 34px;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative`;
 
     Modal.show('Official Letterhead Preview', `
-      <div id="print-letterhead-area" style="background:#fff;color:#111;padding:32px 34px;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
+      <div id="print-letterhead-area" style="${containerStyle}">
         <!-- Corporate Letterhead Header -->
-        ${headerHTML}
+        ${!isFullPage ? headerHTML : `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0 10px 0;border-bottom:1.5px solid ${accentColor};margin-bottom:22px;font-size:12px;color:#475569">
+            <div>Ref: <strong style="color:#0f172a;font-family:monospace;font-size:13px">${l.refNo}</strong></div>
+            <div>Date of Issue: <strong style="color:#0f172a;font-size:12.5px">${l.issueDate}</strong></div>
+          </div>
+        `}
 
         <!-- Addressee -->
-        <div style="margin-bottom:20px;font-size:13px">
-          <div><strong>To:</strong></div>
-          <div style="font-size:14px;font-weight:700">${l.recipient}</div>
+        <div style="margin-bottom:18px;font-size:13px">
+          <div style="color:#64748b;font-size:11.5px;text-transform:uppercase;letter-spacing:0.5px">To:</div>
+          <div style="font-size:14.5px;font-weight:700;color:#0f172a">${l.recipient}</div>
         </div>
 
         <!-- Title -->
@@ -7206,7 +7272,7 @@ const Employees = {
         </div>
 
         <!-- Body -->
-        <div style="font-size:13.5px;color:#334155;text-align:justify;margin-bottom:40px">
+        <div style="font-size:13.5px;color:#334155;text-align:justify;margin-bottom:35px;line-height:1.75">
           ${bodyHTML}
         </div>
 
@@ -7237,7 +7303,7 @@ const Employees = {
           `}
         </div>
 
-        ${letterheadFooter ? `
+        ${(!isFullPage && letterheadFooter) ? `
           <div style="margin-top:35px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center">
             ${letterheadFooter}
           </div>
@@ -7321,6 +7387,10 @@ const Employees = {
       `;
     }
 
+    const isFullPage = (letterheadType === 'full_page' || letterheadType === 'custom_banner') && Boolean(companyBanner);
+    const topMargin = (settings.companyLetterheadTopMargin !== undefined && settings.companyLetterheadTopMargin !== null && settings.companyLetterheadTopMargin !== '') ? Number(settings.companyLetterheadTopMargin) : 160;
+    const bottomMargin = (settings.companyLetterheadBottomMargin !== undefined && settings.companyLetterheadBottomMargin !== null && settings.companyLetterheadBottomMargin !== '') ? Number(settings.companyLetterheadBottomMargin) : 95;
+
     const printHeaderHTML = (letterheadType === 'custom_banner' && companyBanner) ? `
       <div style="margin-bottom:20px">
         <img src="${companyBanner}" style="width:100%;max-height:130px;object-fit:contain" alt="${companyName}">
@@ -7354,54 +7424,103 @@ const Employees = {
       <head>
         <title>${l.title} — ${emp.fullName}</title>
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 35px; color: #111; line-height: 1.6; }
-          .header { padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .title { text-align: center; margin: 25px 0 20px; font-size: 17px; font-weight: 800; text-decoration: underline; text-transform: uppercase; }
-          .content { font-size: 14px; text-align: justify; margin-bottom: 40px; }
-          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; }
-          .sig-line { width: 180px; font-size: 13px; font-weight: 700; color: #0f172a; }
-          @media print { body { padding: 12mm; } }
+          @page {
+            size: A4 portrait;
+            margin: 0;
+          }
+          @media print {
+            body { margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .sheet { width: 100% !important; min-height: 297mm !important; margin: 0 !important; box-shadow: none !important; border: none !important; }
+          }
+          body {
+            margin: 0;
+            padding: 20px;
+            background: #f1f5f9;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: #111;
+            line-height: 1.65;
+          }
+          .sheet {
+            width: 210mm;
+            min-height: 297mm;
+            box-sizing: border-box;
+            margin: 0 auto;
+            background-color: #ffffff;
+            ${isFullPage ? `
+              background-image: url('${companyBanner}');
+              background-size: 100% 100%;
+              background-repeat: no-repeat;
+              background-position: top center;
+              padding: ${topMargin}px 55px ${bottomMargin}px 55px;
+            ` : `
+              padding: 40px 50px;
+            `}
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+          }
+          .ref-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 10px;
+            border-bottom: 1.5px solid ${accentColor};
+            margin-bottom: 22px;
+            font-size: 12px;
+            color: #475569;
+          }
+          .to-block { margin-bottom: 18px; font-size: 13.5px; }
+          .title { text-align: center; margin: 22px 0; font-size: 16px; font-weight: 800; text-decoration: underline; text-transform: uppercase; letter-spacing: 0.5px; color: #0f172a; }
+          .content { font-size: 13.5px; color: #334155; text-align: justify; margin-bottom: 35px; line-height: 1.75; }
+          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 45px; }
+          .sig-line { font-size: 13px; font-weight: 700; color: #0f172a; }
         </style>
       </head>
       <body>
-        ${printHeaderHTML}
-
-        <div style="margin-bottom:20px;font-size:14px">
-          <div><strong>To:</strong></div>
-          <div style="font-size:15px;font-weight:700">${l.recipient}</div>
-        </div>
-
-        <div class="title">${l.title}</div>
-        <div class="content">${bodyHTML}</div>
-
-        <div class="sig-block">
-          <div>
-            ${signatorySignature ? `
-              <div style="margin-bottom:4px">
-                <img src="${signatorySignature}" style="max-height:55px;max-width:180px;object-fit:contain" alt="Signature">
-              </div>
-            ` : `<div style="width:160px;height:40px;border-bottom:1.5px solid #111;margin-bottom:6px"></div>`}
-            <div class="sig-line">${signatoryName}</div>
-            <div style="font-size:11.5px;color:#64748b;font-weight:600">${signatoryTitle}</div>
-            <div style="font-size:11px;color:#64748b">${companyName}</div>
-          </div>
-          ${companyStamp ? `
-            <div>
-              <img src="${companyStamp}" style="max-height:90px;max-width:90px;object-fit:contain;transform:rotate(-5deg)" alt="Stamp">
-            </div>
-          ` : `
-            <div style="border:2px dashed ${accentColor};border-radius:50%;width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:${accentColor};transform:rotate(-10deg)">
-              <span style="font-size:9px;font-weight:800;text-transform:uppercase">HR DEPT</span>
-              <span style="font-size:8px">OFFICIAL SEAL</span>
+        <div class="sheet">
+          ${!isFullPage ? printHeaderHTML : `
+            <div class="ref-bar">
+              <div>Ref: <strong style="color:#0f172a;font-family:monospace;font-size:13px">${l.refNo}</strong></div>
+              <div>Date of Issue: <strong style="color:#0f172a;font-size:12.5px">${l.issueDate}</strong></div>
             </div>
           `}
-        </div>
 
-        ${letterheadFooter ? `
-          <div style="margin-top:40px;padding-top:12px;border-top:1px solid #cbd5e1;font-size:10px;color:#94a3b8;text-align:center">
-            ${letterheadFooter}
+          <div class="to-block">
+            <div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:0.5px">To:</div>
+            <div style="font-size:14.5px;font-weight:700;color:#0f172a">${l.recipient}</div>
           </div>
-        ` : ''}
+
+          <div class="title">${l.title}</div>
+          <div class="content">${bodyHTML}</div>
+
+          <div class="sig-block">
+            <div>
+              ${signatorySignature ? `
+                <div style="margin-bottom:6px">
+                  <img src="${signatorySignature}" style="max-height:55px;max-width:180px;object-fit:contain" alt="Signature">
+                </div>
+              ` : `<div style="width:160px;height:40px;border-bottom:1.5px solid #111;margin-bottom:6px"></div>`}
+              <div class="sig-line">${signatoryName}</div>
+              <div style="font-size:11.5px;color:#64748b;font-weight:600">${signatoryTitle}</div>
+              <div style="font-size:11px;color:#64748b">${companyName}</div>
+            </div>
+            ${companyStamp ? `
+              <div style="margin-right:15px">
+                <img src="${companyStamp}" style="max-height:85px;max-width:85px;object-fit:contain;transform:rotate(-5deg)" alt="Stamp">
+              </div>
+            ` : `
+              <div style="border:2px dashed ${accentColor};border-radius:50%;width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:${accentColor};transform:rotate(-10deg)">
+                <span style="font-size:9px;font-weight:800;text-transform:uppercase">HR DEPT</span>
+                <span style="font-size:8px">OFFICIAL SEAL</span>
+              </div>
+            `}
+          </div>
+
+          ${(!isFullPage && letterheadFooter) ? `
+            <div style="margin-top:40px;padding-top:12px;border-top:1px solid #cbd5e1;font-size:10px;color:#94a3b8;text-align:center">
+              ${letterheadFooter}
+            </div>
+          ` : ''}
+        </div>
 
         <script>window.onload = function() { window.print(); };</script>
       </body>

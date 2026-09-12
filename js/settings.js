@@ -177,37 +177,58 @@ const Settings = {
           <div style="flex:1;padding-right:20px">
             <div style="font-size:13px;font-weight:600;color:var(--text)">Letterhead Header Style</div>
             <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
-              Choose between Dynamic standard header (Logo + Company text + Accent line) or a Full custom graphic header banner.
+              Choose between an Official Full-Page Letterhead (stationery sheet with text printed directly inside it), Dynamic header, or Top banner.
             </div>
           </div>
-          <div style="width:340px;flex-shrink:0">
+          <div style="width:360px;flex-shrink:0">
             <select class="form-control" id="s-letterhead-type" onchange="Settings.toggleLetterheadType(this.value)">
+              <option value="full_page" ${letterheadType === 'full_page' ? 'selected' : ''}>Official Full-Page Letterhead (A4 Sheet — Details printed IN letterhead)</option>
               <option value="dynamic" ${letterheadType === 'dynamic' ? 'selected' : ''}>Dynamic Modern Header (Logo + Details + Accent line)</option>
-              <option value="custom_banner" ${letterheadType === 'custom_banner' ? 'selected' : ''}>Custom Graphic Banner (Uploaded Letterhead)</option>
+              <option value="custom_banner" ${letterheadType === 'custom_banner' ? 'selected' : ''}>Top Header Banner Only</option>
             </select>
           </div>
         </div>
 
-        <!-- Custom Banner Upload (Shown if custom_banner selected) -->
-        <div id="custom-banner-row" style="display:${letterheadType === 'custom_banner' ? 'flex' : 'none'};align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+        <!-- Custom Letterhead Upload (Shown if full_page or custom_banner selected) -->
+        <div id="custom-banner-row" style="display:${(letterheadType === 'custom_banner' || letterheadType === 'full_page') ? 'flex' : 'none'};align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
           <div style="flex:1;padding-right:20px">
-            <div style="font-size:13px;font-weight:600;color:var(--text)">Custom Letterhead Banner</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
-              High-resolution graphic letterhead banner printed directly at the top of official letters (e.g. 1200x200px banner).
+            <div style="font-size:13px;font-weight:600;color:var(--text)" id="letterhead-upload-label">${letterheadType === 'full_page' ? 'Official Letterhead Sheet (A4 Full Page)' : 'Custom Letterhead Header Banner'}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px" id="letterhead-upload-desc">
+              ${letterheadType === 'full_page' ? 'Upload your complete A4 corporate letterhead page (PNG/JPG). All letter text, dates, references, signature, and stamp will be placed and printed directly inside this letterhead.' : 'High-resolution graphic letterhead banner printed directly at the top of official letters.'}
             </div>
           </div>
-          <div style="width:340px;flex-shrink:0">
-            <div id="letterhead-banner-preview" style="width:100%;height:60px;border-radius:6px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);overflow:hidden;margin-bottom:8px">
-              ${banner ? `<img src="${banner}" style="width:100%;height:100%;object-fit:cover" alt="Banner">` : `<span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-file-image"></i> No Banner Uploaded</span>`}
+          <div style="width:360px;flex-shrink:0">
+            <div id="letterhead-banner-preview" style="width:100%;height:${letterheadType === 'full_page' ? '120px' : '60px'};border-radius:6px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);overflow:hidden;margin-bottom:8px">
+              ${banner ? `<img src="${banner}" style="width:100%;height:100%;object-fit:${letterheadType === 'full_page' ? 'contain' : 'cover'}" alt="Letterhead">` : `<span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-file-image"></i> No Letterhead Uploaded</span>`}
             </div>
             <div style="display:flex;gap:8px">
               <label class="btn btn-outline btn-sm" style="cursor:pointer;flex:1;text-align:center">
-                <i class="fa fa-upload"></i> Upload Banner
+                <i class="fa fa-upload"></i> Upload Letterhead
                 <input type="file" accept="image/*" style="display:none" onchange="Settings.handleBannerUpload(event)">
               </label>
               <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Settings.removeBanner()">
                 <i class="fa fa-trash"></i> Remove
               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Letterhead Page Clearances (Margins) for full_page -->
+        <div id="letterhead-margins-row" style="display:${letterheadType === 'full_page' ? 'flex' : 'none'};align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Letterhead Page Clearances (Margins)</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Adjust top and bottom spacing so your text, ref numbers, and signatures fit cleanly between the letterhead header and footer bar.
+            </div>
+          </div>
+          <div style="width:360px;flex-shrink:0;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-2);display:block;margin-bottom:4px">Top Clearance (px)</label>
+              <input type="number" class="form-control" id="s-letterhead-top-margin" value="${s('companyLetterheadTopMargin') || 160}" min="40" max="400" step="5">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--text-2);display:block;margin-bottom:4px">Bottom Clearance (px)</label>
+              <input type="number" class="form-control" id="s-letterhead-bottom-margin" value="${s('companyLetterheadBottomMargin') || 95}" min="30" max="300" step="5">
             </div>
           </div>
         </div>
@@ -308,10 +329,18 @@ const Settings = {
 
   toggleLetterheadType(type) {
     const row = document.getElementById('custom-banner-row');
-    if (row) row.style.display = type === 'custom_banner' ? 'flex' : 'none';
+    if (row) row.style.display = (type === 'custom_banner' || type === 'full_page') ? 'flex' : 'none';
+    const marginsRow = document.getElementById('letterhead-margins-row');
+    if (marginsRow) marginsRow.style.display = type === 'full_page' ? 'flex' : 'none';
+    const label = document.getElementById('letterhead-upload-label');
+    if (label) label.textContent = type === 'full_page' ? 'Official Letterhead Sheet (A4 Full Page)' : 'Custom Letterhead Header Banner';
+    const desc = document.getElementById('letterhead-upload-desc');
+    if (desc) desc.textContent = type === 'full_page' ? 'Upload your complete A4 corporate letterhead page (PNG/JPG). All letter text, dates, references, signature, and stamp will be placed and printed directly inside this letterhead.' : 'High-resolution graphic letterhead banner printed directly at the top of official letters.';
+    const preview = document.getElementById('letterhead-banner-preview');
+    if (preview) preview.style.height = type === 'full_page' ? '120px' : '60px';
   },
 
-  _compressImage(dataUrl, maxW, maxH, callback) {
+  _compressImage(dataUrl, maxW, maxH, callback, mimeType = 'image/png') {
     const img = new Image();
     img.onload = () => {
       let w = img.width;
@@ -325,8 +354,12 @@ const Settings = {
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext('2d');
+      if (mimeType === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      }
       ctx.drawImage(img, 0, 0, w, h);
-      callback(canvas.toDataURL('image/png'));
+      callback(canvas.toDataURL(mimeType, 0.88));
     };
     img.onerror = () => callback(dataUrl);
     img.src = dataUrl;
@@ -358,15 +391,19 @@ const Settings = {
   handleBannerUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    if (file.size > 8 * 1024 * 1024) { Toast.show('File too large — max 8 MB', 'error'); return; }
+    const typeEl = document.getElementById('s-letterhead-type');
+    const isFull = typeEl ? typeEl.value === 'full_page' : false;
+    const maxW = 900;
+    const maxH = isFull ? 1280 : 200;
     const reader = new FileReader();
     reader.onload = evt => {
-      this._compressImage(evt.target.result, 900, 180, compressed => {
+      this._compressImage(evt.target.result, maxW, maxH, compressed => {
         window._tempLetterheadBanner = compressed;
         const box = document.getElementById('letterhead-banner-preview');
-        if (box) box.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:cover">`;
-        Toast.show('Letterhead Banner uploaded. Click Save All to apply!', 'info');
-      });
+        if (box) box.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:${isFull ? 'contain' : 'cover'}">`;
+        Toast.show(isFull ? 'Full-page Letterhead uploaded. Click Save All to apply!' : 'Letterhead Banner uploaded. Click Save All to apply!', 'info');
+      }, isFull ? 'image/jpeg' : 'image/png');
     };
     reader.readAsDataURL(file);
   },
@@ -543,6 +580,12 @@ const Settings = {
     
     const typeEl = document.getElementById('s-letterhead-type');
     if (typeEl) settings.companyLetterheadType = typeEl.value;
+
+    const topMarginEl = document.getElementById('s-letterhead-top-margin');
+    if (topMarginEl) settings.companyLetterheadTopMargin = Number(topMarginEl.value) || 160;
+
+    const btmMarginEl = document.getElementById('s-letterhead-bottom-margin');
+    if (btmMarginEl) settings.companyLetterheadBottomMargin = Number(btmMarginEl.value) || 95;
 
     const accentEl = document.getElementById('s-company-accent-text') || document.getElementById('s-company-accent');
     if (accentEl) settings.companyAccentColor = accentEl.value.trim();
