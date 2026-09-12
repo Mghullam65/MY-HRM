@@ -237,6 +237,7 @@ const Employees = {
                   </td>
                   <td style="text-align:right">
                     <div class="tbl-actions" style="justify-content:flex-end">
+                      <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
                       <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
                       ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
                         ${e.role === 'onboarding' ? `
@@ -259,8 +260,10 @@ const Employees = {
   },
 
   renderProfile(empId, isMyProfile = false) {
-    const emp = DB.find('employees', empId);
+    empId = empId || this.activeProfileEmpId || Auth.employee?.id || 1;
+    const emp = DB.find('employees', Number(empId)) || (DB.get('employees') || []).find(e => e.id == empId);
     if (!emp) return;
+    this.activeProfileEmpId = emp.id;
     const content = document.getElementById('page-content');
     const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     // Access guard: Deputy Manager can only view profiles of their direct team
@@ -7134,20 +7137,60 @@ const Employees = {
       `;
     }
 
-    Modal.show('Official Letterhead Preview', `
-      <div id="print-letterhead-area" style="background:#fff;color:#111;padding:30px;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
-        <!-- Corporate Letterhead Header -->
-        <div style="border-bottom:3px solid #2563eb;padding-bottom:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end">
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyName = settings.companyName || 'HRM Pro Corporation Pvt. Ltd.';
+    const companyAddress = settings.companyAddress || 'Suite 401, Business Plaza, Shahrah-e-Faisal, Karachi';
+    const companyEmail = settings.companyEmail || 'hr@company.com';
+    const companyPhone = settings.companyPhone || '+92-21-1234567';
+    const companyNTN = settings.companyNTN || '1234567-8';
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const companyBanner = safeSrc(settings.companyLetterheadBanner || '');
+    const letterheadType = settings.companyLetterheadType || 'dynamic';
+    const accentColor = settings.companyAccentColor || '#2563eb';
+    const signatoryName = settings.signatoryName || l.issuedBy || 'Sara Malik';
+    const signatoryTitle = settings.signatoryTitle || 'Authorized Signatory / Head of HR';
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
+    const companyStamp = safeSrc(settings.companyStamp || '');
+    const letterheadFooter = settings.companyLetterheadFooter || 'This document is electronically verified and issued under corporate authority. Printed copies are valid with official corporate seal.';
+
+    const headerHTML = (letterheadType === 'custom_banner' && companyBanner) ? `
+      <div style="margin-bottom:18px">
+        <img src="${companyBanner}" style="width:100%;max-height:140px;object-fit:contain;border-radius:4px" alt="${companyName}">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 4px 4px;border-bottom:2px solid ${accentColor};font-size:11.5px;color:#64748b;margin-top:6px">
+          <div>Ref: <strong style="color:#0f172a">${l.refNo}</strong></div>
+          <div>Date of Issue: <strong style="color:#0f172a">${l.issueDate}</strong></div>
+        </div>
+      </div>
+    ` : `
+      <div style="border-bottom:3px solid ${accentColor};padding-bottom:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;gap:16px">
+        <div style="display:flex;align-items:center;gap:14px">
+          ${companyLogo ? `
+            <div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              <img src="${companyLogo}" style="max-width:100%;max-height:100%;object-fit:contain" alt="Logo">
+            </div>
+          ` : `
+            <div style="width:55px;height:55px;border-radius:10px;background:${accentColor};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:20px;flex-shrink:0">
+              ${companyName.slice(0,2).toUpperCase()}
+            </div>
+          `}
           <div>
-            <h2 style="margin:0;font-size:22px;color:#1e3a8a;font-weight:800;letter-spacing:0.5px">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
-            <div style="font-size:11.5px;color:#64748b">${settings.companyAddress || 'Corporate Plaza, Main Boulevard, Karachi, Pakistan'}</div>
-            <div style="font-size:11px;color:#64748b">Phone: 021-34567890 | Email: hr@company.com | NTN: 4200881-7</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11.5px;color:#64748b">Ref: <strong>${l.refNo}</strong></div>
-            <div style="font-size:11.5px;color:#64748b">Date: <strong>${l.issueDate}</strong></div>
+            <h2 style="margin:0;font-size:21px;color:#1e3a8a;font-weight:800;letter-spacing:0.3px">${companyName}</h2>
+            ${settings.companyTagline ? `<div style="font-size:11.5px;color:${accentColor};font-weight:600;margin-top:1px">${settings.companyTagline}</div>` : ''}
+            <div style="font-size:11px;color:#64748b;margin-top:3px">${companyAddress}</div>
+            <div style="font-size:10.5px;color:#64748b">Phone: ${companyPhone} | Email: ${companyEmail} | NTN: ${companyNTN}</div>
           </div>
         </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:11.5px;color:#64748b">Ref: <strong style="color:#0f172a">${l.refNo}</strong></div>
+          <div style="font-size:11.5px;color:#64748b">Date: <strong style="color:#0f172a">${l.issueDate}</strong></div>
+        </div>
+      </div>
+    `;
+
+    Modal.show('Official Letterhead Preview', `
+      <div id="print-letterhead-area" style="background:#fff;color:#111;padding:32px 34px;border-radius:8px;border:1px solid #ddd;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
+        <!-- Corporate Letterhead Header -->
+        ${headerHTML}
 
         <!-- Addressee -->
         <div style="margin-bottom:20px;font-size:13px">
@@ -7168,25 +7211,41 @@ const Employees = {
         </div>
 
         <!-- Signature & Seal Block -->
-        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:40px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:35px;padding-top:14px">
           <div>
-            <div style="width:140px;height:45px;border-bottom:1.5px solid #334155;margin-bottom:6px"></div>
-            <div style="font-size:12.5px;font-weight:700">${l.issuedBy}</div>
-            <div style="font-size:11px;color:#64748b">Authorized Signatory</div>
-            <div style="font-size:10.5px;color:#64748b">${settings.companyName || 'HRM Pro Corporation'}</div>
+            ${signatorySignature ? `
+              <div style="margin-bottom:6px">
+                <img src="${signatorySignature}" style="max-height:55px;max-width:180px;object-fit:contain" alt="Authorized Signature">
+              </div>
+            ` : `<div style="width:160px;height:40px;border-bottom:1.5px solid #334155;margin-bottom:6px"></div>`}
+            <div style="font-size:13px;font-weight:700;color:#0f172a">${signatoryName}</div>
+            <div style="font-size:11px;color:#64748b;font-weight:600">${signatoryTitle}</div>
+            <div style="font-size:10.5px;color:#64748b">${companyName}</div>
           </div>
 
-          <!-- Official Stamp Watermark -->
-          <div style="border:2px dashed #2563eb;border-radius:50%;width:88px;height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2563eb;transform:rotate(-10deg);opacity:0.85">
-            <i class="fa fa-stamp" style="font-size:14px"></i>
-            <span style="font-size:8px;font-weight:800;text-transform:uppercase;margin-top:2px">HR DEPT</span>
-            <span style="font-size:7px">OFFICIAL SEAL</span>
-          </div>
+          <!-- Official Stamp / Seal -->
+          ${companyStamp ? `
+            <div style="margin-right:15px">
+              <img src="${companyStamp}" style="max-height:85px;max-width:85px;object-fit:contain;transform:rotate(-5deg)" alt="Official Stamp">
+            </div>
+          ` : `
+            <div style="border:2px dashed ${accentColor};border-radius:50%;width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:${accentColor};transform:rotate(-10deg);opacity:0.9">
+              <i class="fa fa-stamp" style="font-size:14px"></i>
+              <span style="font-size:8px;font-weight:800;text-transform:uppercase;margin-top:2px">HR DEPT</span>
+              <span style="font-size:7px">OFFICIAL SEAL</span>
+            </div>
+          `}
         </div>
+
+        ${letterheadFooter ? `
+          <div style="margin-top:35px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:10.5px;color:#94a3b8;text-align:center">
+            ${letterheadFooter}
+          </div>
+        ` : ''}
       </div>
 
       <div class="modal-footer" style="padding:14px 0 0 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-        <span style="font-size:12px;color:var(--text-3)">Printed copies are valid with official corporate seal</span>
+        <span style="font-size:12px;color:var(--text-3)"><i class="fa fa-shield-halved" style="color:var(--primary)"></i> Verified Corporate Letterhead Document</span>
         <div style="display:flex;gap:8px;align-items:center">
           ${l.acknowledged ? `
             <span style="font-size:12px;color:var(--success);font-weight:600;margin-right:6px">
@@ -7210,26 +7269,42 @@ const Employees = {
     const letters = DB.get('hr_letters') || [];
     const l = letters.find(x => x.id === letterId);
     if (!l) return;
-    const emp = DB.find('employees', l.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', salary: 75000, joiningDate: '2022-01-01' };
+    const emp = DB.find('employees', Number(l.employeeId)) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', salary: 75000, joiningDate: '2022-01-01' };
     const settings = DB.getObj('settings') || {};
+
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyName = settings.companyName || 'HRM Pro Corporation Pvt. Ltd.';
+    const companyAddress = settings.companyAddress || 'Suite 401, Business Plaza, Shahrah-e-Faisal, Karachi';
+    const companyEmail = settings.companyEmail || 'hr@company.com';
+    const companyPhone = settings.companyPhone || '+92-21-1234567';
+    const companyNTN = settings.companyNTN || '1234567-8';
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const companyBanner = safeSrc(settings.companyLetterheadBanner || '');
+    const letterheadType = settings.companyLetterheadType || 'dynamic';
+    const accentColor = settings.companyAccentColor || '#2563eb';
+    const signatoryName = settings.signatoryName || l.issuedBy || 'Sara Malik';
+    const signatoryTitle = settings.signatoryTitle || 'Authorized Signatory / Head of HR';
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
+    const companyStamp = safeSrc(settings.companyStamp || '');
+    const letterheadFooter = settings.companyLetterheadFooter || 'This document is electronically verified and issued under corporate authority. Printed copies are valid with official corporate seal.';
 
     let bodyHTML = '';
     if (l.templateType === 'experience') {
       bodyHTML = `
-        <p>This is to certify that <strong>Mr./Ms. ${emp.fullName}</strong> (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee No: <code>${emp.empNo}</code>) was employed with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department from <strong>${Utils.formatDate(emp.joiningDate)}</strong> to <strong>${l.issueDate}</strong>.</p>
+        <p>This is to certify that <strong>Mr./Ms. ${emp.fullName}</strong> (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee No: <code>${emp.empNo}</code>) was employed with <strong>${companyName}</strong> as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department from <strong>${Utils.formatDate(emp.joiningDate)}</strong> to <strong>${l.issueDate}</strong>.</p>
         <p>During their tenure with us, we found them to be hard-working, disciplined, and professionally competent in executing their responsibilities. Their conduct and performance were exemplary.</p>
         <p>We wish them the very best in all their future personal and professional endeavors.</p>
       `;
     } else if (l.templateType === 'relieving') {
       bodyHTML = `
-        <p>With reference to your formal resignation, we hereby accept your resignation and relieve you from your duties as <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> with effect from the close of business hours on <strong>${l.issueDate}</strong>.</p>
+        <p>With reference to your formal resignation, we hereby accept your resignation and relieve you from your duties as <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${companyName}</strong> with effect from the close of business hours on <strong>${l.issueDate}</strong>.</p>
         <p>We confirm that you have completed all mandatory exit clearances across the IT, Administration, Finance, and Human Resources departments, and have returned all company assets in satisfactory order. All financial dues have been settled.</p>
         <p>We appreciate your valuable contributions during your service with the company and wish you success in your future endeavors.</p>
       `;
     } else if (l.templateType === 'salary_certificate') {
       bodyHTML = `
         <p>This certificate is issued upon the request of <strong>Mr./Ms. ${emp.fullName}</strong> for the purpose of <strong>${l.purpose}</strong>.</p>
-        <p>We confirm that Mr./Ms. ${emp.fullName} (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee ID: <code>${emp.empNo}</code>) is a permanent, full-time employee with <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> since <strong>${Utils.formatDate(emp.joiningDate)}</strong>, currently serving as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department.</p>
+        <p>We confirm that Mr./Ms. ${emp.fullName} (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee ID: <code>${emp.empNo}</code>) is a permanent, full-time employee with <strong>${companyName}</strong> since <strong>${Utils.formatDate(emp.joiningDate)}</strong>, currently serving as <strong>${Utils.getDesigName(emp.designationId)}</strong> in the <strong>${Utils.getDeptName(emp.departmentId)}</strong> department.</p>
         <p>Their present monthly salary and compensation breakdown is as follows:</p>
         <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
           <tr style="border-bottom:1px solid #ddd"><td style="padding:6px 0">Monthly Gross Basic Salary:</td><td style="text-align:right;font-weight:700">${Utils.formatCurrency(emp.salary || 70000)}</td></tr>
@@ -7240,11 +7315,37 @@ const Employees = {
       `;
     } else {
       bodyHTML = `
-        <p>Following your successful performance review and the completion of your probationary service period, management is pleased to formally confirm your appointment as permanent <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> effective <strong>${l.issueDate}</strong>.</p>
+        <p>Following your successful performance review and the completion of your probationary service period, management is pleased to formally confirm your appointment as permanent <strong>${Utils.getDesigName(emp.designationId)}</strong> at <strong>${companyName}</strong> effective <strong>${l.issueDate}</strong>.</p>
         <p>All other terms and conditions of your employment contract, including confidentiality, workplace code of conduct, and company benefits, shall remain applicable.</p>
         <p>We congratulate you on this milestone and look forward to your continued dedication and success with the organization.</p>
       `;
     }
+
+    const printHeaderHTML = (letterheadType === 'custom_banner' && companyBanner) ? `
+      <div style="margin-bottom:20px">
+        <img src="${companyBanner}" style="width:100%;max-height:130px;object-fit:contain" alt="${companyName}">
+        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:2px solid ${accentColor};font-size:12px;color:#64748b;margin-top:8px">
+          <div>Ref: <strong style="color:#0f172a">${l.refNo}</strong></div>
+          <div>Date of Issue: <strong style="color:#0f172a">${l.issueDate}</strong></div>
+        </div>
+      </div>
+    ` : `
+      <div class="header" style="border-bottom:3px solid ${accentColor}">
+        <div style="display:flex;align-items:center;gap:14px">
+          ${companyLogo ? `<img src="${companyLogo}" style="max-height:65px;max-width:90px;object-fit:contain">` : ''}
+          <div>
+            <h1 style="margin:0;font-size:22px;color:#1e40af">${companyName}</h1>
+            ${settings.companyTagline ? `<div style="font-size:12px;color:${accentColor};font-weight:600">${settings.companyTagline}</div>` : ''}
+            <div style="font-size:11px;color:#64748b">${companyAddress}</div>
+            <div style="font-size:10.5px;color:#64748b">Phone: ${companyPhone} | Email: ${companyEmail} | NTN: ${companyNTN}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:12px;color:#64748b">Ref: <strong style="color:#0f172a">${l.refNo}</strong></div>
+          <div style="font-size:12px;color:#64748b">Date: <strong style="color:#0f172a">${l.issueDate}</strong></div>
+        </div>
+      </div>
+    `;
 
     const printWin = window.open('', '_blank', 'width=900,height=950');
     printWin.document.write(`
@@ -7253,27 +7354,17 @@ const Employees = {
       <head>
         <title>${l.title} — ${emp.fullName}</title>
         <style>
-          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #111; line-height: 1.6; }
-          .header { border-bottom: 3px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .title { text-align: center; margin: 30px 0 25px; font-size: 18px; font-weight: 800; text-decoration: underline; text-transform: uppercase; }
-          .content { font-size: 14.5px; text-align: justify; margin-bottom: 50px; }
-          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 60px; }
-          .sig-line { width: 180px; border-top: 1.5px solid #111; padding-top: 6px; font-size: 13px; font-weight: 700; }
-          .seal { border: 2px dashed #2563eb; border-radius: 50%; width: 90px; height: 90px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #2563eb; transform: rotate(-10deg); }
-          @media print { body { padding: 15mm; } }
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 35px; color: #111; line-height: 1.6; }
+          .header { padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { text-align: center; margin: 25px 0 20px; font-size: 17px; font-weight: 800; text-decoration: underline; text-transform: uppercase; }
+          .content { font-size: 14px; text-align: justify; margin-bottom: 40px; }
+          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; }
+          .sig-line { width: 180px; font-size: 13px; font-weight: 700; color: #0f172a; }
+          @media print { body { padding: 12mm; } }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div>
-            <h1 style="margin:0;font-size:24px;color:#1e40af">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h1>
-            <div style="font-size:12px;color:#64748b">${settings.companyAddress || 'Corporate Plaza, Main Boulevard, Karachi, Pakistan'}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:12px;color:#64748b">Ref: <strong>${l.refNo}</strong></div>
-            <div style="font-size:12px;color:#64748b">Date: <strong>${l.issueDate}</strong></div>
-          </div>
-        </div>
+        ${printHeaderHTML}
 
         <div style="margin-bottom:20px;font-size:14px">
           <div><strong>To:</strong></div>
@@ -7285,15 +7376,32 @@ const Employees = {
 
         <div class="sig-block">
           <div>
-            <div class="sig-line">${l.issuedBy}</div>
-            <div style="font-size:11.5px;color:#64748b">Authorized Signatory</div>
-            <div style="font-size:11px;color:#64748b">${settings.companyName || 'HRM Pro Corporation'}</div>
+            ${signatorySignature ? `
+              <div style="margin-bottom:4px">
+                <img src="${signatorySignature}" style="max-height:55px;max-width:180px;object-fit:contain" alt="Signature">
+              </div>
+            ` : `<div style="width:160px;height:40px;border-bottom:1.5px solid #111;margin-bottom:6px"></div>`}
+            <div class="sig-line">${signatoryName}</div>
+            <div style="font-size:11.5px;color:#64748b;font-weight:600">${signatoryTitle}</div>
+            <div style="font-size:11px;color:#64748b">${companyName}</div>
           </div>
-          <div class="seal">
-            <span style="font-size:9px;font-weight:800;text-transform:uppercase">HR DEPT</span>
-            <span style="font-size:8px">OFFICIAL SEAL</span>
-          </div>
+          ${companyStamp ? `
+            <div>
+              <img src="${companyStamp}" style="max-height:90px;max-width:90px;object-fit:contain;transform:rotate(-5deg)" alt="Stamp">
+            </div>
+          ` : `
+            <div style="border:2px dashed ${accentColor};border-radius:50%;width:84px;height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:${accentColor};transform:rotate(-10deg)">
+              <span style="font-size:9px;font-weight:800;text-transform:uppercase">HR DEPT</span>
+              <span style="font-size:8px">OFFICIAL SEAL</span>
+            </div>
+          `}
         </div>
+
+        ${letterheadFooter ? `
+          <div style="margin-top:40px;padding-top:12px;border-top:1px solid #cbd5e1;font-size:10px;color:#94a3b8;text-align:center">
+            ${letterheadFooter}
+          </div>
+        ` : ''}
 
         <script>window.onload = function() { window.print(); };</script>
       </body>
@@ -7307,10 +7415,16 @@ const Employees = {
   },
 
   showDigitalBadge(empId) {
-    const emp = DB.find('employees', empId);
-    if (!emp) return;
-    const settings = DB.getObj('settings') || { companyName: 'HRM Pro Enterprise' };
-    const empCode = emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
+    empId = empId || this.activeProfileEmpId || Auth.employee?.id || 1;
+    const emp = DB.find('employees', Number(empId)) || (DB.get('employees') || []).find(e => e.id == empId) || (DB.get('employees') || [])[0];
+    if (!emp) {
+      Toast.show('Employee details not found for digital badge', 'warning');
+      return;
+    }
+    const settings = DB.getObj('settings') || {};
+    const companyName = settings.companyName || 'HRM Pro Enterprise';
+    const companyLogo = (src => (src ? String(src).replace(/"/g, '&quot;') : ''))(settings.companyLogo || '');
+    const empCode = emp.empNo || emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
     const bloodGroup = emp.bloodGroup || 'B+';
     const dept = Utils.getDeptName(emp.departmentId);
     const desig = Utils.getDesigName(emp.designationId);
@@ -7323,13 +7437,14 @@ const Employees = {
 
     Modal.show('Corporate Employee Digital Smart Badge', `
       <div style="display:flex;justify-content:center;margin-bottom:16px">
-        <div id="smart-badge-card" style="width:300px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 30px rgba(0,0,0,0.18);border:1px solid #cbd5e1;font-family:'Segoe UI',sans-serif;position:relative;text-align:center">
+        <div id="smart-badge-card" style="width:310px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 14px 35px rgba(0,0,0,0.18);border:1px solid #cbd5e1;font-family:'Segoe UI',sans-serif;position:relative;text-align:center">
           <div style="width:36px;height:7px;background:#94a3b8;border-radius:10px;margin:10px auto 4px"></div>
           <div style="background:linear-gradient(135deg,#1e1b4b,#4338ca);padding:14px 16px 36px;color:#ffffff;position:relative">
-            <div style="font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase">${settings.companyName}</div>
+            ${companyLogo ? `<div style="margin-bottom:6px"><img src="${companyLogo}" style="max-height:28px;max-width:140px;object-fit:contain;filter:brightness(0) invert(1)" alt="Logo"></div>` : ''}
+            <div style="font-size:13px;font-weight:800;letter-spacing:1px;text-transform:uppercase">${companyName}</div>
             <div style="font-size:10px;letter-spacing:1.5px;color:#a5b4fc;text-transform:uppercase;margin-top:2px">Verified Employee Credential</div>
           </div>
-          <div style="margin-top:-32px;display:flex;justify-content:center;position:relative">
+          <div style="margin-top:-34px;display:flex;justify-content:center;position:relative">
             <div style="width:84px;height:84px;border-radius:50%;border:3px solid #ffffff;box-shadow:0 4px 12px rgba(0,0,0,0.15);overflow:hidden;background:${Utils.avatarColor(emp.id)}">
               ${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : `<div style="font-size:28px;line-height:84px;color:#ffffff;font-weight:700">${Utils.avatarInitials(emp.fullName)}</div>`}
             </div>
@@ -7358,7 +7473,7 @@ const Employees = {
             </div>
           </div>
           <div style="background:#0f172a;color:#94a3b8;font-size:9px;padding:6px;letter-spacing:1px;text-transform:uppercase">
-            PROPERTY OF ${settings.companyName.toUpperCase()}
+            PROPERTY OF ${(companyName || 'HRM PRO ENTERPRISE').toUpperCase()}
           </div>
         </div>
       </div>
@@ -7371,10 +7486,13 @@ const Employees = {
   },
 
   printDigitalBadge(empId) {
-    const emp = DB.find('employees', empId);
+    empId = empId || this.activeProfileEmpId || Auth.employee?.id || 1;
+    const emp = DB.find('employees', Number(empId)) || (DB.get('employees') || []).find(e => e.id == empId) || (DB.get('employees') || [])[0];
     if (!emp) return;
-    const settings = DB.getObj('settings') || { companyName: 'HRM Pro Enterprise' };
-    const empCode = emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
+    const settings = DB.getObj('settings') || {};
+    const companyName = settings.companyName || 'HRM Pro Enterprise';
+    const companyLogo = (src => (src ? String(src).replace(/"/g, '&quot;') : ''))(settings.companyLogo || '');
+    const empCode = emp.empNo || emp.code || `EMP-${String(emp.id).padStart(4, '0')}`;
     const bloodGroup = emp.bloodGroup || 'B+';
     const dept = Utils.getDeptName(emp.departmentId);
     const desig = Utils.getDesigName(emp.designationId);
@@ -7405,7 +7523,8 @@ const Employees = {
         <div class="card">
           <div class="lanyard"></div>
           <div class="header">
-            <div style="font-size: 8pt; font-weight: 800; text-transform: uppercase;">${settings.companyName}</div>
+            ${companyLogo ? `<div style="margin-bottom:2px"><img src="${companyLogo}" style="max-height:16px;max-width:80px;object-fit:contain;filter:brightness(0) invert(1)"></div>` : ''}
+            <div style="font-size: 8pt; font-weight: 800; text-transform: uppercase;">${companyName}</div>
             <div style="font-size: 5.5pt; color: #a5b4fc; text-transform: uppercase;">Employee Access Credential</div>
           </div>
           <div class="photo">

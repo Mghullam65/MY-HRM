@@ -2939,6 +2939,20 @@ const Recruitment = {
     const mgr = DB.find('employees', offer.reportingManagerId);
     const validity = this.getOfferValidity(offer);
     const isHR = this.isHROrAdmin();
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyName = settings.companyName || 'HRM Pro Enterprise Solutions (Pvt) Ltd';
+    const companyAddress = settings.companyAddress || 'Plot 42, Executive Tech Park, Constitution Avenue, Islamabad, Pakistan';
+    const companyEmail = settings.companyEmail || 'hr@company.com';
+    const companyPhone = settings.companyPhone || '+92-21-1234567';
+    const companyNTN = settings.companyNTN || '1234567-8';
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const companyBanner = safeSrc(settings.companyLetterheadBanner || '');
+    const letterheadType = settings.companyLetterheadType || 'dynamic';
+    const signatoryName = settings.signatoryName || 'Sara Malik';
+    const signatoryTitle = settings.signatoryTitle || 'Head of Human Resources & Corporate Governance';
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
+    const companyStamp = safeSrc(settings.companyStamp || '');
 
     Modal.show({
       size: 'modal-lg',
@@ -2950,21 +2964,36 @@ const Recruitment = {
       body: `
         <div class="offer-doc-container">
           <!-- Corporate Letterhead -->
-          <div class="offer-letterhead">
-            <div class="offer-logo-badge">
-              <div class="offer-logo-icon">HP</div>
-              <div>
-                <div class="offer-company-title">HRM PRO ENTERPRISE SOLUTIONS (PVT) LTD</div>
-                <div class="offer-company-sub">Executive Tech Park, Constitution Avenue, Islamabad • NTN: 9482710-3</div>
-                <div class="offer-company-sub">Web: www.hrmpro.pk • Phone: +92 (51) 8899-200 • Email: careers@hrmpro.com</div>
+          ${(letterheadType === 'custom_banner' && companyBanner) ? `
+            <div style="background:#fff;border-bottom:3px solid #1e3a8a;padding:12px 18px;margin-bottom:12px">
+              <img src="${companyBanner}" style="width:100%;max-height:120px;object-fit:contain" alt="${companyName}">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid #e2e8f0;font-size:11.5px;color:#475569">
+                <div>Ref: <span class="offer-ref-no">${offer.refNo}</span></div>
+                <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+                <div style="color:#b45309;font-weight:700">Strict 2-Day Acceptance Notice</div>
               </div>
             </div>
-            <div class="offer-ref-box">
-              <div>Ref: <span class="offer-ref-no">${offer.refNo}</span></div>
-              <div style="margin-top:3px">Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
-              <div style="margin-top:3px;color:#facc15;font-weight:700">Strict 2-Day Acceptance Notice</div>
+          ` : `
+            <div class="offer-letterhead">
+              <div class="offer-logo-badge">
+                ${companyLogo ? `
+                  <div style="width:52px;height:52px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;padding:4px;flex-shrink:0">
+                    <img src="${companyLogo}" style="max-width:100%;max-height:100%;object-fit:contain" alt="Logo">
+                  </div>
+                ` : `<div class="offer-logo-icon">${companyName.slice(0,2).toUpperCase()}</div>`}
+                <div>
+                  <div class="offer-company-title">${companyName.toUpperCase()}</div>
+                  <div class="offer-company-sub">${companyAddress} • NTN: ${companyNTN}</div>
+                  <div class="offer-company-sub">Phone: ${companyPhone} • Email: ${companyEmail}</div>
+                </div>
+              </div>
+              <div class="offer-ref-box">
+                <div>Ref: <span class="offer-ref-no">${offer.refNo}</span></div>
+                <div style="margin-top:3px">Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+                <div style="margin-top:3px;color:#facc15;font-weight:700">Strict 2-Day Acceptance Notice</div>
+              </div>
             </div>
-          </div>
+          `}
 
           <!-- Document Body -->
           <div class="offer-body">
@@ -3105,19 +3134,27 @@ const Recruitment = {
             <!-- Corporate Signatures -->
             <div class="offer-signatures">
               <div>
-                <div style="height:36px"></div>
+                ${signatorySignature ? `
+                  <div style="margin-bottom:4px">
+                    <img src="${signatorySignature}" style="max-height:50px;max-width:160px;object-fit:contain" alt="Signature">
+                  </div>
+                ` : `<div style="height:36px"></div>`}
                 <div class="offer-sig-line">
-                  <strong>Sara Malik</strong><br>
-                  Head of Human Resources & Talent Acquisition<br>
-                  HRM Pro Enterprise Solutions (Pvt) Ltd
+                  <strong>${signatoryName}</strong><br>
+                  ${signatoryTitle}<br>
+                  ${companyName}
                 </div>
               </div>
               <div>
-                <div style="height:36px"></div>
+                ${companyStamp ? `
+                  <div style="margin-bottom:4px;display:flex;justify-content:center">
+                    <img src="${companyStamp}" style="max-height:52px;max-width:52px;object-fit:contain;transform:rotate(-5deg)" alt="Stamp">
+                  </div>
+                ` : `<div style="height:36px"></div>`}
                 <div class="offer-sig-line">
                   <strong>Ahmed Khan</strong><br>
                   Chief Executive Officer (CEO)<br>
-                  HRM Pro Enterprise Solutions (Pvt) Ltd
+                  ${companyName}
                 </div>
               </div>
             </div>
@@ -3185,6 +3222,20 @@ const Recruitment = {
     if (!offer) return;
     const dept = DB.find('departments', offer.departmentId);
     const mgr = DB.find('employees', offer.reportingManagerId);
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyName = settings.companyName || 'HRM Pro Enterprise Solutions (Pvt) Ltd';
+    const companyAddress = settings.companyAddress || 'Plot 42, Executive Tech Park, Constitution Avenue, Islamabad, Pakistan';
+    const companyEmail = settings.companyEmail || 'hr@company.com';
+    const companyPhone = settings.companyPhone || '+92-21-1234567';
+    const companyNTN = settings.companyNTN || '1234567-8';
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const companyBanner = safeSrc(settings.companyLetterheadBanner || '');
+    const letterheadType = settings.companyLetterheadType || 'dynamic';
+    const signatoryName = settings.signatoryName || 'Sara Malik';
+    const signatoryTitle = settings.signatoryTitle || 'Head of Human Resources & Corporate Governance';
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
+    const companyStamp = safeSrc(settings.companyStamp || '');
 
     const printContent = `
       <!DOCTYPE html>
@@ -3281,18 +3332,32 @@ const Recruitment = {
         </style>
       </head>
       <body>
-        <div class="letterhead">
-          <div>
-            <div class="comp-title">HRM PRO ENTERPRISE SOLUTIONS (PVT) LTD</div>
-            <div class="comp-sub">Plot 42, Executive Tech Park, Constitution Avenue, Islamabad, Pakistan</div>
-            <div class="comp-sub">Phone: +92 (51) 8899-200 • Email: hr@hrmpro.com • NTN: 9482710-3</div>
+        ${(letterheadType === 'custom_banner' && companyBanner) ? `
+          <div style="margin-bottom:16px;border-bottom:3px solid #1e3a8a;padding-bottom:10px">
+            <img src="${companyBanner}" style="width:100%;max-height:120px;object-fit:contain" alt="${companyName}">
+            <div style="display:flex;justify-content:space-between;padding-top:8px;font-size:11.5px;color:#475569">
+              <div>Reference: <span class="ref-no">${offer.refNo}</span></div>
+              <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+              <div style="color:#b45309;font-weight:700">Accept/Reject Window: 2 Days</div>
+            </div>
           </div>
-          <div class="ref-table">
-            <div>Reference: <span class="ref-no">${offer.refNo}</span></div>
-            <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
-            <div style="margin-top:3px;color:#b45309;font-weight:700">Accept/Reject Window: 2 Days</div>
+        ` : `
+          <div class="letterhead">
+            <div style="display:flex;align-items:center;gap:12px">
+              ${companyLogo ? `<img src="${companyLogo}" style="max-height:55px;max-width:85px;object-fit:contain">` : ''}
+              <div>
+                <div class="comp-title">${companyName.toUpperCase()}</div>
+                <div class="comp-sub">${companyAddress}</div>
+                <div class="comp-sub">Phone: ${companyPhone} • Email: ${companyEmail} • NTN: ${companyNTN}</div>
+              </div>
+            </div>
+            <div class="ref-table">
+              <div>Reference: <span class="ref-no">${offer.refNo}</span></div>
+              <div>Date of Issue: <strong>${Utils.formatDate(offer.issueDate)}</strong></div>
+              <div style="margin-top:3px;color:#b45309;font-weight:700">Accept/Reject Window: 2 Days</div>
+            </div>
           </div>
-        </div>
+        `}
 
         <div class="recipient-block">
           <div>
@@ -3405,19 +3470,27 @@ const Recruitment = {
 
         <div class="signatures">
           <div>
-            <div style="height:30px"></div>
+            ${signatorySignature ? `
+              <div style="margin-bottom:4px;text-align:center">
+                <img src="${signatorySignature}" style="max-height:48px;max-width:160px;object-fit:contain" alt="Signature">
+              </div>
+            ` : `<div style="height:30px"></div>`}
             <div class="sig-line">
-              <strong>Sara Malik</strong><br>
-              Head of Human Resources<br>
-              HRM Pro Enterprise Solutions
+              <strong>${signatoryName}</strong><br>
+              ${signatoryTitle}<br>
+              ${companyName}
             </div>
           </div>
           <div>
-            <div style="height:30px"></div>
+            ${companyStamp ? `
+              <div style="margin-bottom:4px;text-align:center">
+                <img src="${companyStamp}" style="max-height:50px;max-width:50px;object-fit:contain;transform:rotate(-5deg)" alt="Stamp">
+              </div>
+            ` : `<div style="height:30px"></div>`}
             <div class="sig-line">
               <strong>Ahmed Khan</strong><br>
               Chief Executive Officer (CEO)<br>
-              HRM Pro Enterprise Solutions
+              ${companyName}
             </div>
           </div>
         </div>

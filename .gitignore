@@ -29,3 +29,4 @@ server/.env.local
 # Local backups or temp
 scratch/
 *.tmp
+serve.js

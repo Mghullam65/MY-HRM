@@ -1089,7 +1089,9 @@ const Payroll = {
     if (!emp || !rec) { Toast.show('Salary record not found', 'error'); return; }
     const monthLabel = new Date(month+'-01').toLocaleDateString('en',{month:'long',year:'numeric'});
     const pfSettings = this.getPFSettings();
-    const pfSummary = this.getEmployeePFSummary(emp.id);
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyLogo = safeSrc(settings.companyLogo || '');
 
     const pfEmployee = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
     const pfEmployer = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
@@ -1100,10 +1102,13 @@ const Payroll = {
     Modal.show(`Payslip — ${emp.fullName} — ${monthLabel}`, `
       <div style="background:white;color:#1a1a1a;border-radius:12px;overflow:hidden">
         <!-- Header -->
-        <div style="background:linear-gradient(135deg,hsl(221,83%,25%),hsl(262,83%,30%));color:white;padding:22px;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-size:22px;font-weight:800">HRM Pro</div>
-            <div style="font-size:12px;opacity:0.85">Human Resource Management & Payroll</div>
+        <div style="background:linear-gradient(135deg,hsl(221,83%,25%),hsl(262,83%,30%));color:white;padding:20px 22px;display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:12px">
+            ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain;filter:brightness(0) invert(1)">` : ''}
+            <div>
+              <div style="font-size:22px;font-weight:800">${settings.companyName || 'HRM Pro'}</div>
+              <div style="font-size:12px;opacity:0.85">${settings.companyTagline || 'Human Resource Management & Payroll'}</div>
+            </div>
           </div>
           <div style="text-align:right">
             <div style="font-size:18px;font-weight:700">PAYSLIP</div>
@@ -2410,12 +2415,19 @@ const Payroll = {
     const pfEmp = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
     const pfEmpr = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
     const otherDeductions = Math.max(0, (rec.deductions || 0) - pfEmp);
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
 
     const html = `
       <div class="doc-header">
-        <div>
-          <div class="brand-title">HRM Pro</div>
-          <div class="brand-sub">Human Resource Management & Payroll Services</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain">` : ''}
+          <div>
+            <div class="brand-title">${settings.companyName || 'HRM Pro'}</div>
+            <div class="brand-sub">${settings.companyTagline || 'Human Resource Management & Payroll Services'}</div>
+          </div>
         </div>
         <div class="doc-type">
           <div class="doc-type-title">SALARY PAYSLIP</div>
@@ -2489,10 +2501,14 @@ const Payroll = {
         <div class="total-banner-val">${Utils.formatCurrency(rec.netSalary)}</div>
       </div>
 
-      <div class="sig-section">
-        <div class="sig-box">Prepared By (Payroll Officer)</div>
-        <div class="sig-box">Approved By (Head of HR / Finance)</div>
-        <div class="sig-box">Employee Signature / Confirmation</div>
+      <div class="sig-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:25px">
+        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Prepared By (Payroll Officer)</div>
+        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">
+          ${signatorySignature ? `<div style="margin-bottom:2px"><img src="${signatorySignature}" style="max-height:36px;max-width:120px;object-fit:contain"></div>` : ''}
+          <strong>${settings.signatoryName || 'Sara Malik'}</strong><br>
+          <span style="font-size:9.5px;color:#64748b">${settings.signatoryTitle || 'Head of HR / Finance'}</span>
+        </div>
+        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Employee Signature / Confirmation</div>
       </div>
 
       <div class="footer-note">
@@ -2511,6 +2527,10 @@ const Payroll = {
     }
     const emps = DB.get('employees');
     const pfSettings = this.getPFSettings();
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyLogo = safeSrc(settings.companyLogo || '');
+    const signatorySignature = safeSrc(settings.signatorySignature || '');
     const monthLabel = new Date(this.currentMonth+'-01').toLocaleDateString('en',{month:'long',year:'numeric'});
 
     const slipsHtml = salaries.map((rec, idx) => {
@@ -2524,9 +2544,12 @@ const Payroll = {
       return `
         <div style="${idx > 0 ? 'page-break-before: always; margin-top: 40px;' : ''}">
           <div class="doc-header">
-            <div>
-              <div class="brand-title">HRM Pro</div>
-              <div class="brand-sub">Human Resource Management & Payroll Services</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain">` : ''}
+              <div>
+                <div class="brand-title">${settings.companyName || 'HRM Pro'}</div>
+                <div class="brand-sub">${settings.companyTagline || 'Human Resource Management & Payroll Services'}</div>
+              </div>
             </div>
             <div class="doc-type">
               <div class="doc-type-title">SALARY PAYSLIP</div>
@@ -2599,10 +2622,14 @@ const Payroll = {
             <div class="total-banner-val">${Utils.formatCurrency(rec.netSalary)}</div>
           </div>
 
-          <div class="sig-section">
-            <div class="sig-box">Prepared By (Payroll)</div>
-            <div class="sig-box">Approved By (HR/Finance)</div>
-            <div class="sig-box">Employee Acknowledgment</div>
+          <div class="sig-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:25px">
+            <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Prepared By (Payroll)</div>
+            <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">
+              ${signatorySignature ? `<div style="margin-bottom:2px"><img src="${signatorySignature}" style="max-height:36px;max-width:120px;object-fit:contain"></div>` : ''}
+              <strong>${settings.signatoryName || 'Sara Malik'}</strong><br>
+              <span style="font-size:9.5px;color:#64748b">${settings.signatoryTitle || 'HR / Finance'}</span>
+            </div>
+            <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Employee Acknowledgment</div>
           </div>
         </div>
       `;

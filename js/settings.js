@@ -102,41 +102,475 @@ const Settings = {
     `;
   },
 
-  // ─── Company Profile ──────────────────────────────
+  // ─── Company Profile, Branding, Letterhead & Signatures ──────────────────────
   renderCompany(c) {
     const s = key => this._getSetting(key, '');
-    c.innerHTML = this._sectionCard('Company Profile', 'Basic information about your organization', `
-      ${this._settingRow('Company Name',
-        `<input class="form-control" id="s-company-name" value="${s('companyName') || 'HRM Pro'}">`,
-        'Displayed in sidebar, payslips, and reports')}
-      ${this._settingRow('Company Email',
-        `<input class="form-control" id="s-company-email" type="email" value="${s('companyEmail') || 'hr@company.com'}">`,
-        'Primary contact email')}
-      ${this._settingRow('Company Phone',
-        `<input class="form-control" id="s-company-phone" value="${s('companyPhone') || '+92-21-1234567'}">`,
-        'Primary contact phone')}
-      ${this._settingRow('Address',
-        `<textarea class="form-control" id="s-company-address" rows="2">${s('companyAddress') || 'Suite 401, Business Plaza, Shahrah-e-Faisal, Karachi'}</textarea>`,
-        'Full business address')}
-      ${this._settingRow('NTN Number',
-        `<input class="form-control" id="s-company-ntn" value="${s('companyNTN') || '1234567-8'}">`,
-        'National Tax Number for tax filings')}
-      ${this._settingRow('Website',
-        `<input class="form-control" id="s-company-website" value="${s('companyWebsite') || 'https://company.com'}">`, '')}
-      ${this._settingRow('Industry',
-        `<select class="form-control" id="s-company-industry">
-          ${['Information Technology','Finance','Healthcare','Manufacturing','Education','Retail','Construction','Hospitality','Telecom','Other'].map(i => `<option ${s('companyIndustry')===i?'selected':''}>${i}</option>`).join('')}
-        </select>`, '')}
-    `, `<button class="btn btn-primary" onclick="Settings.saveCompany()"><i class="fa fa-save"></i> Save Changes</button>`);
+    const logo = s('companyLogo') || '';
+    const banner = s('companyLetterheadBanner') || '';
+    const signature = s('signatorySignature') || '';
+    const stamp = s('companyStamp') || '';
+    const letterheadType = s('companyLetterheadType') || 'dynamic';
+    const accentColor = s('companyAccentColor') || '#2563eb';
+
+    // Store in memory for active unsaved state
+    window._tempCompanyLogo = logo;
+    window._tempLetterheadBanner = banner;
+    window._tempSignatorySignature = signature;
+    window._tempCompanyStamp = stamp;
+
+    c.innerHTML = `
+      <!-- Card 1: Core Company Profile -->
+      ${this._sectionCard('Company Profile', 'Basic information about your organization', `
+        ${this._settingRow('Company Name',
+          `<input class="form-control" id="s-company-name" value="${s('companyName') || 'HRM Pro'}">`,
+          'Displayed in sidebar, payslips, employee badges, and HR letters')}
+        ${this._settingRow('Company Email',
+          `<input class="form-control" id="s-company-email" type="email" value="${s('companyEmail') || 'hr@company.com'}">`,
+          'Primary official contact email')}
+        ${this._settingRow('Company Phone',
+          `<input class="form-control" id="s-company-phone" value="${s('companyPhone') || '+92-21-1234567'}">`,
+          'Primary official contact phone')}
+        ${this._settingRow('Address',
+          `<textarea class="form-control" id="s-company-address" rows="2">${s('companyAddress') || 'Suite 401, Business Plaza, Shahrah-e-Faisal, Karachi'}</textarea>`,
+          'Full corporate address appearing on letterhead and payslips')}
+        ${this._settingRow('NTN Number',
+          `<input class="form-control" id="s-company-ntn" value="${s('companyNTN') || '1234567-8'}">`,
+          'National Tax Number for statutory documents and tax filings')}
+        ${this._settingRow('Website',
+          `<input class="form-control" id="s-company-website" value="${s('companyWebsite') || 'https://company.com'}">`, '')}
+        ${this._settingRow('Industry',
+          `<select class="form-control" id="s-company-industry">
+            ${['Information Technology','Finance','Healthcare','Manufacturing','Education','Retail','Construction','Hospitality','Telecom','Other'].map(i => `<option ${s('companyIndustry')===i?'selected':''}>${i}</option>`).join('')}
+          </select>`, '')}
+      `)}
+
+      <!-- Card 2: Company Logo & Official Letterhead -->
+      ${this._sectionCard('Corporate Branding & Letterhead Setup', 'Upload company logo and configure official letterhead used across HR letters, offer letters & badges', `
+        <!-- Logo Row -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Company Logo</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Primary brand logo for application sidebar, smart badges, payslips, and HR letters. Recommended: PNG or SVG (transparent background).
+            </div>
+          </div>
+          <div style="width:340px;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div id="company-logo-preview" style="width:90px;height:65px;border-radius:8px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);overflow:hidden;padding:4px">
+                ${logo ? `<img src="${logo}" style="max-width:100%;max-height:100%;object-fit:contain" alt="Logo">` : `<div style="text-align:center;color:var(--text-muted);font-size:11px"><i class="fa fa-image" style="font-size:18px;display:block;margin-bottom:2px"></i>No Logo</div>`}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+                <label class="btn btn-outline btn-sm" style="cursor:pointer;text-align:center">
+                  <i class="fa fa-upload"></i> Upload Logo
+                  <input type="file" accept="image/*" style="display:none" onchange="Settings.handleLogoUpload(event)">
+                </label>
+                <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Settings.removeLogo()">
+                  <i class="fa fa-trash"></i> Remove Logo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Letterhead Header Style -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Letterhead Header Style</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Choose between Dynamic standard header (Logo + Company text + Accent line) or a Full custom graphic header banner.
+            </div>
+          </div>
+          <div style="width:340px;flex-shrink:0">
+            <select class="form-control" id="s-letterhead-type" onchange="Settings.toggleLetterheadType(this.value)">
+              <option value="dynamic" ${letterheadType === 'dynamic' ? 'selected' : ''}>Dynamic Modern Header (Logo + Details + Accent line)</option>
+              <option value="custom_banner" ${letterheadType === 'custom_banner' ? 'selected' : ''}>Custom Graphic Banner (Uploaded Letterhead)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Custom Banner Upload (Shown if custom_banner selected) -->
+        <div id="custom-banner-row" style="display:${letterheadType === 'custom_banner' ? 'flex' : 'none'};align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Custom Letterhead Banner</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              High-resolution graphic letterhead banner printed directly at the top of official letters (e.g. 1200x200px banner).
+            </div>
+          </div>
+          <div style="width:340px;flex-shrink:0">
+            <div id="letterhead-banner-preview" style="width:100%;height:60px;border-radius:6px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);overflow:hidden;margin-bottom:8px">
+              ${banner ? `<img src="${banner}" style="width:100%;height:100%;object-fit:cover" alt="Banner">` : `<span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-file-image"></i> No Banner Uploaded</span>`}
+            </div>
+            <div style="display:flex;gap:8px">
+              <label class="btn btn-outline btn-sm" style="cursor:pointer;flex:1;text-align:center">
+                <i class="fa fa-upload"></i> Upload Banner
+                <input type="file" accept="image/*" style="display:none" onchange="Settings.handleBannerUpload(event)">
+              </label>
+              <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Settings.removeBanner()">
+                <i class="fa fa-trash"></i> Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Accent Color & Tagline -->
+        ${this._settingRow('Letterhead Accent Color',
+          `<div style="display:flex;gap:8px;align-items:center">
+            <input type="color" id="s-company-accent" value="${accentColor}" style="width:42px;height:38px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface)">
+            <input class="form-control" id="s-company-accent-text" value="${accentColor}" oninput="document.getElementById('s-company-accent').value=this.value" style="font-family:monospace">
+          </div>`,
+          'Primary theme and divider bar color for official corporate documents')}
+        
+        ${this._settingRow('Company Tagline / Slogan',
+          `<input class="form-control" id="s-company-tagline" value="${s('companyTagline') || 'Enterprise Human Resource & Corporate Management Systems'}">`,
+          'Sub-heading displayed under the company name on letterheads and reports')}
+        
+        ${this._settingRow('Letterhead Footer Disclaimer',
+          `<textarea class="form-control" id="s-company-footer" rows="2">${s('companyLetterheadFooter') || 'This document is electronically verified and issued under the corporate authority of HRM Pro. Printed copies are valid with official seal.'}</textarea>`,
+          'Legal footer printed at the bottom of all generated HR letters and certificates')}
+      `)}
+
+      <!-- Card 3: Authorized Signatory & Official Signature / Stamp -->
+      ${this._sectionCard('Authorized Signatory & Digital Signature', 'Configure the official signatory name, designation, handwritten signature, and corporate stamp', `
+        ${this._settingRow('Authorized Signatory Name',
+          `<input class="form-control" id="s-signatory-name" value="${s('signatoryName') || 'Sara Malik'}">`,
+          'Full name of the authorized corporate officer (e.g., HR Director, Head of HR)')}
+        
+        ${this._settingRow('Signatory Designation / Title',
+          `<input class="form-control" id="s-signatory-title" value="${s('signatoryTitle') || 'Head of Human Resources & Corporate Governance'}">`,
+          'Official job title displayed below the signatory signature')}
+
+        <!-- Digital Signature Row -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Authorized Digital Signature</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Handwritten signature affixed automatically above the signatory line in HR letters, offer letters, and payslips. You can upload an image or draw directly!
+            </div>
+          </div>
+          <div style="width:340px;flex-shrink:0">
+            <div id="signatory-sig-preview" style="width:100%;height:75px;border-radius:8px;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:#ffffff;overflow:hidden;margin-bottom:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.05)">
+              ${signature ? `<img src="${signature}" style="max-height:65px;max-width:90%;object-fit:contain" alt="Signature">` : `<span style="font-size:12px;color:#94a3b8;font-style:italic"><i class="fa fa-pen-nib"></i> No Signature Configured</span>`}
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <label class="btn btn-outline btn-xs" style="cursor:pointer;flex:1;text-align:center">
+                <i class="fa fa-upload"></i> Upload Image
+                <input type="file" accept="image/*" style="display:none" onchange="Settings.handleSignatureUpload(event)">
+              </label>
+              <button type="button" class="btn btn-secondary btn-xs" onclick="Settings.openSignaturePadModal()" style="flex:1">
+                <i class="fa fa-pencil"></i> Draw Signature
+              </button>
+              <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Settings.removeSignature()">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Official Corporate Stamp / Seal -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:16px 0">
+          <div style="flex:1;padding-right:20px">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">Corporate Round Stamp / Seal</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Official circular rubber stamp or embossed seal placed alongside the authorized signature.
+            </div>
+          </div>
+          <div style="width:340px;flex-shrink:0">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div id="company-stamp-preview" style="width:75px;height:75px;border-radius:50%;border:1.5px dashed var(--border);display:flex;align-items:center;justify-content:center;background:var(--surface);overflow:hidden">
+                ${stamp ? `<img src="${stamp}" style="max-width:100%;max-height:100%;object-fit:contain" alt="Stamp">` : `
+                  <div style="text-align:center;color:#2563eb;transform:rotate(-8deg);font-size:9px;font-weight:800;line-height:1.2">
+                    <i class="fa fa-stamp" style="font-size:16px;display:block;margin-bottom:2px"></i>SEAL
+                  </div>
+                `}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1">
+                <label class="btn btn-outline btn-sm" style="cursor:pointer;text-align:center">
+                  <i class="fa fa-upload"></i> Upload Stamp
+                  <input type="file" accept="image/*" style="display:none" onchange="Settings.handleStampUpload(event)">
+                </label>
+                <button type="button" class="btn btn-ghost btn-xs" style="color:var(--danger)" onclick="Settings.removeStamp()">
+                  <i class="fa fa-trash"></i> Reset to Default Seal
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `, `<button class="btn btn-primary btn-lg" onclick="Settings.saveCompany()"><i class="fa fa-save"></i> Save All Company Settings</button>`)}
+    `;
+
+    // Sync accent picker with hex text
+    const colorInput = document.getElementById('s-company-accent');
+    const colorText = document.getElementById('s-company-accent-text');
+    if (colorInput && colorText) {
+      colorInput.addEventListener('input', () => { colorText.value = colorInput.value; });
+    }
+  },
+
+  toggleLetterheadType(type) {
+    const row = document.getElementById('custom-banner-row');
+    if (row) row.style.display = type === 'custom_banner' ? 'flex' : 'none';
+  },
+
+  _compressImage(dataUrl, maxW, maxH, callback) {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      if (w > maxW || h > maxH) {
+        const ratio = Math.min(maxW / w, maxH / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      callback(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => callback(dataUrl);
+    img.src = dataUrl;
+  },
+
+  handleLogoUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = evt => {
+      this._compressImage(evt.target.result, 320, 140, compressed => {
+        window._tempCompanyLogo = compressed;
+        const box = document.getElementById('company-logo-preview');
+        if (box) box.innerHTML = `<img src="${compressed}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+        Toast.show('Company Logo updated. Click Save All to apply!', 'info');
+      });
+    };
+    reader.readAsDataURL(file);
+  },
+
+  removeLogo() {
+    window._tempCompanyLogo = '';
+    const box = document.getElementById('company-logo-preview');
+    if (box) box.innerHTML = `<div style="text-align:center;color:var(--text-muted);font-size:11px"><i class="fa fa-image" style="font-size:18px;display:block;margin-bottom:2px"></i>No Logo</div>`;
+    Toast.show('Logo cleared. Click Save All to apply.', 'info');
+  },
+
+  handleBannerUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = evt => {
+      this._compressImage(evt.target.result, 900, 180, compressed => {
+        window._tempLetterheadBanner = compressed;
+        const box = document.getElementById('letterhead-banner-preview');
+        if (box) box.innerHTML = `<img src="${compressed}" style="width:100%;height:100%;object-fit:cover">`;
+        Toast.show('Letterhead Banner uploaded. Click Save All to apply!', 'info');
+      });
+    };
+    reader.readAsDataURL(file);
+  },
+
+  removeBanner() {
+    window._tempLetterheadBanner = '';
+    const box = document.getElementById('letterhead-banner-preview');
+    if (box) box.innerHTML = `<span style="font-size:11px;color:var(--text-muted)"><i class="fa fa-file-image"></i> No Banner Uploaded</span>`;
+    Toast.show('Banner removed. Click Save All to apply.', 'info');
+  },
+
+  handleSignatureUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = evt => {
+      this._compressImage(evt.target.result, 360, 120, compressed => {
+        window._tempSignatorySignature = compressed;
+        const box = document.getElementById('signatory-sig-preview');
+        if (box) box.innerHTML = `<img src="${compressed}" style="max-height:65px;max-width:90%;object-fit:contain">`;
+        Toast.show('Signature uploaded. Click Save All to apply!', 'info');
+      });
+    };
+    reader.readAsDataURL(file);
+  },
+
+  removeSignature() {
+    window._tempSignatorySignature = '';
+    const box = document.getElementById('signatory-sig-preview');
+    if (box) box.innerHTML = `<span style="font-size:12px;color:#94a3b8;font-style:italic"><i class="fa fa-pen-nib"></i> No Signature Configured</span>`;
+    Toast.show('Signature cleared. Click Save All to apply.', 'info');
+  },
+
+  handleStampUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { Toast.show('File too large — max 5 MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = evt => {
+      this._compressImage(evt.target.result, 180, 180, compressed => {
+        window._tempCompanyStamp = compressed;
+        const box = document.getElementById('company-stamp-preview');
+        if (box) box.innerHTML = `<img src="${compressed}" style="max-width:100%;max-height:100%;object-fit:contain">`;
+        Toast.show('Corporate Stamp uploaded. Click Save All to apply!', 'info');
+      });
+    };
+    reader.readAsDataURL(file);
+  },
+
+  removeStamp() {
+    window._tempCompanyStamp = '';
+    const box = document.getElementById('company-stamp-preview');
+    if (box) box.innerHTML = `
+      <div style="text-align:center;color:#2563eb;transform:rotate(-8deg);font-size:9px;font-weight:800;line-height:1.2">
+        <i class="fa fa-stamp" style="font-size:16px;display:block;margin-bottom:2px"></i>SEAL
+      </div>
+    `;
+    Toast.show('Stamp reset to default seal. Click Save All to apply.', 'info');
+  },
+
+  openSignaturePadModal() {
+    Modal.show('Draw Authorized Signatory Signature', `
+      <div style="text-align:center">
+        <p style="font-size:12.5px;color:var(--text-2);margin-bottom:12px">
+          Use your mouse, trackpad, or stylus/finger to sign on the pad below:
+        </p>
+        <div style="display:inline-block;border:2px dashed #94a3b8;border-radius:10px;background:#ffffff;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative">
+          <canvas id="digital-signature-canvas" width="460" height="180" style="display:block;cursor:crosshair;touch-action:none;border-radius:8px"></canvas>
+          <div style="position:absolute;bottom:8px;left:14px;right:14px;border-top:1px dashed #cbd5e1;pointer-events:none">
+            <span style="font-size:9.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;float:left">Sign on line</span>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;justify-content:center;gap:10px">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="Settings.clearSignaturePad()"><i class="fa fa-rotate-left"></i> Clear Pad</button>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Settings.applySignatureFromPad()"><i class="fa fa-check"></i> Apply Drawn Signature</button>
+      `
+    });
+
+    setTimeout(() => this.initSignatureCanvas(), 80);
+  },
+
+  initSignatureCanvas() {
+    const canvas = document.getElementById('digital-signature-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    let isDrawing = false;
+    let hasDrawn = false;
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+      };
+    };
+
+    const startDraw = (e) => {
+      e.preventDefault();
+      isDrawing = true;
+      const pos = getPos(e);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    };
+
+    const draw = (e) => {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.stroke();
+      hasDrawn = true;
+    };
+
+    const stopDraw = () => {
+      isDrawing = false;
+    };
+
+    canvas.onmousedown = startDraw;
+    canvas.onmousemove = draw;
+    canvas.onmouseup = stopDraw;
+    canvas.onmouseleave = stopDraw;
+
+    canvas.ontouchstart = startDraw;
+    canvas.ontouchmove = draw;
+    canvas.ontouchend = stopDraw;
+
+    window._sigCanvasHasDrawn = () => hasDrawn;
+  },
+
+  clearSignaturePad() {
+    const canvas = document.getElementById('digital-signature-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (window._sigCanvasHasDrawn) window._sigCanvasHasDrawn = () => false;
+  },
+
+  applySignatureFromPad() {
+    const canvas = document.getElementById('digital-signature-canvas');
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    window._tempSignatorySignature = dataUrl;
+    const box = document.getElementById('signatory-sig-preview');
+    if (box) box.innerHTML = `<img src="${dataUrl}" style="max-height:65px;max-width:90%;object-fit:contain">`;
+    Modal.close('dynamic-modal');
+    Toast.show('Signature captured! Click "Save All Company Settings" to apply.', 'success');
   },
 
   saveCompany() {
+    const settings = DB.getObj('settings') || {};
+    
+    // Core details
     ['companyName','companyEmail','companyPhone','companyAddress','companyNTN','companyWebsite','companyIndustry'].forEach(key => {
       const el = document.getElementById('s-company-' + key.replace('company','').toLowerCase());
-      if (el) this._setSetting(key, el.value.trim());
+      if (el) settings[key] = el.value.trim();
     });
-    DB.log('UPDATE', 'Settings', 'Company profile updated', Auth.user?.id);
-    Toast.show('Company profile saved!', 'success');
+
+    // Branding & Letterhead
+    if (window._tempCompanyLogo !== undefined) settings.companyLogo = window._tempCompanyLogo;
+    if (window._tempLetterheadBanner !== undefined) settings.companyLetterheadBanner = window._tempLetterheadBanner;
+    
+    const typeEl = document.getElementById('s-letterhead-type');
+    if (typeEl) settings.companyLetterheadType = typeEl.value;
+
+    const accentEl = document.getElementById('s-company-accent-text') || document.getElementById('s-company-accent');
+    if (accentEl) settings.companyAccentColor = accentEl.value.trim();
+
+    const taglineEl = document.getElementById('s-company-tagline');
+    if (taglineEl) settings.companyTagline = taglineEl.value.trim();
+
+    const footerEl = document.getElementById('s-company-footer');
+    if (footerEl) settings.companyLetterheadFooter = footerEl.value.trim();
+
+    // Signatory & Stamp
+    const sigNameEl = document.getElementById('s-signatory-name');
+    if (sigNameEl) settings.signatoryName = sigNameEl.value.trim();
+
+    const sigTitleEl = document.getElementById('s-signatory-title');
+    if (sigTitleEl) settings.signatoryTitle = sigTitleEl.value.trim();
+
+    if (window._tempSignatorySignature !== undefined) settings.signatorySignature = window._tempSignatorySignature;
+    if (window._tempCompanyStamp !== undefined) settings.companyStamp = window._tempCompanyStamp;
+
+    DB.set('settings', settings);
+    DB.log('UPDATE', 'Settings', 'Company profile, branding, letterhead and authorized signature updated', Auth.user?.id);
+
+    // Update live sidebar company name if element exists
+    const sidebarTitle = document.getElementById('company-sidebar-name');
+    if (sidebarTitle) sidebarTitle.textContent = settings.companyName || 'HRM Pro';
+
+    Toast.show('All Company Settings & Letterhead saved successfully!', 'success');
   },
 
   // ─── General Settings ─────────────────────────────
