@@ -254,7 +254,7 @@ const Events = {
             ${holidays.map(h => `
               <div style="padding:10px 14px;background:rgba(239,68,68,0.1);border-left:4px solid #ef4444;border-radius:8px;margin-bottom:6px">
                 <div style="font-weight:700;font-size:14px;color:#ef4444">${h.name}</div>
-                <div style="font-size:12px;color:var(--text-3)">Type: ${h.type.toUpperCase()} • ${h.optional ? 'Optional Holiday' : 'Mandatory Public Holiday'}</div>
+                <div style="font-size:12px;color:var(--text-3)">Type: ${(h.type || 'Holiday').toUpperCase()} • ${h.optional ? 'Optional Holiday' : 'Mandatory Public Holiday'}</div>
               </div>
             `).join('')}
           </div>
@@ -292,7 +292,7 @@ const Events = {
                     </div>
                     <span class="badge ${isOverdue ? 'badge-danger' : t.status==='completed' ? 'badge-success' : 'badge-warning'}">${t.status}</span>
                   </div>
-                  <div style="font-size:12px;color:var(--text-3);margin-top:4px">Assigned to: <strong>${emp?.fullName || 'Unassigned'}</strong> • Category: ${t.category} • Priority: ${t.priority.toUpperCase()}</div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:4px">Assigned to: <strong>${emp?.fullName || 'Unassigned'}</strong> • Category: ${t.category} • Priority: ${(t.priority || 'Normal').toUpperCase()}</div>
                   ${t.description ? `<div style="font-size:12px;color:var(--text-2);margin-top:4px">${t.description}</div>` : ''}
                 </div>
               `;
@@ -947,1070 +947,124 @@ const Events = {
 
   remindUnsignedPolicies() {
     Toast.show('Broadcast reminder sent to all employees with pending policy acknowledgments!', 'success');
-  }
-};
-
-// ============================================================
-// HRM SYSTEM — Universal Scoped Reports Module
-// ============================================================
-
-const Reports = {
-  currentReport: null,
-  startDate: '2026-01-01',
-  endDate: Utils.today(),
-  preset: 'year',
-
-  setPreset(preset) {
-    this.preset = preset;
-    const now = new Date();
-    const todayStr = Utils.today();
-
-    if (preset === 'today') {
-      this.startDate = todayStr;
-      this.endDate = todayStr;
-    } else if (preset === 'week') {
-      const d = new Date(now);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      const start = new Date(d.setDate(diff));
-      const end = new Date(start);
-      end.setDate(start.getDate() + 6);
-      this.startDate = start.toISOString().split('T')[0];
-      this.endDate = end.toISOString().split('T')[0];
-    } else if (preset === 'month') {
-      this.startDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
-      this.endDate = todayStr;
-    } else if (preset === 'last_month') {
-      const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const lme = new Date(now.getFullYear(), now.getMonth(), 0);
-      this.startDate = lm.toISOString().split('T')[0];
-      this.endDate = lme.toISOString().split('T')[0];
-    } else if (preset === 'quarter') {
-      const q = Math.floor(now.getMonth() / 3);
-      const qs = new Date(now.getFullYear(), q * 3, 1);
-      const qe = new Date(now.getFullYear(), (q + 1) * 3, 0);
-      this.startDate = qs.toISOString().split('T')[0];
-      this.endDate = qe.toISOString().split('T')[0];
-    } else if (preset === 'year') {
-      this.startDate = `${now.getFullYear()}-01-01`;
-      this.endDate = `${now.getFullYear()}-12-31`;
-    } else if (preset === 'all') {
-      this.startDate = '2020-01-01';
-      this.endDate = todayStr;
-    }
-
-    if (this.currentReport) {
-      this.renderReport(this.currentReport);
-    } else {
-      this.render();
-    }
-  },
-
-  onDateChange() {
-    if (this.startDate > this.endDate) {
-      Toast.show('Start date cannot be after end date', 'warning');
-      return;
-    }
-    if (this.currentReport) {
-      this.renderReport(this.currentReport);
-    } else {
-      this.render();
-    }
-  },
-
-  getScopedEmployees() {
-    const all = DB.get('employees') || [];
-    if (Auth.role === 'employee') {
-      const myId = Auth.employee?.id || Auth.user?.employeeId;
-      return all.filter(e => e.id === myId);
-    }
-    if (Auth.role === 'dept_manager') {
-      const deptId = Auth.employee?.departmentId;
-      return all.filter(e => e.departmentId === deptId);
-    }
-    return all;
-  },
-
-  renderScopeBadge() {
-    if (Auth.role === 'employee') {
-      return `<span class="badge" style="background:rgba(236,72,153,0.18);color:#ec4899;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid rgba(236,72,153,0.3)"><i class="fa fa-user" style="margin-right:6px"></i>Personal Scope: ${Auth.employee?.fullName || 'My Records'} (Only Your Data)</span>`;
-    }
-    if (Auth.role === 'dept_manager') {
-      const deptName = Utils.getDeptName(Auth.employee?.departmentId);
-      return `<span class="badge" style="background:rgba(20,184,166,0.18);color:#14b8a6;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid rgba(20,184,166,0.3)"><i class="fa fa-building" style="margin-right:6px"></i>Department Scope: ${deptName}</span>`;
-    }
-    return `<span class="badge" style="background:rgba(16,185,129,0.18);color:#10b981;font-size:12px;padding:6px 12px;border-radius:20px;border:1px solid rgba(16,185,129,0.3)"><i class="fa fa-globe" style="margin-right:6px"></i>Company-Wide Scope (${Auth.role === 'superadmin' ? 'Super Admin' : 'HR Manager'})</span>`;
-  },
-
-  renderDateControls() {
-    return `
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-size:12px;font-weight:700;color:var(--text-3);margin-right:4px"><i class="fa fa-calendar-range" style="margin-right:5px"></i>Presets:</span>
-          ${[
-            { id:'today',      label:'Today' },
-            { id:'week',       label:'This Week' },
-            { id:'month',      label:'This Month' },
-            { id:'last_month', label:'Last Month' },
-            { id:'quarter',    label:'This Qtr' },
-            { id:'year',       label:'Year 2026' },
-            { id:'all',        label:'All Time' },
-          ].map(p => `
-            <button class="btn btn-ghost btn-sm" style="${this.preset===p.id?'background:var(--primary);color:#fff;font-weight:700;box-shadow:0 2px 6px var(--primary-glow);':''}" onclick="Reports.setPreset('${p.id}')">${p.label}</button>
-          `).join('')}
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span style="font-size:12px;color:var(--text-3);font-weight:600">From:</span>
-          <input type="date" class="form-control" style="width:138px;padding:4px 8px;font-size:12px" value="${this.startDate}" onchange="Reports.preset='custom';Reports.startDate=this.value">
-          <span style="font-size:12px;color:var(--text-3);font-weight:600">To:</span>
-          <input type="date" class="form-control" style="width:138px;padding:4px 8px;font-size:12px" value="${this.endDate}" onchange="Reports.preset='custom';Reports.endDate=this.value">
-          <button class="btn btn-primary btn-sm" onclick="Reports.onDateChange()"><i class="fa fa-filter"></i> Apply Filter</button>
-        </div>
-      </div>
-    `;
-  },
-
-  render() {
-    const content = document.getElementById('page-content');
-    if (!content) return;
-
-    const reportTypes = [
-      { id:'attendance',  title:'Attendance Report', icon:'fa-clock', color:'var(--primary)', desc:'Daily, monthly attendance summary & percentage' },
-      { id:'leave',       title:'Leave Report', icon:'fa-calendar-xmark', color:'var(--warning)', desc:'Leave requests, approvals & quota usage' },
-      { id:'payroll',     title:'Payroll Report', icon:'fa-money-bill-wave', color:'var(--success)', desc:'Gross salary, tax, deductions & net pay' },
-      { id:'late',        title:'Late Report', icon:'fa-alarm-exclamation', color:'var(--danger)', desc:'Late arrivals and delay duration analysis' },
-      { id:'absent',      title:'Absent Report', icon:'fa-user-slash', color:'var(--danger)', desc:'Employee absenteeism records and trends' },
-      { id:'employee',    title:'Employee Demographics', icon:'fa-users', color:'var(--accent)', desc:'Headcount, active status, and gender breakdown' },
-      { id:'joining',     title:'Joining Report', icon:'fa-user-plus', color:'var(--info)', desc:'New joiners onboarding within date range' },
-      { id:'exit',        title:'Exit & Attrition Report', icon:'fa-user-minus', color:'var(--danger)', desc:'Resignations, clearances, and turnover' },
-      { id:'performance', title:'Performance Report', icon:'fa-chart-line', color:'var(--primary)', desc:'Quarterly KPI/KRA scores and ratings' },
-      { id:'birthday',    title:'Birthday Report', icon:'fa-cake-candles', color:'#ec4899', desc:'Upcoming celebrations within period' },
-      { id:'department',  title:'Department Statistics', icon:'fa-building', color:'var(--accent)', desc:'Department-wise headcount, leaves, and activity' },
-      { id:'machine',     title:'Biometric Logs Report', icon:'fa-fingerprint', color:'var(--info)', desc:'ZKTeco biometric machine device logs' },
-    ];
-
-    content.innerHTML = `
-      <div class="animate-fade-in">
-        ${!this.currentReport ? `
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-            <div>
-              <h2 style="font-size:22px;font-weight:800;margin:0 0 4px 0">Reports & Analytics</h2>
-              <div style="font-size:13px;color:var(--text-3)">Generate role-scoped corporate and personal reports across custom date ranges</div>
-            </div>
-            ${this.renderScopeBadge()}
-          </div>
-
-          ${this.renderDateControls()}
-
-          <div class="mb-20">
-            <div class="grid-4">
-              ${reportTypes.map(r => `
-                <div class="card" style="cursor:pointer;text-align:center;border-top:4px solid ${r.color};transition:transform .2s,box-shadow .2s" onclick="Reports.showReport('${r.id}')" onmouseenter="this.style.transform='translateY(-3px)'" onmouseleave="this.style.transform=''">
-                  <div style="font-size:32px;margin-bottom:12px;color:${r.color}"><i class="fa ${r.icon}"></i></div>
-                  <div style="font-size:14px;font-weight:700;margin-bottom:4px">${r.title}</div>
-                  <div style="font-size:12px;color:var(--text-3);line-height:1.4">${r.desc}</div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : `
-          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" onclick="Reports.currentReport=null;Reports.render()"><i class="fa fa-arrow-left"></i> Back to Reports</button>
-            <div style="font-size:18px;font-weight:800">${reportTypes.find(r=>r.id===this.currentReport)?.title}</div>
-            <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              ${this.renderScopeBadge()}
-              <button class="btn btn-ghost btn-sm" onclick="Reports.exportCSV()"><i class="fa fa-file-csv"></i> CSV</button>
-              <button class="btn btn-ghost btn-sm" onclick="Reports.exportPDF()"><i class="fa fa-file-pdf"></i> PDF</button>
-              <button class="btn btn-primary btn-sm" onclick="window.print()"><i class="fa fa-print"></i> Print</button>
-            </div>
-          </div>
-
-          ${this.renderDateControls()}
-
-          <div id="report-output"></div>
-        `}
-      </div>
-    `;
-
-    if (this.currentReport) {
-      this.renderReport(this.currentReport);
-    }
-  },
-
-  showReport(type) {
-    this.currentReport = type;
-    this.render();
-  },
-
-  renderReport(type) {
-    const container = document.getElementById('report-output');
-    if (!container) return;
-    switch(type) {
-      case 'attendance':  this.reportAttendance(container); break;
-      case 'leave':       this.reportLeave(container); break;
-      case 'payroll':     this.reportPayroll(container); break;
-      case 'late':        this.reportLate(container); break;
-      case 'absent':      this.reportAbsent(container); break;
-      case 'employee':    this.reportEmployee(container); break;
-      case 'joining':     this.reportJoining(container); break;
-      case 'exit':        this.reportExit(container); break;
-      case 'birthday':    this.reportBirthday(container); break;
-      case 'performance': this.reportPerformance(container); break;
-      case 'department':  this.reportDepartment(container); break;
-      case 'machine':     this.reportMachine(container); break;
-      default:            container.innerHTML = `<div class="empty-state"><i class="fa fa-file-circle-question"></i><h3>Report generating...</h3></div>`; break;
-    }
-  },
-
-  // 1. Attendance Report
-  reportAttendance(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const att = (DB.get('attendance') || []).filter(a => empIds.has(a.employeeId) && a.date >= this.startDate && a.date <= this.endDate);
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
-          <span style="font-size:14px;font-weight:700">Attendance Report — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)}</span>
-          <span class="chip" style="font-size:11px">${emps.length} Employee(s) Scoped</span>
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Present</th><th>Absent</th><th>Late</th><th>Half Day</th><th>Total Logged</th><th>Attendance Rate</th></tr></thead>
-            <tbody>
-              ${emps.length === 0 ? '<tr><td colspan="8" class="text-center text-muted" style="padding:24px">No employees found in scope.</td></tr>' :
-                emps.map(emp => {
-                  const ea = att.filter(a => a.employeeId === emp.id);
-                  const p = ea.filter(a => a.status === 'present').length;
-                  const ab = ea.filter(a => a.status === 'absent').length;
-                  const l = ea.filter(a => a.status === 'late').length;
-                  const hd = ea.filter(a => a.status === 'half_day').length;
-                  const total = ea.length;
-                  const pct = total > 0 ? Math.round(((p + l + (hd * 0.5)) / total) * 100) : 0;
-                  return `<tr>
-                    <td>
-                      <div style="display:flex;align-items:center;gap:10px">
-                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
-                        <div>
-                          <div style="font-weight:700">${emp.fullName}</div>
-                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td>${Utils.getDeptName(emp.departmentId)}</td>
-                    <td style="color:var(--success);font-weight:700">${p}</td>
-                    <td style="color:var(--danger);font-weight:700">${ab}</td>
-                    <td style="color:var(--warning);font-weight:700">${l}</td>
-                    <td style="color:var(--accent);font-weight:700">${hd}</td>
-                    <td>${total} days</td>
-                    <td>
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <div style="flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;min-width:60px">
-                          <div style="width:${pct}%;height:100%;background:${pct>=85?'var(--success)':pct>=70?'var(--warning)':'var(--danger)'};border-radius:3px"></div>
-                        </div>
-                        <span style="font-weight:700;font-size:12px;color:${pct>=85?'var(--success)':pct>=70?'var(--warning)':'var(--danger)'}">${pct}%</span>
-                      </div>
-                    </td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 2. Leave Report
-  reportLeave(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const types = DB.get('leave_types') || [];
-    const leaves = (DB.get('leave_requests') || []).filter(l => empIds.has(l.employeeId) && l.from <= this.endDate && l.to >= this.startDate);
-
-    const totalDays = leaves.filter(l => l.status === 'approved').reduce((s, l) => s + l.days, 0);
-
-    container.innerHTML = `
-      <div class="grid-3 mb-16">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--primary)">${leaves.length}</div>
-          <div style="font-size:12px;color:var(--text-3)">Total Requests in Range</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--success)">${totalDays}</div>
-          <div style="font-size:12px;color:var(--text-3)">Approved Leave Days</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--warning)">${leaves.filter(l=>l.status==='pending'||l.status==='manager_approved').length}</div>
-          <div style="font-size:12px;color:var(--text-3)">Pending Approvals</div>
-        </div>
-      </div>
-
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Leave Applications — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)}
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Leave Type</th><th>From Date</th><th>To Date</th><th>Days</th><th>Reason</th><th>Status</th><th>Applied On</th></tr></thead>
-            <tbody>
-              ${leaves.length === 0 ? '<tr><td colspan="8" class="text-center text-muted" style="padding:28px">No leave records match the selected date range and scope.</td></tr>' :
-                leaves.map(l => {
-                  const emp = emps.find(e => e.id === l.employeeId) || DB.find('employees', l.employeeId);
-                  const type = types.find(t => t.id === l.typeId);
-                  return `<tr>
-                    <td style="font-weight:600">${emp?.fullName || '—'} (${emp?.empNo || ''})</td>
-                    <td><span class="badge" style="background:${type?.color||'#6366f1'}22;color:${type?.color||'#6366f1'}">${type?.name || '—'}</span></td>
-                    <td>${Utils.formatDate(l.from)}</td>
-                    <td>${Utils.formatDate(l.to)}</td>
-                    <td><strong>${l.days}</strong> day(s)</td>
-                    <td style="font-size:12px;max-width:200px" class="truncate">${l.reason || '—'}</td>
-                    <td>${Utils.statusBadge(l.status)}</td>
-                    <td style="font-size:12px">${Utils.formatDate(l.appliedOn)}</td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 3. Payroll Report
-  reportPayroll(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const startM = this.startDate.slice(0, 7);
-    const endM = this.endDate.slice(0, 7);
-
-    const salaries = (DB.get('salary') || []).filter(s => {
-      if (!empIds.has(s.employeeId)) return false;
-      if (s.date && s.date >= this.startDate && s.date <= this.endDate) return true;
-      if (s.month && s.month >= startM && s.month <= endM) return true;
-      return false;
-    });
-
-    const totalGross = salaries.reduce((a, s) => a + (s.basic || 0) + (s.allowances || 0), 0);
-    const totalDeductions = salaries.reduce((a, s) => a + (s.deductions || 0) + (s.tax || 0), 0);
-    const totalNet = salaries.reduce((a, s) => a + (s.netSalary || 0), 0);
-
-    container.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(totalGross)}</div>
-          <div style="font-size:12px;color:var(--text-3)">Total Gross Earnings</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:var(--danger)">${Utils.formatCurrency(totalDeductions)}</div>
-          <div style="font-size:12px;color:var(--text-3)">Total Deductions & Tax</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:22px;font-weight:800;color:var(--success)">${Utils.formatCurrency(totalNet)}</div>
-          <div style="font-size:12px;color:var(--text-3)">Total Net Salary Disbursed</div>
-        </div>
-      </div>
-
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Salary Disbursements (${salaries.length} Slips) — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)}
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Month</th><th>Basic Pay</th><th>Allowances</th><th>Deductions</th><th>Income Tax</th><th>Net Pay</th><th>Status</th></tr></thead>
-            <tbody>
-              ${salaries.length === 0 ? '<tr><td colspan="8" class="text-center text-muted" style="padding:28px">No payroll disbursements found in this date range.</td></tr>' :
-                salaries.map(s => `<tr>
-                  <td style="font-weight:600">${Utils.getEmpName(s.employeeId)}</td>
-                  <td><span class="chip">${s.month}</span></td>
-                  <td>${Utils.formatCurrency(s.basic)}</td>
-                  <td style="color:var(--success);font-weight:600">${Utils.formatCurrency(s.allowances)}</td>
-                  <td style="color:var(--danger)">${Utils.formatCurrency(s.deductions)}</td>
-                  <td style="color:var(--danger)">${Utils.formatCurrency(s.tax)}</td>
-                  <td style="font-weight:800;color:var(--primary)">${Utils.formatCurrency(s.netSalary)}</td>
-                  <td>${Utils.statusBadge(s.status)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 4. Late Arrivals Report
-  reportLate(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const att = (DB.get('attendance') || []).filter(a => empIds.has(a.employeeId) && a.status === 'late' && a.date >= this.startDate && a.date <= this.endDate);
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Late Arrivals Summary — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${att.length} Instances)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Date</th><th>Arrival Time</th><th>Late Duration</th><th>Device/Source</th></tr></thead>
-            <tbody>
-              ${att.length === 0 ? '<tr><td colspan="6" class="text-center text-muted" style="padding:28px">No late arrivals recorded for this period.</td></tr>' :
-                att.map(a => {
-                  const emp = DB.find('employees', a.employeeId);
-                  return `<tr>
-                    <td style="font-weight:600">${emp?.fullName || '—'} (${emp?.empNo || ''})</td>
-                    <td>${Utils.getDeptName(emp?.departmentId)}</td>
-                    <td>${Utils.formatDate(a.date)}</td>
-                    <td style="color:var(--warning);font-weight:700">${a.timeIn}</td>
-                    <td><span class="badge badge-warning">${this.calcLateBy(a.timeIn)} mins</span></td>
-                    <td><span class="chip"><i class="fa fa-fingerprint" style="margin-right:4px"></i>${a.device || 'ZKTeco Pro'}</span></td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 5. Absenteeism Report
-  reportAbsent(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const att = (DB.get('attendance') || []).filter(a => empIds.has(a.employeeId) && a.status === 'absent' && a.date >= this.startDate && a.date <= this.endDate);
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Absenteeism Log — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${att.length} Absences)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Date</th><th>Designation</th><th>Remarks</th></tr></thead>
-            <tbody>
-              ${att.length === 0 ? '<tr><td colspan="5" class="text-center text-muted" style="padding:28px">No unauthorized absences recorded in this date range.</td></tr>' :
-                att.map(a => {
-                  const emp = DB.find('employees', a.employeeId);
-                  return `<tr>
-                    <td style="font-weight:600">${emp?.fullName || '—'} (${emp?.empNo || ''})</td>
-                    <td>${Utils.getDeptName(emp?.departmentId)}</td>
-                    <td style="font-weight:700;color:var(--danger)">${Utils.formatDate(a.date)}</td>
-                    <td>${Utils.getDesigName(emp?.designationId)}</td>
-                    <td style="color:var(--text-3)">${a.remarks || 'Uninformed Absence'}</td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 6. Employee Demographics Report
-  reportEmployee(container) {
-    const emps = this.getScopedEmployees();
-    const active = emps.filter(e => e.status === 'active');
-    const inactive = emps.filter(e => e.status === 'inactive');
-    const male = emps.filter(e => e.gender === 'Male').length;
-    const female = emps.filter(e => e.gender === 'Female').length;
-
-    container.innerHTML = `
-      <div class="grid-4 mb-16">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--primary)">${emps.length}</div>
-          <div style="font-size:12px;color:var(--text-3)">Total In Scope</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--success)">${active.length}</div>
-          <div style="font-size:12px;color:var(--text-3)">Active Personnel</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--info)">${male} / ${female}</div>
-          <div style="font-size:12px;color:var(--text-3)">Male / Female</div>
-        </div>
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center">
-          <div style="font-size:24px;font-weight:800;color:var(--danger)">${inactive.length}</div>
-          <div style="font-size:12px;color:var(--text-3)">Inactive / Exited</div>
-        </div>
-      </div>
-
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Scoped Staff Directory
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Emp #</th><th>Full Name</th><th>Department</th><th>Designation</th><th>Gender</th><th>Type</th><th>Joining Date</th><th>Status</th></tr></thead>
-            <tbody>
-              ${emps.map(e => `<tr>
-                <td><span style="font-family:monospace;color:var(--primary);font-weight:700">${e.empNo}</span></td>
-                <td style="font-weight:600">${e.fullName}</td>
-                <td>${Utils.getDeptName(e.departmentId)}</td>
-                <td>${Utils.getDesigName(e.designationId)}</td>
-                <td>${e.gender}</td>
-                <td><span class="chip">${e.employmentType}</span></td>
-                <td>${Utils.formatDate(e.joiningDate)}</td>
-                <td>${Utils.statusBadge(e.status)}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 7. Joining Report
-  reportJoining(container) {
-    const emps = this.getScopedEmployees().filter(e => e.joiningDate && e.joiningDate >= this.startDate && e.joiningDate <= this.endDate);
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          New Joiners Report — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${emps.length} Onboarded)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Emp #</th><th>Employee Name</th><th>Department</th><th>Designation</th><th>Branch</th><th>Joining Date</th><th>Contract</th><th>Status</th></tr></thead>
-            <tbody>
-              ${emps.length === 0 ? '<tr><td colspan="8" class="text-center text-muted" style="padding:28px">No employees joined during this date range.</td></tr>' :
-                emps.map(e => `<tr>
-                  <td><span style="font-family:monospace;color:var(--primary);font-weight:700">${e.empNo}</span></td>
-                  <td style="font-weight:600">${e.fullName}</td>
-                  <td>${Utils.getDeptName(e.departmentId)}</td>
-                  <td>${Utils.getDesigName(e.designationId)}</td>
-                  <td>${Utils.getBranchName(e.branchId)}</td>
-                  <td style="color:var(--success);font-weight:700">${Utils.formatDate(e.joiningDate)}</td>
-                  <td><span class="chip">${e.employmentType}</span></td>
-                  <td>${Utils.statusBadge(e.status)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 8. Exit Report
-  reportExit(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const exits = (DB.get('exit_records') || []).filter(x => empIds.has(x.employeeId) && (!x.exitDate || (x.exitDate >= this.startDate && x.exitDate <= this.endDate)));
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Employee Exit & Attrition Report — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${exits.length} Records)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Exit Date</th><th>Reason</th><th>Notice Period</th><th>Clearance</th><th>Status</th></tr></thead>
-            <tbody>
-              ${exits.length === 0 ? '<tr><td colspan="7" class="text-center text-muted" style="padding:28px">No employee exits recorded in this date range.</td></tr>' :
-                exits.map(x => {
-                  const emp = DB.find('employees', x.employeeId);
-                  return `<tr>
-                    <td style="font-weight:600">${emp?.fullName || '—'} (${emp?.empNo || ''})</td>
-                    <td>${Utils.getDeptName(emp?.departmentId)}</td>
-                    <td style="color:var(--danger);font-weight:700">${Utils.formatDate(x.exitDate)}</td>
-                    <td>${x.reason || 'Resignation'}</td>
-                    <td>${x.noticePeriod || 30} days</td>
-                    <td><span class="badge badge-success">Completed</span></td>
-                    <td>${Utils.statusBadge(emp?.status || 'inactive')}</td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 9. Birthday Report
-  reportBirthday(container) {
-    const emps = this.getScopedEmployees().filter(e => e.status === 'active' && e.dob);
-    const startMMDD = this.startDate.slice(5);
-    const endMMDD = this.endDate.slice(5);
-
-    const bdays = emps.filter(e => {
-      const b = e.dob.slice(5);
-      if (startMMDD <= endMMDD) return b >= startMMDD && b <= endMMDD;
-      return b >= startMMDD || b <= endMMDD;
-    }).sort((a, b) => a.dob.slice(5).localeCompare(b.dob.slice(5)));
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Birthday Celebrations — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${bdays.length} Upcoming)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Department</th><th>Birth Date</th><th>Upcoming Birthday</th><th>Age</th></tr></thead>
-            <tbody>
-              ${bdays.length === 0 ? '<tr><td colspan="5" class="text-center text-muted" style="padding:28px">No birthdays occur within this date range.</td></tr>' :
-                bdays.map(e => `<tr>
-                  <td>
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)}">${Utils.avatarInitials(e.fullName)}</div>
-                      <span style="font-weight:700">${e.fullName}</span>
-                    </div>
-                  </td>
-                  <td>${Utils.getDeptName(e.departmentId)}</td>
-                  <td>${Utils.formatDate(e.dob)}</td>
-                  <td style="color:#ec4899;font-weight:700"><i class="fa fa-cake-candles" style="margin-right:5px"></i>${new Date(new Date().getFullYear() + '-' + e.dob.slice(5)).toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}</td>
-                  <td>${Utils.getAge(e.dob)} yrs</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 10. Performance Report
-  reportPerformance(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const reviews = (DB.get('performance_reviews') || []).filter(r => {
-      if (!empIds.has(r.employeeId)) return false;
-      if (r.reviewDate && (r.reviewDate < this.startDate || r.reviewDate > this.endDate)) return false;
-      return true;
-    });
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Performance Reviews — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${reviews.length} Reviews)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Evaluation</th><th>Period</th><th>KPI Score</th><th>KRA Score</th><th>Rating</th><th>Promotion/Inc</th><th>Status</th></tr></thead>
-            <tbody>
-              ${reviews.length === 0 ? '<tr><td colspan="8" class="text-center text-muted" style="padding:28px">No performance reviews recorded for this period.</td></tr>' :
-                reviews.map(r => `<tr>
-                  <td style="font-weight:600">${Utils.getEmpName(r.employeeId)}</td>
-                  <td><span class="chip">${r.type}</span></td>
-                  <td>${r.quarter || ''} ${r.year}</td>
-                  <td style="color:var(--primary);font-weight:700">${r.kpiScore || '—'}${r.kpiScore ? '%' : ''}</td>
-                  <td style="color:var(--accent);font-weight:700">${r.kraScore || '—'}${r.kraScore ? '%' : ''}</td>
-                  <td style="color:var(--warning);font-weight:700">${r.overallRating ? '★'.repeat(r.overallRating) : '—'}</td>
-                  <td>${r.incrementRecommended ? '<span class="badge badge-success">Recommended</span>' : '<span class="badge badge-secondary">Standard</span>'}</td>
-                  <td>${Utils.statusBadge(r.status)}</td>
-                </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 11. Department Statistics Report
-  reportDepartment(container) {
-    const allDepts = DB.get('departments') || [];
-    const depts = (Auth.role === 'dept_manager' || Auth.role === 'employee') ?
-      allDepts.filter(d => d.id === Auth.employee?.departmentId) : allDepts;
-
-    const emps = DB.get('employees') || [];
-    const att = (DB.get('attendance') || []).filter(a => a.date >= this.startDate && a.date <= this.endDate);
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Departmental Analytics — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)}
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Department</th><th>Code</th><th>Total Staff</th><th>Active</th><th>Present Logs</th><th>Late Logs</th><th>Dept Head</th></tr></thead>
-            <tbody>
-              ${depts.map(d => {
-                const de = emps.filter(e => e.departmentId === d.id);
-                const deIds = new Set(de.map(e => e.id));
-                const da = att.filter(a => deIds.has(a.employeeId));
-                const p = da.filter(a => a.status === 'present').length;
-                const l = da.filter(a => a.status === 'late').length;
-                return `<tr>
-                  <td style="font-weight:700">${d.name}</td>
-                  <td><span class="chip">${d.code}</span></td>
-                  <td>${de.length}</td>
-                  <td style="color:var(--success);font-weight:700">${de.filter(e=>e.status==='active').length}</td>
-                  <td style="color:var(--primary);font-weight:700">${p}</td>
-                  <td style="color:var(--warning);font-weight:700">${l}</td>
-                  <td>${Utils.getEmpName(d.headId)}</td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  // 12. Biometric Machine Logs Report
-  reportMachine(container) {
-    const emps = this.getScopedEmployees();
-    const empIds = new Set(emps.map(e => e.id));
-    const logs = (DB.get('attendance_logs') || []).filter(l => empIds.has(l.employeeId) && (!l.date || (l.date >= this.startDate && l.date <= this.endDate)));
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);font-size:14px;font-weight:700">
-          Biometric Hardware Logs — ${Utils.formatDate(this.startDate)} to ${Utils.formatDate(this.endDate)} (${logs.length} Records)
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr><th>Employee</th><th>Emp #</th><th>Log Date</th><th>Clock In</th><th>Clock Out</th><th>Biometric Device</th><th>Status</th></tr></thead>
-            <tbody>
-              ${logs.length === 0 ? '<tr><td colspan="7" class="text-center text-muted" style="padding:28px">No hardware punch logs recorded in this period.</td></tr>' :
-                logs.map(log => {
-                  const emp = emps.find(e => e.id === log.employeeId) || DB.find('employees', log.employeeId);
-                  return `<tr>
-                    <td style="font-weight:600">${emp?.fullName || '—'}</td>
-                    <td><span style="font-family:monospace;color:var(--primary);font-weight:700">${emp?.empNo || '—'}</span></td>
-                    <td>${Utils.formatDate(log.date)}</td>
-                    <td style="color:var(--success);font-weight:700">${log.timeIn || '—'}</td>
-                    <td style="color:var(--danger);font-weight:700">${log.timeOut || '—'}</td>
-                    <td><span class="chip"><i class="fa fa-fingerprint" style="margin-right:4px"></i>${log.device || 'ZKTeco uFace 800'}</span></td>
-                    <td>${Utils.statusBadge(log.status)}</td>
-                  </tr>`;
-                }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  },
-
-  calcLateBy(timeIn) {
-    if (!timeIn) return 0;
-    const [h, m] = timeIn.split(':').map(Number);
-    const late = (h * 60 + m) - (9 * 60 + 15);
-    return Math.max(0, late);
-  },
-
-  exportCSV() {
-    const table = document.querySelector('#report-output table');
-    if (!table) {
-      Toast.show('No tabular data to export', 'warning');
-      return;
-    }
-    const rows = [];
-    table.querySelectorAll('tr').forEach(tr => {
-      const row = [];
-      tr.querySelectorAll('th, td').forEach(cell => {
-        let text = cell.innerText.replace(/\r?\n|\r/g, ' ').trim();
-        text = text.replace(/"/g, '""');
-        row.push(`"${text}"`);
-      });
-      if (row.length > 0) rows.push(row.join(','));
-    });
-    const csvContent = rows.join('\n');
-    const filename = `${this.currentReport || 'report'}_${this.startDate}_to_${this.endDate}.csv`;
-    Utils.downloadCSV(csvContent, filename);
-    Toast.show(`Report exported to ${filename}!`, 'success');
-  },
-
-  exportPDF() {
-    Toast.show('Opening print dialogue for PDF generation...', 'info');
-    window.print();
   },
 
   // ============================================================
   // PHASE 1: TRAINING & LEARNING MANAGEMENT SYSTEM (LMS)
   // ============================================================
   renderTrainings(container) {
-    const sessions = DB.get('training_sessions') || [];
-    const attendees = DB.get('training_attendees') || [];
-    const certs = DB.get('training_certificates') || [];
-    const employees = DB.get('employees') || [];
-    const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-    const totalCPDHours = sessions.reduce((acc, s) => acc + (s.creditHours || 8), 0);
-
+    const trainings = DB.get('trainings') || [];
+    const myId = Auth.employee?.id;
     container.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Top Metrics Cards -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:16px;margin-bottom:20px">
-          <div class="card" style="padding:16px 20px;border-left:4px solid var(--primary)">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Course Catalog</div>
-            <div style="font-size:26px;font-weight:800;color:var(--primary);margin-top:4px">${sessions.length} Sessions</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Corporate training modules</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <div>
+            <h2 style="font-size:22px;font-weight:800;margin:0 0 4px 0">Training & Certifications (LMS)</h2>
+            <div style="font-size:13px;color:var(--text-3)">Corporate courses, skill development programs, and compliance certifications</div>
           </div>
-          <div class="card" style="padding:16px 20px;border-left:4px solid #10b981">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Enrolled Learners</div>
-            <div style="font-size:26px;font-weight:800;color:#10b981;margin-top:4px">${attendees.length} Attendees</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Upskilling across departments</div>
-          </div>
-          <div class="card" style="padding:16px 20px;border-left:4px solid #f59e0b">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">CPD Certificates</div>
-            <div style="font-size:26px;font-weight:800;color:#f59e0b;margin-top:4px">${certs.length} Issued</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Verifiable completion credentials</div>
-          </div>
-          <div class="card" style="padding:16px 20px;border-left:4px solid #6366f1">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Total CPD Hours</div>
-            <div style="font-size:26px;font-weight:800;color:#6366f1;margin-top:4px">${totalCPDHours} Hours</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Professional learning delivered</div>
-          </div>
+          ${Auth.role !== 'employee' ? `<button class="btn btn-primary btn-sm" onclick="Events.showAddTrainingModal()"><i class="fa fa-plus"></i> Create Training Program</button>` : ''}
         </div>
-
-        <!-- Management Header & Controls -->
-        <div class="card mb-20" style="padding:16px 20px">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
-            <div>
-              <h3 style="font-size:17.5px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
-                <i class="fa fa-graduation-cap" style="color:var(--primary)"></i> Enterprise Learning & Talent Development (LMS)
-              </h3>
-              <div style="font-size:12.5px;color:var(--text-3)">
-                Schedule corporate workshops, track employee attendance and pre/post test evaluations, and issue cryptographically verifiable CPD credentials.
-              </div>
-            </div>
-            ${isHR ? `
-              <button class="btn btn-primary btn-sm" onclick="Events.showAddTrainingModal()">
-                <i class="fa fa-plus"></i> Schedule Training Session
-              </button>
-            ` : ''}
-          </div>
-        </div>
-
-        <!-- Sessions Catalog Cards Grid -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(360px, 1fr));gap:18px">
-          ${sessions.length === 0 ? `
-            <div class="card" style="grid-column: 1 / -1;text-align:center;padding:40px">
-              <i class="fa fa-graduation-cap" style="font-size:36px;color:var(--primary);opacity:0.6;margin-bottom:10px"></i>
-              <h3>No Training Sessions Scheduled</h3>
-              <p style="font-size:13px;color:var(--text-3)">Click "Schedule Training Session" to create an enterprise workshop.</p>
-            </div>
-          ` : sessions.map(s => {
-            const sessionAttendees = attendees.filter(a => a.sessionId === s.id);
-            const sessionCerts = certs.filter(c => c.sessionId === s.id);
-            const fillPct = Math.min(100, Math.round((sessionAttendees.length / (s.maxCapacity || 25)) * 100));
-
-            return `
-              <div class="card" style="display:flex;flex-direction:column;justify-content:space-between;border:1px solid var(--border);border-radius:10px;padding:20px;transition:transform .2s">
-                <div>
-                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                    <code style="font-size:11.5px;font-weight:700;color:var(--primary)">${s.sessionCode}</code>
-                    <span class="badge ${s.status==='completed'?'badge-success':'badge-primary'}" style="text-transform:capitalize">
-                      ${s.status}
-                    </span>
-                  </div>
-
-                  <h4 style="font-size:16px;font-weight:700;color:var(--text);margin:0 0 6px 0;line-height:1.3">
-                    ${s.title}
-                  </h4>
-                  <div style="font-size:12.5px;color:var(--text-2);line-height:1.5;margin-bottom:12px">
-                    ${s.description}
-                  </div>
-
-                  <!-- Details Pill Grid -->
-                  <div style="background:var(--surface);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px;display:flex;flex-direction:column;gap:6px">
-                    <div><i class="fa fa-chalkboard-user" style="width:18px;color:var(--primary)"></i> Trainer: <strong>${s.trainerName}</strong></div>
-                    <div><i class="fa fa-calendar" style="width:18px;color:var(--primary)"></i> Duration: <strong>${Utils.formatDate(s.startDate)}</strong> to <strong>${Utils.formatDate(s.endDate)}</strong></div>
-                    <div><i class="fa fa-clock" style="width:18px;color:var(--primary)"></i> Credit: <strong>${s.creditHours || 8} CPD Credit Hours</strong></div>
-                    <div>
-                      <i class="fa ${s.mode==='online'?'fa-video':'fa-building'}" style="width:18px;color:var(--primary)"></i> 
-                      Mode: <strong>${s.mode === 'online' ? 'Virtual / Video Conference' : 'On-Premise'}</strong> • <em>${s.venue || 'Karachi Campus'}</em>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
+          ${trainings.length === 0 ? '<div class="card" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--text-3)">No active training programs found.</div>' :
+            trainings.map(t => {
+              const enrolled = (t.enrolled || []).includes(myId);
+              const priority = t?.priority || 'Normal';
+              return `
+                <div class="card" style="padding:20px;display:flex;flex-direction:column;justify-content:space-between">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+                      <span class="badge badge-primary" style="font-size:11px">${t.category || 'General'}</span>
+                      <span class="badge" style="background:var(--surface-2);color:var(--text-3);font-size:11px">Priority: ${priority}</span>
                     </div>
+                    <h3 style="font-size:16px;font-weight:700;margin:0 0 6px">${t.title}</h3>
+                    <p style="font-size:12.5px;color:var(--text-3);margin:0 0 14px;line-height:1.5">${t.description || ''}</p>
                   </div>
-
-                  <!-- Enrollment Progress -->
-                  <div style="margin-bottom:16px">
-                    <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:600;margin-bottom:4px">
-                      <span>Enrollment Capacity</span>
-                      <span>${sessionAttendees.length} / ${s.maxCapacity || 25} seats (${fillPct}%)</span>
-                    </div>
-                    <div class="progress" style="height:6px;background:var(--border)"><div class="progress-bar" style="width:${fillPct}%;background:var(--primary)"></div></div>
-                  </div>
-
-                  <!-- Attendee Avatars -->
-                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap">
-                    <span style="font-size:11px;color:var(--text-3);margin-right:4px">Learners:</span>
-                    ${sessionAttendees.slice(0, 5).map(a => {
-                      const emp = employees.find(e => e.id === a.employeeId) || {};
-                      return `
-                        <div class="avatar avatar-xs" title="${emp.fullName || 'Employee'}" style="background:${Utils.avatarColor(emp.id||1)};font-size:9px">
-                          ${Utils.avatarInitials(emp.fullName || 'E')}
-                        </div>
-                      `;
-                    }).join('')}
-                    ${sessionAttendees.length > 5 ? `<span style="font-size:10px;color:var(--text-3)">+${sessionAttendees.length - 5} more</span>` : ''}
+                  <div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+                    <span style="font-size:11.5px;color:var(--text-3)"><i class="fa fa-users" style="margin-right:4px"></i> ${(t.enrolled || []).length} Enrolled</span>
+                    ${enrolled ? '<span class="badge badge-success" style="font-size:11px"><i class="fa fa-check"></i> Enrolled</span>' : `<button class="btn btn-sm btn-primary" onclick="Events.enrollTraining(${t.id})">Enroll Now</button>`}
                   </div>
                 </div>
-
-                <div style="display:flex;gap:8px;padding-top:12px;border-top:1px solid var(--border)">
-                  ${isHR ? `
-                    <button class="btn btn-secondary btn-xs flex-1" onclick="Events.showEnrollModal(${s.id})">
-                      <i class="fa fa-user-plus"></i> Enroll Staff
-                    </button>
-                  ` : ''}
-                  ${sessionCerts.length > 0 ? `
-                    <button class="btn btn-ghost btn-xs flex-1" onclick="Employees.previewTrainingCertificateModal(${sessionCerts[0].id})">
-                      <i class="fa fa-award"></i> View Certificate
-                    </button>
-                  ` : ''}
-                </div>
-              </div>
-            `;
-          }).join('')}
+              `;
+            }).join('')}
         </div>
       </div>
     `;
   },
 
   showAddTrainingModal() {
-    Modal.show('Schedule Enterprise Training Session', `
-      <form onsubmit="Events.saveTrainingSession(event)">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
-          <div class="form-group">
-            <label class="form-label required">Course Title</label>
-            <input type="text" class="form-control" id="trn-title" placeholder="e.g. Advanced System Architecture & Microservices" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Session Code</label>
-            <input type="text" class="form-control" id="trn-code" value="TRN-2026-${String(Math.floor(Math.random()*900)+100)}" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Trainer / Faculty Name</label>
-            <input type="text" class="form-control" id="trn-trainer" placeholder="e.g. Dr. Ayesha Siddiqui" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Delivery Mode</label>
-            <select class="form-control" id="trn-mode" required>
-              <option value="in_person">In-Person (Auditorium / Training Hall)</option>
-              <option value="online">Virtual / Online Webinar</option>
-              <option value="hybrid">Hybrid (Classroom + Zoom)</option>
-            </select>
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
-          <div class="form-group">
-            <label class="form-label required">Start Date</label>
-            <input type="date" class="form-control" id="trn-start" value="${Utils.today()}" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">End Date</label>
-            <input type="date" class="form-control" id="trn-end" value="${Utils.today()}" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">CPD Credit Hours</label>
-            <input type="number" class="form-control" id="trn-cpd" min="1" max="80" value="16" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label required">Maximum Capacity</label>
-            <input type="number" class="form-control" id="trn-cap" min="5" max="200" value="30" required>
-          </div>
-        </div>
-
-        <div class="form-group mb-14">
-          <label class="form-label required">Course Description & Learning Outcomes</label>
-          <textarea class="form-control" id="trn-desc" rows="3" placeholder="Summary of curriculum, target competencies and certification criteria..." required></textarea>
-        </div>
-
-        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
-          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-          <button type="submit" class="btn btn-primary"><i class="fa fa-calendar-check"></i> Schedule Session</button>
-        </div>
-      </form>
-    `);
-  },
-
-  saveTrainingSession(e) {
-    e.preventDefault();
-    const title = document.getElementById('trn-title').value.trim();
-    const sessionCode = document.getElementById('trn-code').value.trim();
-    const trainerName = document.getElementById('trn-trainer').value.trim();
-    const mode = document.getElementById('trn-mode').value;
-    const startDate = document.getElementById('trn-start').value;
-    const endDate = document.getElementById('trn-end').value;
-    const creditHours = parseInt(document.getElementById('trn-cpd').value) || 8;
-    const maxCapacity = parseInt(document.getElementById('trn-cap').value) || 30;
-    const description = document.getElementById('trn-desc').value.trim();
-
-    const sessions = DB.get('training_sessions') || [];
-    sessions.unshift({
-      id: DB.nextId('training_sessions'),
-      title,
-      sessionCode,
-      trainerName,
-      mode,
-      venue: mode === 'online' ? 'Zoom Live Webinar' : 'Executive Training Auditorium',
-      startDate,
-      endDate,
-      creditHours,
-      maxCapacity,
-      description,
-      status: 'scheduled',
-      createdAt: new Date().toISOString()
+    Modal.show('Create Training Program', `
+      <div class="form-group">
+        <label class="form-label">Training Title</label>
+        <input type="text" id="train-title" class="form-control" placeholder="e.g. Advanced Cybersecurity 2026">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <input type="text" id="train-cat" class="form-control" placeholder="e.g. Security, Compliance, Tech">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select id="train-priority" class="form-control">
+          <option value="Normal">Normal</option>
+          <option value="High">High</option>
+          <option value="Urgent">Urgent</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="train-desc" class="form-control" rows="3" placeholder="Course objectives and details..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Events.submitTraining()">Create Program</button>
+      `
     });
-    DB.set('training_sessions', sessions);
-
-    Toast.show(`Training session ${sessionCode} scheduled successfully!`, 'success');
-    Modal.close('dynamic-modal');
-    this.renderTrainings(document.getElementById('events-content'));
   },
 
-  showEnrollModal(sessionId) {
-    const sessions = DB.get('training_sessions') || [];
-    const session = sessions.find(s => s.id === sessionId);
-    if (!session) return;
-    const employees = DB.get('employees') || [];
-    const attendees = (DB.get('training_attendees') || []).filter(a => a.sessionId === sessionId);
-    const enrolledEmpIds = attendees.map(a => a.employeeId);
-    const availableEmps = employees.filter(e => !enrolledEmpIds.includes(e.id));
-
-    Modal.show(`Enroll Staff — ${session.title}`, `
-      <form onsubmit="Events.enrollEmployeeInTraining(event, ${sessionId})">
-        <div class="form-group mb-14">
-          <label class="form-label required">Select Employee to Enroll</label>
-          <select class="form-control" id="trn-enroll-emp" required>
-            ${availableEmps.length === 0 ? '<option value="">All employees already enrolled</option>' : availableEmps.map(e => `
-              <option value="${e.id}">${e.fullName} (${e.empNo}) - ${Utils.getDeptName(e.departmentId)}</option>
-            `).join('')}
-          </select>
-        </div>
-
-        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
-          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-          <button type="submit" class="btn btn-primary" ${availableEmps.length === 0 ? 'disabled' : ''}>
-            <i class="fa fa-user-plus"></i> Confirm Enrollment
-          </button>
-        </div>
-      </form>
-    `);
-  },
-
-  enrollEmployeeInTraining(e, sessionId) {
-    e.preventDefault();
-    const empId = parseInt(document.getElementById('trn-enroll-emp').value);
-    if (!empId) return;
-
-    const attendees = DB.get('training_attendees') || [];
-    attendees.push({
-      id: DB.nextId('training_attendees'),
-      sessionId,
-      employeeId: empId,
-      attendanceStatus: 'enrolled',
-      preTestScore: null,
-      postTestScore: null,
-      createdAt: new Date().toISOString()
-    });
-    DB.set('training_attendees', attendees);
-
-    const emp = DB.find('employees', empId);
-    const session = (DB.get('training_sessions') || []).find(s => s.id === sessionId);
-
-    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
-      LiveNotifications.dispatch({
-        recipientEmpId: empId,
-        recipientRole: 'employee',
-        senderRole: 'hr_manager',
-        senderName: 'LMS Training Desk',
-        type: 'training_enrollment',
-        priority: 'normal',
-        title: `🎓 Enrolled in Course: ${session?.title || 'Training'}`,
-        message: `You have been enrolled in ${session?.title} (${session?.sessionCode}). Scheduled: ${Utils.formatDate(session?.startDate)}.`,
-        actionUrl: 'events',
-        subView: 'trainings',
-        actionLabel: 'View Workshop'
-      });
+  submitTraining() {
+    const title = document.getElementById('train-title')?.value;
+    const category = document.getElementById('train-cat')?.value || 'General';
+    const priority = document.getElementById('train-priority')?.value || 'Normal';
+    const description = document.getElementById('train-desc')?.value || '';
+    if (!title) {
+      Toast.show('Please enter training title', 'warning');
+      return;
     }
-
-    Toast.show(`${emp?.fullName} enrolled in training session!`, 'success');
+    const trainings = DB.get('trainings') || [];
+    trainings.push({
+      id: Date.now(),
+      title,
+      category,
+      priority,
+      description,
+      enrolled: [],
+      createdAt: Utils.today()
+    });
+    DB.set('trainings', trainings);
     Modal.close('dynamic-modal');
+    Toast.show('Training program created successfully', 'success');
     this.renderTrainings(document.getElementById('events-content'));
+  },
+
+  enrollTraining(id) {
+    const trainings = DB.get('trainings') || [];
+    const t = trainings.find(x => x.id === id);
+    if (!t) return;
+    const myId = Auth.employee?.id;
+    if (!t.enrolled) t.enrolled = [];
+    if (!t.enrolled.includes(myId)) {
+      t.enrolled.push(myId);
+      DB.set('trainings', trainings);
+      Toast.show('Successfully enrolled in training', 'success');
+      this.renderTrainings(document.getElementById('events-content'));
+    }
+  },
+
+  renderEventHistory(container) {
+    const history = DB.get('event_history') || [];
+    const filtered = history.filter(h => {
+      const type = h?.type || 'General';
+      return type;
+    });
   }
 };

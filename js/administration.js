@@ -447,7 +447,7 @@ const Administration = {
       filtered = filtered.filter(l => l.severity === this.auditVaultSeverity);
     }
     if (this.auditVaultAction !== 'all') {
-      filtered = filtered.filter(l => l.action.toUpperCase().includes(this.auditVaultAction.toUpperCase()));
+      filtered = filtered.filter(l => (l.action || '').toUpperCase().includes((this.auditVaultAction || '').toUpperCase()));
     }
     if (this.auditVaultModule !== 'all') {
       filtered = filtered.filter(l => (l.module || '').toLowerCase() === this.auditVaultModule.toLowerCase());

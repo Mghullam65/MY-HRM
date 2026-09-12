@@ -12,6 +12,13 @@ const Performance = {
 
   getScopedReviews() {
     const allReviews = DB.get('performance_reviews') || [];
+    // Ensure all review records have required default properties
+    allReviews.forEach(r => {
+      if (!r.type) r.type = 'quarterly';
+      if (!r.status) r.status = 'pending';
+      if (!r.quarter) r.quarter = 'Q2';
+      if (!r.year) r.year = 2026;
+    });
     if (Auth.role === 'employee') {
       return allReviews.filter(r => r.employeeId === Auth.employee?.id);
     }
@@ -118,6 +125,13 @@ const Performance = {
           const emp = DB.find('employees', r.employeeId);
           const reviewer = DB.find('employees', r.reviewerId);
           const canSubmitEvaluation = (isDeptMgr && (emp?.managerId === Auth.employee?.id || emp?.reportingTo === Auth.employee?.id)) || Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+          const rType = (r.type || 'quarterly').toUpperCase();
+          const rStatus = (r.status || 'pending').toLowerCase();
+          const isCompleted = rStatus === 'completed';
+          const ratingNum = Math.min(5, Math.max(0, Math.round(Number(r.overallRating || r.rating || (r.finalScore ? Math.round(r.finalScore) : 0)))));
+          const kpiVal = r.kpiScore ?? (r.finalScore ? Math.round(r.finalScore * 20) : 80);
+          const kraVal = r.kraScore ?? (r.reviewerScore ? Math.round(r.reviewerScore * 20) : 80);
+
           return `
             <div class="card">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
@@ -130,17 +144,17 @@ const Performance = {
                   </div>
                 </div>
                 <div style="text-align:right">
-                  <span class="chip" style="margin-bottom:6px">${r.type.toUpperCase()} ${r.quarter||''} ${r.year}</span><br>
-                  ${Utils.statusBadge(r.status)}
+                  <span class="chip" style="margin-bottom:6px">${rType} ${r.quarter||''} ${r.year||2026}</span><br>
+                  ${Utils.statusBadge(r.status || 'pending')}
                 </div>
               </div>
 
-              ${r.status === 'completed' ? `
+              ${isCompleted ? `
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px">
                   ${[
-                    { label:'KPI Score', val:r.kpiScore+'%', color:'var(--primary)' },
-                    { label:'KRA Score', val:r.kraScore+'%', color:'var(--accent)' },
-                    { label:'Overall Rating', val:'★'.repeat(r.overallRating)+'☆'.repeat(5-r.overallRating), color:'var(--warning)' },
+                    { label:'KPI Score', val:kpiVal+'%', color:'var(--primary)' },
+                    { label:'KRA Score', val:kraVal+'%', color:'var(--accent)' },
+                    { label:'Overall Rating', val:'★'.repeat(ratingNum)+'☆'.repeat(5-ratingNum), color:'var(--warning)' },
                   ].map(m => `
                     <div style="text-align:center;padding:14px;background:var(--surface);border-radius:10px">
                       <div style="font-size:20px;font-weight:800;color:${m.color}">${m.val}</div>
@@ -2967,7 +2981,7 @@ const Recruitment = {
                 <div style="font-size:14px;font-weight:700;color:#0f172a;margin-top:2px">${offer.designation}</div>
                 <div style="font-size:12px;color:#2563eb;font-weight:600">${dept?.name || '—'} Department</div>
                 <div style="margin-top:4px">
-                  <span class="offer-status-pill" style="background:#e0e7ff;color:#3730a3">${offer.employmentType.toUpperCase()} APPOINTMENT</span>
+                  <span class="offer-status-pill" style="background:#e0e7ff;color:#3730a3">${(offer.employmentType || 'permanent').toUpperCase()} APPOINTMENT</span>
                 </div>
               </div>
             </div>
@@ -3015,7 +3029,7 @@ const Recruitment = {
               </div>
               <div class="offer-term-card">
                 <div class="offer-term-label">Employment Classification</div>
-                <div class="offer-term-value">${offer.employmentType.toUpperCase()} ${offer.duration ? `— ${offer.duration}` : ''}</div>
+                <div class="offer-term-value">${(offer.employmentType || 'permanent').toUpperCase()} ${offer.duration ? `— ${offer.duration}` : ''}</div>
               </div>
               <div class="offer-term-card">
                 <div class="offer-term-label">Expected Date of Joining</div>
@@ -3289,7 +3303,7 @@ const Recruitment = {
           <div style="text-align:right">
             <div><strong>Designation:</strong> ${offer.designation}</div>
             <div><strong>Department:</strong> ${dept?.name || '—'}</div>
-            <div><strong>Type:</strong> ${offer.employmentType.toUpperCase()}</div>
+            <div><strong>Type:</strong> ${(offer.employmentType || 'permanent').toUpperCase()}</div>
           </div>
         </div>
 
@@ -3322,7 +3336,7 @@ const Recruitment = {
           </div>
           <div class="term-box">
             <div class="term-lbl">Employment Classification</div>
-            <div class="term-val">${offer.employmentType.toUpperCase()} ${offer.duration ? `(${offer.duration})` : ''}</div>
+            <div class="term-val">${(offer.employmentType || 'permanent').toUpperCase()} ${offer.duration ? `(${offer.duration})` : ''}</div>
           </div>
           <div class="term-box">
             <div class="term-lbl">Commencement / Joining Date</div>
@@ -3473,7 +3487,7 @@ const Recruitment = {
       else if (newStatus === 'rejected') DB.update('applications', offer.applicationId, { stage: 'rejected' });
     }
 
-    DB.log('UPDATE', 'Recruitment', `Offer #${offer.refNo} status updated to: ${newStatus.toUpperCase()}`, Auth.user?.id);
+    DB.log('UPDATE', 'Recruitment', `Offer #${offer.refNo} status updated to: ${(newStatus || '').toUpperCase()}`, Auth.user?.id);
     Modal.close('dynamic-modal');
 
     if (newStatus === 'accepted') {
@@ -3618,7 +3632,7 @@ const Recruitment = {
         ['Applied For', job?.title],
         ['Applied On', Utils.formatDate(app.appliedOn)],
         ['Stage', Utils.statusBadge(app.stage)],
-        ['Offer Letter', existingOffer ? `<span class="badge badge-success"><i class="fa fa-file-check"></i> ${existingOffer.refNo} (${existingOffer.status.toUpperCase()})</span>` : '<span class="text-muted text-xs">Not issued yet</span>']
+        ['Offer Letter', existingOffer ? `<span class="badge badge-success"><i class="fa fa-file-check"></i> ${existingOffer.refNo} (${(existingOffer.status || 'Active').toUpperCase()})</span>` : '<span class="text-muted text-xs">Not issued yet</span>']
       ].map(([l,v])=>`<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--border)"><div style="width:140px;font-size:12px;color:var(--text-3);font-weight:500">${l}</div><div style="font-size:13px">${v}</div></div>`).join('')}
 
       <div style="margin-top:14px">
@@ -4058,7 +4072,7 @@ const Recruitment = {
         <div><strong>Target Compensation:</strong> PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()} / month</div>
         <div><strong>Target Onboarding Date:</strong> ${r.targetDate || 'Flexible'}</div>
         <div><strong>Reason & Justification:</strong> ${r.reason}</div>
-        <div><strong>Status:</strong> ${r.status.toUpperCase()}</div>
+        <div><strong>Status:</strong> ${(r.status || 'Pending').toUpperCase()}</div>
       </div>
       <div style="font-size:12px;color:var(--text);margin-bottom:6px"><strong>Justification Notes:</strong></div>
       <div style="background:var(--card);border:1px solid var(--border);padding:12px;border-radius:8px;font-size:12px;color:var(--text-2);line-height:1.5">

@@ -4521,15 +4521,21 @@ const DB = {
         {
           id: 101,
           employeeId: ghulam.id,
+          type: 'quarterly',
           reviewPeriod: 'Q1 2026',
           quarter: 'Q1',
           year: '2026',
+          kpiScore: 88,
+          kraScore: 85,
+          overallRating: 4,
           managerRating: 4.5,
           selfRating: 4.2,
           finalScore: 4.4,
-          status: 'Completed',
+          status: 'completed',
           reviewerScore: 4.5,
           rating: 4.4,
+          managerFeedback: 'Exceptional delivery on React & Node.js architecture',
+          selfFeedback: 'Successfully delivered all enterprise milestones',
           recommendation: 'Promotion to Senior Full Stack Architect',
           reviewerId: 3,
           comments: 'Exceptional delivery on React & Node.js architecture'
@@ -4537,21 +4543,42 @@ const DB = {
         {
           id: 102,
           employeeId: 4,
+          type: 'quarterly',
           reviewPeriod: 'Q1 2026',
           quarter: 'Q1',
           year: '2026',
+          kpiScore: 94,
+          kraScore: 92,
+          overallRating: 5,
           managerRating: 4.8,
           selfRating: 4.5,
           finalScore: 4.7,
-          status: 'Completed',
+          status: 'completed',
           reviewerScore: 4.8,
           rating: 4.7,
+          managerFeedback: 'Outstanding performance across product sprints',
+          selfFeedback: 'Maintained 99% test coverage and met all sprint goals',
           recommendation: 'Leadership Track & Stock Option Bonus',
           reviewerId: 1,
           comments: 'Outstanding performance across product sprints'
         }
       );
       this.set('performance_reviews', reviews);
+    }
+
+    // Auto-normalize any existing reviews in localStorage
+    const savedReviews = this.get('performance_reviews') || [];
+    let modifiedReviews = false;
+    savedReviews.forEach(r => {
+      if (!r.type) { r.type = 'quarterly'; modifiedReviews = true; }
+      if (!r.status) { r.status = 'pending'; modifiedReviews = true; }
+      if (r.status === 'Completed') { r.status = 'completed'; modifiedReviews = true; }
+      if (r.overallRating === undefined && r.rating !== undefined) { r.overallRating = Math.round(r.rating); modifiedReviews = true; }
+      if (r.kpiScore === undefined) { r.kpiScore = r.finalScore ? Math.round(r.finalScore * 20) : 85; modifiedReviews = true; }
+      if (r.kraScore === undefined) { r.kraScore = r.reviewerScore ? Math.round(r.reviewerScore * 20) : 80; modifiedReviews = true; }
+    });
+    if (modifiedReviews) {
+      this.set('performance_reviews', savedReviews);
     }
   },
 
