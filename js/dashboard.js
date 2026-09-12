@@ -330,9 +330,8 @@ const Dashboard = {
 
     const tickerItemsHtml = headlines.map(h => `
       <span class="ticker-item ${h.type}" onclick="${h.action}" title="Click to view details">
-        <i class="fa ${h.icon}"></i>
-        <span style="font-size:10px;font-weight:800;letter-spacing:0.5px;opacity:0.9;margin-right:2px">[${h.tag}]</span>
-        ${h.text}
+        <span class="ticker-tag"><i class="fa ${h.icon}"></i> ${h.tag}</span>
+        <span class="ticker-text">${h.text}</span>
       </span>
       <span class="ticker-sep">✦</span>
     `).join('');
@@ -1337,9 +1336,8 @@ const Dashboard = {
     const allReviews = DB.get('performance_reviews') || [];
     const tickerItemsHtml = headlines.map(h => `
       <span class="ticker-item ${h.type}" onclick="${h.action}" title="Click to view details">
-        <i class="fa ${h.icon}"></i>
-        <span style="font-size:10px;font-weight:800;letter-spacing:0.5px;opacity:0.9;margin-right:2px">[${h.tag}]</span>
-        ${h.text}
+        <span class="ticker-tag"><i class="fa ${h.icon}"></i> ${h.tag}</span>
+        <span class="ticker-text">${h.text}</span>
       </span>
       <span class="ticker-sep">✦</span>
     `).join('');
