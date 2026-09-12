@@ -2107,18 +2107,19 @@ const Recruitment = {
     const apps = DB.get('applications') || [];
     const offers = DB.get('offer_letters') || [];
     const reqs = DB.get('job_requisitions') || [];
+    const onboardings = DB.get('onboardings') || [];
     const pendingReqs = reqs.filter(r => r.status === 'pending_review').length;
     const isHR = this.isHROrAdmin();
 
     content.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Recruitment Top KPI Banner -->
+        <!-- Recruitment Top KPI Banner: Structured along the Recruitment Lifecycle -->
         <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
           ${[
-            { label:'Open Positions',  val:jobs.filter(j=>j.status==='open').length, icon:'fa-briefcase', color:'var(--success)', action:"Recruitment.switchView('jobs')" },
             { label:'Headcount Reqs',  val:reqs.length, icon:'fa-file-invoice-dollar', color:'var(--info)', action:"Recruitment.switchView('requisitions')" },
+            { label:'Open Positions',  val:jobs.filter(j=>j.status==='open').length, icon:'fa-briefcase', color:'var(--success)', action:"Recruitment.switchView('jobs')" },
             { label:'Total Applicants',val:apps.length, icon:'fa-users', color:'var(--primary)', action:"Recruitment.switchView('pipeline')" },
-            { label:'In Interview',    val:apps.filter(a=>a.stage==='interview').length, icon:'fa-comments', color:'var(--warning)', action:"Recruitment.switchView('pipeline')" },
+            { label:'In Interview',    val:apps.filter(a=>a.stage==='interview').length, icon:'fa-comments', color:'var(--warning)', action:"Recruitment.switchView('interviews')" },
             { label:'Offer Letters',   val:offers.length, icon:'fa-file-signature', color:'var(--accent)', action: isHR ? "Recruitment.switchView('offers')" : '' },
           ].map(s => `
             <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:${s.action?'pointer':'default'};transition:all .2s"
@@ -2134,76 +2135,42 @@ const Recruitment = {
           `).join('')}
         </div>
 
-        <!-- Recruitment View Tabs -->
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap">
-            <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')">
-              <i class="fa fa-briefcase" style="margin-right:6px"></i>Job Postings
+        <!-- Recruitment View Tabs: Arranged Chronologically along the Recruitment Lifecycle -->
+        <div style="margin-bottom:20px">
+          <div style="display:flex;gap:2px;background:var(--surface);padding:3px;border-radius:10px;width:100%;overflow-x:auto;scrollbar-width:none">
+            <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative" title="Step 1: Headcount Planning & Vacancy Requisitions">
+              <i class="fa fa-file-invoice-dollar" style="margin-right:5px"></i>Requisitions & Headcount
+              ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 5px">${pendingReqs}</span>` : ''}
             </button>
-            <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative">
-              <i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Requisitions & Headcount
-              ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${pendingReqs}</span>` : ''}
+            <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')" title="Step 2: Job Openings & Public Postings">
+              <i class="fa fa-briefcase" style="margin-right:5px"></i>Job Postings
             </button>
-            <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')">
-              <i class="fa fa-list-check" style="margin-right:6px"></i>Applicant Pipeline
+            <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')" title="Step 3: Active Applicant ATS Screening Pipeline">
+              <i class="fa fa-list-check" style="margin-right:5px"></i>Applicant Pipeline
             </button>
-            <button class="tab-toggle-btn ${this.currentView==='interviews'?'active':''}" onclick="Recruitment.switchView('interviews')">
-              <i class="fa fa-comments" style="margin-right:6px"></i>Interviews & Rubrics
+            <button class="tab-toggle-btn ${this.currentView==='talent_pools'?'active':''}" onclick="Recruitment.switchView('talent_pools')" title="Step 4: Candidate Talent Pools & Sourcing Reservoirs">
+              <i class="fa fa-users-viewfinder" style="margin-right:5px"></i>Talent Pools
             </button>
-            <button class="tab-toggle-btn ${this.currentView==='talent_pools'?'active':''}" onclick="Recruitment.switchView('talent_pools')">
-              <i class="fa fa-users-viewfinder" style="margin-right:6px"></i>Talent Pools
+            <button class="tab-toggle-btn ${this.currentView==='interviews'?'active':''}" onclick="Recruitment.switchView('interviews')" title="Step 5: Interview Scheduling & Evaluator Rubrics">
+              <i class="fa fa-comments" style="margin-right:5px"></i>Interviews & Rubrics
             </button>
-            <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')">
-              <i class="fa fa-user-plus" style="margin-right:6px"></i>Onboarding Checklists
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='assessment_sheets'?'active':''}" onclick="Recruitment.switchView('assessment_sheets')">
-              <i class="fa fa-table-list" style="margin-right:6px"></i>Assessment Sheets & Funnel
+            <button class="tab-toggle-btn ${this.currentView==='assessment_sheets'?'active':''}" onclick="Recruitment.switchView('assessment_sheets')" title="Step 6: Comparative Assessment Sheets & Conversion Funnel">
+              <i class="fa fa-table-list" style="margin-right:5px"></i>Assessment Sheets & Funnel
             </button>
             ${isHR ? `
-              <button class="tab-toggle-btn ${this.currentView==='offers'?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative">
-                <i class="fa fa-file-signature" style="margin-right:6px"></i>Offer Letters
-                <span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px">${offers.length}</span>
+              <button class="tab-toggle-btn ${this.currentView==='offers'?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative" title="Step 7: Formal Job Offer Letters & Compensation">
+                <i class="fa fa-file-signature" style="margin-right:5px"></i>Offer Letters
+                <span class="badge badge-primary" style="margin-left:5px;font-size:10px;padding:2px 5px">${offers.length}</span>
               </button>
             ` : ''}
+            <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')" style="position:relative" title="Step 8: Post-Offer New Hire Onboarding Checklists">
+              <i class="fa fa-user-plus" style="margin-right:5px"></i>Onboarding Checklists
+              <span class="badge badge-success" style="margin-left:5px;font-size:10px;padding:2px 5px">${onboardings.length}</span>
+            </button>
           </div>
-
-          ${this.currentView === 'requisitions' ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddRequisitionModal()">
-                <i class="fa fa-plus"></i> Submit Headcount Requisition
-              </button>
-            </div>
-          ` : this.currentView === 'pipeline' ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-outline btn-sm" onclick="Recruitment.exportPipelineCSV()">
-                <i class="fa fa-file-csv"></i> Export Pipeline
-              </button>
-              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddApplicantModal()">
-                <i class="fa fa-user-plus"></i> Add Candidate
-              </button>
-            </div>
-          ` : isHR && this.currentView === 'offers' ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" onclick="Recruitment.showGenerateOfferLetterModal()">
-                <i class="fa fa-plus"></i> Create Offer Letter
-              </button>
-            </div>
-          ` : this.currentView === 'assessment_sheets' ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-outline btn-sm" onclick="Recruitment.exportAssessmentCSV()">
-                <i class="fa fa-file-csv"></i> Export CSV
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="Recruitment.printAssessmentSheet()">
-                <i class="fa fa-print"></i> Print Sheet
-              </button>
-              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddAssessmentModal()">
-                <i class="fa fa-plus"></i> Add Candidate Evaluation
-              </button>
-            </div>
-          ` : ''}
         </div>
         <style>
-          .tab-toggle-btn { padding:8px 16px;border:none;background:transparent;color:var(--text-3);font-size:12.5px;font-weight:600;border-radius:7px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center; }
+          .tab-toggle-btn { padding:6px 10px;border:none;background:transparent;color:var(--text-3);font-size:11.5px;font-weight:600;border-radius:7px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;white-space:nowrap;flex-shrink:0; }
           .tab-toggle-btn.active { background:var(--primary);color:white;box-shadow:0 2px 8px var(--primary-glow); }
           .tab-toggle-btn:hover:not(.active) { background:var(--surface-2);color:var(--text); }
         </style>
@@ -5319,15 +5286,52 @@ const Recruitment = {
 
   renderOnboarding(container) {
     const onboardings = DB.get('onboardings') || [];
+    const completedCount = onboardings.filter(o => o.status === 'completed' || o.progress === 100).length;
+    const inProgressCount = onboardings.length - completedCount;
+    const avgProgress = onboardings.length > 0 ? Math.round(onboardings.reduce((sum, o) => sum + (o.progress || 0), 0) / onboardings.length) : 0;
+    
+    // Count total remaining tasks
+    let totalPendingTasks = 0;
+    onboardings.forEach(ob => {
+      const tasks = this.getOnboardingTasks(ob);
+      totalPendingTasks += tasks.filter(t => !t.completed).length;
+    });
 
     container.innerHTML = `
       <div class="animate-fade-in">
+        <!-- Onboarding Process KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Total in Onboarding</div>
+            <div style="font-size:24px;font-weight:800;color:var(--primary);margin-top:4px">${onboardings.length}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">New hires in onboarding cycle</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--warning)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">In-Progress Pipeline</div>
+            <div style="font-size:24px;font-weight:800;color:var(--warning);margin-top:4px">${inProgressCount}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Checklist tasks pending</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Ready for Day-1</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:4px">${completedCount}</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">100% completed checklists</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--accent)">
+            <div style="font-size:11.5px;color:var(--text-3);text-transform:uppercase;font-weight:600">Avg Completion Rate</div>
+            <div style="font-size:24px;font-weight:800;color:var(--accent);margin-top:4px">${avgProgress}%</div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">${totalPendingTasks} total tasks pending</div>
+          </div>
+        </div>
+
         <div class="card" style="padding:0">
-          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
             <div>
               <span style="font-size:14px;font-weight:700">New Hire Onboarding Pipeline &amp; Task Checklists</span>
               <span class="badge badge-success" style="margin-left:8px">${onboardings.length} In Onboarding</span>
             </div>
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddOnboardingModal()">
+              <i class="fa fa-user-plus"></i> Initiate New Hire Onboarding
+            </button>
           </div>
           <div class="table-wrapper" style="border:none">
             <table>
@@ -5338,35 +5342,64 @@ const Recruitment = {
                   <th>Assigned Buddy</th>
                   <th>Checklist Progress</th>
                   <th>Status</th>
-                  <th>Actions</th>
+                  <th style="text-align:center">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                ${onboardings.map(ob => {
+                ${onboardings.length === 0 ? `
+                  <tr>
+                    <td colspan="6" style="text-align:center;padding:30px;color:var(--text-3)">
+                      <i class="fa fa-clipboard-check" style="font-size:32px;opacity:0.4;margin-bottom:8px;display:block"></i>
+                      No candidates currently in onboarding. Click <strong>Initiate New Hire Onboarding</strong> to launch pre-boarding!
+                    </td>
+                  </tr>
+                ` : onboardings.map(ob => {
                   const candidate = (DB.get('applications')||[]).find(a => a.id === ob.candidateId);
                   const buddy = DB.find('employees', ob.buddyId);
                   const tasks = this.getOnboardingTasks(ob);
                   const completedTasks = tasks.filter(t => t.completed).length;
                   const pct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : (ob.progress || 0);
                   const color = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--primary)' : 'var(--warning)';
+                  const initials = (candidate?.name || 'NH').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+
                   return `
                     <tr>
                       <td>
-                        <div style="font-weight:700">${candidate?.name || 'Candidate #' + ob.candidateId}</div>
-                        <div style="font-size:11px;color:var(--text-3)">${candidate?.role || 'New Employee'}</div>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <div style="width:34px;height:34px;border-radius:50%;background:var(--primary-glow);color:var(--primary);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;border:1px solid var(--primary)">
+                            ${initials}
+                          </div>
+                          <div>
+                            <div style="font-weight:700">${candidate?.name || 'Candidate #' + ob.candidateId}</div>
+                            <div style="font-size:11px;color:var(--text-3)">${candidate?.role || 'New Employee'}</div>
+                          </div>
+                        </div>
                       </td>
                       <td><i class="fa fa-calendar-check" style="color:var(--primary);margin-right:4px"></i>${ob.joiningDate || '2026-09-15'}</td>
                       <td><i class="fa fa-user-shield" style="color:var(--info);margin-right:4px"></i>${buddy?.fullName || 'Senior Buddy'}</td>
-                      <td style="width:180px">
-                        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+                      <td style="width:190px">
+                        <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px">
                           <span>${completedTasks}/${tasks.length} Tasks</span>
                           <strong style="color:${color}">${pct}%</strong>
                         </div>
-                        <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div>
+                        <div class="progress" style="height:7px;border-radius:4px"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div>
                       </td>
-                      <td><span class="badge ${ob.status==='completed'?'badge-success':'badge-primary'}">${ob.status}</span></td>
                       <td>
-                        <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewOnboardingChecklist(${ob.id})"><i class="fa fa-list-check"></i> Checklist</button>
+                        <span class="badge ${pct===100 || ob.status==='completed'?'badge-success':'badge-primary'}">
+                          ${pct===100 || ob.status==='completed' ? 'Ready for Day-1' : 'In Progress'}
+                        </span>
+                      </td>
+                      <td style="text-align:center">
+                        <div style="display:flex;gap:6px;justify-content:center">
+                          <button class="btn btn-outline btn-xs" onclick="Recruitment.viewOnboardingChecklist(${ob.id})" title="View and toggle checklist">
+                            <i class="fa fa-list-check"></i> Checklist
+                          </button>
+                          ${candidate ? `
+                            <button class="btn btn-ghost btn-xs text-success" onclick="Recruitment.onboardCandidateDirectly(${candidate.id})" title="Create official employee profile">
+                              <i class="fa fa-user-plus"></i>
+                            </button>
+                          ` : ''}
+                        </div>
                       </td>
                     </tr>
                   `;
@@ -5379,6 +5412,115 @@ const Recruitment = {
     `;
   },
 
+  showAddOnboardingModal() {
+    const apps = DB.get('applications') || [];
+    const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const onboardings = DB.get('onboardings') || [];
+    const alreadyOnboardedIds = onboardings.map(o => o.candidateId);
+    
+    // Prioritize candidates in 'hired' or 'offer' stage who aren't yet in onboardings
+    const eligibleApps = apps.filter(a => !alreadyOnboardedIds.includes(a.id));
+    const candidateList = eligibleApps.length > 0 ? eligibleApps : apps;
+    const defaultDate = new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0];
+
+    Modal.show('Initiate New Hire Onboarding', `
+      <form onsubmit="Recruitment.saveNewOnboarding(event)">
+        <div class="form-group">
+          <label class="form-label required">Select Candidate / New Hire</label>
+          <select class="form-control" id="ob-candidate-select" required>
+            <option value="">-- Choose Candidate --</option>
+            ${candidateList.map(a => `
+              <option value="${a.id}">${a.name} — ${a.role || 'Candidate'} (${(a.stage||'applied').toUpperCase()})</option>
+            `).join('')}
+          </select>
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Target Joining Date</label>
+            <input type="date" class="form-control" id="ob-joining-date" value="${defaultDate}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Assigned Onboarding Buddy / Mentor</label>
+            <select class="form-control" id="ob-buddy-select" required>
+              ${emps.map(e => `
+                <option value="${e.id}">${e.fullName} (${Utils.getDesigName(e.designationId) || 'Mentor'})</option>
+              `).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Onboarding Track Template</label>
+          <select class="form-control" id="ob-template-select">
+            <option value="standard">Standard Full Onboarding (8 Stages: Docs, IT, Payroll, Induction)</option>
+            <option value="engineering">Technical / Engineering Track (Includes GitHub, AWS & Architecture Briefing)</option>
+            <option value="executive">Management / Executive Track (Leadership Orientation & KPI Alignment)</option>
+          </select>
+        </div>
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-top:8px;font-size:12px;color:var(--text-3)">
+          <i class="fa fa-circle-info text-primary" style="margin-right:6px"></i>
+          This initiates the post-offer onboarding process according to the recruitment cycle, creating the Day-1 task checklist.
+        </div>
+        <div class="modal-footer" style="padding:16px 0 0;margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Launch Onboarding</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveNewOnboarding(e) {
+    e.preventDefault();
+    const candidateId = parseInt(document.getElementById('ob-candidate-select').value);
+    if (!candidateId) { Toast.show('Please select a candidate', 'error'); return; }
+    const joiningDate = document.getElementById('ob-joining-date').value;
+    const buddyId = parseInt(document.getElementById('ob-buddy-select').value) || 1;
+    const template = document.getElementById('ob-template-select').value;
+
+    let tasks = [
+      { category: 'Pre-Joining & Compliance', task: 'Signed Formal Offer Letter & Employment Agreement', completed: true },
+      { category: 'Pre-Joining & Compliance', task: 'CNIC, Educational Degrees & Experience Letters Verification', completed: false },
+      { category: 'Pre-Joining & Compliance', task: 'Professional Reference & Background Check Clearance', completed: false },
+      { category: 'IT & Equipment Setup', task: 'Corporate Laptop, Workstation & Equipment Issuance', completed: false },
+      { category: 'IT & Systems Access', task: 'Corporate Email, IAM, Slack & Core Tools Provisioning', completed: false },
+      { category: 'Finance & Payroll', task: 'Bank Payout Account Details & NTN Tax Registration', completed: false },
+      { category: 'Orientation & Induction', task: 'HR Policies Briefing & Company Handbook Handover', completed: false },
+      { category: 'Orientation & Induction', task: 'Team Introduction & 30-Day Probation Goal Setting', completed: false }
+    ];
+
+    if (template === 'engineering') {
+      tasks.push({ category: 'IT & Systems Access', task: 'GitHub Organization, AWS IAM & Staging Environment Access', completed: false });
+      tasks.push({ category: 'Orientation & Induction', task: 'Engineering Architecture Deep Dive & Codebase Walkthrough', completed: false });
+    } else if (template === 'executive') {
+      tasks.push({ category: 'Orientation & Induction', task: 'Executive Leadership Briefing & Department KPI Alignment', completed: false });
+    }
+
+    const onboardings = DB.get('onboardings') || [];
+    const newOb = {
+      id: onboardings.length > 0 ? Math.max(...onboardings.map(o => o.id)) + 1 : 1,
+      candidateId,
+      status: 'in_progress',
+      joiningDate,
+      buddyId,
+      progress: Math.round((tasks.filter(t => t.completed).length / tasks.length) * 100),
+      tasks,
+      checklist: JSON.stringify(tasks)
+    };
+
+    onboardings.push(newOb);
+    DB.set('onboardings', onboardings);
+
+    // Also update candidate stage to hired if not already
+    const app = DB.find('applications', candidateId);
+    if (app && app.stage !== 'hired') {
+      DB.update('applications', candidateId, { stage: 'hired' });
+    }
+
+    DB.log('CREATE', 'Recruitment', `Initiated Onboarding Checklist for candidate #${candidateId}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Candidate onboarding initiated successfully!', 'success');
+    this.render();
+  },
+
   viewOnboardingChecklist(onboardingId) {
     const onboardings = DB.get('onboardings') || [];
     const ob = onboardings.find(o => o.id === onboardingId);
@@ -5386,28 +5528,132 @@ const Recruitment = {
     const candidate = (DB.get('applications')||[]).find(a => a.id === ob.candidateId);
     const buddy = DB.find('employees', ob.buddyId);
     const tasks = this.getOnboardingTasks(ob);
+    const completedTasks = tasks.filter(t => t.completed).length;
+    const pct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
+    const color = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--primary)' : 'var(--warning)';
 
-    Modal.show(`Onboarding Checklist — ${candidate?.name || 'Candidate'}`, `
-      <div style="background:var(--surface);padding:12px 16px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+    // Auto-categorize legacy tasks
+    tasks.forEach(t => {
+      if (!t.category) {
+        const txt = (t.task || '').toLowerCase();
+        if (txt.includes('cnic') || txt.includes('degree') || txt.includes('verification') || txt.includes('contract') || txt.includes('offer')) {
+          t.category = 'Pre-Joining & Compliance';
+        } else if (txt.includes('laptop') || txt.includes('macbook') || txt.includes('sim') || txt.includes('hardware') || txt.includes('equipment')) {
+          t.category = 'IT & Equipment Setup';
+        } else if (txt.includes('iam') || txt.includes('slack') || txt.includes('email') || txt.includes('access') || txt.includes('aws')) {
+          t.category = 'IT & Systems Access';
+        } else if (txt.includes('bank') || txt.includes('payout') || txt.includes('tax') || txt.includes('salary') || txt.includes('payroll')) {
+          t.category = 'Finance & Payroll';
+        } else {
+          t.category = 'Orientation & Induction';
+        }
+      }
+    });
+
+    // Group tasks by category
+    const categories = ['Pre-Joining & Compliance', 'IT & Equipment Setup', 'IT & Systems Access', 'Finance & Payroll', 'Orientation & Induction'];
+    const uncategorized = tasks.filter(t => !t.category || !categories.includes(t.category));
+
+    Modal.show(`Onboarding Checklist — ${candidate?.name || 'New Hire'}`, `
+      <div style="background:var(--surface);padding:14px 18px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
         <div>
-          <div style="font-size:15px;font-weight:700">${candidate?.name}</div>
-          <div style="font-size:12px;color:var(--text-3)">Joining: ${ob.joiningDate || '2026-09-15'} &bull; Buddy: ${buddy?.fullName || 'Senior Buddy'}</div>
+          <div style="font-size:16px;font-weight:700">${candidate?.name || 'New Employee'}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+            Role: <strong>${candidate?.role || 'New Hire'}</strong> &bull; Joining: <strong>${ob.joiningDate || '2026-09-15'}</strong> &bull; Buddy: <strong>${buddy?.fullName || 'Assigned Buddy'}</strong>
+          </div>
         </div>
-        <div>
-          <span class="badge ${ob.status==='completed'?'badge-success':'badge-primary'}">${ob.status}</span>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;color:${color}">${pct}% Complete</div>
+          <div style="font-size:11px;color:var(--text-3)">${completedTasks} of ${tasks.length} tasks done</div>
         </div>
       </div>
-      <div style="display:flex;flex-direction:column;gap:8px">
-        ${tasks.map((t, idx) => `
-          <label style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;cursor:pointer">
-            <input type="checkbox" id="ob-task-${idx}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${idx}, this.checked)">
-            <span style="font-size:13px;font-weight:600;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : ''}">${t.task}</span>
-          </label>
-        `).join('')}
+
+      <div class="progress" style="height:8px;border-radius:4px;margin-bottom:18px">
+        <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;max-height:420px;overflow-y:auto;padding-right:4px">
+        ${categories.map(cat => {
+          const catTasks = tasks.map((t, idx) => ({ ...t, originalIndex: idx })).filter(t => t.category === cat);
+          if (catTasks.length === 0) return '';
+          return `
+            <div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--card)">
+              <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-circle-check"></i> ${cat}
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${catTasks.map(t => `
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-radius:6px;cursor:pointer;transition:all .15s">
+                    <input type="checkbox" id="ob-task-${t.originalIndex}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${t.originalIndex}, this.checked)">
+                    <span style="font-size:13px;font-weight:500;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : 'color:var(--text)'}">${t.task}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+
+        ${uncategorized.length > 0 ? `
+          <div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--card)">
+            <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;margin-bottom:8px">
+              Additional Onboarding Tasks
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              ${tasks.map((t, idx) => ({ ...t, originalIndex: idx }))
+                .filter(t => !t.category || !categories.includes(t.category))
+                .map(t => `
+                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-radius:6px;cursor:pointer">
+                    <input type="checkbox" id="ob-task-${t.originalIndex}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${t.originalIndex}, this.checked)">
+                    <span style="font-size:13px;font-weight:500;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : 'color:var(--text)'}">${t.task}</span>
+                  </label>
+                `).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Add Custom Task Input -->
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <input type="text" class="form-control" id="new-ob-task-name" placeholder="Add custom onboarding task...">
+          <button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="Recruitment.addCustomOnboardingTask(${onboardingId})">
+            <i class="fa fa-plus"></i> Add Task
+          </button>
+        </div>
       </div>
     `, {
-      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Done</button>`
+      footer: `
+        <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
+          ${candidate ? `
+            <button class="btn btn-ghost btn-sm text-success" onclick="Modal.close('dynamic-modal');Recruitment.onboardCandidateDirectly(${candidate.id})">
+              <i class="fa fa-user-plus"></i> Transfer to Employee Profile
+            </button>
+          ` : `<div></div>`}
+          <button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Done</button>
+        </div>
+      `
     });
+  },
+
+  addCustomOnboardingTask(onboardingId) {
+    const input = document.getElementById('new-ob-task-name');
+    const taskName = input?.value.trim();
+    if (!taskName) { Toast.show('Please enter task description', 'warning'); return; }
+
+    const onboardings = DB.get('onboardings') || [];
+    const ob = onboardings.find(o => o.id === onboardingId);
+    if (!ob) return;
+
+    const tasks = this.getOnboardingTasks(ob);
+    tasks.push({ category: 'Orientation & Induction', task: taskName, completed: false });
+    ob.tasks = tasks;
+    ob.checklist = JSON.stringify(tasks);
+    const completedTasks = tasks.filter(t => t.completed).length;
+    ob.progress = Math.round((completedTasks / tasks.length) * 100);
+    ob.status = ob.progress === 100 ? 'completed' : 'in_progress';
+    
+    DB.set('onboardings', onboardings);
+    Toast.show('Task added to onboarding checklist!', 'success');
+    this.viewOnboardingChecklist(onboardingId);
+    this.renderView();
   },
 
   toggleOnboardingTask(onboardingId, taskIdx, isCompleted) {
@@ -5426,6 +5672,11 @@ const Recruitment = {
     DB.set('onboardings', onboardings);
     DB.log('UPDATE', 'Recruitment', `Updated onboarding task #${taskIdx} for Onboarding #${onboardingId}`, Auth.user?.id);
     this.renderView();
+    // Also re-render the modal if open
+    const modal = document.getElementById('dynamic-modal');
+    if (modal && modal.style.display !== 'none') {
+      this.viewOnboardingChecklist(onboardingId);
+    }
   },
 
   // ═══════════════════════════════════════════════
