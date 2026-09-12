@@ -459,8 +459,8 @@ const App = {
       module = 'dashboard';
     }
 
-    if (module === 'recruitment' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
-      Toast.show('403 Forbidden: Recruitment & ATS is restricted to HR & Admin.', 'error');
+    if (module === 'recruitment' && !['superadmin', 'hr_manager', 'dept_manager'].includes(Auth.role)) {
+      Toast.show('403 Forbidden: Recruitment & ATS is restricted to HR & Department Managers.', 'error');
       if (this.currentModule && this.currentModule !== 'recruitment') return;
       module = 'dashboard';
     }

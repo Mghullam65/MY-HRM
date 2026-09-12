@@ -96,7 +96,7 @@ const Auth = {
     if (!role) return this.SCOPES.NONE;
     if (role === 'superadmin' || role === 'hr_manager') return this.SCOPES.ALL;
     if (role === 'dept_manager') {
-      const teamModules = ['dashboard', 'employees', 'attendance', 'leaves', 'performance', 'reports', 'approvals', 'assets', 'expenses', 'helpdesk'];
+      const teamModules = ['dashboard', 'employees', 'attendance', 'leaves', 'performance', 'recruitment', 'reports', 'approvals', 'assets', 'expenses', 'helpdesk'];
       return teamModules.includes(module) ? this.SCOPES.TEAM : this.SCOPES.NONE;
     }
     if (role === 'employee' || role === 'onboarding') {
@@ -211,7 +211,7 @@ const Auth = {
     const moduleMap = {
       superadmin: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
       hr_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
-      dept_manager: ['dashboard','employees','attendance','leaves','payroll','performance','assets','expenses','helpdesk','events','reports'],
+      dept_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports'],
       employee: ['dashboard','attendance','leaves','payroll','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
       onboarding: ['dashboard','profile','attendance','leaves','events','holidays'],
     };
@@ -227,7 +227,7 @@ const Auth = {
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'performance', label: 'Performance', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager'] },
+      { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','employee'] },

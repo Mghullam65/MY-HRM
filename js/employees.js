@@ -7499,10 +7499,11 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           DB.update('users', linkedUser.id, { status: 'inactive' });
         }
 
-        // 4. Audit Log
-        DB.log('EXIT_COMPLETED', 'Employees', `Full separation finalized for ${emp.fullName} (${emp.empNo}). Profile set to inactive and user login revoked.`, Auth.user?.id, 'WARN');
+        // 4. Audit Log & Vacancy Notification
+        const dept = DB.find('departments', emp.departmentId);
+        DB.log('EXIT_COMPLETED', 'Employees', `Full separation finalized for ${emp.fullName} (${emp.empNo}). Profile set to inactive and user login revoked. Vacancy requirement opened in ${dept?.name || 'department'}.`, Auth.user?.id, 'WARN');
 
-        Toast.show(`Exit finalized! ${emp.fullName} is now an Ex-Employee and login access is revoked.`, 'warning');
+        Toast.show(`Exit finalized! ${emp.fullName} is now an Ex-Employee. Vacant position requirement added to Recruitment.`, 'warning');
         this.renderExitClearance(document.getElementById('emp-content'));
       }
     );

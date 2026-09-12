@@ -2093,6 +2093,8 @@ const Performance = {
 
 const Recruitment = {
   currentView: 'jobs',
+  requisitionTab: 'structure', // 'structure' | 'requisitions' | 'radar'
+  structureDeptId: null,
   offerFilter: { query: '', type: 'all', status: 'all' },
   pipelineFilter: { query: '', jobId: 'all', score: 'all', viewMode: 'kanban' },
   draggedAppId: null,
@@ -2102,6 +2104,16 @@ const Recruitment = {
   },
 
   render() {
+    // For Department Managers, default view to Requisitions & Team Structure
+    if (Auth.role === 'dept_manager' && !this._userInitialized) {
+      this.currentView = 'requisitions';
+      this.requisitionTab = 'structure';
+      this._userInitialized = true;
+    }
+    if (!this.structureDeptId && Auth.employee?.departmentId) {
+      this.structureDeptId = Auth.employee.departmentId;
+    }
+
     const content = document.getElementById('page-content');
     const jobs = DB.get('recruitment') || [];
     const apps = DB.get('applications') || [];
@@ -4437,47 +4449,441 @@ const Recruitment = {
   },
 
   // ═══════════════════════════════════════════════
-  // HEADCOUNT REQUISITIONS & BUDGETING
+  // SEPARATION VACANCIES & REPLACEMENT RADAR ENGINE
+  // ═══════════════════════════════════════════════
+
+  getSeparationVacancies() {
+    const emps = DB.get('employees') || [];
+    const clearances = DB.get('exit_clearances') || [];
+    const reqs = DB.get('job_requisitions') || [];
+    const depts = DB.get('departments') || [];
+    const desigs = DB.get('designations') || [];
+
+    const vacancies = [];
+    const processedEmpIds = new Set();
+
+    // 1. From exit clearances (completed, in_progress, approved, notice_period)
+    clearances.forEach(c => {
+      if (['completed', 'in_progress', 'approved', 'notice_period'].includes(c.status)) {
+        const emp = emps.find(e => e.id === c.employeeId);
+        if (emp && !processedEmpIds.has(emp.id)) {
+          processedEmpIds.add(emp.id);
+          const dept = depts.find(d => d.id === emp.departmentId);
+          const desig = desigs.find(d => d.id === emp.designationId);
+          const linkedReq = reqs.find(r => r.vacatedEmployeeId === emp.id || (r.reason === 'Replacement' && (r.notes || '').includes(emp.fullName)));
+          
+          vacancies.push({
+            empId: emp.id,
+            empNo: emp.empNo,
+            fullName: emp.fullName,
+            photo: emp.photo,
+            departmentId: emp.departmentId,
+            departmentName: dept?.name || 'General',
+            designationId: emp.designationId,
+            designationName: desig?.name || emp.role || 'Role',
+            separationType: c.status === 'completed' ? 'Resigned / Exited' : 'Resignation in Notice',
+            exitDate: c.lastWorkingDay || c.completedDate || emp.exitDate || '2026-09-25',
+            reason: c.reason || 'Voluntary Resignation',
+            status: c.status,
+            linkedReq: linkedReq || null,
+            isBackfilled: !!linkedReq && (linkedReq.status === 'approved' || !!linkedReq.jobPostId)
+          });
+        }
+      }
+    });
+
+    // 2. From employees with status inactive/terminated not already in clearances
+    emps.forEach(emp => {
+      if ((emp.status === 'inactive' || emp.status === 'terminated') && !processedEmpIds.has(emp.id)) {
+        processedEmpIds.add(emp.id);
+        const dept = depts.find(d => d.id === emp.departmentId);
+        const desig = desigs.find(d => d.id === emp.designationId);
+        const linkedReq = reqs.find(r => r.vacatedEmployeeId === emp.id || (r.reason === 'Replacement' && (r.notes || '').includes(emp.fullName)));
+
+        vacancies.push({
+          empId: emp.id,
+          empNo: emp.empNo,
+          fullName: emp.fullName,
+          photo: emp.photo,
+          departmentId: emp.departmentId,
+          departmentName: dept?.name || 'General',
+          designationId: emp.designationId,
+          designationName: desig?.name || emp.role || 'Role',
+          separationType: emp.status === 'terminated' ? 'Terminated' : 'Separated (Ex-Employee)',
+          exitDate: emp.exitDate || '2026-03-31',
+          reason: 'Separation / Inactive Account',
+          status: 'completed',
+          linkedReq: linkedReq || null,
+          isBackfilled: !!linkedReq && (linkedReq.status === 'approved' || !!linkedReq.jobPostId)
+        });
+      }
+    });
+
+    return vacancies;
+  },
+
+  getDepartmentStructure(deptId) {
+    const depts = DB.get('departments') || [];
+    const emps = DB.get('employees') || [];
+    const reqs = DB.get('job_requisitions') || [];
+    const vacancies = this.getSeparationVacancies();
+
+    let targetDept;
+    if (deptId && deptId !== 'all') {
+      targetDept = depts.find(d => d.id === parseInt(deptId));
+    }
+    if (!targetDept) targetDept = depts[0] || { id: 1, name: 'General', employeeCount: 5 };
+
+    // Active filled seats in this department
+    const activeMembers = emps.filter(e => e.departmentId === targetDept.id && e.status !== 'inactive' && e.status !== 'terminated');
+    
+    // Department Head
+    const headEmp = emps.find(e => e.id === targetDept.headId) || activeMembers.find(e => e.role === 'dept_manager') || activeMembers[0];
+
+    // Vacant seats from separated employees in this department needing backfill
+    const deptVacancies = vacancies.filter(v => v.departmentId === targetDept.id && (!v.linkedReq || v.linkedReq.status !== 'approved'));
+    
+    // Approved expansion seats / requisitions ready for hire
+    const approvedSeats = reqs.filter(r => r.departmentId === targetDept.id && r.status === 'approved' && (!r.jobPostId || DB.get('recruitment')?.find(j => j.id === r.jobPostId)?.status === 'open'));
+    
+    // Pending quotations / proposals awaiting HR/Admin review
+    const pendingQuotations = reqs.filter(r => r.departmentId === targetDept.id && r.status === 'pending_review');
+
+    // Total planned/budgeted capacity
+    const totalCapacity = activeMembers.length + deptVacancies.length + approvedSeats.reduce((s, r) => s + (r.headcount || 1), 0);
+    const filledCount = activeMembers.length;
+    const fulfillmentPct = totalCapacity > 0 ? Math.round((filledCount / totalCapacity) * 100) : 100;
+
+    return {
+      department: targetDept,
+      headEmp,
+      activeMembers,
+      deptVacancies,
+      approvedSeats,
+      pendingQuotations,
+      totalCapacity,
+      filledCount,
+      fulfillmentPct
+    };
+  },
+
+  // ═══════════════════════════════════════════════
+  // HEADCOUNT REQUISITIONS, TEAM STRUCTURE & VACANCIES
   // ═══════════════════════════════════════════════
 
   renderRequisitions(container) {
-    const reqs = DB.get('job_requisitions') || [];
-    const depts = DB.get('departments') || [];
     const isHR = this.isHROrAdmin();
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const vacancies = this.getSeparationVacancies();
+    const unfulfilledVacancies = vacancies.filter(v => !v.isBackfilled);
+    const reqs = DB.get('job_requisitions') || [];
+    const pendingReqs = reqs.filter(r => r.status === 'pending_review');
+    const myDeptId = Auth.employee?.departmentId;
 
-    const totalHeadcount = reqs.reduce((sum, r) => sum + (r.headcount || 1), 0);
-    const approvedHeadcount = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.headcount || 1), 0);
-    const pendingCount = reqs.filter(r => r.status === 'pending_review').length;
-    const totalMaxBudget = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.maxSalary || 0) * (r.headcount || 1), 0);
+    if (!this.requisitionTab) this.requisitionTab = 'structure';
+    if (!this.structureDeptId && myDeptId) this.structureDeptId = myDeptId;
 
     container.innerHTML = `
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+      <div class="card" style="margin-bottom:18px">
+        <!-- Requisitions Sub-Header Navigation -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:18px;border-bottom:1px solid var(--border);padding-bottom:14px">
           <div>
-            <div style="font-size:16px;font-weight:700">Headcount Requisitions & Budget Approvals</div>
-            <div style="font-size:12px;color:var(--text-3);margin-top:3px">Formal departmental position opening requests with budget salary ceiling and executive authorization</div>
+            <div style="font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-sitemap" style="color:var(--primary)"></i>
+              <span>Department Team Structure & Headcount Management</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">
+              Manage department team structures, track vacant positions from resignations/terminations, and submit position quotations for HR/Admin approval
+            </div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddRequisitionModal()">
-            <i class="fa fa-plus"></i> New Requisition
+          
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewPositionQuotationModal()" title="Initiate New Position Quotation for HR Approval">
+              <i class="fa fa-file-invoice-dollar"></i> Initiate Position Quotation
+            </button>
+            ${isHR ? `
+              <button class="btn btn-ghost btn-sm" onclick="Recruitment.showAddRequisitionModal()" title="Direct Headcount Requisition">
+                <i class="fa fa-plus"></i> New Requisition
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Subtabs: Structure Blueprint | Requisitions & Quotations | Vacancy Radar -->
+        <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-sm ${this.requisitionTab === 'structure' ? 'btn-primary' : 'btn-ghost'}" 
+            onclick="Recruitment.requisitionTab='structure';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
+            style="font-size:12px;font-weight:600">
+            <i class="fa fa-sitemap"></i> Department Team Structure & Blueprint
+          </button>
+          <button class="btn btn-sm ${this.requisitionTab === 'requisitions' ? 'btn-primary' : 'btn-ghost'}" 
+            onclick="Recruitment.requisitionTab='requisitions';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
+            style="font-size:12px;font-weight:600;position:relative">
+            <i class="fa fa-file-invoice-dollar"></i> Requisitions & Quotations
+            ${pendingReqs.length > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:1px 5px">${pendingReqs.length}</span>` : ''}
+          </button>
+          <button class="btn btn-sm ${this.requisitionTab === 'radar' ? 'btn-primary' : 'btn-ghost'}" 
+            onclick="Recruitment.requisitionTab='radar';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
+            style="font-size:12px;font-weight:600;position:relative">
+            <i class="fa fa-triangle-exclamation"></i> Separation & Vacancies Radar
+            ${unfulfilledVacancies.length > 0 ? `<span class="badge badge-danger" style="margin-left:6px;font-size:10px;padding:1px 5px">${unfulfilledVacancies.length} Vacant</span>` : ''}
           </button>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:22px;font-weight:800;color:var(--primary)">${reqs.length}</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Total Requisitions</div>
+        <!-- Sub-Content Container -->
+        <div id="sub-req-content"></div>
+      </div>
+    `;
+
+    const subContainer = document.getElementById('sub-req-content');
+    if (!subContainer) return;
+
+    if (this.requisitionTab === 'structure') {
+      this.renderTeamStructure(subContainer);
+    } else if (this.requisitionTab === 'requisitions') {
+      this.renderRequisitionsList(subContainer);
+    } else if (this.requisitionTab === 'radar') {
+      this.renderVacancyRadar(subContainer);
+    }
+  },
+
+  // ═══════════════════════════════════════════════
+  // 1. DEPARTMENT TEAM STRUCTURE & HEADCOUNT BLUEPRINT
+  // ═══════════════════════════════════════════════
+
+  renderTeamStructure(container) {
+    const depts = DB.get('departments') || [];
+    const isHR = this.isHROrAdmin();
+    const myDeptId = Auth.employee?.departmentId;
+    
+    // Default selection
+    let selectedDeptId = this.structureDeptId || (myDeptId ? myDeptId : (depts[0]?.id || 1));
+    const struct = this.getDepartmentStructure(selectedDeptId);
+    if (!struct) return;
+
+    const dept = struct.department;
+    const isMyDept = myDeptId === dept.id;
+
+    container.innerHTML = `
+      <!-- Department Selector & Capacity Filter Bar -->
+      <div style="background:var(--surface-2);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <label style="font-size:12.5px;font-weight:700;color:var(--text)">Select Department:</label>
+          <select class="form-control" style="width:260px;font-weight:600" onchange="Recruitment.structureDeptId=parseInt(this.value);Recruitment.renderTeamStructure(document.getElementById('sub-req-content'))">
+            ${depts.map(d => `
+              <option value="${d.id}" ${d.id === dept.id ? 'selected' : ''}>
+                ${d.name} (${d.code}) ${d.id === myDeptId ? '★ [My Dept]' : ''}
+              </option>
+            `).join('')}
+          </select>
+          ${isMyDept ? `<span class="badge badge-primary" style="font-size:11px"><i class="fa fa-star"></i> My Supervised Team</span>` : ''}
+        </div>
+
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewPositionQuotationModal(${dept.id})">
+            <i class="fa fa-plus-circle"></i> Add Position Quotation for ${dept.code}
+          </button>
+        </div>
+      </div>
+
+      <!-- Department Capacity & Headcount Metrics -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--primary)">${struct.totalCapacity}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Target Headcount</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--success)">${struct.filledCount}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Active Filled Seats</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--warning)">${struct.deptVacancies.length}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Vacant (Separated)</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--info)">${struct.approvedSeats.length}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Expansion</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#8b5cf6">${struct.pendingQuotations.length}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending Quotations</div>
+        </div>
+      </div>
+
+      <!-- Capacity Utilization Bar -->
+      <div style="background:var(--surface-2);border-radius:8px;padding:12px 16px;margin-bottom:24px;display:flex;align-items:center;gap:16px">
+        <div style="font-size:12px;font-weight:700;white-space:nowrap">Headcount Capacity Utilization:</div>
+        <div style="flex:1;background:var(--border);height:10px;border-radius:5px;overflow:hidden;position:relative">
+          <div style="width:${Math.min(struct.fulfillmentPct, 100)}%;background:linear-gradient(90deg, #10b981, #3b82f6);height:100%;border-radius:5px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:12px;font-weight:800;color:var(--text)">${struct.filledCount} / ${struct.totalCapacity} (${struct.fulfillmentPct}%)</div>
+      </div>
+
+      <!-- VISUAL TEAM HIERARCHY & SEAT MATRIX -->
+      <div style="margin-bottom:24px">
+        <div style="font-size:15px;font-weight:700;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <span><i class="fa fa-diagram-project" style="color:var(--primary);margin-right:6px"></i>${dept.name} — Interactive Team Structure & Seat Blueprint</span>
+          <span style="font-size:11.5px;color:var(--text-3);font-weight:normal">Live synchronization with exits, quotations & hiring pipeline</span>
+        </div>
+
+        <!-- 1. Department Leadership Tier -->
+        <div style="display:flex;justify-content:center;margin-bottom:16px">
+          ${struct.headEmp ? `
+            <div style="background:var(--card);border:2px solid var(--primary);box-shadow:0 4px 14px rgba(99,102,241,0.15);border-radius:12px;padding:14px 20px;width:340px;text-align:center;position:relative">
+              <span class="badge badge-primary" style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);font-size:10.5px">
+                <i class="fa fa-crown"></i> Department Head
+              </span>
+              <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:6px">
+                <div class="avatar avatar-md" style="background:${Utils.avatarColor(struct.headEmp.id)}">
+                  ${struct.headEmp.photo ? `<img src="${struct.headEmp.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : Utils.avatarInitials(struct.headEmp.fullName)}
+                </div>
+                <div style="text-align:left">
+                  <div style="font-weight:800;font-size:13.5px;color:var(--text)">${struct.headEmp.fullName}</div>
+                  <div style="font-size:11.5px;color:var(--primary);font-weight:600">${Utils.getDesigName ? Utils.getDesigName(struct.headEmp.designationId) : 'Head of Department'}</div>
+                  <div style="font-size:10.5px;color:var(--text-3)">${struct.headEmp.empNo} • Active</div>
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div style="background:var(--surface-2);border:2px dashed var(--warning);border-radius:12px;padding:12px 20px;text-align:center;width:320px">
+              <div style="font-size:12px;font-weight:700;color:var(--warning)">Head of Department Not Assigned</div>
+            </div>
+          `}
+        </div>
+
+        <!-- Visual Connector Line -->
+        <div style="display:flex;justify-content:center;margin-bottom:16px">
+          <div style="width:2px;height:24px;background:var(--border)"></div>
+        </div>
+
+        <!-- 2. Team Seats Grid (Filled, Vacant from Exits, Approved Expansion, Proposed Quotations) -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:14px">
+          
+          <!-- FILLED ACTIVE SEATS -->
+          ${struct.activeMembers.filter(e => e.id !== struct.headEmp?.id).map(m => {
+            const desig = DB.find('designations', m.designationId);
+            return `
+              <div style="background:var(--card);border:1px solid var(--border);border-left:4px solid var(--success);border-radius:10px;padding:14px;position:relative;transition:all .2s" onmouseenter="this.style.transform='translateY(-2px)'" onmouseleave="this.style.transform='none'">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                  <span class="badge badge-success" style="font-size:10px"><i class="fa fa-circle-check"></i> Filled Seat</span>
+                  <span style="font-size:10.5px;font-family:monospace;color:var(--text-3)">${m.empNo}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <div class="avatar avatar-sm" style="background:${Utils.avatarColor(m.id)}">
+                    ${m.photo ? `<img src="${m.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : Utils.avatarInitials(m.fullName)}
+                  </div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;color:var(--text)">${m.fullName}</div>
+                    <div style="font-size:11.5px;color:var(--text-2)">${desig?.name || m.role || 'Staff Member'}</div>
+                    <div style="font-size:10px;color:var(--text-3);margin-top:2px">Joined: ${Utils.formatDate(m.joiningDate)}</div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+
+          <!-- VACANT SEATS FROM RESIGNATIONS / TERMINATIONS -->
+          ${struct.deptVacancies.map(v => `
+            <div style="background:rgba(245,158,11,0.06);border:2px dashed #f59e0b;border-radius:10px;padding:14px;position:relative;transition:all .2s">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                <span class="badge badge-warning" style="font-size:10px"><i class="fa fa-user-clock"></i> Vacant (Separated)</span>
+                <span style="font-size:10px;color:#b45309;font-weight:700">${v.separationType}</span>
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-weight:700;font-size:13px;color:var(--text)">${v.designationName}</div>
+                <div style="font-size:11px;color:var(--text-2);margin-top:2px">
+                  Vacated by: <strong>${v.fullName}</strong> (${v.empNo})
+                </div>
+                <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">Exit Date: ${Utils.formatDate(v.exitDate)}</div>
+              </div>
+              <div style="border-top:1px dashed rgba(245,158,11,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:10.5px;color:#b45309"><i class="fa fa-exclamation-triangle"></i> Needs Backfill</span>
+                <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="Create formal replacement requisition">
+                  <i class="fa fa-user-plus"></i> Requisition / Backfill
+                </button>
+              </div>
+            </div>
+          `).join('')}
+
+          <!-- APPROVED NEW EXPANSION POSITIONS -->
+          ${struct.approvedSeats.map(r => `
+            <div style="background:rgba(59,130,246,0.06);border:2px dashed #3b82f6;border-radius:10px;padding:14px;position:relative">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check-double"></i> Approved Position</span>
+                <span style="font-size:10px;font-family:monospace;color:var(--primary);font-weight:700">${r.reqNumber}</span>
+              </div>
+              <div style="margin-bottom:10px">
+                <div style="font-weight:700;font-size:13px;color:var(--text)">${r.title}</div>
+                <div style="font-size:11px;color:var(--text-2);margin-top:2px">
+                  Headcount: <strong>${r.headcount || 1} Opening(s)</strong> • ${r.employmentType || 'Permanent'}
+                </div>
+                <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">Approved: ${Utils.formatDate(r.approvedAt || r.createdAt)}</div>
+              </div>
+              <div style="border-top:1px dashed rgba(59,130,246,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:10.5px;color:var(--info)"><i class="fa fa-check"></i> Ready to Hire</span>
+                ${r.jobPostId ? `
+                  <span class="badge badge-success" style="font-size:10px"><i class="fa fa-briefcase"></i> Job Posted</span>
+                ` : `
+                  <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
+                    <i class="fa fa-briefcase"></i> Post Job
+                  </button>
+                `}
+              </div>
+            </div>
+          `).join('')}
+
+          <!-- PROPOSED POSITION QUOTATIONS (PENDING HR/ADMIN APPROVAL) -->
+          ${struct.pendingQuotations.map(r => {
+            const requester = Utils.getEmpName(r.requestedBy);
+            return `
+              <div style="background:rgba(139,92,246,0.06);border:2px dashed #8b5cf6;border-radius:10px;padding:14px;position:relative">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+                  <span class="badge badge-secondary" style="background:#8b5cf6;color:white;font-size:10px"><i class="fa fa-clock"></i> Quotation Pending</span>
+                  <span style="font-size:10px;font-family:monospace;color:#8b5cf6;font-weight:700">${r.reqNumber}</span>
+                </div>
+                <div style="margin-bottom:10px">
+                  <div style="font-weight:700;font-size:13px;color:var(--text)">${r.title}</div>
+                  <div style="font-size:11px;color:var(--text-2);margin-top:2px">
+                    Proposed by: <strong>${requester}</strong>
+                  </div>
+                  <div style="font-size:10.5px;color:var(--text-3);margin-top:1px">Target Budget: PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()}</div>
+                </div>
+                <div style="border-top:1px dashed rgba(139,92,246,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-size:10.5px;color:#8b5cf6"><i class="fa fa-hourglass-half"></i> Awaiting Approval</span>
+                  ${isHR ? `
+                    <button class="btn btn-primary btn-xs" onclick="Recruitment.reviewPositionQuotation(${r.id})" title="Inspect quotation and approve into team structure">
+                      <i class="fa fa-clipboard-check"></i> Review Quotation
+                    </button>
+                  ` : `
+                    <span class="badge badge-warning" style="font-size:9.5px">Under HR Review</span>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join('')}
+
+        </div>
+      </div>
+    `;
+  },
+
+  // ═══════════════════════════════════════════════
+  // 2. SEPARATION & VACANCIES RADAR
+  // ═══════════════════════════════════════════════
+
+  renderVacancyRadar(container) {
+    const vacancies = this.getSeparationVacancies();
+    const isHR = this.isHROrAdmin();
+
+    container.innerHTML = `
+      <div style="margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div>
+            <div style="font-size:15px;font-weight:700">Separation & Vacant Position Replacement Radar</div>
+            <div style="font-size:12px;color:var(--text-3)">Automatic tracking of departed personnel (resigned, terminated, exit clearances) to ensure seamless backfilling</div>
           </div>
-          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:22px;font-weight:800;color:var(--success)">${approvedHeadcount} / ${totalHeadcount}</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Headcount</div>
-          </div>
-          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingCount}</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending Review</div>
-          </div>
-          <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
-            <div style="font-size:22px;font-weight:800;color:var(--info)">PKR ${(totalMaxBudget/1000000).toFixed(1)}M</div>
-            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Mo. Payroll Cap</div>
+          <div style="font-size:12px;font-weight:700;color:var(--warning)">
+            <i class="fa fa-triangle-exclamation"></i> ${vacancies.filter(v => !v.isBackfilled).length} Vacant Position(s) Requiring Replacement
           </div>
         </div>
 
@@ -4485,68 +4891,68 @@ const Recruitment = {
           <table>
             <thead>
               <tr>
-                <th>Requisition Ref</th>
-                <th>Role & Department</th>
-                <th>Requested By</th>
-                <th>Headcount</th>
-                <th>Budget Salary Range</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th style="text-align:right">Actions</th>
+                <th>Separated Employee</th>
+                <th>Vacated Role & Dept</th>
+                <th>Separation Type</th>
+                <th>Exit Date</th>
+                <th>Separation Reason</th>
+                <th>Replacement Status</th>
+                <th style="text-align:right">Action</th>
               </tr>
             </thead>
             <tbody>
-              ${reqs.length === 0 ? `
-                <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No requisitions submitted. Click "New Requisition" to request headcount.</td></tr>
-              ` : reqs.map(r => {
-                const dept = depts.find(d => d.id === r.departmentId);
-                const requester = Utils.getEmpName(r.requestedBy);
-                const priorityClass = r.priority === 'Urgent' ? 'badge-danger' : r.priority === 'High' ? 'badge-warning' : 'badge-secondary';
-                const statusBadge = r.status === 'approved' ? '<span class="badge badge-success"><i class="fa fa-check"></i> Approved</span>' :
-                                    r.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
-                                    '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
+              ${vacancies.length === 0 ? `
+                <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-3)">No employee separations or vacant seats recorded.</td></tr>
+              ` : vacancies.map(v => {
+                const req = v.linkedReq;
+                let statusBadge = `<span class="badge badge-danger"><i class="fa fa-circle-exclamation"></i> Vacant (No Requisition)</span>`;
+                if (req) {
+                  if (req.status === 'approved' && req.jobPostId) {
+                    statusBadge = `<span class="badge badge-success"><i class="fa fa-check-double"></i> Job Posted (#${req.jobPostId})</span>`;
+                  } else if (req.status === 'approved') {
+                    statusBadge = `<span class="badge badge-info"><i class="fa fa-check"></i> Requisition Approved</span>`;
+                  } else if (req.status === 'pending_review') {
+                    statusBadge = `<span class="badge badge-warning"><i class="fa fa-clock"></i> Requisition Under Review</span>`;
+                  }
+                }
 
                 return `
                   <tr>
                     <td>
-                      <div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--primary)">${r.reqNumber}</div>
-                      <div style="font-size:10.5px;color:var(--text-3)">${Utils.formatDate(r.createdAt)}</div>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(v.empId)}">
+                          ${v.photo ? `<img src="${v.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : Utils.avatarInitials(v.fullName)}
+                        </div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${v.fullName}</div>
+                          <div style="font-size:11px;color:var(--text-3);font-family:monospace">${v.empNo}</div>
+                        </div>
+                      </div>
                     </td>
                     <td>
-                      <div style="font-weight:700;font-size:13px;color:var(--text)">${r.title}</div>
-                      <div style="font-size:11px;color:var(--text-3)">${dept?.name || 'General'} • ${r.employmentType || 'Permanent'}</div>
+                      <div style="font-weight:600;font-size:12.5px">${v.designationName}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${v.departmentName}</div>
                     </td>
-                    <td>
-                      <div style="font-size:12px;font-weight:600">${requester}</div>
-                      <div style="font-size:10.5px;color:var(--text-3)">${r.reason || 'Expansion'}</div>
+                    <td><span class="badge ${v.separationType.includes('Notice') ? 'badge-warning' : 'badge-secondary'}" style="font-size:10.5px">${v.separationType}</span></td>
+                    <td style="font-size:11.5px;color:var(--text-2)">${Utils.formatDate(v.exitDate)}</td>
+                    <td style="font-size:11.5px;color:var(--text-3);max-width:200px" title="${v.reason}">
+                      ${v.reason.length > 35 ? v.reason.substring(0, 35) + '...' : v.reason}
                     </td>
-                    <td style="font-weight:700;font-size:13px;text-align:center">${r.headcount}</td>
-                    <td style="font-family:monospace;font-size:12px">
-                      PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()}
-                    </td>
-                    <td><span class="badge ${priorityClass}" style="font-size:10.5px">${r.priority}</span></td>
                     <td>${statusBadge}</td>
-                    <td style="text-align:right;white-space:nowrap">
-                      ${r.status === 'approved' && !r.jobPostId ? `
-                        <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
+                    <td style="text-align:right">
+                      ${!v.isBackfilled ? `
+                        <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="Create formal replacement requisition">
+                          <i class="fa fa-user-plus"></i> Initiate Replacement
+                        </button>
+                      ` : req && req.status === 'approved' && !req.jobPostId ? `
+                        <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${req.id})">
                           <i class="fa fa-briefcase"></i> Post Job
                         </button>
-                      ` : r.status === 'approved' && r.jobPostId ? `
-                        <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check-double"></i> Posted</span>
-                      ` : ''}
-
-                      ${isHR && r.status === 'pending_review' ? `
-                        <button class="btn btn-success btn-xs" onclick="Recruitment.approveRequisition(${r.id})" title="Approve Headcount">
-                          <i class="fa fa-check"></i>
+                      ` : `
+                        <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${req.id})">
+                          <i class="fa fa-eye"></i> View Requisition
                         </button>
-                        <button class="btn btn-danger btn-xs" onclick="Recruitment.rejectRequisition(${r.id})" title="Reject Requisition">
-                          <i class="fa fa-times"></i>
-                        </button>
-                      ` : ''}
-
-                      <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${r.id})" title="Inspect Requisition Details">
-                        <i class="fa fa-eye"></i>
-                      </button>
+                      `}
                     </td>
                   </tr>
                 `;
@@ -4558,18 +4964,468 @@ const Recruitment = {
     `;
   },
 
-  showAddRequisitionModal() {
+  // ═══════════════════════════════════════════════
+  // 3. HEADCOUNT REQUISITIONS & QUOTATIONS LIST
+  // ═══════════════════════════════════════════════
+
+  renderRequisitionsList(container) {
+    const reqs = DB.get('job_requisitions') || [];
     const depts = DB.get('departments') || [];
+    const isHR = this.isHROrAdmin();
+
+    const totalHeadcount = reqs.reduce((sum, r) => sum + (r.headcount || 1), 0);
+    const approvedHeadcount = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.headcount || 1), 0);
+    const pendingCount = reqs.filter(r => r.status === 'pending_review').length;
+    const totalMaxBudget = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.maxSalary || 0) * (r.headcount || 1), 0);
+
+    container.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--primary)">${reqs.length}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Total Requisitions</div>
+        </div>
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--success)">${approvedHeadcount} / ${totalHeadcount}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Headcount</div>
+        </div>
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--warning)">${pendingCount}</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Pending Review</div>
+        </div>
+        <div style="background:var(--surface-2);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--info)">PKR ${(totalMaxBudget/1000000).toFixed(1)}M</div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;margin-top:2px">Approved Mo. Payroll Cap</div>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Ref & Type</th>
+              <th>Role & Department</th>
+              <th>Requested By</th>
+              <th>Headcount</th>
+              <th>Budget Salary Range</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${reqs.length === 0 ? `
+              <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No requisitions submitted yet.</td></tr>
+            ` : reqs.map(r => {
+              const dept = depts.find(d => d.id === r.departmentId);
+              const requester = Utils.getEmpName(r.requestedBy);
+              const priorityClass = r.priority === 'Urgent' ? 'badge-danger' : r.priority === 'High' ? 'badge-warning' : 'badge-secondary';
+              const isQuotation = r.isQuotation || (r.reqNumber && r.reqNumber.startsWith('QUOT'));
+              const typeBadge = isQuotation 
+                ? `<span class="badge badge-secondary" style="background:#8b5cf6;color:white;font-size:9px">QUOTATION</span>` 
+                : `<span class="badge badge-ghost" style="font-size:9px">STANDARD</span>`;
+
+              const statusBadge = r.status === 'approved' ? '<span class="badge badge-success"><i class="fa fa-check"></i> Approved</span>' :
+                                  r.status === 'rejected' ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
+                                  '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
+
+              return `
+                <tr>
+                  <td>
+                    <div style="font-weight:700;font-family:monospace;font-size:12px;color:var(--primary)">${r.reqNumber}</div>
+                    <div style="margin-top:2px">${typeBadge}</div>
+                  </td>
+                  <td>
+                    <div style="font-weight:700;font-size:13px;color:var(--text)">${r.title}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${dept?.name || 'General'} • ${r.employmentType || 'Permanent'}</div>
+                  </td>
+                  <td>
+                    <div style="font-size:12px;font-weight:600">${requester}</div>
+                    <div style="font-size:10.5px;color:var(--text-3)">${r.reason || 'Expansion'}</div>
+                  </td>
+                  <td style="font-weight:700;font-size:13px;text-align:center">${r.headcount || 1}</td>
+                  <td style="font-family:monospace;font-size:12px">
+                    PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()}
+                  </td>
+                  <td><span class="badge ${priorityClass}" style="font-size:10.5px">${r.priority}</span></td>
+                  <td>${statusBadge}</td>
+                  <td style="text-align:right;white-space:nowrap">
+                    ${r.status === 'approved' && !r.jobPostId ? `
+                      <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
+                        <i class="fa fa-briefcase"></i> Post Job
+                      </button>
+                    ` : r.status === 'approved' && r.jobPostId ? `
+                      <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check-double"></i> Posted</span>
+                    ` : ''}
+
+                    ${isHR && r.status === 'pending_review' ? `
+                      ${isQuotation ? `
+                        <button class="btn btn-primary btn-xs" onclick="Recruitment.reviewPositionQuotation(${r.id})" title="Inspect and approve quotation">
+                          <i class="fa fa-clipboard-check"></i> Review
+                        </button>
+                      ` : `
+                        <button class="btn btn-success btn-xs" onclick="Recruitment.approveRequisition(${r.id})" title="Approve Headcount">
+                          <i class="fa fa-check"></i>
+                        </button>
+                      `}
+                      <button class="btn btn-danger btn-xs" onclick="Recruitment.rejectRequisition(${r.id})" title="Reject Requisition">
+                        <i class="fa fa-times"></i>
+                      </button>
+                    ` : ''}
+
+                    <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${r.id})" title="Inspect Requisition Details">
+                      <i class="fa fa-eye"></i>
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  // ═══════════════════════════════════════════════
+  // 4. MANAGER NEW POSITION QUOTATION MODAL
+  // ═══════════════════════════════════════════════
+
+  showNewPositionQuotationModal(preselectedDeptId) {
+    const depts = DB.get('departments') || [];
+    const myDeptId = Auth.employee?.departmentId;
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const activeDeptId = preselectedDeptId || myDeptId || depts[0]?.id;
+
+    Modal.show('Submit New Position & Headcount Quotation to HR/Admin', `
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;line-height:1.5">
+        <i class="fa fa-circle-info" style="color:var(--primary)"></i>
+        <strong>Department Headcount Expansion Flow:</strong> As department manager, submit this quotation with budget, equipment, and business case. Upon HR or Admin approval, your department's team structure will <strong>automatically update</strong> with the new position slot ready for recruitment.
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Department *</label>
+          <select class="form-control" id="pq-dept" ${isDeptMgr && myDeptId ? 'disabled style="background:var(--surface-2)"' : ''}>
+            ${depts.map(d => `<option value="${d.id}" ${d.id === activeDeptId ? 'selected' : ''}>${d.name} (${d.code})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Proposed Position Title *</label>
+          <input class="form-control" id="pq-title" placeholder="e.g. Senior Cloud DevOps Engineer">
+        </div>
+      </div>
+
+      <div class="form-row form-row-3">
+        <div class="form-group">
+          <label class="form-label">Position Level</label>
+          <select class="form-control" id="pq-level">
+            <option value="Junior">Junior / Entry Level</option>
+            <option value="Mid">Mid-Level Professional</option>
+            <option value="Senior" selected>Senior Professional</option>
+            <option value="Lead">Team Lead / Principal</option>
+            <option value="Executive">Executive / Management</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Headcount Openings</label>
+          <input class="form-control" id="pq-count" type="number" min="1" max="10" value="1">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Employment Type</label>
+          <select class="form-control" id="pq-type">
+            <option value="Permanent">Permanent Salaried</option>
+            <option value="Contract">Fixed Term Contract</option>
+            <option value="Trainee">Graduate Trainee</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Quoted Minimum Monthly Salary (PKR) *</label>
+          <input class="form-control" id="pq-minsal" type="number" step="10000" value="220000">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quoted Maximum Monthly Budget Ceiling (PKR) *</label>
+          <input class="form-control" id="pq-maxsal" type="number" step="10000" value="300000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Hardware & Workstation Quotation</label>
+        <input class="form-control" id="pq-hardware" placeholder="e.g. MacBook Pro M3 Max 32GB RAM, Dual 4K Dell Displays, Standing Desk">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Software, Cloud & Tooling Licenses</label>
+        <input class="form-control" id="pq-software" placeholder="e.g. AWS Dev Cloud Sandbox, JetBrains Suite, GitHub Copilot License">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Business Case & ROI Justification *</label>
+        <textarea class="form-control" id="pq-case" rows="3" placeholder="Detail why this new position is required, what deliverables the hire will produce, and team impact..."></textarea>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Key Core Competencies & Skills</label>
+          <input class="form-control" id="pq-skills" placeholder="e.g. Kubernetes, Terraform, Go/Node, AWS Architecture">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Target Onboarding Date</label>
+          <input class="form-control" id="pq-date" type="date" value="${new Date(Date.now() + 30*86400000).toISOString().split('T')[0]}">
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Recruitment.savePositionQuotation(${activeDeptId})">
+          <i class="fa fa-paper-plane"></i> Submit Quotation to HR/Admin
+        </button>
+      `
+    });
+  },
+
+  savePositionQuotation(fallbackDeptId) {
+    const deptSelect = document.getElementById('pq-dept');
+    const deptId = deptSelect ? parseInt(deptSelect.value) : fallbackDeptId;
+    const title = (document.getElementById('pq-title')?.value || '').trim();
+    const level = document.getElementById('pq-level')?.value || 'Senior';
+    const count = parseInt(document.getElementById('pq-count')?.value) || 1;
+    const type = document.getElementById('pq-type')?.value || 'Permanent';
+    const minSal = parseInt(document.getElementById('pq-minsal')?.value) || 0;
+    const maxSal = parseInt(document.getElementById('pq-maxsal')?.value) || 0;
+    const hardware = (document.getElementById('pq-hardware')?.value || '').trim();
+    const software = (document.getElementById('pq-software')?.value || '').trim();
+    const businessCase = (document.getElementById('pq-case')?.value || '').trim();
+    const skills = (document.getElementById('pq-skills')?.value || '').trim();
+    const targetDate = document.getElementById('pq-date')?.value || '';
+
+    if (!title) {
+      Toast.show('Position title is required', 'error');
+      return;
+    }
+    if (!businessCase) {
+      Toast.show('Please provide a business case and justification for the position quotation', 'error');
+      return;
+    }
+
+    const reqs = DB.get('job_requisitions') || [];
+    const nextNum = reqs.length + 1;
+    const reqNumber = `POS-QUOT-2026-${String(nextNum).padStart(3, '0')}`;
+    const isHR = this.isHROrAdmin();
+
+    const newQuotation = {
+      id: DB.nextId('job_requisitions'),
+      reqNumber,
+      isQuotation: true,
+      title,
+      level,
+      departmentId: deptId,
+      requestedBy: Auth.user?.id || Auth.employee?.id || 1,
+      headcount: count,
+      employmentType: type,
+      priority: 'High',
+      reason: 'Expansion',
+      minSalary: minSal,
+      maxSalary: maxSal,
+      targetDate,
+      status: isHR ? 'approved' : 'pending_review',
+      approvedBy: isHR ? (Auth.user?.id || 1) : null,
+      approvedAt: isHR ? Utils.today() : null,
+      notes: businessCase,
+      quotationDetails: {
+        hardware,
+        software,
+        skills,
+        level,
+        businessCase
+      },
+      jobPostId: null,
+      createdAt: Utils.today()
+    };
+
+    reqs.push(newQuotation);
+    DB.set('job_requisitions', reqs);
+
+    // Also notify HR/Admin
+    if (typeof Notifications !== 'undefined' && Notifications.add) {
+      Notifications.add({
+        title: `New Position Quotation: ${title}`,
+        message: `${Auth.employee?.fullName || 'Manager'} submitted a quotation for ${count} opening(s) in department.`,
+        type: 'recruitment',
+        targetRole: 'hr_manager'
+      });
+    }
+
+    DB.log('QUOTATION_SUBMITTED', 'Recruitment', `Manager submitted new position quotation ${reqNumber} for ${title}`, Auth.user?.id, 'INFO');
+    Toast.show(`Position quotation ${reqNumber} submitted to HR/Admin for approval!`, 'success');
+    Modal.close('dynamic-modal');
+
+    // Switch to team structure view for the department
+    this.structureDeptId = deptId;
+    this.requisitionTab = 'structure';
+    this.render();
+  },
+
+  // ═══════════════════════════════════════════════
+  // 5. HR/ADMIN REVIEW & APPROVAL OF POSITION QUOTATION
+  // ═══════════════════════════════════════════════
+
+  reviewPositionQuotation(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => x.id === id);
+    if (!r) return;
+    const depts = DB.get('departments') || [];
+    const dept = depts.find(d => d.id === r.departmentId);
+    const requester = Utils.getEmpName(r.requestedBy);
+    const q = r.quotationDetails || {};
+
+    Modal.show(`Review Position Quotation: ${r.reqNumber}`, `
+      <div style="background:var(--surface-2);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text)">${r.title}</div>
+            <div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:2px">
+              ${dept?.name || 'Department'} • ${r.level || 'Senior'} Level • ${r.headcount || 1} Seat(s)
+            </div>
+          </div>
+          <span class="badge badge-warning"><i class="fa fa-clock"></i> Pending HR/Admin Review</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;font-size:12.5px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Requested By</div>
+          <div style="font-weight:700;margin-top:2px">${requester}</div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:8px">Target Onboarding</div>
+          <div style="font-weight:700;margin-top:2px">${Utils.formatDate(r.targetDate)}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Quoted Monthly Salary Range</div>
+          <div style="font-weight:800;color:var(--success);margin-top:2px">
+            PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()}
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:8px">Team Structure Impact</div>
+          <div style="font-weight:700;color:var(--info);margin-top:2px">
+            +${r.headcount || 1} Approved Seat to ${dept?.code || 'Dept'} Hierarchy
+          </div>
+        </div>
+      </div>
+
+      ${q.hardware ? `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px">
+          <strong><i class="fa fa-laptop" style="color:var(--primary);margin-right:5px"></i>Hardware & Workstation:</strong>
+          <div style="margin-top:3px;color:var(--text-2)">${q.hardware}</div>
+        </div>
+      ` : ''}
+
+      ${q.software ? `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px">
+          <strong><i class="fa fa-cubes" style="color:var(--info);margin-right:5px"></i>Software & Cloud Tools:</strong>
+          <div style="margin-top:3px;color:var(--text-2)">${q.software}</div>
+        </div>
+      ` : ''}
+
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;font-size:12px">
+        <strong><i class="fa fa-briefcase" style="color:var(--primary);margin-right:5px"></i>Business Case & ROI Justification:</strong>
+        <div style="margin-top:5px;color:var(--text-2);line-height:1.5">${r.notes || q.businessCase || 'No business case provided.'}</div>
+      </div>
+
+      <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46">
+        <i class="fa fa-check-circle"></i> <strong>Approval Effect:</strong> Approving will immediately add this position to the <strong>${dept?.name} Team Structure</strong>, increment department headcount capacity, and open recruitment job posting.
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-danger" onclick="Recruitment.rejectPositionQuotation(${r.id})">
+          <i class="fa fa-times"></i> Reject
+        </button>
+        <button class="btn btn-success" onclick="Recruitment.approvePositionQuotation(${r.id})">
+          <i class="fa fa-check-circle"></i> Approve Position & Update Team Structure
+        </button>
+      `
+    });
+  },
+
+  approvePositionQuotation(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => x.id === id);
+    if (!r) return;
+
+    r.status = 'approved';
+    r.approvedBy = Auth.user?.id || 1;
+    r.approvedAt = Utils.today();
+    DB.set('job_requisitions', reqs);
+
+    // Update department capacity in DB if tracked
+    const depts = DB.get('departments') || [];
+    const dept = depts.find(d => d.id === r.departmentId);
+    if (dept) {
+      dept.employeeCount = (dept.employeeCount || 0) + (r.headcount || 1);
+      DB.set('departments', depts);
+    }
+
+    DB.log('APPROVE_QUOTATION', 'Recruitment', `Approved position quotation ${r.reqNumber} for ${r.title} in ${dept?.name || 'dept'}. Team structure updated.`, Auth.user?.id, 'INFO');
+    Toast.show(`Quotation ${r.reqNumber} approved! Department team structure updated.`, 'success');
+    Modal.close('dynamic-modal');
+
+    // Automatically navigate to team structure
+    this.structureDeptId = r.departmentId;
+    this.requisitionTab = 'structure';
+    this.render();
+  },
+
+  rejectPositionQuotation(id) {
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => x.id === id);
+    if (!r) return;
+
+    Modal.confirm('Reject Position Quotation', `Are you sure you want to reject position quotation <strong>${r.reqNumber}</strong>?`, () => {
+      r.status = 'rejected';
+      DB.set('job_requisitions', reqs);
+      DB.log('REJECT_QUOTATION', 'Recruitment', `Rejected position quotation ${r.reqNumber}`, Auth.user?.id, 'WARNING');
+      Toast.show('Position quotation rejected', 'info');
+      Modal.close('dynamic-modal');
+      this.render();
+    }, 'danger');
+  },
+
+  // ═══════════════════════════════════════════════
+  // 6. VACANCY TO REPLACEMENT REQUISITION SHORTCUT
+  // ═══════════════════════════════════════════════
+
+  initiateReplacementFromVacancy(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const desig = DB.find('designations', emp.designationId);
+    const clearances = DB.get('exit_clearances') || [];
+    const clearance = clearances.find(c => c.employeeId === emp.id);
+
+    this.showAddRequisitionModal({
+      title: `${desig?.name || emp.role || 'Staff'} (Replacement)`,
+      departmentId: emp.departmentId,
+      reason: 'Replacement',
+      priority: 'Urgent',
+      notes: `Replacement requirement for separated personnel ${emp.fullName} (${emp.empNo}) who departed on ${clearance?.lastWorkingDay || emp.exitDate || 'recent'}. Separation reason: ${clearance?.reason || 'Resignation'}.`,
+      vacatedEmployeeId: emp.id,
+      vacatedEmployeeName: emp.fullName
+    });
+  },
+
+  showAddRequisitionModal(prefill) {
+    const depts = DB.get('departments') || [];
+    const p = prefill || {};
+
     Modal.show('Submit Headcount & Budget Requisition', `
       <div class="form-group">
         <label class="form-label">Position Title</label>
-        <input class="form-control" id="rq-title" placeholder="e.g. Staff Site Reliability Engineer">
+        <input class="form-control" id="rq-title" placeholder="e.g. Staff Site Reliability Engineer" value="${p.title || ''}">
       </div>
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Department</label>
           <select class="form-control" id="rq-dept">
-            ${depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+            ${depts.map(d => `<option value="${d.id}" ${d.id === p.departmentId ? 'selected' : ''}>${d.name}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -4581,7 +5437,7 @@ const Recruitment = {
         <div class="form-group">
           <label class="form-label">Employment Classification</label>
           <select class="form-control" id="rq-type">
-            <option value="Permanent">Permanent Salaried</option>
+            <option value="Permanent" selected>Permanent Salaried</option>
             <option value="Contract">Fixed Term Contract</option>
             <option value="Internship">Graduate Trainee / Internship</option>
           </select>
@@ -4589,10 +5445,10 @@ const Recruitment = {
         <div class="form-group">
           <label class="form-label">Hiring Priority</label>
           <select class="form-control" id="rq-priority">
-            <option value="Urgent">Urgent (Immediate Project Need)</option>
-            <option value="High" selected>High (Next 30 Days)</option>
+            <option value="Urgent" ${p.priority === 'Urgent' ? 'selected' : ''}>Urgent (Immediate Need / Replacement)</option>
+            <option value="High" ${p.priority === 'High' || !p.priority ? 'selected' : ''}>High (Next 30 Days)</option>
             <option value="Medium">Medium (Q3 Growth)</option>
-            <option value="Standard">Standard Replacement</option>
+            <option value="Standard">Standard</option>
           </select>
         </div>
       </div>
@@ -4609,21 +5465,23 @@ const Recruitment = {
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Target Onboarding Date</label>
-          <input class="form-control" id="rq-target" type="date" value="2026-10-15">
+          <input class="form-control" id="rq-target" type="date" value="${new Date(Date.now() + 30*86400000).toISOString().split('T')[0]}">
         </div>
         <div class="form-group">
           <label class="form-label">Requisition Justification</label>
           <select class="form-control" id="rq-reason">
-            <option value="Expansion">Team Expansion / Revenue Scaling</option>
-            <option value="Replacement">Replacement for Separated Personnel</option>
+            <option value="Replacement" ${p.reason === 'Replacement' ? 'selected' : ''}>Replacement for Separated Personnel</option>
+            <option value="Expansion" ${p.reason === 'Expansion' ? 'selected' : ''}>Team Expansion / Revenue Scaling</option>
             <option value="New Technology">New Technology Stack Specialization</option>
           </select>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">Operational Notes & Justification</label>
-        <textarea class="form-control" id="rq-notes" rows="3" placeholder="Explain project business justification, reporting lines, and expected deliverables..."></textarea>
+        <textarea class="form-control" id="rq-notes" rows="3" placeholder="Explain project business justification, reporting lines, and expected deliverables...">${p.notes || ''}</textarea>
       </div>
+      <input type="hidden" id="rq-vacated-id" value="${p.vacatedEmployeeId || ''}">
+      <input type="hidden" id="rq-vacated-name" value="${p.vacatedEmployeeName || ''}">
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
@@ -4643,6 +5501,8 @@ const Recruitment = {
     const targetDate = document.getElementById('rq-target').value;
     const reason = document.getElementById('rq-reason').value;
     const notes = document.getElementById('rq-notes').value.trim();
+    const vacatedEmployeeId = parseInt(document.getElementById('rq-vacated-id')?.value) || null;
+    const vacatedEmployeeName = document.getElementById('rq-vacated-name')?.value || null;
 
     if (!title) {
       Toast.show('Position title is required', 'error');
@@ -4652,6 +5512,7 @@ const Recruitment = {
     const reqs = DB.get('job_requisitions') || [];
     const nextNum = reqs.length + 1;
     const reqNumber = `REQ-2026-${String(nextNum).padStart(3, '0')}`;
+    const isHR = this.isHROrAdmin();
 
     const newReq = {
       id: DB.nextId('job_requisitions'),
@@ -4663,15 +5524,17 @@ const Recruitment = {
       employmentType: type,
       priority,
       reason,
+      vacatedEmployeeId,
+      vacatedEmployeeName,
       minSalary: minSal,
       maxSalary: maxSal,
       targetDate,
-      status: this.isHROrAdmin() ? 'approved' : 'pending_review',
-      approvedBy: this.isHROrAdmin() ? (Auth.user?.id || 1) : null,
-      approvedAt: this.isHROrAdmin() ? new Date().toISOString().split('T')[0] : null,
+      status: isHR ? 'approved' : 'pending_review',
+      approvedBy: isHR ? (Auth.user?.id || 1) : null,
+      approvedAt: isHR ? Utils.today() : null,
       notes,
       jobPostId: null,
-      createdAt: new Date().toISOString().split('T')[0]
+      createdAt: Utils.today()
     };
 
     reqs.push(newReq);
@@ -4689,7 +5552,7 @@ const Recruitment = {
 
     reqs[idx].status = 'approved';
     reqs[idx].approvedBy = Auth.user?.id || 1;
-    reqs[idx].approvedAt = new Date().toISOString().split('T')[0];
+    reqs[idx].approvedAt = Utils.today();
     DB.set('job_requisitions', reqs);
     DB.log('APPROVE', 'Recruitment', `Approved headcount requisition ${reqs[idx].reqNumber} for ${reqs[idx].title}`, Auth.user?.id, 'WARNING');
     Toast.show(`Requisition ${reqs[idx].reqNumber} approved!`, 'success');
@@ -4741,20 +5604,25 @@ const Recruitment = {
     const r = (DB.get('job_requisitions') || []).find(x => x.id === id);
     if (!r) return;
     const dept = (DB.get('departments') || []).find(d => d.id === r.departmentId);
+    const q = r.quotationDetails || {};
 
     Modal.show(`Requisition Inspection: ${r.reqNumber}`, `
       <div style="background:var(--surface-2);padding:14px;border-radius:10px;margin-bottom:14px;font-size:12.5px;line-height:1.6">
         <div><strong>Position Title:</strong> ${r.title}</div>
         <div><strong>Department:</strong> ${dept?.name || 'General'}</div>
-        <div><strong>Requested Headcount:</strong> ${r.headcount} (${r.employmentType || 'Permanent'})</div>
+        <div><strong>Requested Headcount:</strong> ${r.headcount || 1} (${r.employmentType || 'Permanent'})</div>
         <div><strong>Target Compensation:</strong> PKR ${(r.minSalary||0).toLocaleString()} – ${(r.maxSalary||0).toLocaleString()} / month</div>
         <div><strong>Target Onboarding Date:</strong> ${r.targetDate || 'Flexible'}</div>
-        <div><strong>Reason & Justification:</strong> ${r.reason}</div>
+        <div><strong>Reason & Justification:</strong> ${r.reason || 'Expansion'}</div>
         <div><strong>Status:</strong> ${(r.status || 'Pending').toUpperCase()}</div>
+        ${r.vacatedEmployeeName ? `<div><strong>Backfilling Seat Vacated By:</strong> ${r.vacatedEmployeeName}</div>` : ''}
       </div>
+      ${q.hardware ? `
+        <div style="margin-bottom:8px;font-size:12px"><strong>Hardware:</strong> ${q.hardware}</div>
+      ` : ''}
       <div style="font-size:12px;color:var(--text);margin-bottom:6px"><strong>Justification Notes:</strong></div>
       <div style="background:var(--card);border:1px solid var(--border);padding:12px;border-radius:8px;font-size:12px;color:var(--text-2);line-height:1.5">
-        ${r.notes || 'No detailed notes recorded.'}
+        ${r.notes || q.businessCase || 'No detailed notes recorded.'}
       </div>
     `, {
       footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Inspection</button>`
