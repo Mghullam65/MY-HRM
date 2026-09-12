@@ -1851,23 +1851,39 @@ const Leaves = {
       const dailyWage = Math.round(salary / 30);
       const totalDed = Math.round(dailyWage * days);
 
+      const isHROrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+      const isSelf = empId === Auth.employee?.id;
+
       if (preview) {
-        preview.innerHTML = `
-          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);padding:10px 12px;border-radius:8px;border:1px solid rgba(245,158,11,0.3)">
-            <div>
-              <div style="font-size:11px;color:var(--text-3)">Calculated Daily Wage (PKR ${salary.toLocaleString()} / 30 days)</div>
-              <div style="font-weight:700;color:var(--text);font-size:13px">PKR ${dailyWage.toLocaleString()} × ${days} day${days!==1?'s':''}</div>
+        if (isHROrAdmin || isSelf) {
+          preview.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);padding:10px 12px;border-radius:8px;border:1px solid rgba(245,158,11,0.3)">
+              <div>
+                <div style="font-size:11px;color:var(--text-3)">Calculated Daily Wage (PKR ${salary.toLocaleString()} / 30 days)</div>
+                <div style="font-weight:700;color:var(--text);font-size:13px">PKR ${dailyWage.toLocaleString()} × ${days} day${days!==1?'s':''}</div>
+              </div>
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--text-3)">Estimated Payroll Deduction</div>
+                <div style="font-weight:800;color:var(--danger);font-size:16px">PKR ${totalDed.toLocaleString()}</div>
+              </div>
             </div>
-            <div style="text-align:right">
-              <div style="font-size:11px;color:var(--text-3)">Estimated Payroll Deduction</div>
-              <div style="font-weight:800;color:var(--danger);font-size:16px">PKR ${totalDed.toLocaleString()}</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:6px;display:flex;align-items:center;gap:6px">
+              <i class="fa fa-info-circle" style="color:var(--warning)"></i>
+              <span>This leave will be deducted from your next salary slip and will <strong>NOT</strong> consume paid quota.</span>
             </div>
-          </div>
-          <div style="font-size:11.5px;color:var(--text-2);margin-top:6px;display:flex;align-items:center;gap:6px">
-            <i class="fa fa-info-circle" style="color:var(--warning)"></i>
-            <span>This leave will be deducted from your next salary slip and will <strong>NOT</strong> consume paid quota.</span>
-          </div>
-        `;
+          `;
+        } else {
+          preview.innerHTML = `
+            <div style="background:var(--surface);padding:10px 12px;border-radius:8px;border:1px solid rgba(245,158,11,0.3)">
+              <div style="font-weight:700;color:var(--warning);font-size:13px;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-clock"></i> Loss of Pay / Unpaid Leave: ${days} day${days!==1?'s':''}
+              </div>
+              <div style="font-size:11.5px;color:var(--text-2);margin-top:4px">
+                This leave will not consume paid quota. Payroll adjustments will be calculated and finalized strictly by HR.
+              </div>
+            </div>
+          `;
+        }
       }
     }
     this.updateLeaveFormQuota();
@@ -2126,7 +2142,11 @@ const Leaves = {
 
       DB.log('APPROVE', 'Leaves', `Leave #${leaveId} approved (Final)`, Auth.user?.id);
       if (leave.salaryDeduction) {
-        Toast.show(`Leave approved with Salary Deduction (PKR ${(leave.deductionAmount||0).toLocaleString()}) for payroll!`, 'success');
+        if (['superadmin', 'hr_manager'].includes(Auth.role)) {
+          Toast.show(`Leave approved with Salary Deduction (PKR ${(leave.deductionAmount||0).toLocaleString()}) for payroll!`, 'success');
+        } else {
+          Toast.show('Leave approved with Loss of Pay and forwarded to HR for payroll adjustment!', 'success');
+        }
       } else {
         Toast.show('Final leave approval granted! Quota deducted.', 'success');
       }
@@ -2155,6 +2175,10 @@ const Leaves = {
     const emp = DB.find('employees', leave.employeeId);
     const type = DB.find('leave_types', leave.typeId);
     const quotaType = leave.quotaTypeId ? DB.find('leave_types', leave.quotaTypeId) : type;
+    const isHROrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isSelf = Auth.employee?.id === leave.employeeId;
+    const showFinancials = isHROrAdmin || isSelf;
+
     Modal.show(`Leave Request — ${emp?.fullName}`, `
       <div style="display:flex;flex-direction:column;gap:10px">
         ${[
@@ -2166,7 +2190,11 @@ const Leaves = {
           ['Days', `${leave.days} day${leave.days !== 1 ? 's' : ''}`],
           ['Reason', leave.reason],
           ['Remarks / Handover', leave.remarks || '—'],
-          ['Salary Deduction', leave.salaryDeduction ? `<span class="badge badge-warning" style="font-size:12px"><i class="fa fa-money-bill-wave"></i> PKR ${(leave.deductionAmount||0).toLocaleString()} (Unpaid LOP)</span>` : '<span class="badge badge-secondary">Paid Quota Leave</span>'],
+          ['Salary Deduction', leave.salaryDeduction 
+            ? (showFinancials 
+                ? `<span class="badge badge-warning" style="font-size:12px"><i class="fa fa-money-bill-wave"></i> PKR ${(leave.deductionAmount||0).toLocaleString()} (Unpaid LOP)</span>` 
+                : '<span class="badge badge-warning" style="font-size:12px"><i class="fa fa-clock"></i> Unpaid Leave (Loss of Pay)</span>')
+            : '<span class="badge badge-secondary">Paid Quota Leave</span>'],
           ['Applied On', Utils.formatDate(leave.appliedOn)],
           ['Status', Utils.statusBadge(leave.status)],
           ['Comments', leave.comments || '—'],

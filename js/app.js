@@ -590,11 +590,12 @@ const App = {
       const myId = Auth.employee?.id;
       allEmps = allEmps.filter(e => e.id === myId);
     }
+    const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     const emps = allEmps.filter(e =>
       e.fullName.toLowerCase().includes(q) ||
       e.empNo.toLowerCase().includes(q) ||
       e.email.toLowerCase().includes(q) ||
-      (e.cnic||'').includes(q) ||
+      ((isHROrAdmin || e.id === Auth.employee?.id) && (e.cnic||'').includes(q)) ||
       Utils.getDeptName(e.departmentId).toLowerCase().includes(q)
     ).slice(0, 6);
 
@@ -625,7 +626,12 @@ const App = {
   searchNavigate(empId) {
     document.getElementById('search-dropdown')?.classList.remove('open');
     document.getElementById('global-search').value = '';
-    Employees.renderProfile(empId);
+    const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    if (isHROrAdmin || Auth.employee?.id === empId) {
+      Employees.renderProfile(empId);
+    } else {
+      App.navigate('employees');
+    }
     // Update topbar
     const title = document.getElementById('topbar-title');
     if (title) title.textContent = 'Employees';

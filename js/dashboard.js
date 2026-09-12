@@ -318,7 +318,7 @@ const Dashboard = {
       });
     }
 
-    if (processedSalary > 0) {
+    if (processedSalary > 0 && ['superadmin', 'hr_manager'].includes(Auth.role)) {
       headlines.push({
         type: 'alert',
         icon: 'fa-money-bill-wave',
@@ -491,7 +491,8 @@ const Dashboard = {
             </div>
           </div>
 
-          <!-- Payroll -->
+          <!-- Payroll (HR / Admin only) or Team Attendance (Dept Manager) -->
+          ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
           <div class="card">
             <div class="card-header">
               <div class="card-title"><i class="fa fa-money-bill-wave" style="color:var(--success);margin-right:8px"></i>Payroll — Aug 2026</div>
@@ -508,11 +509,34 @@ const Dashboard = {
                 </div>
               `).join('')}
               <div style="padding:10px 12px;background:var(--primary-glow);border-radius:8px;border:1px solid var(--primary-glow)">
-                <div style="font-size:11px;color:var(--text-3)">${Auth.role === 'dept_manager' ? 'Team Net Paid' : 'Total Net Paid'}</div>
-                <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(salary.filter(s=>s.status==='processed' && (Auth.role === 'dept_manager' ? scopedIds.includes(s.employeeId) : true)).reduce((a,s)=>a+s.netSalary,0))}</div>
+                <div style="font-size:11px;color:var(--text-3)">Total Net Paid</div>
+                <div style="font-size:18px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(salary.filter(s=>s.status==='processed').reduce((a,s)=>a+s.netSalary,0))}</div>
               </div>
             </div>
           </div>
+          ` : `
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title"><i class="fa fa-clock" style="color:var(--primary);margin-right:8px"></i>Team Attendance Today</div>
+              <button class="btn btn-ghost btn-sm" onclick="App.navigate('attendance')">View All</button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${[
+                { label:'Present Today', val: present, color: 'var(--success)' },
+                { label:'Late Arrivals', val: late,    color: 'var(--warning)' },
+              ].map(l => `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--surface);border-radius:8px">
+                  <span style="font-size:13px;color:var(--text-2)">${l.label}</span>
+                  <span style="font-size:16px;font-weight:700;color:${l.color}">${l.val}</span>
+                </div>
+              `).join('')}
+              <div style="padding:10px 12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border)">
+                <div style="font-size:11px;color:var(--text-3)">On Leave / Absent</div>
+                <div style="font-size:18px;font-weight:800;color:var(--danger)">${onLeave + absent}</div>
+              </div>
+            </div>
+          </div>
+          `}
 
           <!-- Performance -->
           <div class="card">

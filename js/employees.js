@@ -291,7 +291,9 @@ const Employees = {
                   </td>
                   <td style="text-align:right">
                     <div class="tbl-actions" style="justify-content:flex-end">
-                      <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
+                      ${(isHROrAdmin || Auth.employee?.id === e.id) ? `
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
+                      ` : ''}
                       ${canViewProfile ? `
                         <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
                       ` : ''}
@@ -4486,8 +4488,8 @@ const Employees = {
   },
 
   toggleStatus(empId) {
-    if (Auth.role === 'employee') {
-      Toast.show('Permission denied.', 'error');
+    if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
+      Toast.show('Permission denied: Only HR and Admin are authorized to activate or deactivate employees.', 'error');
       return;
     }
     const emp = DB.find('employees', empId);
@@ -8264,7 +8266,12 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
   },
 
   showDigitalBadge(empId) {
+    const isHR = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     empId = empId || this.activeProfileEmpId || Auth.employee?.id || 1;
+    if (!isHR && Number(empId) !== Number(Auth.employee?.id)) {
+      Toast.show('Access restricted: You can only view your own digital badge.', 'warning');
+      return;
+    }
     const emp = DB.find('employees', Number(empId)) || (DB.get('employees') || []).find(e => e.id == empId) || (DB.get('employees') || [])[0];
     if (!emp) {
       Toast.show('Employee details not found for digital badge', 'warning');

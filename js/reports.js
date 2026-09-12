@@ -209,6 +209,12 @@ const Reports = {
       return;
     }
 
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const hrAdminTabs = ['increment_details', 'executive', 'recruitment_funnel', 'employee_report', 'builder', 'standard'];
+    if (!isHrOrAdmin && hrAdminTabs.includes(this.currentTab)) {
+      this.currentTab = 'performance_report';
+    }
+
     // Reset pagination
     this.page = 1;
     if (!this.selectedColumns.length) {
@@ -221,16 +227,16 @@ const Reports = {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div class="report-suite-tabs">
             ${[
-              { id: 'employee_stats', label: 'Employee Stats', icon: 'fa-chart-pie' },
-              { id: 'office_layout', label: 'Office Layout', icon: 'fa-building' },
-              { id: 'employee_report', label: 'Employee Report Management', icon: 'fa-users-gear' },
-              { id: 'performance_report', label: 'Performance Review Report', icon: 'fa-award' },
-              { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket' },
-              { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up' },
-              { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar' },
-              { id: 'executive', label: 'Executive BI Analytics', icon: 'fa-chart-line' },
-              { id: 'builder', label: 'Custom Report Builder', icon: 'fa-wrench' }
-            ].map(tab => `
+              { id: 'performance_report', label: 'Performance Review Report', icon: 'fa-award', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+              { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+              { id: 'employee_stats', label: 'Employee Stats', icon: 'fa-chart-pie', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+              { id: 'office_layout', label: 'Office Layout', icon: 'fa-building', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+              { id: 'employee_report', label: 'Employee Report Management', icon: 'fa-users-gear', roles: ['superadmin', 'hr_manager'] },
+              { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up', roles: ['superadmin', 'hr_manager'] },
+              { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar', roles: ['superadmin', 'hr_manager'] },
+              { id: 'executive', label: 'Executive BI Analytics', icon: 'fa-chart-line', roles: ['superadmin', 'hr_manager'] },
+              { id: 'builder', label: 'Custom Report Builder', icon: 'fa-wrench', roles: ['superadmin', 'hr_manager'] }
+            ].filter(tab => tab.roles.includes(Auth.role)).map(tab => `
               <button class="report-suite-tab ${this.currentTab === tab.id ? 'active' : ''}" onclick="Reports.switchTab('${tab.id}')">
                 <i class="fa ${tab.icon}"></i>${tab.label}
               </button>
@@ -272,13 +278,26 @@ const Reports = {
   },
 
   switchTab(tab) {
-    this.currentTab = tab;
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const hrAdminTabs = ['increment_details', 'executive', 'recruitment_funnel', 'employee_report', 'builder', 'standard'];
+    if (!isHrOrAdmin && hrAdminTabs.includes(tab)) {
+      Toast.show('Access restricted: Only HR Managers and System Administrators can access financial & executive reports.', 'warning');
+      this.currentTab = 'performance_report';
+    } else {
+      this.currentTab = tab;
+    }
     this.render();
   },
 
   renderActiveTab() {
     const container = document.getElementById('reports-tab-content');
     if (!container) return;
+
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const hrAdminTabs = ['increment_details', 'executive', 'recruitment_funnel', 'employee_report', 'builder', 'standard'];
+    if (!isHrOrAdmin && hrAdminTabs.includes(this.currentTab)) {
+      this.currentTab = 'performance_report';
+    }
 
     if (this.currentTab === 'employee_stats') {
       this.renderEmployeeStats(container);
@@ -307,6 +326,18 @@ const Reports = {
   // 1. EXECUTIVE BI & WORKFORCE ANALYTICS DECK
   // ═════════════════════════════════════════════════════════════════════════
   renderExecutiveBI(container) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      container.innerHTML = `
+        <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+          <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+          <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+            Executive BI Analytics and corporate financial metrics are strictly restricted to HR Managers and System Administrators.
+          </p>
+          <button class="btn btn-primary" onclick="Reports.switchTab('performance_report')"><i class="fa fa-arrow-left"></i> View Performance Reviews</button>
+        </div>`;
+      return;
+    }
     const emps = Auth.getScopedEmployees(DB.get('employees') || []);
     const activeEmps = emps.filter(e => e.status === 'active' && e.role !== 'onboarding');
     const totalCount = activeEmps.length || 1;
@@ -505,6 +536,18 @@ const Reports = {
   // 2. DYNAMIC CUSTOM REPORT BUILDER
   // ═════════════════════════════════════════════════════════════════════════
   renderReportBuilder(container) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      container.innerHTML = `
+        <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+          <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+          <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+            Custom Report Builder is strictly restricted to HR Managers and System Administrators.
+          </p>
+          <button class="btn btn-primary" onclick="Reports.switchTab('performance_report')"><i class="fa fa-arrow-left"></i> View Performance Reviews</button>
+        </div>`;
+      return;
+    }
     const schema = this.schemas[this.activeEntity];
     const depts = DB.get('departments') || [];
 
@@ -1219,9 +1262,9 @@ const Reports = {
   },
 
   renderEmployeeStats(container) {
-    const emps = DB.get('employees') || [];
+    const emps = Auth.getScopedEmployees(DB.get('employees') || []);
 
-    const dimensions = [
+    let dimensions = [
       {
         key: 'division',
         label: 'Division Based',
@@ -1304,6 +1347,10 @@ const Reports = {
         getter: e => e.technology || 'Enterprise Stack'
       }
     ];
+
+    if (Auth.role === 'dept_manager') {
+      dimensions = dimensions.filter(d => !['religion', 'smoking', 'maritalStatus', 'nationality'].includes(d.key));
+    }
 
     const palette = ['#0099cc', '#0284c7', '#38bdf8', '#0369a1', '#7dd3fc', '#0ea5e9', '#0891b2', '#06b6d4'];
 
@@ -1636,6 +1683,18 @@ const Reports = {
   // 6. ENTERPRISE REPORT 3: EMPLOYEE REPORT MANAGEMENT
   // ═════════════════════════════════════════════════════════════════════════
   renderEmployeeReportManagement(container) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      container.innerHTML = `
+        <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+          <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+          <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+            Comprehensive Employee Master Reports containing personal and confidential records are restricted to HR Managers and System Administrators.
+          </p>
+          <button class="btn btn-primary" onclick="Reports.switchTab('performance_report')"><i class="fa fa-arrow-left"></i> View Performance Reviews</button>
+        </div>`;
+      return;
+    }
     const emps = DB.get('employees') || [];
     const depts = DB.get('departments') || [];
     const desigs = DB.get('designations') || [];
@@ -2549,6 +2608,18 @@ const Reports = {
   // 9. ENTERPRISE REPORT 6: EMPLOYEE INCREMENT DETAILS
   // ═════════════════════════════════════════════════════════════════════════
   renderEmployeeIncrementDetails(container) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      container.innerHTML = `
+        <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+          <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+          <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+            Employee salary increments, packages, and financial compensation details are strictly confidential and restricted to HR Managers and System Administrators.
+          </p>
+          <button class="btn btn-primary" onclick="Reports.switchTab('performance_report')"><i class="fa fa-arrow-left"></i> View Performance Reviews</button>
+        </div>`;
+      return;
+    }
     const f = this.incrementReportFilters;
 
     container.innerHTML = `
@@ -2684,6 +2755,18 @@ const Reports = {
   // RECRUITMENT FUNNEL & ASSESSMENT ANALYTICS REPORT
   // ═══════════════════════════════════════════════
   renderRecruitmentFunnelReport(container) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      container.innerHTML = `
+        <div class="animate-fade-in" style="text-align:center;padding:60px 20px">
+          <i class="fa fa-shield-halved" style="font-size:48px;color:var(--warning);margin-bottom:20px;display:block"></i>
+          <h3 style="color:var(--text);font-size:20px;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);margin-bottom:24px;font-size:14px;max-width:520px;margin-left:auto;margin-right:auto">
+            Recruitment candidate assessment data and salary offer sheets are restricted to HR Managers and System Administrators.
+          </p>
+          <button class="btn btn-primary" onclick="Reports.switchTab('performance_report')"><i class="fa fa-arrow-left"></i> View Performance Reviews</button>
+        </div>`;
+      return;
+    }
     if (typeof Recruitment !== 'undefined' && typeof Recruitment.renderAssessmentSheets === 'function') {
       Recruitment.renderAssessmentSheets(container);
     } else {
