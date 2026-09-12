@@ -2094,6 +2094,8 @@ const Performance = {
 const Recruitment = {
   currentView: 'jobs',
   offerFilter: { query: '', type: 'all', status: 'all' },
+  pipelineFilter: { query: '', jobId: 'all', score: 'all', viewMode: 'kanban' },
+  draggedAppId: null,
 
   isHROrAdmin() {
     return Auth.role === 'superadmin' || Auth.role === 'hr_manager';
@@ -2169,6 +2171,15 @@ const Recruitment = {
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddRequisitionModal()">
                 <i class="fa fa-plus"></i> Submit Headcount Requisition
+              </button>
+            </div>
+          ` : this.currentView === 'pipeline' ? `
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-outline btn-sm" onclick="Recruitment.exportPipelineCSV()">
+                <i class="fa fa-file-csv"></i> Export Pipeline
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddApplicantModal()">
+                <i class="fa fa-user-plus"></i> Add Candidate
               </button>
             </div>
           ` : isHR && this.currentView === 'offers' ? `
@@ -2265,83 +2276,669 @@ const Recruitment = {
   },
 
   renderPipeline(container) {
-    const apps = DB.get('applications') || [];
+    const allApps = DB.get('applications') || [];
+    const jobs = DB.get('recruitment') || [];
     const isHR = this.isHROrAdmin();
+    const scorecards = DB.get('interview_scorecards') || [];
+    const offers = DB.get('offer_letters') || [];
+
     const stages = [
-      { id:'applied',     label:'Applied',      color:'#6b7280' },
-      { id:'shortlisted', label:'Shortlisted',   color:'#6366f1' },
-      { id:'interview',   label:'Interview',     color:'#f59e0b' },
-      { id:'offer',       label:'Offer Extended',color:'#10b981' },
-      { id:'hired',       label:'Hired',         color:'#14b8a6' },
-      { id:'rejected',    label:'Rejected',      color:'#ef4444' },
+      { id: 'applied',     label: 'Applied',        color: '#64748b', icon: 'fa-inbox' },
+      { id: 'shortlisted', label: 'Shortlisted',    color: '#6366f1', icon: 'fa-list-check' },
+      { id: 'interview',   label: 'Interview',      color: '#f59e0b', icon: 'fa-comments' },
+      { id: 'offer',       label: 'Offer Extended', color: '#10b981', icon: 'fa-file-signature' },
+      { id: 'hired',       label: 'Hired',          color: '#06b6d4', icon: 'fa-user-check' },
+      { id: 'rejected',    label: 'Rejected',       color: '#ef4444', icon: 'fa-ban' },
     ];
 
+    // Apply Filters
+    let filteredApps = allApps;
+    if (this.pipelineFilter.query) {
+      const q = this.pipelineFilter.query.toLowerCase().trim();
+      filteredApps = filteredApps.filter(a =>
+        (a.name || '').toLowerCase().includes(q) ||
+        (a.email || '').toLowerCase().includes(q) ||
+        (a.phone || '').toLowerCase().includes(q) ||
+        (a.cnic || '').toLowerCase().includes(q)
+      );
+    }
+    if (this.pipelineFilter.jobId !== 'all') {
+      filteredApps = filteredApps.filter(a => String(a.jobId) === String(this.pipelineFilter.jobId));
+    }
+    if (this.pipelineFilter.score === 'top_rated') {
+      filteredApps = filteredApps.filter(a => {
+        const sc = scorecards.find(s => s.applicantId === a.id);
+        return (sc && sc.overallScore >= 4.0) || (a.score && a.score >= 80);
+      });
+    } else if (this.pipelineFilter.score === 'offer_ready') {
+      filteredApps = filteredApps.filter(a => offers.some(o => o.applicationId === a.id));
+    }
+
+    // Top metrics
+    const activeCount = allApps.filter(a => a.stage !== 'hired' && a.stage !== 'rejected').length;
+    const interviewCount = allApps.filter(a => a.stage === 'interview').length;
+    const offerCount = allApps.filter(a => a.stage === 'offer').length;
+    const hiredCount = allApps.filter(a => a.stage === 'hired').length;
+
     container.innerHTML = `
-      <div class="kanban">
-        ${stages.map(stage => {
-          const stageApps = apps.filter(a => a.stage === stage.id);
-          return `
-            <div class="kanban-col">
-              <div class="kanban-col-header">
-                <span><span style="width:10px;height:10px;border-radius:50%;background:${stage.color};display:inline-block;margin-right:8px"></span>${stage.label}</span>
-                <span class="badge" style="background:${stage.color}22;color:${stage.color}">${stageApps.length}</span>
-              </div>
-              <div class="kanban-items">
-                ${stageApps.length === 0 ? '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:20px">No applicants</div>' :
-                stageApps.map(app => {
-                  const job = DB.find('recruitment', app.jobId);
-                  const hasOffer = (DB.get('offer_letters')||[]).some(o => o.applicationId === app.id);
-                  const appScorecards = (DB.get('interview_scorecards')||[]).filter(s => s.applicantId === app.id);
-                  const latestScorecard = appScorecards[0];
-                  return `
-                    <div class="kanban-card" onclick="Recruitment.viewApplicant(${app.id})">
-                      <div style="display:flex;align-items:center;justify-content:space-between">
-                        <div class="kc-name">${app.name}</div>
-                        ${hasOffer ? '<span class="badge badge-success" style="font-size:9.5px"><i class="fa fa-file-check"></i> Offer Ready</span>' : ''}
-                      </div>
-                      <div class="kc-meta">${job?.title||'—'} • Applied: ${Utils.formatDate(app.appliedOn)}</div>
-                      ${app.cnic ? `<div style="font-size:10.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-id-card" style="margin-right:4px"></i>${app.cnic}</div>` : ''}
-
-                      ${latestScorecard ? `
-                        <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);padding:4px 8px;border-radius:6px;margin-top:6px">
-                          <span style="font-size:11px;font-weight:700;color:var(--warning)"><i class="fa fa-star"></i> ${latestScorecard.overallScore}/5.0</span>
-                          <span class="badge ${latestScorecard.recommendation.includes('Hire') ? 'badge-success' : 'badge-secondary'}" style="font-size:9.5px;padding:2px 5px">${latestScorecard.recommendation}</span>
-                        </div>
-                      ` : ''}
-
-                      ${app.score ? `<div class="progress" style="margin-top:8px"><div class="progress-bar" style="width:${app.score}%;background:${stage.color}"></div></div><div style="font-size:10px;margin-top:3px;color:var(--text-muted)">Composite Score: ${app.score}%</div>` : ''}
-                      <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;margin-top:10px;flex-wrap:wrap">
-                        <div style="display:flex;gap:4px">
-                          ${stage.id !== 'hired' && stage.id !== 'rejected' ? `
-                            <button class="btn btn-success btn-xs" onclick="event.stopPropagation();Recruitment.moveStage(${app.id},'${stages[stages.findIndex(s=>s.id===stage.id)+1]?.id}')" title="Advance Stage"><i class="fa fa-arrow-right"></i></button>
-                            <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();Recruitment.moveStage(${app.id},'rejected')" title="Reject"><i class="fa fa-times"></i></button>
-                          ` : ''}
-                        </div>
-                        <div style="display:flex;gap:4px">
-                          <button class="btn btn-warning btn-xs" onclick="event.stopPropagation();Recruitment.showScorecardModal(${app.id})" title="Interview Evaluation Scorecard">
-                            <i class="fa fa-star-half-stroke"></i> ${latestScorecard ? 'Scorecard (' + latestScorecard.overallScore + ')' : 'Scorecard'}
-                          </button>
-                          ${isHR && (stage.id === 'interview' || stage.id === 'offer') ? `
-                            <button class="btn btn-primary btn-xs" onclick="event.stopPropagation();Recruitment.showGenerateOfferLetterModal(${app.id})" title="Generate Formal Offer Letter">
-                              <i class="fa fa-file-signature"></i> Offer
-                            </button>
-                          ` : ''}
-                          ${isHR && (stage.id === 'offer' || stage.id === 'hired') ? `
-                            <button class="btn btn-success btn-xs" onclick="event.stopPropagation();Recruitment.onboardCandidateDirectly(${app.id})" title="Onboard as Employee">
-                              <i class="fa fa-user-plus"></i> Onboard
-                            </button>
-                          ` : ''}
-                        </div>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
+      <div class="animate-fade-in">
+        <!-- Pipeline Top KPI Ribbon -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,0.12);color:#6366f1;display:flex;align-items:center;justify-content:center;font-size:17px">
+              <i class="fa fa-users"></i>
             </div>
-          `;
-        }).join('')}
+            <div>
+              <div style="font-size:20px;font-weight:800;color:#6366f1">${activeCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Active in Pipeline</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(245,158,11,0.12);color:#f59e0b;display:flex;align-items:center;justify-content:center;font-size:17px">
+              <i class="fa fa-comments"></i>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:800;color:#f59e0b">${interviewCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3)">In Interview Stage</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(16,185,129,0.12);color:#10b981;display:flex;align-items:center;justify-content:center;font-size:17px">
+              <i class="fa fa-file-signature"></i>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:800;color:#10b981">${offerCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Offers Extended</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(6,182,212,0.12);color:#06b6d4;display:flex;align-items:center;justify-content:center;font-size:17px">
+              <i class="fa fa-user-check"></i>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:800;color:#06b6d4">${hiredCount}</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Successfully Hired</div>
+            </div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;border-radius:10px;background:rgba(100,116,139,0.12);color:#64748b;display:flex;align-items:center;justify-content:center;font-size:17px">
+              <i class="fa fa-filter"></i>
+            </div>
+            <div>
+              <div style="font-size:20px;font-weight:800;color:#64748b">${allApps.length > 0 ? Math.round((hiredCount / allApps.length) * 100) : 0}%</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Pipeline Win Rate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter, Search & View Switcher Bar -->
+        <div class="card" style="padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div style="position:relative">
+              <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:12px"></i>
+              <input type="text" class="form-control" style="padding-left:30px;width:220px;font-size:12.5px" placeholder="Search candidate..." value="${this.pipelineFilter.query}" oninput="Recruitment.setPipelineFilter('query', this.value)">
+            </div>
+            <select class="form-control" style="width:210px;font-size:12.5px" onchange="Recruitment.setPipelineFilter('jobId', this.value)">
+              <option value="all" ${this.pipelineFilter.jobId === 'all' ? 'selected' : ''}>All Positions (${allApps.length} candidates)</option>
+              ${jobs.map(j => {
+                const count = allApps.filter(a => a.jobId === j.id).length;
+                return `<option value="${j.id}" ${String(this.pipelineFilter.jobId) === String(j.id) ? 'selected' : ''}>${j.title} (${count})</option>`;
+              }).join('')}
+            </select>
+            <select class="form-control" style="width:160px;font-size:12.5px" onchange="Recruitment.setPipelineFilter('score', this.value)">
+              <option value="all" ${this.pipelineFilter.score === 'all' ? 'selected' : ''}>All Candidates</option>
+              <option value="top_rated" ${this.pipelineFilter.score === 'top_rated' ? 'selected' : ''}>★ Top Rated (4.0+)</option>
+              <option value="offer_ready" ${this.pipelineFilter.score === 'offer_ready' ? 'selected' : ''}>✉ Offer Ready</option>
+            </select>
+            ${(this.pipelineFilter.query || this.pipelineFilter.jobId !== 'all' || this.pipelineFilter.score !== 'all') ? `
+              <button class="btn btn-ghost btn-xs text-danger" onclick="Recruitment.resetPipelineFilter()">
+                <i class="fa fa-times"></i> Clear Filters
+              </button>
+            ` : ''}
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px">
+            <!-- View Mode Switcher -->
+            <div style="display:inline-flex;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface)">
+              <button class="btn btn-xs ${this.pipelineFilter.viewMode === 'kanban' ? 'btn-primary' : 'btn-ghost'}" style="border-radius:6px;font-weight:600" onclick="Recruitment.setPipelineFilter('viewMode', 'kanban')">
+                <i class="fa fa-columns" style="margin-right:4px"></i> Board View
+              </button>
+              <button class="btn btn-xs ${this.pipelineFilter.viewMode === 'table' ? 'btn-primary' : 'btn-ghost'}" style="border-radius:6px;font-weight:600" onclick="Recruitment.setPipelineFilter('viewMode', 'table')">
+                <i class="fa fa-table-list" style="margin-right:4px"></i> Table View
+              </button>
+            </div>
+
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddApplicantModal()">
+              <i class="fa fa-user-plus"></i> Add Candidate
+            </button>
+          </div>
+        </div>
+
+        <style>
+          .kanban-col-dragover {
+            border: 2px dashed var(--primary) !important;
+            background: rgba(37, 99, 235, 0.05) !important;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.15) !important;
+          }
+          .ats-kanban-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            padding: 13px;
+            cursor: grab;
+            transition: all 0.2s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+            position: relative;
+          }
+          .ats-kanban-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transform: translateY(-1px);
+          }
+          .ats-kanban-card:active {
+            cursor: grabbing;
+          }
+        </style>
+
+        ${this.pipelineFilter.viewMode === 'table' ? this.renderPipelineTableView(filteredApps, jobs, stages, scorecards, offers) : `
+          <!-- Kanban Board View -->
+          <div class="kanban" style="display:flex;gap:14px;overflow-x:auto;padding-bottom:14px;align-items:flex-start">
+            ${stages.map(stage => {
+              const stageApps = filteredApps.filter(a => a.stage === stage.id);
+              return `
+                <div class="kanban-col"
+                  style="min-width:270px;max-width:320px;flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;max-height:calc(100vh - 280px);transition:all .2s"
+                  ondragover="Recruitment.handleDragOver(event)"
+                  ondragleave="Recruitment.handleDragLeave(event)"
+                  ondrop="Recruitment.handleDrop(event, '${stage.id}')">
+                  
+                  <!-- Column Header -->
+                  <div class="kanban-col-header" style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--surface)">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="width:10px;height:10px;border-radius:50%;background:${stage.color};box-shadow:0 0 8px ${stage.color}88"></span>
+                      <span style="font-size:13px;font-weight:700;color:var(--text)">${stage.label}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span class="badge" style="background:${stage.color}22;color:${stage.color};font-weight:700;font-size:11px;padding:2px 7px">${stageApps.length}</span>
+                      <button class="btn btn-ghost btn-xs" style="padding:2px 5px;color:var(--text-3)" title="Add Candidate to ${stage.label}" onclick="Recruitment.showAddApplicantModal('${stage.id}')">
+                        <i class="fa fa-plus"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Column Items Dropzone -->
+                  <div class="kanban-items" style="padding:10px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px">
+                    ${stageApps.length === 0 ? `
+                      <div style="border:1.5px dashed var(--border);border-radius:8px;padding:28px 12px;text-align:center;color:var(--text-3);margin:6px 0">
+                        <i class="fa ${stage.icon}" style="font-size:24px;opacity:0.3;margin-bottom:6px;display:block"></i>
+                        <div style="font-size:12px;font-weight:600">No candidates in ${stage.label}</div>
+                        <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">Drag candidate here</div>
+                      </div>
+                    ` : stageApps.map(app => {
+                      const job = jobs.find(j => j.id === app.jobId);
+                      const hasOffer = offers.some(o => o.applicationId === app.id);
+                      const appScorecards = scorecards.filter(s => s.applicantId === app.id);
+                      const latestScorecard = appScorecards[0];
+                      const initials = (app.name || 'Candidate').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+                      return `
+                        <div class="ats-kanban-card"
+                          draggable="true"
+                          ondragstart="Recruitment.handleDragStart(event, ${app.id})"
+                          ondragend="Recruitment.handleDragEnd(event)"
+                          onclick="Recruitment.viewApplicant(${app.id})">
+                          
+                          <!-- Top Row: Avatar, Name & Grip -->
+                          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+                            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">
+                              <div style="width:28px;height:28px;border-radius:50%;background:${stage.color}18;color:${stage.color};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0">
+                                ${initials}
+                              </div>
+                              <div style="min-width:0;flex:1">
+                                <div style="font-size:13px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${app.name}</div>
+                              </div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:4px">
+                              ${hasOffer ? `<span class="badge badge-success" style="font-size:9.5px;padding:1px 5px" title="Official Offer Generated"><i class="fa fa-file-check"></i> Offer</span>` : ''}
+                              <i class="fa fa-grip-vertical" style="color:var(--text-3);opacity:0.4;cursor:grab;font-size:11px" title="Drag to reorder/move"></i>
+                            </div>
+                          </div>
+
+                          <!-- Job Title Tag -->
+                          <div style="margin-top:6px">
+                            <span style="font-size:11px;font-weight:600;color:var(--primary);background:rgba(37,99,235,0.08);padding:2px 7px;border-radius:4px;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                              <i class="fa fa-briefcase" style="font-size:10px;margin-right:4px"></i>${job?.title || 'General Opening'}
+                            </span>
+                          </div>
+
+                          <!-- Contact & Date Meta -->
+                          <div style="font-size:11px;color:var(--text-3);margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                            <span><i class="fa fa-clock" style="font-size:10px"></i> ${Utils.formatDate(app.appliedOn)}</span>
+                            ${app.cnic ? `<span>&bull; <i class="fa fa-id-card" style="font-size:10px"></i> ${app.cnic}</span>` : ''}
+                          </div>
+
+                          <!-- Scorecard / Evaluation Rating -->
+                          ${latestScorecard ? `
+                            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;margin-top:6px">
+                              <span style="font-size:11px;font-weight:700;color:#f59e0b"><i class="fa fa-star"></i> ${latestScorecard.overallScore}/5.0</span>
+                              <span class="badge ${latestScorecard.recommendation?.includes('Hire') ? 'badge-success' : 'badge-secondary'}" style="font-size:9px;padding:1px 5px">${latestScorecard.recommendation}</span>
+                            </div>
+                          ` : ''}
+
+                          <!-- Composite Match Progress -->
+                          ${app.score ? `
+                            <div style="margin-top:6px">
+                              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-3);margin-bottom:2px">
+                                <span>Profile Match</span>
+                                <span style="font-weight:700;color:var(--text)">${app.score}%</span>
+                              </div>
+                              <div class="progress" style="height:4px;border-radius:2px;background:var(--surface-2)">
+                                <div class="progress-bar" style="width:${app.score}%;background:${stage.color}"></div>
+                              </div>
+                            </div>
+                          ` : ''}
+
+                          <!-- Redesigned Action Section (Clean 2-tier layout, no button stacking!) -->
+                          <div style="margin-top:10px">
+                            <!-- Tier 1: Main Progression Action -->
+                            ${stage.id === 'applied' ? `
+                              <button class="btn btn-xs" style="width:100%;background:rgba(99,102,241,0.1);color:#6366f1;border:1px solid rgba(99,102,241,0.3);font-weight:700;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.moveStage(${app.id}, 'shortlisted')">
+                                <span>Shortlist Candidate</span> <i class="fa fa-arrow-right"></i>
+                              </button>
+                            ` : stage.id === 'shortlisted' ? `
+                              <button class="btn btn-xs" style="width:100%;background:rgba(245,158,11,0.1);color:#d97706;border:1px solid rgba(245,158,11,0.3);font-weight:700;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.moveStage(${app.id}, 'interview')">
+                                <span>Schedule Interview</span> <i class="fa fa-comments"></i>
+                              </button>
+                            ` : stage.id === 'interview' ? `
+                              <button class="btn btn-xs" style="width:100%;background:rgba(16,185,129,0.1);color:#059669;border:1px solid rgba(16,185,129,0.3);font-weight:700;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.moveStage(${app.id}, 'offer')">
+                                <span>Extend Formal Offer</span> <i class="fa fa-file-signature"></i>
+                              </button>
+                            ` : stage.id === 'offer' ? `
+                              <button class="btn btn-xs btn-success" style="width:100%;font-weight:700;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.onboardCandidateDirectly(${app.id})">
+                                <i class="fa fa-user-check"></i> <span>Onboard as Employee</span>
+                              </button>
+                            ` : stage.id === 'hired' ? `
+                              <button class="btn btn-xs btn-outline" style="width:100%;font-weight:600;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.viewApplicant(${app.id})">
+                                <i class="fa fa-user-check"></i> <span>View Profile</span>
+                              </button>
+                            ` : `
+                              <button class="btn btn-xs btn-outline" style="width:100%;font-weight:600;padding:5px 8px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px"
+                                onclick="event.stopPropagation();Recruitment.moveStage(${app.id}, 'applied')">
+                                <i class="fa fa-rotate-left"></i> <span>Reactivate</span>
+                              </button>
+                            `}
+
+                            <!-- Tier 2: Secondary Toolbar Icons -->
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">
+                              <button class="btn btn-ghost btn-xs" style="font-size:11px;color:#d97706;padding:2px 6px;display:flex;align-items:center;gap:4px"
+                                onclick="event.stopPropagation();Recruitment.showScorecardModal(${app.id})" title="Evaluation Scorecard">
+                                <i class="fa fa-star"></i> <span>Scorecard</span>
+                              </button>
+
+                              <div style="display:flex;align-items:center;gap:2px">
+                                ${isHR && (stage.id === 'interview' || stage.id === 'offer') ? `
+                                  <button class="btn btn-ghost btn-xs text-primary" style="font-size:11px;padding:2px 6px"
+                                    onclick="event.stopPropagation();Recruitment.showGenerateOfferLetterModal(${app.id})" title="Generate Formal Offer Letter">
+                                    <i class="fa fa-file-contract"></i>
+                                  </button>
+                                ` : ''}
+                                ${stage.id !== 'hired' && stage.id !== 'rejected' ? `
+                                  <button class="btn btn-ghost btn-xs text-danger" style="font-size:11px;padding:2px 6px"
+                                    onclick="event.stopPropagation();Recruitment.moveStage(${app.id}, 'rejected')" title="Reject Candidate">
+                                    <i class="fa fa-times"></i>
+                                  </button>
+                                ` : ''}
+                                <button class="btn btn-ghost btn-xs text-muted" style="font-size:11px;padding:2px 6px"
+                                  onclick="event.stopPropagation();Recruitment.showApplicantQuickActionsModal(${app.id})" title="More Actions & Stage Jump">
+                                  <i class="fa fa-ellipsis-v"></i>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
       </div>
     `;
+  },
+
+  renderPipelineTableView(apps, jobs, stages, scorecards, offers) {
+    if (apps.length === 0) {
+      return `
+        <div class="card" style="text-align:center;padding:50px;color:var(--text-3)">
+          <i class="fa fa-users" style="font-size:42px;opacity:0.3;margin-bottom:12px;display:block"></i>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">No Candidates Found</div>
+          <p style="font-size:12px;max-width:380px;margin:6px auto 14px">Try adjusting your search criteria or add new applicants to the pipeline.</p>
+          <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddApplicantModal()"><i class="fa fa-plus"></i> Add First Candidate</button>
+        </div>
+      `;
+    }
+
+    const isHR = this.isHROrAdmin();
+
+    return `
+      <div class="table-responsive" style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+          <thead>
+            <tr style="background:var(--surface);border-bottom:1px solid var(--border);text-align:left">
+              <th style="padding:12px 14px">Candidate</th>
+              <th style="padding:12px 14px">Position</th>
+              <th style="padding:12px 14px">Applied Date</th>
+              <th style="padding:12px 14px">Stage</th>
+              <th style="padding:12px 14px">Scorecard / Rating</th>
+              <th style="padding:12px 14px">Offer Status</th>
+              <th style="padding:12px 14px;text-align:center">Advance Stage</th>
+              <th style="padding:12px 14px;text-align:center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${apps.map(app => {
+              const job = jobs.find(j => j.id === app.jobId);
+              const stageObj = stages.find(s => s.id === app.stage) || { label: app.stage, color: '#64748b' };
+              const hasOffer = offers.some(o => o.applicationId === app.id);
+              const sc = scorecards.find(s => s.applicantId === app.id);
+              const initials = (app.name || 'C').split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
+
+              return `
+                <tr style="border-bottom:1px solid var(--border);transition:background .15s" onmouseenter="this.style.background='var(--surface)'" onmouseleave="this.style.background='transparent'">
+                  <td style="padding:12px 14px">
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div style="width:32px;height:32px;border-radius:50%;background:${stageObj.color}18;color:${stageObj.color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800">
+                        ${initials}
+                      </div>
+                      <div>
+                        <div style="font-weight:700;color:var(--text);cursor:pointer" onclick="Recruitment.viewApplicant(${app.id})">${app.name}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${app.email} &bull; ${app.phone || app.cnic || '—'}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td style="padding:12px 14px">
+                    <span style="font-weight:600;color:var(--primary)"><i class="fa fa-briefcase" style="margin-right:4px"></i>${job?.title || '—'}</span>
+                  </td>
+                  <td style="padding:12px 14px;color:var(--text-2)">${Utils.formatDate(app.appliedOn)}</td>
+                  <td style="padding:12px 14px">
+                    <span class="badge" style="background:${stageObj.color}22;color:${stageObj.color};font-weight:700">
+                      ${stageObj.label}
+                    </span>
+                  </td>
+                  <td style="padding:12px 14px">
+                    ${sc ? `
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <span style="color:#f59e0b;font-weight:700"><i class="fa fa-star"></i> ${sc.overallScore}/5.0</span>
+                        <span class="badge badge-secondary" style="font-size:9.5px">${sc.recommendation}</span>
+                      </div>
+                    ` : (app.score ? `<span style="font-weight:600">${app.score}% Match</span>` : `<span class="text-muted text-xs">Pending review</span>`)}
+                  </td>
+                  <td style="padding:12px 14px">
+                    ${hasOffer ? `<span class="badge badge-success"><i class="fa fa-check"></i> Offer Sent</span>` : `<span class="text-muted text-xs">—</span>`}
+                  </td>
+                  <td style="padding:12px 14px;text-align:center">
+                    <select class="form-control form-control-sm" style="font-size:11.5px;padding:4px 8px;width:130px;margin:0 auto"
+                      onchange="Recruitment.moveStage(${app.id}, this.value)">
+                      ${stages.map(s => `<option value="${s.id}" ${s.id === app.stage ? 'selected' : ''}>${s.label}</option>`).join('')}
+                    </select>
+                  </td>
+                  <td style="padding:12px 14px;text-align:center">
+                    <div style="display:flex;gap:4px;justify-content:center">
+                      <button class="btn btn-xs btn-outline" onclick="Recruitment.viewApplicant(${app.id})" title="View Details"><i class="fa fa-eye"></i></button>
+                      <button class="btn btn-xs btn-ghost text-warning" onclick="Recruitment.showScorecardModal(${app.id})" title="Scorecard"><i class="fa fa-star"></i></button>
+                      ${isHR ? `
+                        <button class="btn btn-xs btn-ghost text-primary" onclick="Recruitment.showGenerateOfferLetterModal(${app.id})" title="Create Offer Letter"><i class="fa fa-file-contract"></i></button>
+                      ` : ''}
+                      ${app.stage !== 'rejected' ? `
+                        <button class="btn btn-xs btn-ghost text-danger" onclick="Recruitment.moveStage(${app.id}, 'rejected')" title="Reject"><i class="fa fa-times"></i></button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  // ═══════════════════════════════════════════════
+  // PIPELINE DRAG AND DROP & FILTER ACTIONS
+  // ═══════════════════════════════════════════════
+
+  handleDragStart(e, appId) {
+    this.draggedAppId = appId;
+    e.dataTransfer.setData('text/plain', String(appId));
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => {
+      if (e.target) e.target.style.opacity = '0.35';
+    }, 0);
+  },
+
+  handleDragEnd(e) {
+    this.draggedAppId = null;
+    if (e.target) e.target.style.opacity = '1';
+    document.querySelectorAll('.kanban-col').forEach(c => {
+      c.classList.remove('kanban-col-dragover');
+    });
+  },
+
+  handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    const col = e.currentTarget;
+    if (!col.classList.contains('kanban-col-dragover')) {
+      col.classList.add('kanban-col-dragover');
+    }
+  },
+
+  handleDragLeave(e) {
+    const col = e.currentTarget;
+    col.classList.remove('kanban-col-dragover');
+  },
+
+  handleDrop(e, targetStage) {
+    e.preventDefault();
+    const col = e.currentTarget;
+    col.classList.remove('kanban-col-dragover');
+    const appId = Number(e.dataTransfer.getData('text/plain') || this.draggedAppId);
+    if (!appId) return;
+
+    const app = DB.find('applications', appId);
+    if (app && app.stage !== targetStage) {
+      this.moveStage(appId, targetStage);
+    }
+  },
+
+  setPipelineFilter(key, val) {
+    this.pipelineFilter[key] = val;
+    this.renderView();
+  },
+
+  resetPipelineFilter() {
+    this.pipelineFilter = { query: '', jobId: 'all', score: 'all', viewMode: 'kanban' };
+    this.renderView();
+  },
+
+  showApplicantQuickActionsModal(appId) {
+    const app = DB.find('applications', Number(appId));
+    if (!app) return;
+    const job = DB.find('recruitment', app.jobId);
+    const stages = [
+      { id: 'applied',     label: '1. Applied (New Review)' },
+      { id: 'shortlisted', label: '2. Shortlisted' },
+      { id: 'interview',   label: '3. In Interview' },
+      { id: 'offer',       label: '4. Offer Extended' },
+      { id: 'hired',       label: '5. Hired / Converted' },
+      { id: 'rejected',    label: '6. Rejected' }
+    ];
+
+    Modal.show(`Candidate Actions — ${app.name}`, `
+      <div style="margin-bottom:16px;background:var(--surface);padding:14px;border-radius:8px;border:1px solid var(--border)">
+        <div style="font-size:14px;font-weight:700">${app.name}</div>
+        <div style="font-size:12px;color:var(--text-3);margin-top:2px">${job?.title || 'Position'} &bull; Current Stage: <strong style="color:var(--primary)">${app.stage.toUpperCase()}</strong></div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:16px">
+        <label class="form-label" style="font-weight:700">Move Candidate to Stage:</label>
+        <select class="form-control" id="qa-target-stage">
+          ${stages.map(s => `<option value="${s.id}" ${s.id === app.stage ? 'selected' : ''}>${s.label}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn btn-primary" onclick="Recruitment.moveStage(${app.id}, document.getElementById('qa-target-stage').value);Modal.close('dynamic-modal')">
+          <i class="fa fa-arrow-right"></i> Update Stage
+        </button>
+        <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.viewApplicant(${app.id})">
+          <i class="fa fa-eye"></i> View Full Application Profile
+        </button>
+        <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.showScorecardModal(${app.id})">
+          <i class="fa fa-star text-warning"></i> View / Submit Scorecard
+        </button>
+        ${this.isHROrAdmin() ? `
+          <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.showGenerateOfferLetterModal(${app.id})">
+            <i class="fa fa-file-signature text-primary"></i> Create Formal Offer Letter
+          </button>
+          <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.onboardCandidateDirectly(${app.id})">
+            <i class="fa fa-user-plus text-success"></i> Direct Onboard as Employee
+          </button>
+        ` : ''}
+        ${app.stage !== 'rejected' ? `
+          <button class="btn btn-ghost text-danger" onclick="Recruitment.moveStage(${app.id}, 'rejected');Modal.close('dynamic-modal')">
+            <i class="fa fa-times"></i> Reject Candidate
+          </button>
+        ` : ''}
+      </div>
+    `);
+  },
+
+  showAddApplicantModal(defaultStage = 'applied') {
+    const jobs = DB.get('recruitment') || [];
+    const today = new Date().toISOString().split('T')[0];
+
+    Modal.show('Add New Candidate to Pipeline', `
+      <form onsubmit="Recruitment.saveNewApplicant(event)">
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Candidate Full Name</label>
+            <input class="form-control" id="ap-name" required placeholder="e.g. Daniyal Siddiqui">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Target Job Position</label>
+            <select class="form-control" id="ap-job" required>
+              ${jobs.map(j => `<option value="${j.id}">${j.title} (${Utils.getDeptName(j.departmentId)})</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Email Address</label>
+            <input class="form-control" id="ap-email" type="email" required placeholder="candidate@example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Contact Phone</label>
+            <input class="form-control" id="ap-phone" required placeholder="0300-1234567">
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">CNIC Number</label>
+            <input class="form-control" id="ap-cnic" placeholder="42101-1234567-1" maxlength="15">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Initial Pipeline Stage</label>
+            <select class="form-control" id="ap-stage" required>
+              <option value="applied" ${defaultStage === 'applied' ? 'selected' : ''}>Applied (New Review)</option>
+              <option value="shortlisted" ${defaultStage === 'shortlisted' ? 'selected' : ''}>Shortlisted</option>
+              <option value="interview" ${defaultStage === 'interview' ? 'selected' : ''}>Interview</option>
+              <option value="offer" ${defaultStage === 'offer' ? 'selected' : ''}>Offer Extended</option>
+              <option value="hired" ${defaultStage === 'hired' ? 'selected' : ''}>Hired</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label">Application Date</label>
+            <input type="date" class="form-control" id="ap-date" value="${today}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Match Score (%)</label>
+            <input type="number" min="0" max="100" class="form-control" id="ap-score" value="75">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Resume / CV File Name</label>
+            <input class="form-control" id="ap-resume" placeholder="e.g. resume_dan.pdf" value="resume.pdf">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Screening Notes & Feedback</label>
+          <textarea class="form-control" id="ap-notes" rows="2" placeholder="Initial sourcing notes, key competencies, referral details..."></textarea>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px">
+          <button type="button" class="btn btn-secondary" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-check"></i> Add to Pipeline</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveNewApplicant(e) {
+    e.preventDefault();
+    const name = document.getElementById('ap-name').value.trim();
+    const jobId = Number(document.getElementById('ap-job').value);
+    const email = document.getElementById('ap-email').value.trim();
+    const phone = document.getElementById('ap-phone').value.trim();
+    const cnic = document.getElementById('ap-cnic').value.trim();
+    const stage = document.getElementById('ap-stage').value;
+    const appliedOn = document.getElementById('ap-date').value;
+    const score = parseInt(document.getElementById('ap-score').value) || 0;
+    const resume = document.getElementById('ap-resume').value.trim() || 'resume.pdf';
+    const notes = document.getElementById('ap-notes').value.trim();
+
+    const apps = DB.get('applications') || [];
+    const newId = apps.length ? Math.max(...apps.map(a => a.id)) + 1 : 1;
+    const newApp = { id: newId, jobId, name, email, phone, cnic, stage, appliedOn, resume, interviewDate: null, score, notes };
+    apps.push(newApp);
+    DB.set('applications', apps);
+
+    // Update job applicantCount
+    const job = DB.find('recruitment', jobId);
+    if (job) {
+      job.applicantCount = (job.applicantCount || 0) + 1;
+      DB.update('recruitment', jobId, { applicantCount: job.applicantCount });
+    }
+
+    DB.log('CREATE', 'Recruitment', `Added new applicant ${name} to pipeline #${newId}`, Auth.user?.id);
+    Toast.show(`Candidate ${name} added to pipeline successfully!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderView();
+  },
+
+  exportPipelineCSV() {
+    const apps = DB.get('applications') || [];
+    const jobs = DB.get('recruitment') || [];
+    let csv = 'ID,Candidate Name,Email,Phone,CNIC,Job Title,Stage,Applied Date,Score,Notes\r\n';
+    apps.forEach(a => {
+      const j = jobs.find(job => job.id === a.jobId);
+      csv += `${a.id},"${a.name || ''}","${a.email || ''}","${a.phone || ''}","${a.cnic || ''}","${j?.title || ''}","${a.stage || ''}","${a.appliedOn || ''}",${a.score || 0},"${(a.notes || '').replace(/"/g, '""')}"\r\n`;
+    });
+    Utils.downloadCSV('\uFEFF' + csv, `applicant_pipeline_${new Date().toISOString().split('T')[0]}.csv`);
+    Toast.show('Applicant pipeline exported to CSV!', 'success');
   },
 
   // ═══════════════════════════════════════════════
