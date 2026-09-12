@@ -2104,14 +2104,16 @@ const Recruitment = {
   },
 
   render() {
-    // For Department Managers, default view to Requisitions & Team Structure
-    if (Auth.role === 'dept_manager' && !this._userInitialized) {
+    const isHR = this.isHROrAdmin();
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const myDeptId = Auth.employee?.departmentId || 1;
+
+    // Deputy / Department Managers are strictly restricted to Requisitions & Team Structure
+    if (isDeptMgr) {
       this.currentView = 'requisitions';
-      this.requisitionTab = 'structure';
-      this._userInitialized = true;
-    }
-    if (!this.structureDeptId && Auth.employee?.departmentId) {
-      this.structureDeptId = Auth.employee.departmentId;
+      this.structureDeptId = myDeptId;
+    } else if (!this.structureDeptId && myDeptId) {
+      this.structureDeptId = myDeptId;
     }
 
     const content = document.getElementById('page-content');
@@ -2121,66 +2123,141 @@ const Recruitment = {
     const reqs = DB.get('job_requisitions') || [];
     const onboardings = DB.get('onboardings') || [];
     const pendingReqs = reqs.filter(r => r.status === 'pending_review').length;
-    const isHR = this.isHROrAdmin();
+
+    // For Department Managers: Scoped Department Metrics
+    const myStruct = isDeptMgr ? this.getDepartmentStructure(myDeptId) : null;
+    const myVacancies = isDeptMgr ? this.getSeparationVacancies().filter(v => v.departmentId === myDeptId && !v.isBackfilled) : [];
+    const myReqs = isDeptMgr ? reqs.filter(r => r.departmentId === myDeptId) : [];
+    const myPending = myReqs.filter(r => r.status === 'pending_review').length;
+    const myApproved = myReqs.filter(r => r.status === 'approved').length;
 
     content.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Recruitment Top KPI Banner: Structured along the Recruitment Lifecycle -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
-          ${[
-            { label:'Headcount Reqs',  val:reqs.length, icon:'fa-file-invoice-dollar', color:'var(--info)', action:"Recruitment.switchView('requisitions')" },
-            { label:'Open Positions',  val:jobs.filter(j=>j.status==='open').length, icon:'fa-briefcase', color:'var(--success)', action:"Recruitment.switchView('jobs')" },
-            { label:'Total Applicants',val:apps.length, icon:'fa-users', color:'var(--primary)', action:"Recruitment.switchView('pipeline')" },
-            { label:'In Interview',    val:apps.filter(a=>a.stage==='interview').length, icon:'fa-comments', color:'var(--warning)', action:"Recruitment.switchView('interviews')" },
-            { label:'Offer Letters',   val:offers.length, icon:'fa-file-signature', color:'var(--accent)', action: isHR ? "Recruitment.switchView('offers')" : '' },
-          ].map(s => `
-            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:${s.action?'pointer':'default'};transition:all .2s"
-              ${s.action ? `onclick="${s.action}" onmouseenter="this.style.borderColor='var(--primary)'" onmouseleave="this.style.borderColor='var(--border)'"` : ''}>
-              <div style="width:48px;height:48px;border-radius:12px;background:${s.color}22;display:flex;align-items:center;justify-content:center;font-size:20px;color:${s.color}">
-                <i class="fa ${s.icon}"></i>
+        <!-- Recruitment Top KPI Banner -->
+        ${isDeptMgr ? `
+          <!-- Deputy / Department Manager Scoped KPIs (Restricted to Under-Employees) -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:rgba(99,102,241,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--primary)">
+                <i class="fa fa-users-gear"></i>
               </div>
               <div>
-                <div style="font-size:22px;font-weight:800;color:${s.color}">${s.val}</div>
-                <div style="font-size:12px;color:var(--text-3)">${s.label}</div>
+                <div style="font-size:22px;font-weight:800;color:var(--primary)">${myStruct?.totalCapacity || 0}</div>
+                <div style="font-size:12px;color:var(--text-3)">Team Headcount Target</div>
               </div>
             </div>
-          `).join('')}
-        </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:rgba(16,185,129,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--success)">
+                <i class="fa fa-circle-check"></i>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:800;color:var(--success)">${myStruct?.filledCount || 0}</div>
+                <div style="font-size:12px;color:var(--text-3)">Active Staff Members</div>
+              </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="Recruitment.requisitionTab='radar';Recruitment.renderRequisitions(document.getElementById('rec-content'))">
+              <div style="width:48px;height:48px;border-radius:12px;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--warning)">
+                <i class="fa fa-user-clock"></i>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:800;color:var(--warning)">${myVacancies.length}</div>
+                <div style="font-size:12px;color:var(--text-3)">Vacancies to Backfill</div>
+              </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="Recruitment.requisitionTab='requisitions';Recruitment.renderRequisitions(document.getElementById('rec-content'))">
+              <div style="width:48px;height:48px;border-radius:12px;background:rgba(139,92,246,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:#8b5cf6">
+                <i class="fa fa-clock"></i>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:800;color:#8b5cf6">${myPending}</div>
+                <div style="font-size:12px;color:var(--text-3)">Pending Quotations</div>
+              </div>
+            </div>
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:pointer" onclick="Recruitment.requisitionTab='structure';Recruitment.renderRequisitions(document.getElementById('rec-content'))">
+              <div style="width:48px;height:48px;border-radius:12px;background:rgba(59,130,246,0.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--info)">
+                <i class="fa fa-check-double"></i>
+              </div>
+              <div>
+                <div style="font-size:22px;font-weight:800;color:var(--info)">${myApproved}</div>
+                <div style="font-size:12px;color:var(--text-3)">Approved Positions</div>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <!-- Full Recruitment Lifecycle KPIs for HR/Admin -->
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+            ${[
+              { label:'Headcount Reqs',  val:reqs.length, icon:'fa-file-invoice-dollar', color:'var(--info)', action:"Recruitment.switchView('requisitions')" },
+              { label:'Open Positions',  val:jobs.filter(j=>j.status==='open').length, icon:'fa-briefcase', color:'var(--success)', action:"Recruitment.switchView('jobs')" },
+              { label:'Total Applicants',val:apps.length, icon:'fa-users', color:'var(--primary)', action:"Recruitment.switchView('pipeline')" },
+              { label:'In Interview',    val:apps.filter(a=>a.stage==='interview').length, icon:'fa-comments', color:'var(--warning)', action:"Recruitment.switchView('interviews')" },
+              { label:'Offer Letters',   val:offers.length, icon:'fa-file-signature', color:'var(--accent)', action: "Recruitment.switchView('offers')" },
+            ].map(s => `
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px;cursor:${s.action?'pointer':'default'};transition:all .2s"
+                ${s.action ? `onclick="${s.action}" onmouseenter="this.style.borderColor='var(--primary)'" onmouseleave="this.style.borderColor='var(--border)'"` : ''}>
+                <div style="width:48px;height:48px;border-radius:12px;background:${s.color}22;display:flex;align-items:center;justify-content:center;font-size:20px;color:${s.color}">
+                  <i class="fa ${s.icon}"></i>
+                </div>
+                <div>
+                  <div style="font-size:22px;font-weight:800;color:${s.color}">${s.val}</div>
+                  <div style="font-size:12px;color:var(--text-3)">${s.label}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `}
 
-        <!-- Recruitment View Tabs: Arranged Chronologically along the Recruitment Lifecycle -->
-        <div style="margin-bottom:20px">
-          <div style="display:flex;gap:2px;background:var(--surface);padding:3px;border-radius:10px;width:100%;overflow-x:auto;scrollbar-width:none">
-            <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative" title="Step 1: Headcount Planning & Vacancy Requisitions">
-              <i class="fa fa-file-invoice-dollar" style="margin-right:5px"></i>Requisitions & Headcount
-              ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 5px">${pendingReqs}</span>` : ''}
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')" title="Step 2: Job Openings & Public Postings">
-              <i class="fa fa-briefcase" style="margin-right:5px"></i>Job Postings
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')" title="Step 3: Active Applicant ATS Screening Pipeline">
-              <i class="fa fa-list-check" style="margin-right:5px"></i>Applicant Pipeline
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='talent_pools'?'active':''}" onclick="Recruitment.switchView('talent_pools')" title="Step 4: Candidate Talent Pools & Sourcing Reservoirs">
-              <i class="fa fa-users-viewfinder" style="margin-right:5px"></i>Talent Pools
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='interviews'?'active':''}" onclick="Recruitment.switchView('interviews')" title="Step 5: Interview Scheduling & Evaluator Rubrics">
-              <i class="fa fa-comments" style="margin-right:5px"></i>Interviews & Rubrics
-            </button>
-            <button class="tab-toggle-btn ${this.currentView==='assessment_sheets'?'active':''}" onclick="Recruitment.switchView('assessment_sheets')" title="Step 6: Comparative Assessment Sheets & Conversion Funnel">
-              <i class="fa fa-table-list" style="margin-right:5px"></i>Assessment Sheets & Funnel
-            </button>
-            ${isHR ? `
+        <!-- Recruitment View Tabs: ONLY shown to HR & Admin. Dept Managers are locked out of ATS pipeline and candidate data -->
+        ${!isDeptMgr ? `
+          <div style="margin-bottom:20px">
+            <div style="display:flex;gap:2px;background:var(--surface);padding:3px;border-radius:10px;width:100%;overflow-x:auto;scrollbar-width:none">
+              <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative" title="Step 1: Headcount Planning & Vacancy Requisitions">
+                <i class="fa fa-file-invoice-dollar" style="margin-right:5px"></i>Requisitions & Headcount
+                ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 5px">${pendingReqs}</span>` : ''}
+              </button>
+              <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')" title="Step 2: Job Openings & Public Postings">
+                <i class="fa fa-briefcase" style="margin-right:5px"></i>Job Postings
+              </button>
+              <button class="tab-toggle-btn ${this.currentView==='pipeline'?'active':''}" onclick="Recruitment.switchView('pipeline')" title="Step 3: Active Applicant ATS Screening Pipeline">
+                <i class="fa fa-list-check" style="margin-right:5px"></i>Applicant Pipeline
+              </button>
+              <button class="tab-toggle-btn ${this.currentView==='talent_pools'?'active':''}" onclick="Recruitment.switchView('talent_pools')" title="Step 4: Candidate Talent Pools & Sourcing Reservoirs">
+                <i class="fa fa-users-viewfinder" style="margin-right:5px"></i>Talent Pools
+              </button>
+              <button class="tab-toggle-btn ${this.currentView==='interviews'?'active':''}" onclick="Recruitment.switchView('interviews')" title="Step 5: Interview Scheduling & Evaluator Rubrics">
+                <i class="fa fa-comments" style="margin-right:5px"></i>Interviews & Rubrics
+              </button>
+              <button class="tab-toggle-btn ${this.currentView==='assessment_sheets'?'active':''}" onclick="Recruitment.switchView('assessment_sheets')" title="Step 6: Comparative Assessment Sheets & Conversion Funnel">
+                <i class="fa fa-table-list" style="margin-right:5px"></i>Assessment Sheets & Funnel
+              </button>
               <button class="tab-toggle-btn ${this.currentView==='offers'?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative" title="Step 7: Formal Job Offer Letters & Compensation">
                 <i class="fa fa-file-signature" style="margin-right:5px"></i>Offer Letters
                 <span class="badge badge-primary" style="margin-left:5px;font-size:10px;padding:2px 5px">${offers.length}</span>
               </button>
-            ` : ''}
-            <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')" style="position:relative" title="Step 8: Post-Offer New Hire Onboarding Checklists">
-              <i class="fa fa-user-plus" style="margin-right:5px"></i>Onboarding Checklists
-              <span class="badge badge-success" style="margin-left:5px;font-size:10px;padding:2px 5px">${onboardings.length}</span>
+              <button class="tab-toggle-btn ${this.currentView==='onboarding'?'active':''}" onclick="Recruitment.switchView('onboarding')" style="position:relative" title="Step 8: Post-Offer New Hire Onboarding Checklists">
+                <i class="fa fa-user-plus" style="margin-right:5px"></i>Onboarding Checklists
+                <span class="badge badge-success" style="margin-left:5px;font-size:10px;padding:2px 5px">${onboardings.length}</span>
+              </button>
+            </div>
+          </div>
+        ` : `
+          <!-- Deputy Manager Header Banner -->
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:15px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+                <i class="fa fa-sitemap" style="color:var(--primary)"></i>
+                <span>Department Headcount & Position Quotations Workspace</span>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">
+                Review your team structure, track vacated positions for employees under your supervision, and submit formal position quotations for HR/Admin approval.
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewPositionQuotationModal(${myDeptId})">
+              <i class="fa fa-file-invoice-dollar"></i> Initiate Position Quotation
             </button>
           </div>
-        </div>
+        `}
+
         <style>
           .tab-toggle-btn { padding:6px 10px;border:none;background:transparent;color:var(--text-3);font-size:11.5px;font-weight:600;border-radius:7px;cursor:pointer;transition:all .2s;display:inline-flex;align-items:center;white-space:nowrap;flex-shrink:0; }
           .tab-toggle-btn.active { background:var(--primary);color:white;box-shadow:0 2px 8px var(--primary-glow); }
@@ -2194,6 +2271,12 @@ const Recruitment = {
   },
 
   switchView(view) {
+    if (Auth.role === 'dept_manager' && view !== 'requisitions') {
+      Toast.show('Access Restricted: Candidate ATS pipelines, job posts, and interviews are managed exclusively by HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     this.currentView = view;
     this.render();
   },
@@ -2201,6 +2284,9 @@ const Recruitment = {
   renderView() {
     const container = document.getElementById('rec-content');
     if (!container) return;
+    if (Auth.role === 'dept_manager') {
+      this.currentView = 'requisitions';
+    }
     if (this.currentView === 'jobs') this.renderJobs(container);
     else if (this.currentView === 'requisitions') this.renderRequisitions(container);
     else if (this.currentView === 'pipeline') this.renderPipeline(container);
@@ -2212,6 +2298,12 @@ const Recruitment = {
   },
 
   renderJobs(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Job postings are managed exclusively by HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const jobs = DB.get('recruitment') || [];
     const depts = DB.get('departments') || [];
     container.innerHTML = `
@@ -2255,6 +2347,12 @@ const Recruitment = {
   },
 
   renderPipeline(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate ATS pipeline is managed exclusively by HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const allApps = DB.get('applications') || [];
     const jobs = DB.get('recruitment') || [];
     const isHR = this.isHROrAdmin();
@@ -3521,6 +3619,10 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   viewOfferLetter(offerId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Offer letters and compensation details are restricted to HR & Admin.', 'error');
+      return;
+    }
     const offer = DB.find('offer_letters', Number(offerId));
     if (!offer) { Toast.show('Offer letter record not found', 'error'); return; }
 
@@ -3821,6 +3923,10 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   printOfferLetter(offerId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Printing offer letters is restricted to HR & Admin.', 'error');
+      return;
+    }
     const offer = DB.find('offer_letters', Number(offerId));
     if (!offer) return;
     const dept = DB.find('departments', offer.departmentId);
@@ -4301,6 +4407,10 @@ const Recruitment = {
   },
 
   moveStage(appId, newStage) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate stage progression is restricted to HR & Admin.', 'error');
+      return;
+    }
     if (!newStage) return;
     DB.update('applications', appId, { stage: newStage });
     Toast.show(`Applicant moved to ${newStage}!`, 'success');
@@ -4308,6 +4418,10 @@ const Recruitment = {
   },
 
   viewApplicant(appId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate profiles and resumes are restricted to HR & Admin.', 'error');
+      return;
+    }
     const app = DB.find('applications', appId);
     const job = DB.find('recruitment', app.jobId);
     const isHR = this.isHROrAdmin();
@@ -4362,6 +4476,10 @@ const Recruitment = {
   },
 
   saveApplicantEvaluation(appId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate evaluation is restricted to HR & Admin.', 'error');
+      return;
+    }
     const interviewDate = document.getElementById('app-int-date').value;
     const score = parseInt(document.getElementById('app-score').value) || 0;
     const notes = document.getElementById('app-notes').value.trim();
@@ -4372,6 +4490,10 @@ const Recruitment = {
   },
 
   convertToEmployee(appId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Converting applicants to employees is restricted to HR & Admin.', 'error');
+      return;
+    }
     const app = DB.find('applications', appId);
     if (!app) return;
     const job = DB.find('recruitment', app.jobId);
@@ -4398,6 +4520,10 @@ const Recruitment = {
   },
 
   showAddJob() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Job creation is restricted to HR & Admin.', 'error');
+      return;
+    }
     const depts = DB.get('departments') || [];
     Modal.show('Post New Job', `
       <div class="form-group"><label class="form-label required">Job Title</label><input class="form-control" id="jf-title" placeholder="e.g. Senior React Developer"></div>
@@ -4422,6 +4548,10 @@ const Recruitment = {
   },
 
   saveJob() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Job creation is restricted to HR & Admin.', 'error');
+      return;
+    }
     const title = document.getElementById('jf-title').value.trim();
     if (!title) { Toast.show('Please enter job title', 'error'); return; }
     DB.add('recruitment', {
@@ -4444,6 +4574,10 @@ const Recruitment = {
   },
 
   viewJob(jobId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Job details and applicant lists are restricted to HR & Admin.', 'error');
+      return;
+    }
     const job = DB.find('recruitment', jobId);
     Toast.show(`${job.title} — ${job.applicantCount} applicants`, 'info');
   },
@@ -4574,14 +4708,24 @@ const Recruitment = {
   renderRequisitions(container) {
     const isHR = this.isHROrAdmin();
     const isDeptMgr = Auth.role === 'dept_manager';
-    const vacancies = this.getSeparationVacancies();
-    const unfulfilledVacancies = vacancies.filter(v => !v.isBackfilled);
-    const reqs = DB.get('job_requisitions') || [];
-    const pendingReqs = reqs.filter(r => r.status === 'pending_review');
     const myDeptId = Auth.employee?.departmentId;
 
+    // For deputy managers, lock structureDeptId to their own department
+    if (isDeptMgr && myDeptId) {
+      this.structureDeptId = myDeptId;
+    } else if (!this.structureDeptId && myDeptId) {
+      this.structureDeptId = myDeptId;
+    }
+
+    const allVacancies = this.getSeparationVacancies();
+    const vacancies = (isDeptMgr && myDeptId) ? allVacancies.filter(v => v.departmentId === myDeptId) : allVacancies;
+    const unfulfilledVacancies = vacancies.filter(v => !v.isBackfilled);
+
+    const allReqs = DB.get('job_requisitions') || [];
+    const reqs = (isDeptMgr && myDeptId) ? allReqs.filter(r => r.departmentId === myDeptId || r.requestedBy === (Auth.user?.id || Auth.employee?.id)) : allReqs;
+    const pendingReqs = reqs.filter(r => r.status === 'pending_review');
+
     if (!this.requisitionTab) this.requisitionTab = 'structure';
-    if (!this.structureDeptId && myDeptId) this.structureDeptId = myDeptId;
 
     container.innerHTML = `
       <div class="card" style="margin-bottom:18px">
@@ -4590,15 +4734,15 @@ const Recruitment = {
           <div>
             <div style="font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px">
               <i class="fa fa-sitemap" style="color:var(--primary)"></i>
-              <span>Department Team Structure & Headcount Management</span>
+              <span>${isDeptMgr ? 'Team Structure & Headcount Quotations' : 'Department Team Structure & Headcount Management'}</span>
             </div>
             <div style="font-size:12px;color:var(--text-3);margin-top:3px">
-              Manage department team structures, track vacant positions from resignations/terminations, and submit position quotations for HR/Admin approval
+              ${isDeptMgr ? 'Review your team structure, track vacant seats of under-employees, and submit position quotations for HR/Admin approval' : 'Manage department team structures, track vacant positions from resignations/terminations, and submit position quotations for HR/Admin approval'}
             </div>
           </div>
           
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewPositionQuotationModal()" title="Initiate New Position Quotation for HR Approval">
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewPositionQuotationModal()" title="Initiate Position Quotation for HR Approval">
               <i class="fa fa-file-invoice-dollar"></i> Initiate Position Quotation
             </button>
             ${isHR ? `
@@ -4614,18 +4758,18 @@ const Recruitment = {
           <button class="btn btn-sm ${this.requisitionTab === 'structure' ? 'btn-primary' : 'btn-ghost'}" 
             onclick="Recruitment.requisitionTab='structure';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
             style="font-size:12px;font-weight:600">
-            <i class="fa fa-sitemap"></i> Department Team Structure & Blueprint
+            <i class="fa fa-sitemap"></i> ${isDeptMgr ? 'Team Structure & Capacity' : 'Department Team Structure & Blueprint'}
           </button>
           <button class="btn btn-sm ${this.requisitionTab === 'requisitions' ? 'btn-primary' : 'btn-ghost'}" 
             onclick="Recruitment.requisitionTab='requisitions';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
             style="font-size:12px;font-weight:600;position:relative">
-            <i class="fa fa-file-invoice-dollar"></i> Requisitions & Quotations
+            <i class="fa fa-file-invoice-dollar"></i> ${isDeptMgr ? 'My Department Quotations' : 'Requisitions & Quotations'}
             ${pendingReqs.length > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:1px 5px">${pendingReqs.length}</span>` : ''}
           </button>
           <button class="btn btn-sm ${this.requisitionTab === 'radar' ? 'btn-primary' : 'btn-ghost'}" 
             onclick="Recruitment.requisitionTab='radar';Recruitment.renderRequisitions(document.getElementById('rec-content'))"
             style="font-size:12px;font-weight:600;position:relative">
-            <i class="fa fa-triangle-exclamation"></i> Separation & Vacancies Radar
+            <i class="fa fa-triangle-exclamation"></i> ${isDeptMgr ? 'Team Vacancies Radar' : 'Separation & Vacancies Radar'}
             ${unfulfilledVacancies.length > 0 ? `<span class="badge badge-danger" style="margin-left:6px;font-size:10px;padding:1px 5px">${unfulfilledVacancies.length} Vacant</span>` : ''}
           </button>
         </div>
@@ -4654,10 +4798,11 @@ const Recruitment = {
   renderTeamStructure(container) {
     const depts = DB.get('departments') || [];
     const isHR = this.isHROrAdmin();
+    const isDeptMgr = Auth.role === 'dept_manager';
     const myDeptId = Auth.employee?.departmentId;
     
-    // Default selection
-    let selectedDeptId = this.structureDeptId || (myDeptId ? myDeptId : (depts[0]?.id || 1));
+    // For deputy managers, enforce strictly their own department
+    let selectedDeptId = (isDeptMgr && myDeptId) ? myDeptId : (this.structureDeptId || (myDeptId ? myDeptId : (depts[0]?.id || 1)));
     const struct = this.getDepartmentStructure(selectedDeptId);
     if (!struct) return;
 
@@ -4668,15 +4813,23 @@ const Recruitment = {
       <!-- Department Selector & Capacity Filter Bar -->
       <div style="background:var(--surface-2);border-radius:12px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
         <div style="display:flex;align-items:center;gap:12px">
-          <label style="font-size:12.5px;font-weight:700;color:var(--text)">Select Department:</label>
-          <select class="form-control" style="width:260px;font-weight:600" onchange="Recruitment.structureDeptId=parseInt(this.value);Recruitment.renderTeamStructure(document.getElementById('sub-req-content'))">
-            ${depts.map(d => `
-              <option value="${d.id}" ${d.id === dept.id ? 'selected' : ''}>
-                ${d.name} (${d.code}) ${d.id === myDeptId ? '★ [My Dept]' : ''}
-              </option>
-            `).join('')}
-          </select>
-          ${isMyDept ? `<span class="badge badge-primary" style="font-size:11px"><i class="fa fa-star"></i> My Supervised Team</span>` : ''}
+          <label style="font-size:12.5px;font-weight:700;color:var(--text)">${isDeptMgr ? 'My Department:' : 'Select Department:'}</label>
+          ${isDeptMgr ? `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-building" style="color:var(--primary)"></i>
+              <span>${dept.name} (${dept.code})</span>
+              <span class="badge badge-primary" style="font-size:10px;margin-left:6px"><i class="fa fa-shield-halved"></i> Supervised Team</span>
+            </div>
+          ` : `
+            <select class="form-control" style="width:260px;font-weight:600" onchange="Recruitment.structureDeptId=parseInt(this.value);Recruitment.renderTeamStructure(document.getElementById('sub-req-content'))">
+              ${depts.map(d => `
+                <option value="${d.id}" ${d.id === dept.id ? 'selected' : ''}>
+                  ${d.name} (${d.code}) ${d.id === myDeptId ? '★ [My Dept]' : ''}
+                </option>
+              `).join('')}
+            </select>
+            ${isMyDept ? `<span class="badge badge-primary" style="font-size:11px"><i class="fa fa-star"></i> My Supervised Team</span>` : ''}
+          `}
         </div>
 
         <div style="display:flex;gap:8px">
@@ -4798,8 +4951,8 @@ const Recruitment = {
               </div>
               <div style="border-top:1px dashed rgba(245,158,11,0.3);padding-top:10px;display:flex;justify-content:space-between;align-items:center">
                 <span style="font-size:10.5px;color:#b45309"><i class="fa fa-exclamation-triangle"></i> Needs Backfill</span>
-                <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="Create formal replacement requisition">
-                  <i class="fa fa-user-plus"></i> Requisition / Backfill
+                <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="${isDeptMgr ? 'Submit replacement quotation to HR' : 'Create formal replacement requisition'}">
+                  <i class="fa ${isDeptMgr ? 'fa-file-invoice-dollar' : 'fa-user-plus'}"></i> ${isDeptMgr ? 'Send Replacement Quotation' : 'Requisition / Backfill'}
                 </button>
               </div>
             </div>
@@ -4823,10 +4976,12 @@ const Recruitment = {
                 <span style="font-size:10.5px;color:var(--info)"><i class="fa fa-check"></i> Ready to Hire</span>
                 ${r.jobPostId ? `
                   <span class="badge badge-success" style="font-size:10px"><i class="fa fa-briefcase"></i> Job Posted</span>
-                ` : `
+                ` : isHR ? `
                   <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
                     <i class="fa fa-briefcase"></i> Post Job
                   </button>
+                ` : `
+                  <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check-double"></i> Approved by HR</span>
                 `}
               </div>
             </div>
@@ -4872,15 +5027,23 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   renderVacancyRadar(container) {
-    const vacancies = this.getSeparationVacancies();
     const isHR = this.isHROrAdmin();
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const myDeptId = Auth.employee?.departmentId;
+
+    let vacancies = this.getSeparationVacancies();
+    if (isDeptMgr && myDeptId) {
+      vacancies = vacancies.filter(v => v.departmentId === myDeptId);
+    }
 
     container.innerHTML = `
       <div style="margin-bottom:18px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div>
-            <div style="font-size:15px;font-weight:700">Separation & Vacant Position Replacement Radar</div>
-            <div style="font-size:12px;color:var(--text-3)">Automatic tracking of departed personnel (resigned, terminated, exit clearances) to ensure seamless backfilling</div>
+            <div style="font-size:15px;font-weight:700">${isDeptMgr ? 'Department Vacant Positions Radar' : 'Separation & Vacant Position Replacement Radar'}</div>
+            <div style="font-size:12px;color:var(--text-3)">
+              ${isDeptMgr ? 'Track departed employees under your team and submit replacement quotations to HR/Admin for approval' : 'Automatic tracking of departed personnel (resigned, terminated, exit clearances) to ensure seamless backfilling'}
+            </div>
           </div>
           <div style="font-size:12px;font-weight:700;color:var(--warning)">
             <i class="fa fa-triangle-exclamation"></i> ${vacancies.filter(v => !v.isBackfilled).length} Vacant Position(s) Requiring Replacement
@@ -4902,7 +5065,7 @@ const Recruitment = {
             </thead>
             <tbody>
               ${vacancies.length === 0 ? `
-                <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-3)">No employee separations or vacant seats recorded.</td></tr>
+                <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-3)">No employee separations or vacant seats recorded for this department.</td></tr>
               ` : vacancies.map(v => {
                 const req = v.linkedReq;
                 let statusBadge = `<span class="badge badge-danger"><i class="fa fa-circle-exclamation"></i> Vacant (No Requisition)</span>`;
@@ -4912,7 +5075,7 @@ const Recruitment = {
                   } else if (req.status === 'approved') {
                     statusBadge = `<span class="badge badge-info"><i class="fa fa-check"></i> Requisition Approved</span>`;
                   } else if (req.status === 'pending_review') {
-                    statusBadge = `<span class="badge badge-warning"><i class="fa fa-clock"></i> Requisition Under Review</span>`;
+                    statusBadge = `<span class="badge badge-warning"><i class="fa fa-clock"></i> Quotation Under Review</span>`;
                   }
                 }
 
@@ -4941,16 +5104,20 @@ const Recruitment = {
                     <td>${statusBadge}</td>
                     <td style="text-align:right">
                       ${!v.isBackfilled ? `
-                        <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="Create formal replacement requisition">
-                          <i class="fa fa-user-plus"></i> Initiate Replacement
+                        <button class="btn btn-warning btn-xs" onclick="Recruitment.initiateReplacementFromVacancy(${v.empId})" title="${isDeptMgr ? 'Submit replacement quotation to HR' : 'Create formal replacement requisition'}">
+                          <i class="fa ${isDeptMgr ? 'fa-file-invoice-dollar' : 'fa-user-plus'}"></i> ${isDeptMgr ? 'Send Replacement Quotation' : 'Initiate Replacement'}
                         </button>
                       ` : req && req.status === 'approved' && !req.jobPostId ? `
-                        <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${req.id})">
-                          <i class="fa fa-briefcase"></i> Post Job
-                        </button>
+                        ${isHR ? `
+                          <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${req.id})">
+                            <i class="fa fa-briefcase"></i> Post Job
+                          </button>
+                        ` : `
+                          <span class="badge badge-info" style="font-size:10px"><i class="fa fa-check"></i> Approved by HR</span>
+                        `}
                       ` : `
                         <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${req.id})">
-                          <i class="fa fa-eye"></i> View Requisition
+                          <i class="fa fa-eye"></i> View Details
                         </button>
                       `}
                     </td>
@@ -4969,9 +5136,15 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   renderRequisitionsList(container) {
-    const reqs = DB.get('job_requisitions') || [];
-    const depts = DB.get('departments') || [];
     const isHR = this.isHROrAdmin();
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const myDeptId = Auth.employee?.departmentId;
+    const depts = DB.get('departments') || [];
+
+    let reqs = DB.get('job_requisitions') || [];
+    if (isDeptMgr && myDeptId) {
+      reqs = reqs.filter(r => r.departmentId === myDeptId || r.requestedBy === (Auth.user?.id || Auth.employee?.id));
+    }
 
     const totalHeadcount = reqs.reduce((sum, r) => sum + (r.headcount || 1), 0);
     const approvedHeadcount = reqs.filter(r => r.status === 'approved').reduce((sum, r) => sum + (r.headcount || 1), 0);
@@ -5014,12 +5187,12 @@ const Recruitment = {
           </thead>
           <tbody>
             ${reqs.length === 0 ? `
-              <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No requisitions submitted yet.</td></tr>
+              <tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No requisitions or quotations found for this department.</td></tr>
             ` : reqs.map(r => {
               const dept = depts.find(d => d.id === r.departmentId);
               const requester = Utils.getEmpName(r.requestedBy);
               const priorityClass = r.priority === 'Urgent' ? 'badge-danger' : r.priority === 'High' ? 'badge-warning' : 'badge-secondary';
-              const isQuotation = r.isQuotation || (r.reqNumber && r.reqNumber.startsWith('QUOT'));
+              const isQuotation = r.isQuotation || (r.reqNumber && r.reqNumber.startsWith('POS-QUOT')) || (r.reqNumber && r.reqNumber.startsWith('QUOT'));
               const typeBadge = isQuotation 
                 ? `<span class="badge badge-secondary" style="background:#8b5cf6;color:white;font-size:9px">QUOTATION</span>` 
                 : `<span class="badge badge-ghost" style="font-size:9px">STANDARD</span>`;
@@ -5049,7 +5222,7 @@ const Recruitment = {
                   <td><span class="badge ${priorityClass}" style="font-size:10.5px">${r.priority}</span></td>
                   <td>${statusBadge}</td>
                   <td style="text-align:right;white-space:nowrap">
-                    ${r.status === 'approved' && !r.jobPostId ? `
+                    ${isHR && r.status === 'approved' && !r.jobPostId ? `
                       <button class="btn btn-primary btn-xs" onclick="Recruitment.convertRequisitionToJob(${r.id})" title="Post Opening to ATS Pipeline">
                         <i class="fa fa-briefcase"></i> Post Job
                       </button>
@@ -5073,7 +5246,7 @@ const Recruitment = {
                     ` : ''}
 
                     <button class="btn btn-ghost btn-xs" onclick="Recruitment.viewRequisition(${r.id})" title="Inspect Requisition Details">
-                      <i class="fa fa-eye"></i>
+                      <i class="fa fa-eye"></i> View
                     </button>
                   </td>
                 </tr>
@@ -5086,31 +5259,46 @@ const Recruitment = {
   },
 
   // ═══════════════════════════════════════════════
-  // 4. MANAGER NEW POSITION QUOTATION MODAL
+  // 4. MANAGER NEW POSITION / REPLACEMENT QUOTATION MODAL
   // ═══════════════════════════════════════════════
 
-  showNewPositionQuotationModal(preselectedDeptId) {
+  showNewPositionQuotationModal(preselectedDeptId, prefill = {}) {
     const depts = DB.get('departments') || [];
     const myDeptId = Auth.employee?.departmentId;
     const isDeptMgr = Auth.role === 'dept_manager';
-    const activeDeptId = preselectedDeptId || myDeptId || depts[0]?.id;
+    const activeDeptId = (isDeptMgr && myDeptId) ? myDeptId : (preselectedDeptId || myDeptId || depts[0]?.id);
+    const p = prefill || {};
 
-    Modal.show('Submit New Position & Headcount Quotation to HR/Admin', `
+    const isReplacement = !!p.vacatedEmployeeId;
+    const modalTitle = isReplacement 
+      ? `Submit Replacement Quotation for Separated Employee to HR/Admin`
+      : `Submit New Position & Headcount Quotation to HR/Admin`;
+
+    Modal.show(modalTitle, `
       <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;line-height:1.5">
         <i class="fa fa-circle-info" style="color:var(--primary)"></i>
-        <strong>Department Headcount Expansion Flow:</strong> As department manager, submit this quotation with budget, equipment, and business case. Upon HR or Admin approval, your department's team structure will <strong>automatically update</strong> with the new position slot ready for recruitment.
+        ${isReplacement ? `
+          <strong>Replacement Quotation for Under-Employee:</strong> As department manager, submit this quotation to backfill the vacated seat left by <strong>${p.vacatedEmployeeName || 'separated personnel'}</strong>. Upon HR/Admin approval, this seat will enter the recruitment pipeline.
+        ` : `
+          <strong>Department Headcount Expansion Flow:</strong> As department manager, submit this quotation with budget, equipment, and business case. Upon HR or Admin approval, your department's team structure will <strong>automatically update</strong> with the new position slot ready for recruitment.
+        `}
       </div>
 
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Department *</label>
-          <select class="form-control" id="pq-dept" ${isDeptMgr && myDeptId ? 'disabled style="background:var(--surface-2)"' : ''}>
-            ${depts.map(d => `<option value="${d.id}" ${d.id === activeDeptId ? 'selected' : ''}>${d.name} (${d.code})</option>`).join('')}
-          </select>
+          ${isDeptMgr && myDeptId ? `
+            <input class="form-control" value="${depts.find(d=>d.id===myDeptId)?.name || 'My Department'} (${depts.find(d=>d.id===myDeptId)?.code || 'DEPT'})" disabled style="background:var(--surface-2);font-weight:600">
+            <input type="hidden" id="pq-dept" value="${myDeptId}">
+          ` : `
+            <select class="form-control" id="pq-dept">
+              ${depts.map(d => `<option value="${d.id}" ${d.id === activeDeptId ? 'selected' : ''}>${d.name} (${d.code})</option>`).join('')}
+            </select>
+          `}
         </div>
         <div class="form-group">
           <label class="form-label">Proposed Position Title *</label>
-          <input class="form-control" id="pq-title" placeholder="e.g. Senior Cloud DevOps Engineer">
+          <input class="form-control" id="pq-title" placeholder="e.g. Senior Cloud DevOps Engineer" value="${p.title || ''}">
         </div>
       </div>
 
@@ -5118,21 +5306,21 @@ const Recruitment = {
         <div class="form-group">
           <label class="form-label">Position Level</label>
           <select class="form-control" id="pq-level">
-            <option value="Junior">Junior / Entry Level</option>
-            <option value="Mid">Mid-Level Professional</option>
-            <option value="Senior" selected>Senior Professional</option>
-            <option value="Lead">Team Lead / Principal</option>
-            <option value="Executive">Executive / Management</option>
+            <option value="Junior" ${p.level==='Junior'?'selected':''}>Junior / Entry Level</option>
+            <option value="Mid" ${p.level==='Mid'?'selected':''}>Mid-Level Professional</option>
+            <option value="Senior" ${(!p.level || p.level==='Senior')?'selected':''}>Senior Professional</option>
+            <option value="Lead" ${p.level==='Lead'?'selected':''}>Team Lead / Principal</option>
+            <option value="Executive" ${p.level==='Executive'?'selected':''}>Executive / Management</option>
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Headcount Openings</label>
-          <input class="form-control" id="pq-count" type="number" min="1" max="10" value="1">
+          <input class="form-control" id="pq-count" type="number" min="1" max="10" value="${p.headcount || 1}" ${isReplacement ? 'readonly' : ''}>
         </div>
         <div class="form-group">
           <label class="form-label">Employment Type</label>
           <select class="form-control" id="pq-type">
-            <option value="Permanent">Permanent Salaried</option>
+            <option value="Permanent" selected>Permanent Salaried</option>
             <option value="Contract">Fixed Term Contract</option>
             <option value="Trainee">Graduate Trainee</option>
           </select>
@@ -5142,39 +5330,42 @@ const Recruitment = {
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Quoted Minimum Monthly Salary (PKR) *</label>
-          <input class="form-control" id="pq-minsal" type="number" step="10000" value="220000">
+          <input class="form-control" id="pq-minsal" type="number" step="10000" value="${p.minSalary || 220000}">
         </div>
         <div class="form-group">
           <label class="form-label">Quoted Maximum Monthly Budget Ceiling (PKR) *</label>
-          <input class="form-control" id="pq-maxsal" type="number" step="10000" value="300000">
+          <input class="form-control" id="pq-maxsal" type="number" step="10000" value="${p.maxSalary || 300000}">
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label">Hardware & Workstation Quotation</label>
-        <input class="form-control" id="pq-hardware" placeholder="e.g. MacBook Pro M3 Max 32GB RAM, Dual 4K Dell Displays, Standing Desk">
+        <input class="form-control" id="pq-hardware" placeholder="e.g. MacBook Pro M3 Max 32GB RAM, Dual 4K Dell Displays, Standing Desk" value="${p.hardware || ''}">
       </div>
 
       <div class="form-group">
         <label class="form-label">Software, Cloud & Tooling Licenses</label>
-        <input class="form-control" id="pq-software" placeholder="e.g. AWS Dev Cloud Sandbox, JetBrains Suite, GitHub Copilot License">
+        <input class="form-control" id="pq-software" placeholder="e.g. AWS Dev Cloud Sandbox, JetBrains Suite, GitHub Copilot License" value="${p.software || ''}">
       </div>
 
       <div class="form-group">
         <label class="form-label">Business Case & ROI Justification *</label>
-        <textarea class="form-control" id="pq-case" rows="3" placeholder="Detail why this new position is required, what deliverables the hire will produce, and team impact..."></textarea>
+        <textarea class="form-control" id="pq-case" rows="3" placeholder="Detail why this position is required, what deliverables the hire will produce, and team impact...">${p.businessCase || ''}</textarea>
       </div>
 
       <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label">Key Core Competencies & Skills</label>
-          <input class="form-control" id="pq-skills" placeholder="e.g. Kubernetes, Terraform, Go/Node, AWS Architecture">
+          <input class="form-control" id="pq-skills" placeholder="e.g. Kubernetes, Terraform, Go/Node, AWS Architecture" value="${p.skills || ''}">
         </div>
         <div class="form-group">
           <label class="form-label">Target Onboarding Date</label>
-          <input class="form-control" id="pq-date" type="date" value="${new Date(Date.now() + 30*86400000).toISOString().split('T')[0]}">
+          <input class="form-control" id="pq-date" type="date" value="${p.targetDate || new Date(Date.now() + 30*86400000).toISOString().split('T')[0]}">
         </div>
       </div>
+
+      <input type="hidden" id="pq-vacated-id" value="${p.vacatedEmployeeId || ''}">
+      <input type="hidden" id="pq-vacated-name" value="${p.vacatedEmployeeName || ''}">
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
@@ -5186,8 +5377,14 @@ const Recruitment = {
   },
 
   savePositionQuotation(fallbackDeptId) {
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const myDeptId = Auth.employee?.departmentId;
     const deptSelect = document.getElementById('pq-dept');
-    const deptId = deptSelect ? parseInt(deptSelect.value) : fallbackDeptId;
+    let deptId = deptSelect ? parseInt(deptSelect.value) : fallbackDeptId;
+    if (isDeptMgr && myDeptId) {
+      deptId = myDeptId; // Force department boundary
+    }
+
     const title = (document.getElementById('pq-title')?.value || '').trim();
     const level = document.getElementById('pq-level')?.value || 'Senior';
     const count = parseInt(document.getElementById('pq-count')?.value) || 1;
@@ -5199,6 +5396,8 @@ const Recruitment = {
     const businessCase = (document.getElementById('pq-case')?.value || '').trim();
     const skills = (document.getElementById('pq-skills')?.value || '').trim();
     const targetDate = document.getElementById('pq-date')?.value || '';
+    const vacatedEmployeeId = parseInt(document.getElementById('pq-vacated-id')?.value) || null;
+    const vacatedEmployeeName = document.getElementById('pq-vacated-name')?.value || null;
 
     if (!title) {
       Toast.show('Position title is required', 'error');
@@ -5224,8 +5423,10 @@ const Recruitment = {
       requestedBy: Auth.user?.id || Auth.employee?.id || 1,
       headcount: count,
       employmentType: type,
-      priority: 'High',
-      reason: 'Expansion',
+      priority: vacatedEmployeeId ? 'Urgent' : 'High',
+      reason: vacatedEmployeeId ? 'Replacement' : 'Expansion',
+      vacatedEmployeeId,
+      vacatedEmployeeName,
       minSalary: minSal,
       maxSalary: maxSal,
       targetDate,
@@ -5251,7 +5452,7 @@ const Recruitment = {
     if (typeof Notifications !== 'undefined' && Notifications.add) {
       Notifications.add({
         title: `New Position Quotation: ${title}`,
-        message: `${Auth.employee?.fullName || 'Manager'} submitted a quotation for ${count} opening(s) in department.`,
+        message: `${Auth.employee?.fullName || 'Manager'} submitted a quotation (${vacatedEmployeeId ? 'Replacement for ' + vacatedEmployeeName : 'Team Expansion'}) for HR approval.`,
         type: 'recruitment',
         targetRole: 'hr_manager'
       });
@@ -5272,6 +5473,10 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   reviewPositionQuotation(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can review position quotations.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const r = reqs.find(x => x.id === id);
     if (!r) return;
@@ -5348,6 +5553,10 @@ const Recruitment = {
   },
 
   approvePositionQuotation(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can approve position quotations.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const r = reqs.find(x => x.id === id);
     if (!r) return;
@@ -5376,6 +5585,10 @@ const Recruitment = {
   },
 
   rejectPositionQuotation(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can reject position quotations.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const r = reqs.find(x => x.id === id);
     if (!r) return;
@@ -5397,22 +5610,51 @@ const Recruitment = {
   initiateReplacementFromVacancy(empId) {
     const emp = DB.find('employees', empId);
     if (!emp) return;
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const myDeptId = Auth.employee?.departmentId;
+
+    if (isDeptMgr && myDeptId && emp.departmentId !== myDeptId) {
+      Toast.show('Access Denied: You can only submit replacement quotations for separated employees under your department.', 'error');
+      return;
+    }
+
     const desig = DB.find('designations', emp.designationId);
     const clearances = DB.get('exit_clearances') || [];
     const clearance = clearances.find(c => c.employeeId === emp.id);
+    const desigName = desig?.name || emp.role || 'Staff Member';
 
-    this.showAddRequisitionModal({
-      title: `${desig?.name || emp.role || 'Staff'} (Replacement)`,
-      departmentId: emp.departmentId,
-      reason: 'Replacement',
-      priority: 'Urgent',
-      notes: `Replacement requirement for separated personnel ${emp.fullName} (${emp.empNo}) who departed on ${clearance?.lastWorkingDay || emp.exitDate || 'recent'}. Separation reason: ${clearance?.reason || 'Resignation'}.`,
-      vacatedEmployeeId: emp.id,
-      vacatedEmployeeName: emp.fullName
-    });
+    if (isDeptMgr) {
+      // Deputy Manager flow: Open quotation modal with replacement prefill
+      this.showNewPositionQuotationModal(emp.departmentId, {
+        title: `${desigName} (Replacement)`,
+        level: 'Mid',
+        headcount: 1,
+        minSalary: Math.round((emp.basicSalary || 150000) * 1.05),
+        maxSalary: Math.round((emp.basicSalary || 150000) * 1.3),
+        vacatedEmployeeId: emp.id,
+        vacatedEmployeeName: emp.fullName,
+        businessCase: `Replacement quotation for vacated seat previously held by ${emp.fullName} (${emp.empNo}, ${desigName}) who separated on ${clearance?.lastWorkingDay || emp.exitDate || 'recent date'}. Critical operational backfill needed to maintain team delivery commitments.`
+      });
+    } else {
+      // HR/Admin flow: Can submit direct requisition
+      this.showAddRequisitionModal({
+        title: `${desigName} (Replacement)`,
+        departmentId: emp.departmentId,
+        reason: 'Replacement',
+        priority: 'Urgent',
+        notes: `Replacement requirement for separated personnel ${emp.fullName} (${emp.empNo}) who departed on ${clearance?.lastWorkingDay || emp.exitDate || 'recent'}. Separation reason: ${clearance?.reason || 'Resignation'}.`,
+        vacatedEmployeeId: emp.id,
+        vacatedEmployeeName: emp.fullName
+      });
+    }
   },
 
   showAddRequisitionModal(prefill) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Direct requisition creation is restricted to HR & Admin. Please use Initiate Position Quotation.', 'warning');
+      this.showNewPositionQuotationModal();
+      return;
+    }
     const depts = DB.get('departments') || [];
     const p = prefill || {};
 
@@ -5491,6 +5733,10 @@ const Recruitment = {
   },
 
   saveRequisition() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can submit direct requisitions.', 'error');
+      return;
+    }
     const title = document.getElementById('rq-title').value.trim();
     const deptId = parseInt(document.getElementById('rq-dept').value);
     const count = parseInt(document.getElementById('rq-count').value) || 1;
@@ -5546,6 +5792,10 @@ const Recruitment = {
   },
 
   approveRequisition(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can approve headcount requisitions.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const idx = reqs.findIndex(r => r.id === id);
     if (idx === -1) return;
@@ -5560,6 +5810,10 @@ const Recruitment = {
   },
 
   rejectRequisition(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can reject headcount requisitions.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const idx = reqs.findIndex(r => r.id === id);
     if (idx === -1) return;
@@ -5574,6 +5828,10 @@ const Recruitment = {
   },
 
   convertRequisitionToJob(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can convert requisitions into active job postings.', 'error');
+      return;
+    }
     const reqs = DB.get('job_requisitions') || [];
     const r = reqs.find(x => x.id === id);
     if (!r) return;
@@ -5634,6 +5892,10 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   showScorecardModal(applicantId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate scorecards are restricted to HR & Admin.', 'error');
+      return;
+    }
     const app = DB.find('applications', applicantId);
     if (!app) return;
     const job = DB.find('recruitment', app.jobId);
@@ -5727,6 +5989,10 @@ const Recruitment = {
   },
 
   saveScorecard(applicantId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate scorecards are restricted to HR & Admin.', 'error');
+      return;
+    }
     const app = DB.find('applications', applicantId);
     if (!app) return;
 
@@ -5782,6 +6048,12 @@ const Recruitment = {
   // ═══════════════════════════════════════════════
 
   renderInterviews(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Interview panels and scheduling are restricted to HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const interviews = DB.get('interviews') || [];
     const feedbacks = DB.get('interview_feedbacks') || [];
     const stages = DB.get('recruitment_stages') || [];
@@ -5897,6 +6169,10 @@ const Recruitment = {
   },
 
   showScheduleInterviewModal() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Interview scheduling is restricted to HR & Admin.', 'error');
+      return;
+    }
     const apps = DB.get('applications') || [];
     const emps = DB.get('employees').filter(e => e.status === 'active');
     Modal.show('Schedule Candidate Interview Round', `
@@ -5941,6 +6217,10 @@ const Recruitment = {
   },
 
   saveScheduledInterview() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Interview scheduling is restricted to HR & Admin.', 'error');
+      return;
+    }
     const candidateId = parseInt(document.getElementById('inv-cand').value);
     const roundName = document.getElementById('inv-round').value.trim();
     const interviewerId = parseInt(document.getElementById('inv-panel').value);
@@ -5961,6 +6241,10 @@ const Recruitment = {
   },
 
   showSubmitInterviewFeedbackModal(interviewId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Interview feedback is restricted to HR & Admin.', 'error');
+      return;
+    }
     const inv = (DB.get('interviews') || []).find(i => i.id === interviewId);
     if (!inv) return;
     const candidate = (DB.get('applications')||[]).find(a => a.id === inv.candidateId);
@@ -5997,6 +6281,10 @@ const Recruitment = {
   },
 
   saveInterviewFeedback(interviewId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Interview feedback is restricted to HR & Admin.', 'error');
+      return;
+    }
     const score = parseFloat(document.getElementById('ifb-score').value) || 4.0;
     const recommendation = document.getElementById('ifb-rec').value;
     const remarks = document.getElementById('ifb-remarks').value.trim();
@@ -6024,6 +6312,12 @@ const Recruitment = {
   },
 
   renderTalentPools(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Talent pools and sourcing reservoirs are restricted to HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const pools = DB.get('talent_pools') || [];
     const refChecks = DB.get('reference_checks') || [];
 
@@ -6103,6 +6397,10 @@ const Recruitment = {
   },
 
   showAddTalentPoolModal() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Talent pools are restricted to HR & Admin.', 'error');
+      return;
+    }
     Modal.show('Create Talent Sourcing Pool', `
       <div class="form-group">
         <label class="form-label required">Pool Title</label>
@@ -6125,6 +6423,10 @@ const Recruitment = {
   },
 
   saveTalentPool() {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Talent pools are restricted to HR & Admin.', 'error');
+      return;
+    }
     const title = document.getElementById('tp-title').value.trim();
     if (!title) { Toast.show('Please enter talent pool title', 'error'); return; }
     const domain = document.getElementById('tp-domain').value.trim() || 'General';
@@ -6153,6 +6455,12 @@ const Recruitment = {
   },
 
   renderOnboarding(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Only HR and Administrators have access to onboarding pipelines.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const onboardings = DB.get('onboardings') || [];
     const completedCount = onboardings.filter(o => o.status === 'completed' || o.progress === 100).length;
     const inProgressCount = onboardings.length - completedCount;
@@ -6281,6 +6589,7 @@ const Recruitment = {
   },
 
   showAddOnboardingModal() {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can initiate onboarding.', 'error');
     const apps = DB.get('applications') || [];
     const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const onboardings = DB.get('onboardings') || [];
@@ -6338,6 +6647,7 @@ const Recruitment = {
 
   saveNewOnboarding(e) {
     e.preventDefault();
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can initiate onboarding.', 'error');
     const candidateId = parseInt(document.getElementById('ob-candidate-select').value);
     if (!candidateId) { Toast.show('Please select a candidate', 'error'); return; }
     const joiningDate = document.getElementById('ob-joining-date').value;
@@ -6390,6 +6700,7 @@ const Recruitment = {
   },
 
   viewOnboardingChecklist(onboardingId) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can view onboarding checklists.', 'error');
     const onboardings = DB.get('onboardings') || [];
     const ob = onboardings.find(o => o.id === onboardingId);
     if (!ob) return;
@@ -6502,6 +6813,7 @@ const Recruitment = {
   },
 
   addCustomOnboardingTask(onboardingId) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can manage onboarding checklists.', 'error');
     const input = document.getElementById('new-ob-task-name');
     const taskName = input?.value.trim();
     if (!taskName) { Toast.show('Please enter task description', 'warning'); return; }
@@ -6525,6 +6837,7 @@ const Recruitment = {
   },
 
   toggleOnboardingTask(onboardingId, taskIdx, isCompleted) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can manage onboarding checklists.', 'error');
     const onboardings = DB.get('onboardings') || [];
     const ob = onboardings.find(o => o.id === onboardingId);
     if (!ob) return;
@@ -6554,6 +6867,12 @@ const Recruitment = {
   assessmentFilter: { jobId: 'all', search: '', recommendation: 'all' },
 
   renderAssessmentSheets(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Only HR and Administrators have access to candidate assessments and funnel analytics.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
     const jobs = DB.get('recruitment') || [];
     let assessments = DB.get('candidate_assessments') || [];
 
@@ -6978,6 +7297,7 @@ const Recruitment = {
   },
 
   showAddAssessmentModal(prefillJobId = null) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can record candidate evaluations.', 'error');
     const jobs = DB.get('recruitment') || [];
     const today = new Date().toISOString().split('T')[0];
 
@@ -7106,6 +7426,7 @@ const Recruitment = {
   },
 
   showEditAssessmentModal(id) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can edit candidate evaluations.', 'error');
     const assessments = DB.get('candidate_assessments') || [];
     const item = assessments.find(a => a.id === Number(id));
     if (!item) return;
@@ -7215,6 +7536,7 @@ const Recruitment = {
 
   saveAssessment(e, id = null) {
     e.preventDefault();
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can save candidate evaluations.', 'error');
     const jobId = Number(document.getElementById('ev-job-id').value);
     const job = DB.find('recruitment', jobId);
     const candidateName = document.getElementById('ev-name').value.trim();
@@ -7286,6 +7608,7 @@ const Recruitment = {
   },
 
   deleteAssessment(id) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can delete candidate evaluations.', 'error');
     if (!confirm('Are you sure you want to remove this candidate interview evaluation?')) return;
     let assessments = DB.get('candidate_assessments') || [];
     assessments = assessments.filter(a => a.id !== Number(id));
@@ -7295,6 +7618,7 @@ const Recruitment = {
   },
 
   convertCandidateToOffer(id) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can generate offer letters.', 'error');
     const assessments = DB.get('candidate_assessments') || [];
     const item = assessments.find(a => a.id === Number(id));
     if (!item) return;
@@ -7311,6 +7635,7 @@ const Recruitment = {
   },
 
   exportAssessmentCSV() {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can export assessment sheets.', 'error');
     const jobs = DB.get('recruitment') || [];
     const assessments = DB.get('candidate_assessments') || [];
 
@@ -7384,6 +7709,7 @@ const Recruitment = {
   },
 
   printAssessmentSheet() {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied: Only HR and Administrators can print assessment sheets.', 'error');
     window.print();
   }
 };
