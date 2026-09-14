@@ -4290,7 +4290,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 }
 
 .split-left-inner {
-  max-width: 540px;
+  max-width: 600px;
   margin: 0 auto;
   width: 100%;
 }
@@ -4301,118 +4301,92 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   gap: 12px;
   text-decoration: none;
   color: inherit;
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
-.split-left-headline .split-title {
-  font-size: 44px;
-  font-weight: 900;
-  line-height: 1.15;
-  color: #0f172a;
-  letter-spacing: -1px;
-  margin-bottom: 12px;
+/* ── Interactive Scenario Stage (Matching Reference Image) ── */
+.login-scenario-stage {
+  position: relative;
+  margin: 16px 0 28px 0;
 }
 
-[data-theme="dark"] .split-left-headline .split-title {
-  color: #f8fafc;
-}
-
-.text-blue-highlight {
-  color: #2563eb;
-}
-
-.split-subtitle {
-  font-size: 15px;
-  color: #64748b;
-  line-height: 1.6;
-  margin-bottom: 36px;
-}
-
-[data-theme="dark"] .split-subtitle {
-  color: #94a3b8;
-}
-
-/* Executive Live System Telemetry & Role Permissions Hub */
-.split-telemetry-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 16px 36px -12px rgba(15, 23, 42, 0.08);
-  margin-bottom: 32px;
-}
-
-[data-theme="dark"] .split-telemetry-card {
-  background: #1e293b;
-  border-color: #334155;
-  box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.4);
-}
-
-.telemetry-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 18px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-[data-theme="dark"] .telemetry-header {
-  border-bottom-color: #334155;
-}
-
-.telemetry-live-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 10px #10b981;
-  animation: pulseDot 2s infinite;
-}
-
-.telemetry-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1e293b;
-  flex: 1;
-}
-
-[data-theme="dark"] .telemetry-title {
-  color: #f8fafc;
-}
-
-.telemetry-version {
-  font-size: 11px;
-  font-weight: 700;
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
-  padding: 3px 8px;
-  border-radius: 6px;
-}
-
-.telemetry-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.telemetry-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.scenario-illustration-wrap {
+  width: 100%;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 45px -15px rgba(37, 99, 235, 0.18), 0 0 0 1px rgba(191, 219, 254, 0.8);
   background: #f8fafc;
-  border: 1px solid #edf2f7;
-  padding: 10px 12px;
-  border-radius: 10px;
 }
 
-[data-theme="dark"] .telemetry-item {
+[data-theme="dark"] .scenario-illustration-wrap {
+  box-shadow: 0 20px 45px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(51, 65, 85, 0.8);
   background: #0f172a;
-  border-color: #1e293b;
 }
 
-.telemetry-item-icon {
+.scenario-scene-img {
+  width: 100%;
+  height: auto;
+  display: block;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.login-scenario-stage:hover .scenario-scene-img {
+  transform: scale(1.015);
+}
+
+/* Floating KPI Badges */
+.scenario-floating-badge {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.15), 0 4px 8px -2px rgba(15, 23, 42, 0.05);
+  z-index: 5;
+  user-select: none;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.scenario-floating-badge:hover {
+  transform: translateY(-4px) scale(1.03) !important;
+  box-shadow: 0 18px 36px -6px rgba(37, 99, 235, 0.25);
+}
+
+[data-theme="dark"] .scenario-floating-badge {
+  background: rgba(30, 41, 59, 0.94);
+  border-color: rgba(51, 65, 85, 0.85);
+  box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.55);
+}
+
+/* Badge Precise Coordinates */
+.badge-employees {
+  top: -12px;
+  left: 14px;
+}
+
+.badge-attendance {
+  top: -18px;
+  left: 42%;
+}
+
+.badge-positions {
+  top: 18px;
+  right: -10px;
+}
+
+.badge-payroll {
+  bottom: 24px;
+  left: -10px;
+}
+
+.badge-icon-box {
   width: 34px;
   height: 34px;
   border-radius: 8px;
@@ -4423,111 +4397,129 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   flex-shrink: 0;
 }
 
-.telemetry-label {
-  font-size: 10.5px;
-  color: #64748b;
-  font-weight: 600;
+.badge-content {
+  display: flex;
+  flex-direction: column;
 }
 
-[data-theme="dark"] .telemetry-label {
+.badge-title {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+[data-theme="dark"] .badge-title {
   color: #94a3b8;
 }
 
-.telemetry-val {
-  font-size: 12px;
-  font-weight: 700;
+.badge-number {
+  font-size: 15px;
+  font-weight: 800;
   color: #0f172a;
+  line-height: 1.2;
+  letter-spacing: -0.2px;
 }
 
-[data-theme="dark"] .telemetry-val {
-  color: #f1f5f9;
-}
-
-.telemetry-scope-preview {
-  background: rgba(37, 99, 235, 0.04);
-  border: 1px dashed rgba(37, 99, 235, 0.35);
-  border-radius: 10px;
-  padding: 12px 14px;
-}
-
-[data-theme="dark"] .telemetry-scope-preview {
-  background: rgba(37, 99, 235, 0.1);
-  border-color: rgba(37, 99, 235, 0.3);
-}
-
-.scope-preview-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #0f172a;
-  margin-bottom: 4px;
-}
-
-[data-theme="dark"] .scope-preview-header {
+[data-theme="dark"] .badge-number {
   color: #f8fafc;
 }
 
-.scope-preview-desc {
-  font-size: 11.5px;
-  color: #475569;
-  line-height: 1.5;
-  margin: 0;
+.badge-trend {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
-[data-theme="dark"] .scope-preview-desc {
-  color: #cbd5e1;
+.badge-subtext {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9333ea;
+  line-height: 1.2;
 }
 
+/* Float Animations */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
 
-/* Left Bottom 3 Badges */
-.split-left-footer-badges {
+@keyframes floatMedium {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4.5s ease-in-out infinite;
+}
+
+.animate-float-medium {
+  animation: floatMedium 3.8s ease-in-out infinite;
+}
+
+/* ── Bottom 3 Pillars (Matching Reference Image) ── */
+.scenario-bottom-pillars {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(203, 213, 225, 0.6);
+  gap: 12px;
 }
 
-[data-theme="dark"] .split-left-footer-badges {
-  border-top-color: #1e293b;
-}
-
-.split-footer-badge-item {
+.scenario-pillar-item {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  transition: all 0.2s ease;
 }
 
-.badge-icon-wrap {
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+.scenario-pillar-item:hover {
+  transform: translateY(-2px);
+  border-color: #93c5fd;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.1);
+}
+
+[data-theme="dark"] .scenario-pillar-item {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.pillar-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
+  font-size: 15px;
   flex-shrink: 0;
 }
 
-.split-footer-badge-item strong {
+.scenario-pillar-item strong {
   display: block;
   font-size: 12px;
   font-weight: 700;
-  color: #1e293b;
+  color: #0f172a;
+  margin-bottom: 2px;
 }
 
-[data-theme="dark"] .split-footer-badge-item strong {
+[data-theme="dark"] .scenario-pillar-item strong {
   color: #f8fafc;
 }
 
-.split-footer-badge-item span {
-  font-size: 10.5px;
-  color: #64748b;
-  line-height: 1.3;
+.scenario-pillar-item span {
   display: block;
+  font-size: 10px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+[data-theme="dark"] .scenario-pillar-item span {
+  color: #94a3b8;
 }
 
 /* ── Split Right Form Pane ── */

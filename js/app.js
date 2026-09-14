@@ -1260,95 +1260,102 @@ const Login = {
         <!-- ─── LEFT HERO & BRAND PANE ─── -->
         <div class="login-split-left">
           <div class="split-left-inner">
-            <!-- Brand Logo -->
+            <!-- Brand Header -->
             <a href="#" class="split-left-brand" onclick="App.showLanding();return false;">
               <div class="landing-brand-icon">
                 <i class="fa fa-users-gear"></i>
               </div>
               <div>
                 <div class="landing-brand-name">HRM Pro</div>
-                <div class="landing-brand-tag">Human Resource Management Platform</div>
+                <div class="landing-brand-tag">Enterprise Human Resource Management</div>
               </div>
             </a>
 
-            <!-- Welcome Headline -->
-            <div class="split-left-headline">
-              <div class="landing-pill-badge" style="margin-bottom:14px;background:rgba(37,99,235,0.08);border-color:rgba(37,99,235,0.2);color:#2563eb">
-                <i class="fa fa-shield-check"></i> Enterprise Access Control
+            <!-- Central Visual Scenario Stage (Matching Reference Artwork) -->
+            <div class="login-scenario-stage">
+              <!-- Floating Metric 1: Employees -->
+              <div class="scenario-floating-badge badge-employees animate-float-slow">
+                <div class="badge-icon-box" style="background:#eff6ff;color:#2563eb">
+                  <i class="fa fa-users"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Employees</div>
+                  <div class="badge-number">1,248</div>
+                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 5.2%</div>
+                </div>
               </div>
-              <h1 class="split-title">Welcome to<br><span class="text-blue-highlight">HRM Pro</span></h1>
-              <p class="split-subtitle">Sign in to your authorized workspace with real-time multi-device database synchronization and enterprise security.</p>
+
+              <!-- Floating Metric 2: Attendance Rate -->
+              <div class="scenario-floating-badge badge-attendance animate-float-medium">
+                <div class="badge-icon-box" style="background:#f0fdf4;color:#16a34a">
+                  <i class="fa fa-chart-column"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Attendance Rate</div>
+                  <div class="badge-number">94.6%</div>
+                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 2.3%</div>
+                </div>
+              </div>
+
+              <!-- Floating Metric 3: Open Positions -->
+              <div class="scenario-floating-badge badge-positions animate-float-slow">
+                <div class="badge-icon-box" style="background:#eff6ff;color:#2563eb">
+                  <i class="fa fa-briefcase"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Open Positions</div>
+                  <div class="badge-number">24</div>
+                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 9.1%</div>
+                </div>
+              </div>
+
+              <!-- Floating Metric 4: Payroll Due -->
+              <div class="scenario-floating-badge badge-payroll animate-float-medium">
+                <div class="badge-icon-box" style="background:#fdf4ff;color:#a855f7">
+                  <i class="fa fa-coins"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Payroll Due</div>
+                  <div class="badge-number">$312,450</div>
+                  <div class="badge-subtext">Due in 5 days</div>
+                </div>
+              </div>
+
+              <!-- Scene Illustration Artwork -->
+              <div class="scenario-illustration-wrap">
+                <img src="assets/login_security_scene.jpg" alt="Enterprise Security Scenario" class="scenario-scene-img">
+              </div>
             </div>
 
-            <!-- Central Telemetry & Dynamic Role Scope Card (De-duplicated) -->
-            <div class="split-telemetry-card">
-              <div class="telemetry-header">
-                <div class="telemetry-live-dot"></div>
-                <span class="telemetry-title">Central Cloud Engine • Live Status</span>
-                <span class="telemetry-version">v2.1 Synced</span>
-              </div>
-              <div class="telemetry-grid">
-                <div class="telemetry-item">
-                  <div class="telemetry-item-icon" style="background:rgba(37,99,235,0.1);color:#2563eb"><i class="fa fa-database"></i></div>
-                  <div>
-                    <div class="telemetry-label">Store Engine</div>
-                    <div class="telemetry-val">Atomic Monotonic Store</div>
-                  </div>
+            <!-- Bottom 3 Feature Highlights (Directly from Reference Image) -->
+            <div class="scenario-bottom-pillars">
+              <div class="scenario-pillar-item">
+                <div class="pillar-icon-wrap" style="color:#2563eb;background:#eff6ff">
+                  <i class="fa fa-shield-check"></i>
                 </div>
-                <div class="telemetry-item">
-                  <div class="telemetry-item-icon" style="background:rgba(16,185,129,0.1);color:#10b981"><i class="fa fa-rotate"></i></div>
-                  <div>
-                    <div class="telemetry-label">Multi-Device Sync</div>
-                    <div class="telemetry-val">Real-Time SSE Stream</div>
-                  </div>
-                </div>
-                <div class="telemetry-item">
-                  <div class="telemetry-item-icon" style="background:rgba(147,51,234,0.1);color:#9333ea"><i class="fa fa-lock"></i></div>
-                  <div>
-                    <div class="telemetry-label">Data Protection</div>
-                    <div class="telemetry-val">Role Scoped • TLS 1.3</div>
-                  </div>
-                </div>
-                <div class="telemetry-item">
-                  <div class="telemetry-item-icon" style="background:rgba(217,119,6,0.1);color:#d97706"><i class="fa fa-fingerprint"></i></div>
-                  <div>
-                    <div class="telemetry-label">Attendance Sync</div>
-                    <div class="telemetry-val">Biometric Ready</div>
-                  </div>
+                <div>
+                  <strong>Secure Access</strong>
+                  <span>Role-based access and permissions</span>
                 </div>
               </div>
 
-              <!-- Active Role Scope Preview -->
-              <div class="telemetry-scope-preview">
-                <div class="scope-preview-header">
-                  <i class="fa fa-user-shield" style="color:#2563eb"></i>
-                  <strong id="active-scope-title">${acc.role} Permissions</strong>
+              <div class="scenario-pillar-item">
+                <div class="pillar-icon-wrap" style="color:#0284c7;background:#f0f9ff">
+                  <i class="fa fa-lock"></i>
                 </div>
-                <p id="active-scope-desc" class="scope-preview-desc">${acc.scope}</p>
+                <div>
+                  <strong>Encrypted Data</strong>
+                  <span>Enterprise-grade data encryption</span>
+                </div>
               </div>
-            </div>
 
-            <!-- Bottom 3 Distinct Enterprise Badges -->
-            <div class="split-left-footer-badges">
-              <div class="split-footer-badge-item">
-                <div class="badge-icon-wrap"><i class="fa fa-arrows-rotate"></i></div>
-                <div>
-                  <strong>Zero Data Loss</strong>
-                  <span>Real-time cross-device updates</span>
+              <div class="scenario-pillar-item">
+                <div class="pillar-icon-wrap" style="color:#6366f1;background:#eef2ff">
+                  <i class="fa fa-user-gear"></i>
                 </div>
-              </div>
-              <div class="split-footer-badge-item">
-                <div class="badge-icon-wrap"><i class="fa fa-user-lock"></i></div>
                 <div>
-                  <strong>Strict Scopes</strong>
-                  <span>5 Dedicated role portals</span>
-                </div>
-              </div>
-              <div class="split-footer-badge-item">
-                <div class="badge-icon-wrap"><i class="fa fa-file-shield"></i></div>
-                <div>
-                  <strong>Audit Trail</strong>
-                  <span>Immutable electronic logging</span>
+                  <strong>Admin Portal</strong>
+                  <span>Manage your organization with confidence</span>
                 </div>
               </div>
             </div>
@@ -1361,12 +1368,9 @@ const Login = {
             <button class="btn-split-back" onclick="App.showLanding()">
               <i class="fa fa-arrow-left"></i> Back to Home
             </button>
-            <div style="display:flex;align-items:center;gap:8px">
-              ${typeof I18n !== 'undefined' ? I18n.renderLanguageSelector('login') + I18n.renderCurrencySelector('login') : ''}
-              <button class="login-theme-toggle-simple" onclick="App.toggleTheme()" title="Toggle Theme">
-                <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
-              </button>
-            </div>
+            <button class="login-theme-toggle-simple" onclick="App.toggleTheme()" title="Toggle Theme">
+              <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+            </button>
           </div>
 
           <div class="login-split-card animate-slide-up">

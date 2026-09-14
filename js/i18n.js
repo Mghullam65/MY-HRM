@@ -462,8 +462,20 @@ const I18n = {
 
   // ─── Initialization ───
   init() {
-    this.activeLang = localStorage.getItem('hrm_language') || 'en';
-    this.activeCurrency = localStorage.getItem('hrm_currency') || 'PKR';
+    let companyLang = null;
+    let companyCurr = null;
+    try {
+      if (typeof DB !== 'undefined' && DB.getObj) {
+        const s = DB.getObj('settings');
+        if (s) {
+          if (s.companyLanguage) companyLang = s.companyLanguage;
+          if (s.companyCurrency) companyCurr = s.companyCurrency;
+        }
+      }
+    } catch (e) {}
+
+    this.activeLang = companyLang || localStorage.getItem('hrm_language') || 'en';
+    this.activeCurrency = companyCurr || localStorage.getItem('hrm_currency') || 'PKR';
     this.applyHtmlAttributes();
   },
 

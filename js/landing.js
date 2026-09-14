@@ -946,7 +946,6 @@ const Landing = {
             </nav>
 
             <div class="landing-nav-actions">
-              ${typeof I18n !== 'undefined' ? I18n.renderLanguageSelector('landing') + I18n.renderCurrencySelector('landing') : ''}
               <button class="landing-btn-signin" onclick="App.showLogin()">
                 <i class="fa fa-right-to-bracket"></i> Sign In
               </button>

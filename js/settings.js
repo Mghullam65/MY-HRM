@@ -144,6 +144,39 @@ const Settings = {
           </select>`, '')}
       `)}
 
+      <!-- Card: Company Financial Currency & Localization -->
+      ${this._sectionCard('Financial Currency & System Localization', 'Configure official company operating currency, exchange handling, and system language', `
+        ${this._settingRow('Company Financial Currency', `
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <select class="form-control" id="s-company-currency" onchange="Settings.previewCurrencySelection(this.value)">
+              <option value="PKR" ${(s('companyCurrency') || 'PKR') === 'PKR' ? 'selected' : ''}>🇵🇰 PKR — Pakistani Rupee (₨) [Base 1.0]</option>
+              <option value="USD" ${s('companyCurrency') === 'USD' ? 'selected' : ''}>🇺🇸 USD — US Dollar ($)</option>
+              <option value="EUR" ${s('companyCurrency') === 'EUR' ? 'selected' : ''}>🇪🇺 EUR — Euro (€)</option>
+              <option value="GBP" ${s('companyCurrency') === 'GBP' ? 'selected' : ''}>🇬🇧 GBP — British Pound (£)</option>
+              <option value="AED" ${s('companyCurrency') === 'AED' ? 'selected' : ''}>🇦🇪 AED — UAE Dirham (AED)</option>
+              <option value="SAR" ${s('companyCurrency') === 'SAR' ? 'selected' : ''}>🇸🇦 SAR — Saudi Riyal (SAR)</option>
+              <option value="CAD" ${s('companyCurrency') === 'CAD' ? 'selected' : ''}>🇨🇦 CAD — Canadian Dollar (CA$)</option>
+              <option value="INR" ${s('companyCurrency') === 'INR' ? 'selected' : ''}>🇮🇳 INR — Indian Rupee (₹)</option>
+            </select>
+            <div id="currency-preview-info" style="font-size:11.5px;color:var(--text-3);padding:6px 10px;background:var(--surface);border-radius:6px;border:1px solid var(--border)">
+              <strong>Active Financial Format:</strong> <span id="currency-preview-sample" style="color:var(--primary);font-weight:700">${typeof I18n !== 'undefined' ? I18n.formatCurrency(250000) : 'PKR 250,000'}</span>
+            </div>
+          </div>
+        `, 'Primary financial currency used across company payroll processing, salary structures, payslips, expense claims, allowances, and executive analytics.')}
+
+        ${this._settingRow('Company Operating Language', `
+          <select class="form-control" id="s-company-language">
+            <option value="en" ${(s('companyLanguage') || 'en') === 'en' ? 'selected' : ''}>🇬🇧 English (LTR - Standard International)</option>
+            <option value="ur" ${s('companyLanguage') === 'ur' ? 'selected' : ''}>🇵🇰 اردو — Urdu (RTL - Nastaliq Typography)</option>
+            <option value="ar" ${s('companyLanguage') === 'ar' ? 'selected' : ''}>🇸🇦 العربية — Arabic (RTL - Corporate Glyphs)</option>
+            <option value="es" ${s('companyLanguage') === 'es' ? 'selected' : ''}>🇪🇸 Español — Spanish (LTR)</option>
+            <option value="fr" ${s('companyLanguage') === 'fr' ? 'selected' : ''}>🇫🇷 Français — French (LTR)</option>
+            <option value="de" ${s('companyLanguage') === 'de' ? 'selected' : ''}>🇩🇪 Deutsch — German (LTR)</option>
+            <option value="zh" ${s('companyLanguage') === 'zh' ? 'selected' : ''}>🇨🇳 简体中文 — Chinese (LTR)</option>
+          </select>
+        `, 'Primary operating language for company profile, document templates, team dashboards, and layout direction (LTR/RTL).')}
+      `)}
+
       <!-- Card 2: Company Logo & Official Letterhead -->
       ${this._sectionCard('Corporate Branding & Letterhead Setup', 'Upload company logo and configure official letterhead used across HR letters, offer letters & badges', `
         <!-- Logo Row -->
@@ -596,6 +629,23 @@ const Settings = {
     const footerEl = document.getElementById('s-company-footer');
     if (footerEl) settings.companyLetterheadFooter = footerEl.value.trim();
 
+    // Financial Currency & Localization
+    const currEl = document.getElementById('s-company-currency');
+    if (currEl) {
+      settings.companyCurrency = currEl.value;
+      if (typeof I18n !== 'undefined' && I18n.setCurrency) {
+        I18n.setCurrency(currEl.value);
+      }
+    }
+
+    const langEl = document.getElementById('s-company-language');
+    if (langEl) {
+      settings.companyLanguage = langEl.value;
+      if (typeof I18n !== 'undefined' && I18n.setLanguage) {
+        I18n.setLanguage(langEl.value);
+      }
+    }
+
     // Signatory & Stamp
     const sigNameEl = document.getElementById('s-signatory-name');
     if (sigNameEl) settings.signatoryName = sigNameEl.value.trim();
@@ -607,13 +657,27 @@ const Settings = {
     if (window._tempCompanyStamp !== undefined) settings.companyStamp = window._tempCompanyStamp;
 
     DB.set('settings', settings);
-    DB.log('UPDATE', 'Settings', 'Company profile, branding, letterhead and authorized signature updated', Auth.user?.id);
+    DB.log('UPDATE', 'Settings', 'Company profile, financial currency, language, branding, letterhead and authorized signature updated', Auth.user?.id);
 
     // Update live sidebar company name if element exists
     const sidebarTitle = document.getElementById('company-sidebar-name');
     if (sidebarTitle) sidebarTitle.textContent = settings.companyName || 'HRM Pro';
 
-    Toast.show('All Company Settings & Letterhead saved successfully!', 'success');
+    // Refresh entire app UI shell if loaded
+    if (typeof App !== 'undefined' && App.renderTopbar) {
+      App.renderTopbar();
+      App.renderSidebar();
+    }
+
+    Toast.show('Company Profile, Financial Currency & Localization saved successfully!', 'success');
+  },
+
+  previewCurrencySelection(currCode) {
+    const sampleEl = document.getElementById('currency-preview-sample');
+    if (!sampleEl || typeof I18n === 'undefined') return;
+    const curr = I18n.currencies[currCode] || I18n.currencies.PKR;
+    const converted = Math.round(250000 * (curr.rate || 1.0));
+    sampleEl.textContent = `${curr.symbol} ${converted.toLocaleString()} (${curr.name})`;
   },
 
   // ─── General Settings ─────────────────────────────
