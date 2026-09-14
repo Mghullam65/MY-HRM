@@ -1302,91 +1302,91 @@ const Login = {
               <p class="split-hero-subtitle">for Human Resource Management System</p>
             </div>
 
-            <!-- Central Visual Scenario Stage (Matching Reference Artwork) -->
+            <!-- Central Visual Scenario Stage: All HR Functions Working Together -->
             <div class="login-scenario-stage">
-              <!-- Floating Metric 1: Employees -->
-              <div class="scenario-floating-badge badge-employees animate-float-slow">
-                <div class="badge-icon-box" style="background:#eff6ff;color:#2563eb">
-                  <i class="fa fa-users"></i>
-                </div>
-                <div class="badge-content">
-                  <div class="badge-title">Employees</div>
-                  <div class="badge-number">1,248</div>
-                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 5.2%</div>
-                </div>
-              </div>
-
-              <!-- Floating Metric 2: Attendance Rate -->
-              <div class="scenario-floating-badge badge-attendance animate-float-medium">
-                <div class="badge-icon-box" style="background:#f0fdf4;color:#16a34a">
-                  <i class="fa fa-chart-column"></i>
-                </div>
-                <div class="badge-content">
-                  <div class="badge-title">Attendance Rate</div>
-                  <div class="badge-number">94.6%</div>
-                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 2.3%</div>
-                </div>
-              </div>
-
-              <!-- Floating Metric 3: Open Positions -->
-              <div class="scenario-floating-badge badge-positions animate-float-slow">
-                <div class="badge-icon-box" style="background:#eff6ff;color:#2563eb">
-                  <i class="fa fa-briefcase"></i>
-                </div>
-                <div class="badge-content">
-                  <div class="badge-title">Open Positions</div>
-                  <div class="badge-number">24</div>
-                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> 9.1%</div>
-                </div>
-              </div>
-
-              <!-- Floating Metric 4: Payroll Due -->
-              <div class="scenario-floating-badge badge-payroll animate-float-medium">
+              <!-- Function 1: Payroll Specialist (Top Left) -->
+              <div class="scenario-floating-badge badge-payroll-fn animate-float-slow" title="Payroll Processing & Financial Analysis">
                 <div class="badge-icon-box" style="background:#fdf4ff;color:#a855f7">
-                  <i class="fa fa-coins"></i>
+                  <i class="fa fa-calculator"></i>
                 </div>
                 <div class="badge-content">
-                  <div class="badge-title">Payroll Due</div>
+                  <div class="badge-title">Payroll Function</div>
                   <div class="badge-number">$312,450</div>
-                  <div class="badge-subtext">Due in 5 days</div>
+                  <div class="badge-subtext">Tax & Salary Ready</div>
                 </div>
               </div>
 
-              <!-- Scene Illustration Artwork -->
+              <!-- Function 2: Recruitment Specialist (Top Right) -->
+              <div class="scenario-floating-badge badge-recruitment-fn animate-float-medium" title="Recruitment & ATS Hiring Pipeline">
+                <div class="badge-icon-box" style="background:#eff6ff;color:#2563eb">
+                  <i class="fa fa-user-plus"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Recruitment ATS</div>
+                  <div class="badge-number">24 Roles</div>
+                  <div class="badge-trend text-success"><i class="fa fa-arrow-up"></i> Active Pipeline</div>
+                </div>
+              </div>
+
+              <!-- Function 3: Policy Enforcement (Bottom Left) -->
+              <div class="scenario-floating-badge badge-policy-fn animate-float-slow" title="Corporate Governance & Policy Enforcement">
+                <div class="badge-icon-box" style="background:#ecfdf5;color:#059669">
+                  <i class="fa fa-shield-halved"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Policy Enforcement</div>
+                  <div class="badge-number">100% Compliant</div>
+                  <div class="badge-trend text-success"><i class="fa fa-check-double"></i> RBAC Enforced</div>
+                </div>
+              </div>
+
+              <!-- Function 4: Employee Side (Bottom Right) -->
+              <div class="scenario-floating-badge badge-employee-fn animate-float-medium" title="Employee Self-Service & Attendance">
+                <div class="badge-icon-box" style="background:#f0fdf4;color:#16a34a">
+                  <i class="fa fa-calendar-check"></i>
+                </div>
+                <div class="badge-content">
+                  <div class="badge-title">Employee Side</div>
+                  <div class="badge-number">94.6% Check-In</div>
+                  <div class="badge-trend text-success"><i class="fa fa-users"></i> 1,248 Active</div>
+                </div>
+              </div>
+
+              <!-- Scene Illustration Artwork Showing All 4 Core HR Functions -->
               <div class="scenario-illustration-wrap">
-                <img src="assets/login_security_scene.jpg" alt="Enterprise Security Scenario" class="scenario-scene-img">
+                <img src="assets/hr_functions_scene.jpg" alt="Comprehensive HR Functions: Payroll, Recruitment, Policy Enforcement & Employee Portal" class="scenario-scene-img">
               </div>
             </div>
 
-            <!-- Bottom 3 Feature Highlights (Directly from Reference Image) -->
+            <!-- Bottom 3 Feature Highlights: HR Governance, Compensation, and Operations -->
             <div class="scenario-bottom-pillars">
               <div class="scenario-pillar-item">
-                <div class="pillar-icon-wrap" style="color:#2563eb;background:#eff6ff">
+                <div class="pillar-icon-wrap" style="color:#059669;background:#ecfdf5">
                   <i class="fa fa-shield-check"></i>
                 </div>
                 <div>
-                  <strong>Secure Access</strong>
-                  <span>Role-based access and permissions</span>
+                  <strong>Policy Enforcement</strong>
+                  <span>Audit rules & compliance</span>
                 </div>
               </div>
 
               <div class="scenario-pillar-item">
-                <div class="pillar-icon-wrap" style="color:#0284c7;background:#f0f9ff">
-                  <i class="fa fa-lock"></i>
+                <div class="pillar-icon-wrap" style="color:#a855f7;background:#fdf4ff">
+                  <i class="fa fa-file-invoice-dollar"></i>
                 </div>
                 <div>
-                  <strong>Encrypted Data</strong>
-                  <span>Enterprise-grade data encryption</span>
+                  <strong>Payroll & Finance</strong>
+                  <span>Automated tax & payslips</span>
                 </div>
               </div>
 
               <div class="scenario-pillar-item">
-                <div class="pillar-icon-wrap" style="color:#6366f1;background:#eef2ff">
-                  <i class="fa fa-user-gear"></i>
+                <div class="pillar-icon-wrap" style="color:#2563eb;background:#eff6ff">
+                  <i class="fa fa-users-gear"></i>
                 </div>
                 <div>
-                  <strong>Admin Portal</strong>
-                  <span>Manage your organization with confidence</span>
+                  <strong>Recruitment & Portal</strong>
+                  <span>ATS & employee self-service</span>
                 </div>
               </div>
             </div>

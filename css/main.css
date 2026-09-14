@@ -4355,7 +4355,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   width: 100%;
   height: auto;
   display: block;
-  aspect-ratio: 16/9;
+  aspect-ratio: 4/3;
   object-fit: cover;
   transition: transform 0.4s ease;
 }
@@ -4393,25 +4393,25 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   box-shadow: 0 14px 30px -6px rgba(0, 0, 0, 0.55);
 }
 
-/* Badge Precise Coordinates */
-.badge-employees {
-  top: -12px;
-  left: 14px;
+/* Badge Precise Coordinates (4 Core HR Functions) */
+.badge-payroll-fn, .badge-payroll {
+  top: -10px;
+  left: 10px;
 }
 
-.badge-attendance {
-  top: -18px;
-  left: 42%;
+.badge-recruitment-fn, .badge-positions {
+  top: -10px;
+  right: 10px;
 }
 
-.badge-positions {
-  top: 18px;
-  right: -10px;
+.badge-policy-fn {
+  bottom: 12px;
+  left: 10px;
 }
 
-.badge-payroll {
-  bottom: 24px;
-  left: -10px;
+.badge-employee-fn, .badge-employees {
+  bottom: 12px;
+  right: 10px;
 }
 
 .badge-icon-box {
