@@ -16,19 +16,94 @@ const App = {
       const savedTheme = (typeof DB !== 'undefined' && DB.getObj) ? (DB.getObj('settings')?.theme || 'light') : 'light';
       document.documentElement.setAttribute('data-theme', savedTheme);
 
+      // Initialize Browser Back/Forward navigation router
+      this.setupHistoryRouter();
+
+      const hash = window.location.hash;
       const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
       if (loggedIn) {
         this.showApp();
+        const initialModule = (hash && hash !== '#login' && hash !== '#trial' && !hash.startsWith('#module-') && hash !== '#landing') ? hash.replace('#', '') : 'dashboard';
+        this.navigate(initialModule, null, false);
       } else {
-        this.showLanding();
+        if (hash === '#login') {
+          this.showLogin(false);
+        } else if (hash === '#trial') {
+          this.showTrial('Pro', false);
+        } else if (hash.startsWith('#module-')) {
+          this.showModule(hash.replace('#module-', ''), false);
+        } else {
+          this.showLanding(false);
+        }
       }
     } catch (err) {
       console.error('App.init error:', err);
-      this.showLanding();
+      this.showLanding(false);
     }
   },
 
-  showLanding() {
+  setupHistoryRouter() {
+    // Record initial browser history state if empty
+    const hash = window.location.hash;
+    const initialPage = hash === '#login' ? 'login' : (hash === '#trial' ? 'trial' : (hash.startsWith('#module-') ? 'module' : 'landing'));
+    if (!history.state) {
+      history.replaceState({ page: initialPage, hash: hash || '#landing' }, '', window.location.href);
+    }
+
+    // Listen to Chrome default back & forward buttons
+    window.addEventListener('popstate', (event) => {
+      const state = event.state;
+      const currentHash = window.location.hash;
+      const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
+
+      if (state && state.page) {
+        switch (state.page) {
+          case 'landing':
+            this.showLanding(false);
+            break;
+          case 'login':
+            this.showLogin(false);
+            break;
+          case 'trial':
+            this.showTrial(state.plan || 'Pro', false);
+            break;
+          case 'module':
+            this.showModule(state.moduleId, false);
+            break;
+          case 'app':
+            if (loggedIn) {
+              const appEl = document.getElementById('app');
+              if (!appEl || appEl.style.display === 'none') {
+                this.showApp();
+              }
+              this.navigate(state.module || 'dashboard', state.subSection || null, false);
+            } else {
+              this.showLogin(false);
+            }
+            break;
+          default:
+            this.showLanding(false);
+        }
+      } else {
+        if (!currentHash || currentHash === '' || currentHash === '#' || currentHash === '#landing') {
+          this.showLanding(false);
+        } else if (currentHash === '#login') {
+          this.showLogin(false);
+        } else if (currentHash === '#trial') {
+          this.showTrial('Pro', false);
+        } else if (currentHash.startsWith('#module-')) {
+          this.showModule(currentHash.replace('#module-', ''), false);
+        } else if (loggedIn) {
+          this.showApp();
+          this.navigate(currentHash.replace('#', '') || 'dashboard', null, false);
+        } else {
+          this.showLanding(false);
+        }
+      }
+    });
+  },
+
+  showLanding(pushState = true) {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
@@ -42,10 +117,13 @@ const App = {
     if (typeof Landing !== 'undefined' && Landing.render) {
       Landing.render();
     }
+    if (pushState && history.pushState) {
+      history.pushState({ page: 'landing' }, '', '#landing');
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
-  showModule(moduleId) {
+  showModule(moduleId, pushState = true) {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
@@ -59,10 +137,13 @@ const App = {
     if (typeof Landing !== 'undefined' && Landing.renderModuleDetail) {
       Landing.renderModuleDetail(moduleId);
     }
+    if (pushState && history.pushState) {
+      history.pushState({ page: 'module', moduleId }, '', `#module-${moduleId}`);
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
-  showLogin() {
+  showLogin(pushState = true) {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
@@ -74,10 +155,13 @@ const App = {
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
     Login.render();
+    if (pushState && history.pushState) {
+      history.pushState({ page: 'login' }, '', '#login');
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
-  showTrial(plan = 'Pro') {
+  showTrial(plan = 'Pro', pushState = true) {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
@@ -90,6 +174,9 @@ const App = {
     if (app) app.style.display = 'none';
     if (typeof Trial !== 'undefined' && Trial.render) {
       Trial.render(plan);
+    }
+    if (pushState && history.pushState) {
+      history.pushState({ page: 'trial', plan }, '', '#trial');
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
@@ -108,7 +195,6 @@ const App = {
     this.renderSidebar();
     this.renderTopbar();
     this.setupKeyboardShortcuts();
-    this.navigate('dashboard');
     // Restore sidebar state
     const collapsed = localStorage.getItem('hrm_sidebar_collapsed') === '1';
     if (collapsed) {
@@ -529,7 +615,7 @@ const App = {
     }
   },
 
-  navigate(module, subView) {
+  navigate(module, subView, pushState = true) {
     // Role-based module access guards
     if (module === 'administration' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
       Toast.show('403 Forbidden: Access to Administration is restricted.', 'error');
@@ -567,6 +653,12 @@ const App = {
     });
 
     this.currentModule = module;
+
+    // Push browser history state for seamless back/forward button support
+    if (pushState && history.pushState) {
+      history.pushState({ page: 'app', module, subView }, '', '#' + module);
+    }
+
     const title = document.getElementById('topbar-title');
     const subtitle = document.getElementById('topbar-subtitle');
     const content = document.getElementById('page-content');
@@ -618,7 +710,7 @@ const App = {
   logout() {
     if (!confirm('Are you sure you want to logout?')) return;
     Auth.logout();
-    this.showLogin();
+    this.showLanding(true);
     Toast.show('Logged out successfully', 'success');
   },
 
@@ -1576,6 +1668,7 @@ const Login = {
       if (result.success) {
         Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName}!`);
         App.showApp();
+        App.navigate('dashboard', null, true);
       } else {
         errEl.classList.remove('hidden');
         errMsg.textContent = result.message;

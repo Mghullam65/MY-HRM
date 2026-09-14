@@ -3174,12 +3174,13 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 }
 
 .landing-nav-container {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 14px 24px;
+  padding: 12px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .landing-brand {
@@ -3188,6 +3189,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   gap: 12px;
   text-decoration: none;
   color: inherit;
+  flex-shrink: 0;
 }
 
 .landing-brand-icon {
@@ -3209,6 +3211,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   letter-spacing: -0.5px;
   color: #0f172a;
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 [data-theme="dark"] .landing-brand-name {
@@ -3220,24 +3223,37 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   font-weight: 600;
   color: #64748b;
   letter-spacing: 0.2px;
+  white-space: nowrap;
 }
 
 .landing-nav-links {
   display: flex;
   align-items: center;
-  gap: clamp(12px, 1.8vw, 24px);
+  gap: clamp(8px, 1.2vw, 18px);
   white-space: nowrap;
+  flex-shrink: 1;
 }
 
-@media (max-width: 1080px) {
-  .landing-nav-links {
-    gap: 12px;
+@media (max-width: 1260px) {
+  .landing-nav-link:nth-child(7), /* About */
+  .landing-nav-link:nth-child(8)  /* FAQ */ {
+    display: none !important;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1080px) {
+  .landing-nav-link:nth-child(2), /* How It Works */
+  .landing-nav-link:nth-child(6)  /* Pricing */ {
+    display: none !important;
+  }
   .landing-nav-links {
-    display: none;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 920px) {
+  .landing-nav-links {
+    display: none !important;
   }
 }
 
@@ -3268,57 +3284,77 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 .landing-nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
 }
 
 .landing-btn-signin {
-  background: transparent;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid #cbd5e1;
+  border-radius: 9px;
+  padding: 0 16px;
+  height: 38px;
   font-size: 13.5px;
   font-weight: 600;
-  color: #334155;
+  color: #1e293b;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  transition: all 0.15s ease;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-btn-signin:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
-  color: #0f172a;
+  background: #f8fafc;
+  border-color: #2563eb;
+  color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
 }
 
 [data-theme="dark"] .landing-btn-signin {
+  background: rgba(30, 41, 59, 0.6);
   border-color: #334155;
-  color: #cbd5e1;
+  color: #e2e8f0;
 }
 
 [data-theme="dark"] .landing-btn-signin:hover {
   background: #1e293b;
-  color: #ffffff;
+  border-color: #60a5fa;
+  color: #60a5fa;
 }
 
 .landing-btn-cta {
-  background: #2563eb;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
   border: 1px solid #1d4ed8;
-  border-radius: 8px;
-  padding: 8px 20px;
+  border-radius: 9px;
+  padding: 0 18px;
+  height: 38px;
   font-size: 13.5px;
   font-weight: 600;
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
-  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  line-height: 1;
+  box-shadow: 0 3px 12px rgba(37, 99, 235, 0.32);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .landing-btn-cta:hover {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 5px 16px rgba(37, 99, 235, 0.42);
 }
 
 /* ── Landing Hero Section ── */

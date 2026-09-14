@@ -956,11 +956,12 @@ const Landing = {
             </nav>
 
             <div class="landing-nav-actions">
-              <button class="landing-btn-signin" onclick="App.showLogin()">
-                <i class="fa fa-right-to-bracket"></i> Sign In
+              <button class="landing-btn-signin" onclick="App.showLogin()" title="Sign in to HRM Portal">
+                <i class="fa fa-right-to-bracket"></i>
+                <span>Sign In</span>
               </button>
-              <button class="landing-btn-cta" onclick="App.showTrial()">
-                Start Free Trial
+              <button class="landing-btn-cta" onclick="App.showTrial()" title="Start 14-Day Free Enterprise Trial">
+                <span>Start Free Trial</span>
               </button>
             </div>
           </div>
