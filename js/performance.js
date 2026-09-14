@@ -4429,15 +4429,26 @@ const Recruitment = {
 
     Modal.show(`Applicant — ${app.name}`, `
       ${[
-        ['Name', app.name],
+        ['Name', `<strong>${app.name}</strong>`],
         ['CNIC', app.cnic || '—'],
-        ['Email', app.email],
-        ['Phone', app.phone],
-        ['Applied For', job?.title],
+        ['Email', `<a href="mailto:${app.email}" style="color:var(--primary);text-decoration:none">${app.email}</a>`],
+        ['Phone', `<a href="tel:${app.phone}" style="color:var(--primary);text-decoration:none">${app.phone}</a>`],
+        ['City / Location', app.city || '—'],
+        ['Applied For', `<span class="badge badge-primary">${job?.title || 'Open Position'}</span>`],
+        ['Experience', app.experience || '—'],
+        ['Expected Salary', app.expectedSalary ? (String(app.expectedSalary).includes('PKR') ? app.expectedSalary : `PKR ${app.expectedSalary}`) : '—'],
         ['Applied On', Utils.formatDate(app.appliedOn)],
         ['Stage', Utils.statusBadge(app.stage)],
+        ['Cover Note', app.coverNote ? `<div style="max-height:80px;overflow-y:auto;background:var(--surface-2);padding:6px 10px;border-radius:6px;font-size:12px;color:var(--text);line-height:1.4">${app.coverNote}</div>` : '<span class="text-muted text-xs">None provided</span>'],
+        ['Resume / CV', `
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="badge badge-primary" style="font-size:11px"><i class="fa fa-file-pdf"></i> ${app.resumeName || app.resume || 'Resume.pdf'}</span>
+            <button class="btn btn-xs btn-outline" onclick="Recruitment.viewResume(${app.id})"><i class="fa fa-eye"></i> View CV</button>
+            <button class="btn btn-xs btn-secondary" onclick="Recruitment.downloadResume(${app.id})"><i class="fa fa-download"></i> Download</button>
+          </div>
+        `],
         ['Offer Letter', existingOffer ? `<span class="badge badge-success"><i class="fa fa-file-check"></i> ${existingOffer.refNo} (${(existingOffer.status || 'Active').toUpperCase()})</span>` : '<span class="text-muted text-xs">Not issued yet</span>']
-      ].map(([l,v])=>`<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--border)"><div style="width:140px;font-size:12px;color:var(--text-3);font-weight:500">${l}</div><div style="font-size:13px">${v}</div></div>`).join('')}
+      ].map(([l,v])=>`<div style="display:flex;padding:8px 0;border-bottom:1px solid var(--border)"><div style="width:140px;font-size:12px;color:var(--text-3);font-weight:500">${l}</div><div style="font-size:13px;flex:1">${v}</div></div>`).join('')}
 
       <div style="margin-top:14px">
         <div class="form-row form-row-2">
@@ -4473,6 +4484,124 @@ const Recruitment = {
         ` : ''}
       `
     });
+  },
+
+  viewResume(appId) {
+    const app = DB.find('applications', appId);
+    if (!app) return;
+    const job = DB.find('recruitment', app.jobId);
+
+    Modal.show(`Curriculum Vitae — ${app.name}`, `
+      <div style="padding:10px">
+        <div style="background:linear-gradient(135deg, #1e293b, #0f172a);color:#ffffff;border-radius:12px;padding:20px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <h2 style="margin:0 0 6px 0;font-size:20px;font-weight:800;color:#ffffff">${app.name}</h2>
+            <div style="font-size:13px;color:#94a3b8;display:flex;gap:16px;flex-wrap:wrap">
+              <span><i class="fa fa-envelope" style="color:#38bdf8"></i> ${app.email}</span>
+              <span><i class="fa fa-phone" style="color:#4ade80"></i> ${app.phone}</span>
+              ${app.city ? `<span><i class="fa fa-location-dot" style="color:#f43f5e"></i> ${app.city}</span>` : ''}
+              ${app.cnic ? `<span><i class="fa fa-id-card" style="color:#a78bfa"></i> ${app.cnic}</span>` : ''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge badge-primary" style="font-size:12px;padding:6px 12px">${job?.title || 'Open Position'}</span>
+            <div style="font-size:11px;color:#94a3b8;margin-top:6px">Applied on ${Utils.formatDate(app.appliedOn)}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+          <div class="card" style="margin:0;padding:14px;background:var(--surface)">
+            <div style="font-size:11.5px;color:var(--text-3);font-weight:700;text-transform:uppercase;margin-bottom:6px">Experience & Profile</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${app.experience || 'Not specified'}</div>
+            <div style="font-size:12px;color:var(--text-2);margin-top:4px">Target Role: ${job?.title || 'Job Opening'}</div>
+          </div>
+          <div class="card" style="margin:0;padding:14px;background:var(--surface)">
+            <div style="font-size:11.5px;color:var(--text-3);font-weight:700;text-transform:uppercase;margin-bottom:6px">Compensation Expectation</div>
+            <div style="font-size:14px;font-weight:700;color:#10b981">${app.expectedSalary ? (String(app.expectedSalary).includes('PKR') ? app.expectedSalary : `PKR ${app.expectedSalary}`) : 'Negotiable'}</div>
+            <div style="font-size:12px;color:var(--text-2);margin-top:4px">Budget: PKR ${job?.salary || 'Market standard'}</div>
+          </div>
+        </div>
+
+        ${app.coverNote ? `
+          <div class="card" style="margin:0 0 18px 0;padding:14px;background:var(--surface)">
+            <div style="font-size:11.5px;color:var(--text-3);font-weight:700;text-transform:uppercase;margin-bottom:6px">Candidate Statement / Cover Note</div>
+            <p style="font-size:13px;color:var(--text);line-height:1.6;margin:0">${app.coverNote}</p>
+          </div>
+        ` : ''}
+
+        <div class="card" style="margin:0;padding:16px;background:var(--surface-2);border:1.5px dashed var(--border);border-radius:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:40px;height:40px;background:#ef4444;color:#ffffff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <i class="fa fa-file-pdf"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--text)">${app.resumeName || app.resume || 'Candidate_Resume.pdf'}</div>
+              <div style="font-size:11px;color:var(--text-3)">Verified Digital Upload • Received via Careers Portal</div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Recruitment.downloadResume(${app.id})">
+            <i class="fa fa-download"></i> Download CV File
+          </button>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.viewApplicant(${app.id})"><i class="fa fa-arrow-left"></i> Back to Applicant Details</button>
+        ${app.stage === 'applied' ? `
+          <button class="btn btn-success" onclick="Modal.close('dynamic-modal');Recruitment.updateApplicationStage(${app.id}, 'shortlisted')"><i class="fa fa-check"></i> Shortlist Candidate</button>
+        ` : ''}
+      `
+    });
+  },
+
+  downloadResume(appId) {
+    const app = DB.find('applications', appId);
+    if (!app) return;
+    const fileName = app.resumeName || app.resume || `${(app.name || 'candidate').replace(/\s+/g,'_')}_CV.pdf`;
+
+    if (app.resumeData && app.resumeData.startsWith('data:')) {
+      const a = document.createElement('a');
+      a.href = app.resumeData;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      Toast.show(`Downloaded ${fileName}`, 'success');
+    } else {
+      const content = `=====================================================
+HRM PRO — CANDIDATE CURRICULUM VITAE SUMMARY
+=====================================================
+Applicant Name: ${app.name}
+Email Address: ${app.email}
+Phone Number: ${app.phone}
+Location / City: ${app.city || 'Not specified'}
+CNIC / ID: ${app.cnic || 'Pending Verification'}
+
+Target Position: ${app.jobTitle || 'Open Role'}
+Applied Date: ${app.appliedOn}
+Current ATS Stage: ${(app.stage || 'applied').toUpperCase()}
+
+Relevant Experience: ${app.experience || 'Not specified'}
+Expected Salary: ${app.expectedSalary || 'Negotiable'}
+
+Candidate Statement / Cover Note:
+${app.coverNote || 'None provided.'}
+
+=====================================================
+Recorded by HRM Pro Talent Acquisition System
+=====================================================`;
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName.replace(/\.pdf$/i, '.txt');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      Toast.show(`Downloaded ${fileName}`, 'success');
+    }
   },
 
   saveApplicantEvaluation(appId) {

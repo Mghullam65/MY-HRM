@@ -6901,3 +6901,293 @@ html[dir="rtl"] .btn-split-back i {
   border-color: #334155;
   color: #94a3b8;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   PUBLIC CAREERS & OPEN POSITIONS SECTION (Landing Page)
+   ══════════════════════════════════════════════════════════════ */
+
+.landing-careers-nav-pill {
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-left: 4px;
+  display: inline-block;
+}
+
+[data-theme="dark"] .landing-careers-nav-pill {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+}
+
+.landing-careers-section {
+  padding: 80px 24px;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+  position: relative;
+}
+
+.landing-careers-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.careers-filter-bar {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 36px;
+}
+
+.career-filter-btn {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.career-filter-btn:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.career-filter-btn.active {
+  background: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.careers-jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 24px;
+}
+
+.career-job-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+}
+
+.career-job-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 30px -10px rgba(0, 0, 0, 0.08);
+  border-color: #bfdbfe;
+}
+
+.career-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.career-dept-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  margin-bottom: 4px;
+}
+
+.career-job-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.career-hiring-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #16a34a;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.status-pulse-green {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.2);
+  display: inline-block;
+}
+
+.career-chips-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.career-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #475569;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.career-job-summary {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 0 0 18px 0;
+  flex: 1;
+}
+
+.career-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.career-applicant-tally {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.career-actions-row {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-career-view {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-career-view:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.btn-career-apply {
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-career-apply:hover {
+  background: #1d4ed8;
+}
+
+.cv-upload-dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.cv-upload-dropzone:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .landing-careers-section {
+  background: #0b1120;
+  border-color: #1e293b;
+}
+
+[data-theme="dark"] .career-job-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .career-job-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 16px 30px -10px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .career-job-title {
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .career-chip {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .career-card-bottom {
+  border-color: #334155;
+}
+
+[data-theme="dark"] .career-filter-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .career-filter-btn:hover {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+[data-theme="dark"] .cv-upload-dropzone {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .cv-upload-dropzone:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}

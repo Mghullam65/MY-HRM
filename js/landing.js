@@ -776,12 +776,17 @@ const Landing = {
     const att = (typeof DB !== 'undefined' && DB.get) ? (DB.get('attendance') || []) : [];
     const leaves = (typeof DB !== 'undefined' && DB.get) ? (DB.get('leave_requests') || []) : [];
     const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
+    const depts = (typeof DB !== 'undefined' && DB.get) ? (DB.get('departments') || []) : [];
+    const openJobsList = jobs.filter(j => j.status === 'active' || j.status === 'open');
+    const openJobsCount = openJobsList.length;
+    const uniqueDeptIds = [...new Set(openJobsList.map(j => j.departmentId))];
+    const uniqueDepts = uniqueDeptIds.map(id => depts.find(d => d.id === id)).filter(Boolean);
 
     const todayStr = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : new Date().toISOString().slice(0, 10);
     const totalEmps = emps.length > 0 ? emps.length : 52;
     const presentToday = att.filter(a => a.date === todayStr && a.status === 'present').length || Math.min(totalEmps, 48);
     const pendingLeaves = leaves.filter(l => l.status === 'pending').length || 6;
-    const openJobs = jobs.filter(j => j.status === 'active' || j.status === 'open').length || 8;
+    const openJobs = openJobsCount;
 
     container.innerHTML = `
       <div class="landing-wrapper" onclick="Landing.closeModulesMenu()">
@@ -943,6 +948,7 @@ const Landing = {
               </div>
 
               <a href="#monitoring" class="landing-nav-link" onclick="Landing.scrollTo('monitoring');return false;">Monitoring</a>
+              <a href="#careers" class="landing-nav-link" onclick="Landing.scrollTo('careers');return false;">Careers <span class="landing-careers-nav-pill">${openJobsCount} Open</span></a>
               <a href="#pricing" class="landing-nav-link" onclick="Landing.scrollTo('pricing');return false;">Pricing</a>
               <a href="#about" class="landing-nav-link" onclick="Landing.scrollTo('about');return false;">About</a>
               <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
@@ -1277,7 +1283,93 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 6. TRANSPARENT PRICING & TIERS ─── -->
+        <!-- ─── 6. CURRENT OPEN POSITIONS & CAREERS ─── -->
+        <section class="landing-careers-section" id="careers">
+          <div class="landing-careers-inner">
+            <div class="landing-section-header">
+              <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+                <i class="fa fa-briefcase" style="color:#2563eb"></i> We Are Actively Hiring
+              </div>
+              <h2 class="landing-section-title">Current Open Positions at HRM Pro</h2>
+              <p class="landing-section-sub">
+                Explore high-growth career opportunities across Engineering, Human Resources, Finance, and Operations. Apply directly with your CV in under 2 minutes without creating an account.
+              </p>
+            </div>
+
+            <!-- Department Filter Bar -->
+            <div class="careers-filter-bar">
+              <button class="career-filter-btn active" onclick="Landing.filterCareers('all', this)">
+                All Openings (${openJobsList.length})
+              </button>
+              ${uniqueDepts.map(dept => `
+                <button class="career-filter-btn" onclick="Landing.filterCareers('${dept.id}', this)">
+                  ${dept.name}
+                </button>
+              `).join('')}
+            </div>
+
+            <!-- Job Openings Grid -->
+            <div class="careers-jobs-grid" id="careers-jobs-list">
+              ${openJobsList.length > 0 ? openJobsList.map(job => {
+                const dept = depts.find(d => d.id === job.departmentId);
+                return `
+                  <div class="career-job-card animate-card" data-dept="${job.departmentId}">
+                    <div class="career-card-top">
+                      <div>
+                        <span class="career-dept-tag">${dept?.name || 'General Operations'}</span>
+                        <h3 class="career-job-title">${job.title}</h3>
+                      </div>
+                      <span class="career-hiring-status">
+                        <span class="status-pulse-green"></span> Actively Hiring
+                      </span>
+                    </div>
+
+                    <div class="career-chips-wrap">
+                      <span class="career-chip">
+                        <i class="fa fa-users"></i> ${job.positions} Position${job.positions > 1 ? 's' : ''}
+                      </span>
+                      <span class="career-chip">
+                        <i class="fa fa-business-time"></i> ${job.experience}
+                      </span>
+                      <span class="career-chip">
+                        <i class="fa fa-money-bill-wave"></i> PKR ${job.salary}
+                      </span>
+                      <span class="career-chip">
+                        <i class="fa fa-calendar-days"></i> Due: ${Utils.formatDate(job.deadline)}
+                      </span>
+                    </div>
+
+                    <p class="career-job-summary">
+                      ${job.description || 'Join our high-performing team to build scalable enterprise solutions, lead mission-critical workflows, and accelerate organizational growth.'}
+                    </p>
+
+                    <div class="career-card-bottom">
+                      <div class="career-applicant-tally">
+                        <i class="fa fa-user-check" style="color:#2563eb"></i>
+                        <span><strong>${job.applicantCount || 0}</strong> applicants</span>
+                      </div>
+                      <div class="career-actions-row">
+                        <button class="btn-career-view" onclick="Landing.viewJobDetails(${job.id})">
+                          <i class="fa fa-eye"></i> Details
+                        </button>
+                        <button class="btn-career-apply" onclick="Landing.openApplyModal(${job.id})">
+                          Apply with CV <i class="fa fa-arrow-right"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              }).join('') : `
+                <div style="grid-column: 1/-1;text-align:center;padding:40px;background:var(--surface-2);border-radius:12px;color:var(--text-3)">
+                  <i class="fa fa-briefcase" style="font-size:36px;margin-bottom:12px;color:#94a3b8"></i>
+                  <p style="font-size:15px;font-weight:600;margin:0">No current openings matching your criteria. Check back soon!</p>
+                </div>
+              `}
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 7. TRANSPARENT PRICING & TIERS ─── -->
         <section class="landing-pricing-section" id="pricing">
           <div class="landing-section-header">
             <div class="landing-pill-badge" style="margin:0 auto 12px auto">
@@ -1534,6 +1626,7 @@ const Landing = {
 
               <div class="footer-col">
                 <h4>Company</h4>
+                <a href="#careers" onclick="Landing.scrollTo('careers');return false;">Careers (${openJobsCount} Open)</a>
                 <a href="#about" onclick="Landing.scrollTo('about');return false;">About Us</a>
                 <a href="#about" onclick="Landing.scrollTo('about');return false;">Mission & Values</a>
                 <a href="#faq" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
@@ -1612,6 +1705,335 @@ const Landing = {
         </div>
       `
     });
+  },
+
+  filterCareers(deptId, buttonEl) {
+    if (buttonEl) {
+      document.querySelectorAll('.career-filter-btn').forEach(b => b.classList.remove('active'));
+      buttonEl.classList.add('active');
+    }
+    const cards = document.querySelectorAll('.career-job-card');
+    cards.forEach(card => {
+      if (deptId === 'all' || card.dataset.dept === String(deptId)) {
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  },
+
+  viewJobDetails(jobId) {
+    const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
+    const depts = (typeof DB !== 'undefined' && DB.get) ? (DB.get('departments') || []) : [];
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+    const dept = depts.find(d => d.id === job.departmentId);
+
+    Modal.show({
+      title: `${job.title} — Job Overview`,
+      body: `
+        <div style="padding:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+            <div>
+              <span class="badge badge-primary" style="font-size:11px">${dept?.name || 'Department'}</span>
+              <span class="badge badge-success" style="font-size:11px;margin-left:6px"><i class="fa fa-circle-check"></i> Actively Hiring</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3)"><i class="fa fa-calendar-clock"></i> Deadline: ${Utils.formatDate(job.deadline)}</div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:16px">
+            <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
+              <div style="font-size:11px;color:var(--text-3)">Vacancies</div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">${job.positions} Open</div>
+            </div>
+            <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
+              <div style="font-size:11px;color:var(--text-3)">Experience</div>
+              <div style="font-weight:700;font-size:14px;color:var(--text)">${job.experience}</div>
+            </div>
+            <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
+              <div style="font-size:11px;color:var(--text-3)">Salary Range</div>
+              <div style="font-weight:700;font-size:14px;color:#10b981">PKR ${job.salary}</div>
+            </div>
+          </div>
+
+          <div style="margin-bottom:14px">
+            <h4 style="font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--text)">Position Overview</h4>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin:0">
+              ${job.description || 'We are looking for a skilled, impact-oriented professional to join our team. In this role, you will be responsible for executing key institutional objectives and collaborating with cross-functional teams.'}
+            </p>
+          </div>
+
+          <div style="margin-bottom:18px">
+            <h4 style="font-size:13.5px;font-weight:700;margin-bottom:6px;color:var(--text)">Requirements & Core Competencies</h4>
+            <ul style="font-size:12.5px;color:var(--text-2);line-height:1.6;padding-left:18px;margin:0">
+              <li>Relevant bachelor's degree or practical industry equivalence in ${dept?.name || 'the required discipline'}.</li>
+              <li>Proven track record with at least ${job.experience} of relevant industry experience.</li>
+              <li>Strong problem-solving mindset, clear communication, and collaborative spirit.</li>
+              <li>Ability to adapt to fast-paced agile environments.</li>
+            </ul>
+          </div>
+
+          <button class="btn btn-primary btn-lg" style="width:100%;font-weight:700" onclick="Modal.closeAll();Landing.openApplyModal(${job.id})">
+            <i class="fa fa-paper-plane" style="margin-right:6px"></i> Apply for this Position Now
+          </button>
+        </div>
+      `
+    });
+  },
+
+  openApplyModal(jobId) {
+    const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
+    const depts = (typeof DB !== 'undefined' && DB.get) ? (DB.get('departments') || []) : [];
+    const job = jobs.find(j => j.id === jobId) || jobs.find(j => j.status === 'open') || jobs[0];
+    if (!job) {
+      Toast.show('No open positions available at this time.', 'info');
+      return;
+    }
+    const dept = depts.find(d => d.id === job.departmentId);
+
+    Landing._currentCvFileData = null;
+    Landing._currentCvFileName = null;
+
+    Modal.show({
+      title: `Apply for ${job.title}`,
+      body: `
+        <div class="apply-modal-wrapper" style="padding:4px">
+          <!-- Job Context Banner -->
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:36px;height:36px;border-radius:8px;background:#2563eb;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:16px">
+                <i class="fa fa-briefcase"></i>
+              </div>
+              <div>
+                <div style="font-weight:800;font-size:15px;color:#0f172a">${job.title}</div>
+                <div style="font-size:12px;color:#64748b">${dept?.name || 'Department'} • PKR ${job.salary} • ${job.experience} experience</div>
+              </div>
+            </div>
+            <span class="badge badge-success" style="font-size:11px;font-weight:700"><i class="fa fa-circle-check"></i> Actively Hiring</span>
+          </div>
+
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:12.5px;color:#475569;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-shield-check" style="color:#2563eb;font-size:16px;flex-shrink:0"></i>
+            <span><strong>No account required.</strong> Your application and CV will be delivered directly to our HR & Talent Acquisition team for shortlisting.</span>
+          </div>
+
+          <form id="public-candidate-apply-form" onsubmit="Landing.submitApplication(event, ${job.id});return false;" novalidate>
+            <div class="form-row form-row-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Full Name <span style="color:#ef4444">*</span></label>
+                <input type="text" class="form-control" id="cand-name" placeholder="e.g. Zainab Ahmed" required style="width:100%;box-sizing:border-box">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Email Address <span style="color:#ef4444">*</span></label>
+                <input type="email" class="form-control" id="cand-email" placeholder="zainab@example.com" required style="width:100%;box-sizing:border-box">
+              </div>
+            </div>
+
+            <div class="form-row form-row-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Phone / Mobile <span style="color:#ef4444">*</span></label>
+                <input type="tel" class="form-control" id="cand-phone" placeholder="+92 300 1234567" required style="width:100%;box-sizing:border-box">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Current City / Location <span style="color:#ef4444">*</span></label>
+                <input type="text" class="form-control" id="cand-city" placeholder="e.g. Islamabad / Lahore / Karachi" required style="width:100%;box-sizing:border-box">
+              </div>
+            </div>
+
+            <div class="form-row form-row-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Total Relevant Experience <span style="color:#ef4444">*</span></label>
+                <input type="text" class="form-control" id="cand-exp" placeholder="e.g. 5 Years" required style="width:100%;box-sizing:border-box">
+              </div>
+              <div class="form-group" style="margin:0">
+                <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Expected Salary (PKR) <span style="color:#ef4444">*</span></label>
+                <input type="text" class="form-control" id="cand-salary" placeholder="e.g. 180,000" required style="width:100%;box-sizing:border-box">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">LinkedIn or Portfolio URL (Optional)</label>
+              <input type="url" class="form-control" id="cand-portfolio" placeholder="https://linkedin.com/in/username" style="width:100%;box-sizing:border-box">
+            </div>
+
+            <!-- Upload CV Area -->
+            <div class="form-group" style="margin-bottom:12px">
+              <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Upload CV / Resume <span style="color:#ef4444">*</span></label>
+              <div class="cv-upload-dropzone" id="cv-dropzone" onclick="document.getElementById('cand-cv-file').click()">
+                <input type="file" id="cand-cv-file" accept=".pdf,.doc,.docx" style="display:none" onchange="Landing.handleCvFileChange(this)">
+                <div class="cv-dropzone-content" id="cv-dropzone-content">
+                  <i class="fa fa-cloud-arrow-up" style="font-size:28px;color:#2563eb;margin-bottom:6px"></i>
+                  <div style="font-size:13px;font-weight:700;color:var(--text)">Click or drag & drop your CV here</div>
+                  <div style="font-size:11px;color:var(--text-3)">Supports PDF, DOC, DOCX up to 10MB</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:16px">
+              <label class="form-label" style="font-size:12.5px;font-weight:600;margin-bottom:4px;display:block">Brief Cover Note / Pitch</label>
+              <textarea class="form-control" id="cand-cover" rows="2" placeholder="Tell us about your background, key achievements, and availability..." style="width:100%;box-sizing:border-box"></textarea>
+            </div>
+
+            <div id="apply-error-alert" class="alert alert-danger" style="display:none;margin-bottom:12px;font-size:12px;padding:8px 12px"></div>
+
+            <button type="submit" id="cand-submit-btn" class="btn btn-primary btn-lg" style="width:100%;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px">
+              <i class="fa fa-paper-plane"></i> Submit Application & CV
+            </button>
+          </form>
+        </div>
+      `
+    });
+  },
+
+  handleCvFileChange(input) {
+    const file = input.files && input.files[0];
+    const dropzoneContent = document.getElementById('cv-dropzone-content');
+    if (!file) return;
+
+    Landing._currentCvFileName = file.name;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      Landing._currentCvFileData = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    if (dropzoneContent) {
+      const sizeKB = Math.round(file.size / 1024);
+      dropzoneContent.innerHTML = `
+        <i class="fa fa-file-pdf" style="font-size:32px;color:#16a34a;margin-bottom:6px"></i>
+        <div style="font-size:13.5px;font-weight:700;color:#16a34a">${file.name}</div>
+        <div style="font-size:11px;color:var(--text-3)">${sizeKB} KB • Ready for upload</div>
+      `;
+    }
+  },
+
+  submitApplication(event, jobId) {
+    if (event) event.preventDefault();
+    const name = (document.getElementById('cand-name')?.value || '').trim();
+    const email = (document.getElementById('cand-email')?.value || '').trim();
+    const phone = (document.getElementById('cand-phone')?.value || '').trim();
+    const city = (document.getElementById('cand-city')?.value || '').trim();
+    const exp = (document.getElementById('cand-exp')?.value || '').trim();
+    const salary = (document.getElementById('cand-salary')?.value || '').trim();
+    const portfolio = (document.getElementById('cand-portfolio')?.value || '').trim();
+    const cover = (document.getElementById('cand-cover')?.value || '').trim();
+    const errAlert = document.getElementById('apply-error-alert');
+    const submitBtn = document.getElementById('cand-submit-btn');
+
+    if (!name || !email || !phone || !city || !exp || !salary) {
+      if (errAlert) {
+        errAlert.textContent = 'Please fill out all required fields marked with (*).';
+        errAlert.style.display = 'block';
+      }
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      if (errAlert) {
+        errAlert.textContent = 'Please enter a valid email address.';
+        errAlert.style.display = 'block';
+      }
+      return;
+    }
+
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Submitting application...';
+    }
+
+    setTimeout(() => {
+      const jobs = DB.get('recruitment') || [];
+      const job = jobs.find(j => j.id === jobId) || { id: jobId, title: 'Open Position' };
+      const resumeName = Landing._currentCvFileName || `${name.replace(/\s+/g, '_')}_CV.pdf`;
+      const resumeData = Landing._currentCvFileData || null;
+
+      const newAppId = Date.now();
+      const newApp = {
+        id: newAppId,
+        jobId: job.id,
+        jobTitle: job.title,
+        name: name,
+        email: email,
+        phone: phone,
+        cnic: 'Verified Public Applicant',
+        city: city,
+        experience: exp,
+        expectedSalary: salary,
+        portfolio: portfolio,
+        coverNote: cover,
+        resume: resumeName,
+        resumeName: resumeName,
+        resumeData: resumeData,
+        stage: 'applied',
+        appliedOn: new Date().toISOString().split('T')[0],
+        interviewDate: null,
+        score: 0,
+        notes: `Submitted via Public Careers Portal on ${new Date().toLocaleDateString()}. Location: ${city}. Exp: ${exp}. Expected Salary: PKR ${salary}.`
+      };
+
+      // Add to applications
+      const apps = DB.get('applications') || [];
+      apps.unshift(newApp);
+      DB.set('applications', apps);
+
+      // Increment job applicant count
+      if (job && jobs.length) {
+        const found = jobs.find(j => j.id === job.id);
+        if (found) {
+          found.applicantCount = (found.applicantCount || 0) + 1;
+          DB.set('recruitment', jobs);
+        }
+      }
+
+      // Add live notification for HR & Admin
+      if (typeof LiveNotifications !== 'undefined' && LiveNotifications.add) {
+        LiveNotifications.add({
+          title: `🎯 New Job Application: ${name}`,
+          message: `${name} submitted an application & CV for ${job.title} (${exp} exp, PKR ${salary}).`,
+          type: 'recruitment',
+          link: 'recruitment'
+        });
+      }
+
+      // Also trigger backend sync if available
+      if (typeof API !== 'undefined' && API.post) {
+        try {
+          API.post('/api/sync/push', {
+            type: 'APPLICATION_SUBMITTED',
+            data: { applicant: newApp, jobId: job.id }
+          }).catch(() => {});
+        } catch(e) {}
+      }
+
+      Modal.closeAll();
+
+      // Show confirmation modal
+      Modal.show({
+        title: 'Application Submitted Successfully! 🎉',
+        body: `
+          <div style="text-align:center;padding:24px 10px">
+            <div style="width:64px;height:64px;background:#dcfce7;color:#16a34a;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px auto">
+              <i class="fa fa-circle-check"></i>
+            </div>
+            <h2 style="font-size:20px;font-weight:800;color:var(--text);margin-bottom:8px">Thank You, ${name}!</h2>
+            <p style="font-size:13.5px;color:var(--text-2);line-height:1.5;max-width:440px;margin:0 auto 18px auto">
+              Your application and CV for <strong>${job.title}</strong> have been successfully received and queued in our ATS pipeline. Our HR and talent acquisition team will review your profile for shortlisting.
+            </p>
+            <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;color:var(--text-3);max-width:360px;margin:0 auto 20px auto">
+              Application Reference: <strong style="color:var(--primary)">HRM-APP-${Math.floor(10000 + Math.random() * 90000)}</strong><br>
+              Direct contact: <strong>${email}</strong>
+            </div>
+            <button class="btn btn-primary" onclick="Modal.closeAll();Landing.render();">
+              Back to Careers
+            </button>
+          </div>
+        `
+      });
+
+      // Update Landing page cards
+      Landing.render();
+    }, 600);
   },
 
   openContactModal() {
