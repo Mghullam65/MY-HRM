@@ -1296,10 +1296,10 @@ const Login = {
               </div>
             </a>
 
-            <!-- Welcome Headline (Matching Reference Screenshot) -->
+            <!-- Welcome Headline -->
             <div class="split-left-welcome-wrap">
-              <h1 class="split-hero-title">Welcome back,<br><span class="text-blue-highlight" id="login-hero-name">${acc.name.split(' ')[0]}</span></h1>
-              <p class="split-hero-subtitle">Sign in to manage your workforce, payroll, attendance, recruitment, reports, and settings.</p>
+              <h1 class="split-hero-title">Welcome to<br><span class="text-blue-highlight">HR Suite Enterprise</span></h1>
+              <p class="split-hero-subtitle">for Human Resource Management System</p>
             </div>
 
             <!-- Central Visual Scenario Stage (Matching Reference Artwork) -->
@@ -1539,11 +1539,9 @@ const Login = {
     const nameEl = document.getElementById('active-account-name');
     const roleEl = document.getElementById('active-account-role');
     const imgEl = document.querySelector('.active-user-img');
-    const heroNameEl = document.getElementById('login-hero-name');
     if (nameEl) nameEl.textContent = acc.name;
     if (roleEl) roleEl.textContent = acc.role;
     if (imgEl) imgEl.src = acc.avatar;
-    if (heroNameEl) heroNameEl.textContent = acc.name.split(' ')[0];
 
     // Update Form Inputs
     const uInput = document.getElementById('login-username');
