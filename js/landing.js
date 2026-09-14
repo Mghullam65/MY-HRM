@@ -1893,13 +1893,7 @@ const Landing = {
     Landing._currentCvFileName = file.name;
     const reader = new FileReader();
     reader.onload = function(e) {
-      if (file.size <= 80 * 1024) {
-        Landing._currentCvFileData = e.target.result;
-      } else {
-        // High-fidelity structured CV data URI representation to avoid browser localStorage quota crash
-        const metaText = `Candidate CV: ${file.name}\nSize: ${Math.round(file.size / 1024)} KB\nUploaded: ${new Date().toLocaleDateString()}\nSystem: Verified digital upload via HRM Pro Public Careers Portal.`;
-        Landing._currentCvFileData = `data:text/plain;charset=utf-8,${encodeURIComponent(metaText)}`;
-      }
+      Landing._currentCvFileData = e.target.result;
     };
     reader.readAsDataURL(file);
 
@@ -1945,7 +1939,7 @@ const Landing = {
 
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Submitting application & syncing...';
+      submitBtn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Submitting application & uploading CV...';
     }
 
     try {
@@ -1953,8 +1947,10 @@ const Landing = {
       const job = jobs.find(j => j.id === jobId) || { id: jobId, title: 'Open Position' };
       const resumeName = Landing._currentCvFileName || `${name.replace(/\s+/g, '_')}_CV.pdf`;
       const resumeData = Landing._currentCvFileData || null;
-
       const newAppId = Date.now();
+      const safeName = (name || 'candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const expectedResumeUrl = `/uploads/cv/${newAppId}_${safeName}_CV.pdf`;
+
       const newApp = {
         id: newAppId,
         jobId: job.id,
@@ -1970,12 +1966,19 @@ const Landing = {
         coverNote: cover,
         resume: resumeName,
         resumeName: resumeName,
-        resumeData: resumeData,
+        resumeUrl: expectedResumeUrl,
+        resumeData: (resumeData && resumeData.length < 120000) ? resumeData : null, // Prevent localStorage quota overflow
         stage: 'applied',
         appliedOn: new Date().toISOString().split('T')[0],
         interviewDate: null,
         score: 0,
         notes: `Submitted via Public Careers Portal on ${new Date().toLocaleDateString()}. Location: ${city}. Exp: ${exp}. Expected Salary: PKR ${salary}.`
+      };
+
+      // Full payload for the server
+      const serverApplicant = {
+        ...newApp,
+        resumeData: resumeData // server receives full base64 to save real PDF to /uploads/cv/
       };
 
       // Add to local applications array
@@ -2005,20 +2008,24 @@ const Landing = {
       // Direct, robust synchronization with backend server store
       if (typeof API !== 'undefined') {
         try {
+          if (API.post) {
+            const res = await API.post('/api/sync/apply', { applicant: serverApplicant, jobId: job.id });
+            if (res && res.resumeUrl) {
+              newApp.resumeUrl = res.resumeUrl;
+              DB.set('applications', apps);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[Landing] Direct apply endpoint notice:', apiErr.message);
+        }
+
+        try {
           if (API.syncSetTable) {
             await API.syncSetTable('applications', apps, DB.clientId);
             await API.syncSetTable('recruitment', jobs, DB.clientId);
           }
         } catch (syncErr) {
           console.warn('[Landing] Direct syncSetTable notice:', syncErr.message);
-        }
-
-        try {
-          if (API.post) {
-            await API.post('/api/sync/apply', { applicant: newApp, jobId: job.id });
-          }
-        } catch (apiErr) {
-          console.warn('[Landing] Direct apply endpoint notice:', apiErr.message);
         }
       }
 
