@@ -2281,6 +2281,19 @@ const Recruitment = {
     this.render();
   },
 
+  openJobPipeline(jobId) {
+    if (typeof Modal !== 'undefined') {
+      if (Modal.closeAll) Modal.closeAll();
+      else if (Modal.close) Modal.close('dynamic-modal');
+    }
+    this.pipelineFilter.jobId = String(jobId);
+    this.switchView('pipeline');
+  },
+
+  updateApplicationStage(appId, newStage) {
+    return this.moveStage(appId, newStage);
+  },
+
   renderView() {
     const container = document.getElementById('rec-content');
     if (!container) return;
@@ -2329,14 +2342,16 @@ const Recruitment = {
                 <span class="chip"><i class="fa fa-money-bill" style="margin-right:4px"></i>PKR ${j.salary}</span>
                 <span class="chip"><i class="fa fa-calendar" style="margin-right:4px"></i>Due: ${Utils.formatDate(j.deadline)}</span>
               </div>
-              <div style="display:flex;align-items:center;justify-content:space-between">
-                <span style="font-size:13px;color:var(--primary);font-weight:600"><i class="fa fa-users" style="margin-right:6px"></i>${j.applicantCount} applicants</span>
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <button class="btn btn-ghost btn-sm" style="font-size:13px;color:var(--primary);font-weight:700;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="Recruitment.viewJobApplicants(${j.id})" title="Click to view all applicants for this job">
+                  <i class="fa fa-users"></i> ${j.applicantCount || 0} applicants
+                </button>
                 <div style="display:flex;gap:6px">
                   <button class="btn btn-ghost btn-sm" onclick="Recruitment.toggleJobStatus(${j.id})">
                     <i class="fa ${j.status==='open'?'fa-lock':'fa-lock-open'}"></i> ${j.status==='open'?'Close':'Reopen'}
                   </button>
                   <button class="btn btn-ghost btn-sm" onclick="Recruitment.viewJob(${j.id})"><i class="fa fa-eye"></i> View</button>
-                  <button class="btn btn-primary btn-sm" onclick="Recruitment.switchView('pipeline')"><i class="fa fa-list-check"></i> Pipeline</button>
+                  <button class="btn btn-primary btn-sm" onclick="Recruitment.openJobPipeline(${j.id})" title="Filter ATS pipeline to ${j.title}"><i class="fa fa-list-check"></i> Pipeline</button>
                 </div>
               </div>
             </div>
@@ -4704,11 +4719,208 @@ Recorded by HRM Pro Talent Acquisition System
 
   viewJob(jobId) {
     if (!this.isHROrAdmin()) {
-      Toast.show('Access Denied: Job details and applicant lists are restricted to HR & Admin.', 'error');
+      Toast.show('Access Denied: Job details are restricted to HR & Admin.', 'error');
       return;
     }
     const job = DB.find('recruitment', jobId);
-    Toast.show(`${job.title} — ${job.applicantCount} applicants`, 'info');
+    if (!job) return;
+    const depts = DB.get('departments') || [];
+    const dept = depts.find(d => d.id === job.departmentId);
+    const allApps = DB.get('applications') || [];
+    const jobApps = allApps.filter(a => String(a.jobId) === String(job.id) || (a.jobTitle && a.jobTitle.toLowerCase() === job.title.toLowerCase()));
+
+    Modal.show(`Job Opening — ${job.title}`, `
+      <div style="padding:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <div>
+            <span class="badge badge-primary">${dept?.name || 'Department'}</span>
+            <span class="badge ${job.status === 'open' ? 'badge-success' : 'badge-secondary'}" style="margin-left:6px">${(job.status || 'open').toUpperCase()}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-3)"><i class="fa fa-calendar"></i> Deadline: ${Utils.formatDate(job.deadline)}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+          <div class="card" style="margin:0;padding:10px;text-align:center;background:var(--surface)">
+            <div style="font-size:11px;color:var(--text-3)">Positions</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${job.positions}</div>
+          </div>
+          <div class="card" style="margin:0;padding:10px;text-align:center;background:var(--surface)">
+            <div style="font-size:11px;color:var(--text-3)">Experience</div>
+            <div style="font-weight:700;font-size:14px;color:var(--text)">${job.experience}</div>
+          </div>
+          <div class="card" style="margin:0;padding:10px;text-align:center;background:var(--surface)">
+            <div style="font-size:11px;color:var(--text-3)">Offered Salary</div>
+            <div style="font-weight:700;font-size:14px;color:#10b981">PKR ${job.salary}</div>
+          </div>
+          <div class="card" style="margin:0;padding:10px;text-align:center;background:var(--surface);cursor:pointer" onclick="Modal.close('dynamic-modal');Recruitment.viewJobApplicants(${job.id})">
+            <div style="font-size:11px;color:var(--text-3)">Applicants</div>
+            <div style="font-weight:700;font-size:14px;color:#2563eb"><i class="fa fa-users"></i> ${job.applicantCount || jobApps.length}</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <h4 style="font-size:13px;font-weight:700;margin-bottom:4px;color:var(--text)">Position Description</h4>
+          <p style="font-size:12.5px;color:var(--text-2);line-height:1.6;margin:0">${job.description || 'No detailed description provided.'}</p>
+        </div>
+
+        <div style="background:var(--surface-2);border-radius:8px;padding:12px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:700;font-size:13px;color:var(--text)">Received Candidate Applications (${jobApps.length})</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Inspect individual CVs, cover notes, and progress applicants across the ATS pipeline.</div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Modal.close('dynamic-modal');Recruitment.viewJobApplicants(${job.id})">
+            <i class="fa fa-users"></i> View Applicants (${jobApps.length})
+          </button>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-secondary" onclick="Modal.close('dynamic-modal');Recruitment.viewJobApplicants(${job.id})"><i class="fa fa-users"></i> View ${jobApps.length} Applicants</button>
+        <button class="btn btn-primary" onclick="Recruitment.openJobPipeline(${job.id})"><i class="fa fa-list-check"></i> ATS Pipeline</button>
+      `
+    });
+  },
+
+  viewJobApplicants(jobId) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Candidate profiles and resumes are restricted to HR & Admin.', 'error');
+      return;
+    }
+    const jobs = DB.get('recruitment') || [];
+    const job = jobs.find(j => j.id === jobId || j.id === Number(jobId));
+    if (!job) {
+      Toast.show('Job opening not found.', 'error');
+      return;
+    }
+    const allApps = DB.get('applications') || [];
+    const depts = DB.get('departments') || [];
+    const dept = depts.find(d => d.id === job.departmentId);
+
+    // Match applicants by jobId or jobTitle
+    const jobApps = allApps.filter(a => String(a.jobId) === String(job.id) || (a.jobTitle && a.jobTitle.toLowerCase() === job.title.toLowerCase()));
+
+    const stageColors = {
+      applied: { color: '#64748b', label: 'Applied' },
+      shortlisted: { color: '#6366f1', label: 'Shortlisted' },
+      interview: { color: '#f59e0b', label: 'Interview' },
+      offer: { color: '#10b981', label: 'Offer Extended' },
+      hired: { color: '#06b6d4', label: 'Hired' },
+      rejected: { color: '#ef4444', label: 'Rejected' }
+    };
+
+    Modal.show(`${job.title} — Applied Applicants (${jobApps.length})`, `
+      <div style="padding:4px">
+        <!-- Job Context Ribbon -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-weight:800;font-size:15px;color:var(--text)">${job.title}</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${dept?.name || 'Department'} • ${job.positions} Open Position${job.positions > 1 ? 's' : ''} • Salary PKR ${job.salary} • Due ${Utils.formatDate(job.deadline)}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="badge ${job.status === 'open' ? 'badge-success' : 'badge-secondary'}">${(job.status || 'open').toUpperCase()}</span>
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.openJobPipeline(${job.id})">
+              <i class="fa fa-list-check"></i> Filter Pipeline (${jobApps.length})
+            </button>
+          </div>
+        </div>
+
+        ${jobApps.length === 0 ? `
+          <div style="text-align:center;padding:36px 16px;background:var(--surface-2);border-radius:10px;border:1px dashed var(--border)">
+            <i class="fa fa-users" style="font-size:36px;color:var(--text-3);opacity:0.4;margin-bottom:10px;display:block"></i>
+            <h4 style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:6px">No Detailed Applicant Records Found</h4>
+            <p style="font-size:12.5px;color:var(--text-3);max-width:420px;margin:0 auto 16px auto">
+              This position indicates ${job.applicantCount || 0} registered candidates. When candidates submit their CV through the landing page, their complete profiles will appear right here.
+            </p>
+            <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+              <button class="btn btn-outline btn-sm" onclick="Modal.close('dynamic-modal');Recruitment.showAddApplicantModal('applied')">
+                <i class="fa fa-user-plus"></i> Add Candidate Manually
+              </button>
+              <button class="btn btn-primary btn-sm" onclick="Recruitment.openJobPipeline(${job.id})">
+                <i class="fa fa-columns"></i> View ATS Pipeline
+              </button>
+            </div>
+          </div>
+        ` : `
+          <!-- Applicants Table -->
+          <div style="max-height:460px;overflow-y:auto;border:1px solid var(--border);border-radius:10px">
+            <table class="table" style="margin:0;font-size:12.5px;width:100%">
+              <thead style="background:var(--surface);position:sticky;top:0;z-index:2">
+                <tr>
+                  <th style="padding:10px 12px">Candidate</th>
+                  <th style="padding:10px 12px">Contact Details</th>
+                  <th style="padding:10px 12px">Experience & Salary</th>
+                  <th style="padding:10px 12px">Applied Date</th>
+                  <th style="padding:10px 12px">Stage</th>
+                  <th style="padding:10px 12px;text-align:center">Resume & Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${jobApps.map(a => {
+                  const st = stageColors[a.stage] || { color: '#64748b', label: a.stage || 'Applied' };
+                  return `
+                    <tr style="border-bottom:1px solid var(--border)">
+                      <td style="padding:10px 12px">
+                        <div style="display:flex;align-items:center;gap:8px">
+                          <div style="width:32px;height:32px;border-radius:50%;background:rgba(37,99,235,0.12);color:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0">
+                            ${(a.name || 'C').charAt(0)}
+                          </div>
+                          <div>
+                            <div style="font-weight:700;color:var(--text);cursor:pointer" onclick="Modal.close('dynamic-modal');Recruitment.viewApplicant(${a.id})">${a.name}</div>
+                            <div style="font-size:11px;color:var(--text-3)">${a.portfolio ? `<a href="${a.portfolio}" target="_blank" style="color:var(--primary)"><i class="fa fa-link"></i> Portfolio</a>` : (a.cnic || 'Public Candidate')}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="padding:10px 12px">
+                        <div><a href="mailto:${a.email}" style="color:var(--primary);text-decoration:none">${a.email}</a></div>
+                        <div style="font-size:11px;color:var(--text-3)">${a.phone || '—'} ${a.city ? `• ${a.city}` : ''}</div>
+                      </td>
+                      <td style="padding:10px 12px">
+                        <div><strong>${a.experience || '—'}</strong></div>
+                        <div style="font-size:11px;color:#10b981">${a.expectedSalary ? (String(a.expectedSalary).includes('PKR') ? a.expectedSalary : `PKR ${a.expectedSalary}`) : '—'}</div>
+                      </td>
+                      <td style="padding:10px 12px;color:var(--text-3);white-space:nowrap">
+                        ${Utils.formatDate(a.appliedOn)}
+                      </td>
+                      <td style="padding:10px 12px;white-space:nowrap">
+                        <span class="badge" style="background:${st.color}22;color:${st.color};font-weight:700">
+                          ${st.label}
+                        </span>
+                      </td>
+                      <td style="padding:10px 12px;text-align:center">
+                        <div style="display:flex;gap:4px;justify-content:center">
+                          <button class="btn btn-xs btn-outline" onclick="Recruitment.viewResume(${a.id})" title="View CV / Resume">
+                            <i class="fa fa-file-pdf"></i> CV
+                          </button>
+                          <button class="btn btn-xs btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.viewApplicant(${a.id})" title="View Full Profile">
+                            <i class="fa fa-eye"></i>
+                          </button>
+                          ${a.stage === 'applied' ? `
+                            <button class="btn btn-xs btn-success" onclick="Recruitment.moveStage(${a.id}, 'shortlisted');Recruitment.viewJobApplicants(${job.id})" title="Shortlist Candidate">
+                              <i class="fa fa-check"></i>
+                            </button>
+                          ` : ''}
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `}
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.showAddApplicantModal('applied')">
+          <i class="fa fa-user-plus"></i> Add New Candidate
+        </button>
+        <button class="btn btn-primary" onclick="Recruitment.openJobPipeline(${job.id})">
+          <i class="fa fa-list-check"></i> Go to ATS Pipeline
+        </button>
+      `
+    });
   },
 
   // ═══════════════════════════════════════════════

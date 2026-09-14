@@ -64,6 +64,41 @@ router.post('/batch', (req, res) => {
   }
 });
 
+// POST candidate application from public landing page
+router.post('/apply', (req, res) => {
+  try {
+    const { applicant, jobId } = req.body;
+    if (!applicant) {
+      return res.status(400).json({ success: false, message: 'Missing applicant data' });
+    }
+
+    const apps = store.getTable('applications') || [];
+    // Check if applicant already recorded
+    const existingIdx = apps.findIndex(a => a.id === applicant.id || (a.email === applicant.email && a.jobId === applicant.jobId));
+    if (existingIdx !== -1) {
+      apps[existingIdx] = { ...apps[existingIdx], ...applicant };
+    } else {
+      apps.unshift(applicant);
+    }
+    store.setTable('applications', apps);
+
+    // Update job applicant count
+    if (jobId) {
+      const jobs = store.getTable('recruitment') || [];
+      const job = jobs.find(j => j.id === jobId || j.id === Number(jobId));
+      if (job) {
+        job.applicantCount = (job.applicantCount || 0) + 1;
+        store.setTable('recruitment', jobs);
+      }
+    }
+
+    console.log(`[Store] Received candidate application: ${applicant.name} for Job ID ${jobId}`);
+    res.json({ success: true, applicantId: applicant.id, message: 'Application successfully received and recorded' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Real-Time Server-Sent Events (SSE) Stream
 router.get('/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
