@@ -789,16 +789,19 @@ const Landing = {
         <header class="landing-header">
           <div class="landing-nav-container">
             <a href="#" class="landing-brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
-              <div class="landing-brand-icon">
-                <i class="fa fa-users-gear"></i>
+              <div class="landing-brand-icon" style="background:#2563eb;color:#ffffff;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px">
+                <i class="fa fa-users"></i>
               </div>
               <div>
                 <div class="landing-brand-name">HRM Pro</div>
-                <div class="landing-brand-tag">Human Resource Management Platform</div>
+                <div class="landing-brand-tag">Human Resource Information System</div>
               </div>
             </a>
 
             <nav class="landing-nav-links">
+              <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Features</a>
+              <a href="#how-it-works" class="landing-nav-link" onclick="Landing.scrollTo('how-it-works');return false;">How It Works</a>
+
               <!-- Modules Mega-Menu Dropdown -->
               <div class="landing-nav-dropdown-wrapper" onclick="event.stopPropagation()">
                 <button class="landing-nav-link landing-dropdown-btn" id="nav-modules-btn" onclick="Landing.toggleModulesMenu(event)">
@@ -858,14 +861,14 @@ const Landing = {
                         <div class="mega-item-icon" style="background:#faf5ff;color:#9333ea"><i class="fa fa-money-bill-wave"></i></div>
                         <div>
                           <div class="mega-item-title">Statutory Payroll</div>
-                          <div class="mega-item-desc">FBR taxes, EOBI & payslips</div>
+                          <div class="mega-item-desc">Taxes, EOBI & payslips</div>
                         </div>
                       </div>
                       <div class="mega-item" onclick="Landing.showModule('performance')">
                         <div class="mega-item-icon" style="background:#f0f9ff;color:#0284c7"><i class="fa fa-chart-line"></i></div>
                         <div>
                           <div class="mega-item-title">Performance & OKRs</div>
-                          <div class="mega-item-desc">360 reviews & increments</div>
+                          <div class="mega-item-desc">Appraisals & KPI scorecards</div>
                         </div>
                       </div>
                       <div class="mega-item" onclick="Landing.showModule('expenses')">
@@ -939,9 +942,10 @@ const Landing = {
                 </div>
               </div>
 
-              <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Features</a>
-              <a href="#impact" class="landing-nav-link" onclick="Landing.scrollTo('impact');return false;">Impact & ROI</a>
-              <a href="#security" class="landing-nav-link" onclick="Landing.scrollTo('impact');return false;">Enterprise Sync</a>
+              <a href="#monitoring" class="landing-nav-link" onclick="Landing.scrollTo('monitoring');return false;">Monitoring</a>
+              <a href="#pricing" class="landing-nav-link" onclick="Landing.scrollTo('pricing');return false;">Pricing</a>
+              <a href="#about" class="landing-nav-link" onclick="Landing.scrollTo('about');return false;">About</a>
+              <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
               <a href="#contact" class="landing-nav-link" onclick="Landing.openContactModal();return false;">Contact</a>
             </nav>
 
@@ -950,32 +954,32 @@ const Landing = {
                 <i class="fa fa-right-to-bracket"></i> Sign In
               </button>
               <button class="landing-btn-cta" onclick="App.showLogin()">
-                Get Started
+                Start Free Trial
               </button>
             </div>
           </div>
         </header>
 
-        <!-- ─── 2. HERO SECTION ─── -->
+        <!-- ─── 2. HERO SECTION (HIGH IMPACT SAAS) ─── -->
         <section class="landing-hero-section">
           <div class="landing-hero-grid">
             <!-- Left Hero Content -->
             <div class="landing-hero-content">
               <div class="landing-pill-badge">
-                <i class="fa fa-sparkles" style="color:#2563eb"></i> All-in-one Enterprise Workforce Platform
+                <i class="fa fa-sparkles" style="color:#2563eb"></i> Intelligent Workforce & HR Platform
               </div>
 
               <h1 class="landing-hero-title">
-                Manage Your <br>Workforce Smarter <br>with <span class="text-gradient-blue">HRM Pro</span>
+                Complete Visibility <br>For Your Modern Workforce <br>with <span class="text-gradient-blue">HRM Pro</span>
               </h1>
 
               <p class="landing-hero-sub">
-                Unify employees, attendance, statutory payroll, recruitment, leave approvals, performance reviews, and real-time multi-device cloud synchronization.
+                Automatically track time, verify biometric attendance, calculate statutory payroll, evaluate performance, and synchronize team records across all authorized devices with unmatched precision.
               </p>
 
               <div class="landing-cta-group">
                 <button class="landing-hero-btn-primary" onclick="App.showLogin()">
-                  Open Portal <i class="fa fa-arrow-right"></i>
+                  Start Tracking <i class="fa fa-arrow-right"></i>
                 </button>
                 <button class="landing-hero-btn-secondary" onclick="Landing.showDemoModal()">
                   <i class="fa fa-play-circle" style="color:#2563eb;font-size:16px"></i> System Tour
@@ -994,7 +998,7 @@ const Landing = {
                   <i class="fa fa-rotate"></i>
                   <div>
                     <strong>Real-Time Sync</strong>
-                    <span>Cross-device database</span>
+                    <span>Cross-device cloud database</span>
                   </div>
                 </div>
                 <div class="landing-trust-item">
@@ -1003,7 +1007,7 @@ const Landing = {
                     <span class="online-indicator"></span>
                   </div>
                   <div>
-                    <strong>Live HR Operations</strong>
+                    <strong>Live Operations</strong>
                     <span>Sara Malik (HR Director)</span>
                   </div>
                 </div>
@@ -1050,78 +1054,45 @@ const Landing = {
                     </div>
                   </div>
 
-                  <!-- 4 Mini Metric Counters -->
-                  <div class="mockup-kpi-grid">
-                    <div class="mockup-kpi-box" onclick="App.showModule('employees')" style="cursor:pointer">
-                      <div class="kpi-icon" style="color:#2563eb"><i class="fa fa-users"></i></div>
-                      <div>
-                        <div class="kpi-val">${totalEmps}</div>
-                        <div class="kpi-lbl">Total Employees</div>
-                      </div>
+                  <div class="mockup-metrics-grid">
+                    <div class="mockup-metric-card" onclick="App.showModule('employees')">
+                      <span class="m-label">Total Workforce</span>
+                      <span class="m-value">${totalEmps}</span>
+                      <span class="m-sub text-success"><i class="fa fa-user-check"></i> Active Master Files</span>
                     </div>
-                    <div class="mockup-kpi-box" onclick="App.showModule('attendance')" style="cursor:pointer">
-                      <div class="kpi-icon" style="color:#10b981"><i class="fa fa-user-check"></i></div>
-                      <div>
-                        <div class="kpi-val">${presentToday}</div>
-                        <div class="kpi-lbl">Present Today</div>
-                      </div>
+                    <div class="mockup-metric-card" onclick="App.showModule('attendance')">
+                      <span class="m-label">Present Today</span>
+                      <span class="m-value">${presentToday}</span>
+                      <span class="m-sub text-primary"><i class="fa fa-fingerprint"></i> Biometric Verified</span>
                     </div>
-                    <div class="mockup-kpi-box" onclick="App.showModule('leaves')" style="cursor:pointer">
-                      <div class="kpi-icon" style="color:#f59e0b"><i class="fa fa-calendar-clock"></i></div>
-                      <div>
-                        <div class="kpi-val">${pendingLeaves}</div>
-                        <div class="kpi-lbl">Pending Leaves</div>
-                      </div>
+                    <div class="mockup-metric-card" onclick="App.showModule('leaves')">
+                      <span class="m-label">Pending Leaves</span>
+                      <span class="m-value">${pendingLeaves}</span>
+                      <span class="m-sub text-warning"><i class="fa fa-hourglass-half"></i> 2-Tier Queues</span>
                     </div>
-                    <div class="mockup-kpi-box" onclick="App.showModule('recruitment')" style="cursor:pointer">
-                      <div class="kpi-icon" style="color:#8b5cf6"><i class="fa fa-briefcase"></i></div>
-                      <div>
-                        <div class="kpi-val">${openJobs}</div>
-                        <div class="kpi-lbl">Open Positions</div>
-                      </div>
+                    <div class="mockup-metric-card" onclick="App.showModule('recruitment')">
+                      <span class="m-label">Open Positions</span>
+                      <span class="m-value">${openJobs}</span>
+                      <span class="m-sub text-info"><i class="fa fa-briefcase"></i> Active Vacancies</span>
                     </div>
                   </div>
 
-                  <!-- Mini Chart & Recent Activity -->
-                  <div class="mockup-visual-body">
-                    <div class="mockup-chart-area">
-                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                        <span style="font-size:11px;font-weight:700;color:#1e293b">Weekly Attendance Trend</span>
-                        <span style="font-size:10px;color:#64748b">Current Cycle ▾</span>
-                      </div>
-                      <div class="mockup-trend-bars">
-                        <div class="bar-col"><div class="bar" style="height:70%"></div><span>Mon</span></div>
-                        <div class="bar-col"><div class="bar" style="height:92%"></div><span>Tue</span></div>
-                        <div class="bar-col"><div class="bar" style="height:95%"></div><span>Wed</span></div>
-                        <div class="bar-col"><div class="bar" style="height:88%"></div><span>Thu</span></div>
-                        <div class="bar-col"><div class="bar active" style="height:96%"></div><span>Fri</span></div>
-                        <div class="bar-col"><div class="bar" style="height:45%"></div><span>Sat</span></div>
-                      </div>
+                  <div class="mockup-chart-box">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                      <span style="font-size:11.5px;font-weight:700;color:#334155"><i class="fa fa-wave-pulse" style="color:#2563eb"></i> Monthly Department Attendance Velocity</span>
+                      <span style="font-size:10.5px;color:#64748b">Multi-Branch Sync</span>
                     </div>
-
-                    <div class="mockup-activity-area">
-                      <div style="font-size:11px;font-weight:700;color:#1e293b;margin-bottom:8px">Real-Time Event Stream</div>
-                      <div class="mockup-activity-row">
-                        <div class="act-dot" style="background:#2563eb"></div>
-                        <div style="flex:1">
-                          <div style="font-size:10.5px;font-weight:700;color:#1e293b">Fatima Raza</div>
-                          <div style="font-size:9.5px;color:#64748b">Annual Leave Approved by HR</div>
-                        </div>
-                        <span class="badge badge-success" style="font-size:9px">Approved</span>
-                      </div>
-                      <div class="mockup-activity-row">
-                        <div class="act-dot" style="background:#10b981"></div>
-                        <div style="flex:1">
-                          <div style="font-size:10.5px;font-weight:700;color:#1e293b">Usman Baig</div>
-                          <div style="font-size:9.5px;color:#64748b">Engineering Shift Clock-In</div>
-                        </div>
-                        <span style="font-size:9.5px;color:#64748b">08:58 AM</span>
-                      </div>
+                    <div class="mockup-bars">
+                      <div class="m-bar-col"><div class="m-bar" style="height:70%"></div><span>IT</span></div>
+                      <div class="m-bar-col"><div class="m-bar" style="height:92%"></div><span>HR</span></div>
+                      <div class="m-bar-col"><div class="m-bar" style="height:85%"></div><span>Fin</span></div>
+                      <div class="m-bar-col"><div class="m-bar" style="height:78%"></div><span>Mkt</span></div>
+                      <div class="m-bar-col"><div class="m-bar" style="height:88%"></div><span>Ops</span></div>
+                      <div class="m-bar-col"><div class="m-bar" style="height:95%"></div><span>Exec</span></div>
                     </div>
                   </div>
                 </div>
 
-                <!-- Floating Illustration Characters / Badges -->
                 <div class="hero-illustration-lady">
                   <div class="avatar-lady-badge">
                     <i class="fa fa-user-tie" style="font-size:32px;color:#2563eb"></i>
@@ -1141,139 +1112,370 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 3. 6-FEATURE GRID SECTION ─── -->
+        <!-- ─── 3. CORE PILLARS ("EVERYTHING YOU NEED") ─── -->
         <section class="landing-features-section" id="features">
           <div class="landing-section-header">
             <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-cubes"></i> 14 Core Enterprise Modules
+              <i class="fa fa-cubes"></i> Core Platform Capabilities
             </div>
-            <h2 class="landing-section-title">Everything your HR team needs in one workspace</h2>
-            <p class="landing-section-sub">Click any module to inspect comprehensive features, approval rules, and role access.</p>
+            <h2 class="landing-section-title">Everything you need to monitor remote work and verify hours with absolute confidence</h2>
+            <p class="landing-section-sub">Comprehensive enterprise features with flexible options for accurate workforce monitoring.</p>
           </div>
 
-          <div class="landing-features-grid">
-            <!-- 1. Employee Records -->
-            <div class="landing-feature-card" onclick="App.showModule('employees')">
-              <div class="feature-icon-box" style="background:#eff6ff;color:#2563eb">
-                <i class="fa fa-users"></i>
+          <div class="landing-pillars-detailed-grid">
+            <!-- 1. Time Tracking -->
+            <div class="pillar-detailed-card" onclick="Landing.showModule('attendance')">
+              <div class="pillar-card-icon" style="background:#eff6ff;color:#2563eb">
+                <i class="fa fa-clock"></i>
               </div>
-              <h3 class="feature-card-title">Employee Directory & e-DMS</h3>
-              <p class="feature-card-desc">Centralize personnel files, digital document expiries, contracts, emergency contacts, and branch hierarchy.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('employees');return false;">View module details <i class="fa fa-arrow-right"></i></a>
+              <h3 class="pillar-card-title">Time Tracking & Biometrics</h3>
+              <p class="pillar-card-desc">Comprehensive time tracking solution with flexible options for accurate work monitoring.</p>
+              <ul class="pillar-feature-list">
+                <li><i class="fa fa-check-circle"></i> One-click start/stop check-in timer & biometric gateway</li>
+                <li><i class="fa fa-check-circle"></i> Timesheet edits with 2-tier managerial approvals</li>
+                <li><i class="fa fa-check-circle"></i> Real-time multi-branch attendance tracking</li>
+              </ul>
+              <div class="pillar-card-action">Learn more <i class="fa fa-arrow-right"></i></div>
             </div>
 
-            <!-- 2. Attendance Tracking -->
-            <div class="landing-feature-card" onclick="App.showModule('attendance')">
-              <div class="feature-icon-box" style="background:#ecfdf5;color:#10b981">
-                <i class="fa fa-calendar-check"></i>
-              </div>
-              <h3 class="feature-card-title">Attendance & Shift Rosters</h3>
-              <p class="feature-card-desc">Live biometric clock-ins, automated grace-period validations, shift scheduling, and overtime tracking.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('attendance');return false;">View module details <i class="fa fa-arrow-right"></i></a>
-            </div>
-
-            <!-- 3. Payroll Automation -->
-            <div class="landing-feature-card" onclick="App.showModule('payroll')">
-              <div class="feature-icon-box" style="background:#faf5ff;color:#9333ea">
-                <i class="fa fa-file-invoice-dollar"></i>
-              </div>
-              <h3 class="feature-card-title">Automated Statutory Payroll</h3>
-              <p class="feature-card-desc">FBR tax brackets, EOBI, provident fund ledgers, advance loans, and single-click automated payslip generation.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('payroll');return false;">View module details <i class="fa fa-arrow-right"></i></a>
-            </div>
-
-            <!-- 4. Recruitment Pipeline -->
-            <div class="landing-feature-card" onclick="App.showModule('recruitment')">
-              <div class="feature-icon-box" style="background:#fffbeb;color:#d97706">
-                <i class="fa fa-briefcase"></i>
-              </div>
-              <h3 class="feature-card-title">Recruitment & ATS Kanban</h3>
-              <p class="feature-card-desc">Track requisitions, interview scorecards, applicant stages, offer letters, and seamless onboarding transitions.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('recruitment');return false;">View module details <i class="fa fa-arrow-right"></i></a>
-            </div>
-
-            <!-- 5. Leave Management -->
-            <div class="landing-feature-card" onclick="App.showModule('leaves')">
-              <div class="feature-icon-box" style="background:#f0fdf4;color:#16a34a">
-                <i class="fa fa-calendar-days"></i>
-              </div>
-              <h3 class="feature-card-title">Leave & Policy Approvals</h3>
-              <p class="feature-card-desc">Annual, casual, sick, and maternity quotas with two-tiered manager-to-HR electronic approval workflows.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('leaves');return false;">View module details <i class="fa fa-arrow-right"></i></a>
-            </div>
-
-            <!-- 6. Performance Insights -->
-            <div class="landing-feature-card" onclick="App.showModule('performance')">
-              <div class="feature-icon-box" style="background:#e0f2fe;color:#0284c7">
+            <!-- 2. Reports & Insights -->
+            <div class="pillar-detailed-card" onclick="Landing.showModule('reports')">
+              <div class="pillar-card-icon" style="background:#f0fdf4;color:#16a34a">
                 <i class="fa fa-chart-pie"></i>
               </div>
-              <h3 class="feature-card-title">Performance Reviews & OKRs</h3>
-              <p class="feature-card-desc">Objective key results, 360-degree appraisal cycles, KPI scorecards, and historical merit increment records.</p>
-              <a href="#" class="feature-card-link" onclick="App.showModule('performance');return false;">View module details <i class="fa fa-arrow-right"></i></a>
+              <h3 class="pillar-card-title">Reports & Insights</h3>
+              <p class="pillar-card-desc">Detailed analytics and reporting for better business decisions and productivity insights.</p>
+              <ul class="pillar-feature-list">
+                <li><i class="fa fa-check-circle"></i> Real-time reports per user, department, or client project</li>
+                <li><i class="fa fa-check-circle"></i> Exportable summaries for statutory billing and payroll</li>
+                <li><i class="fa fa-check-circle"></i> Custom report generation with Excel/PDF compliance exports</li>
+              </ul>
+              <div class="pillar-card-action">Learn more <i class="fa fa-arrow-right"></i></div>
+            </div>
+
+            <!-- 3. Productivity Monitoring -->
+            <div class="pillar-detailed-card" onclick="Landing.showModule('performance')">
+              <div class="pillar-card-icon" style="background:#faf5ff;color:#9333ea">
+                <i class="fa fa-gauge-high"></i>
+              </div>
+              <h3 class="pillar-card-title">Productivity Monitoring</h3>
+              <p class="pillar-card-desc">Advanced monitoring tools to track team velocity, milestones, and ensure accountability.</p>
+              <ul class="pillar-feature-list">
+                <li><i class="fa fa-check-circle"></i> OKR and KPI target tracking with real-time scoring</li>
+                <li><i class="fa fa-check-circle"></i> Shift grace buffers, late penalizations & overtime tokens</li>
+                <li><i class="fa fa-check-circle"></i> Structured 360-degree appraisal cycles and merit records</li>
+              </ul>
+              <div class="pillar-card-action">Learn more <i class="fa fa-arrow-right"></i></div>
+            </div>
+
+            <!-- 4. Workforce DMS & Personnel -->
+            <div class="pillar-detailed-card" onclick="Landing.showModule('employees')">
+              <div class="pillar-card-icon" style="background:#fffbeb;color:#d97706">
+                <i class="fa fa-users"></i>
+              </div>
+              <h3 class="pillar-card-title">Workforce Directory & e-DMS</h3>
+              <p class="pillar-card-desc">Centralized personnel profiles and encrypted digital document safe for enterprise compliance.</p>
+              <ul class="pillar-feature-list">
+                <li><i class="fa fa-check-circle"></i> 360° personnel files with CNIC, emergency & bank details</li>
+                <li><i class="fa fa-check-circle"></i> Automated 30/60/90-day contract and visa expiry radar</li>
+                <li><i class="fa fa-check-circle"></i> Complete organizational hierarchy trees and branch mapping</li>
+              </ul>
+              <div class="pillar-card-action">Learn more <i class="fa fa-arrow-right"></i></div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 4. ENTERPRISE IMPACT & ROI SECTION ─── -->
-        <section class="landing-stats-section" id="impact">
-          <div class="landing-stats-grid">
-            <div class="landing-stat-box">
-              <div class="stat-icon-pill" style="background:#eff6ff;color:#2563eb"><i class="fa fa-calculator"></i></div>
-              <div>
-                <div class="stat-number">99.9%</div>
-                <div class="stat-title">Payroll Calculation Accuracy</div>
-                <div class="stat-delta"><i class="fa fa-check"></i> Automated tax & statutory compliance</div>
+        <!-- ─── 4. HOW IT WORKS (STREAMLINED WORKFLOW) ─── -->
+        <section class="landing-workflow-section" id="how-it-works">
+          <div class="landing-section-header">
+            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+              <i class="fa fa-bolt"></i> Streamlined 4-Step Process
+            </div>
+            <h2 class="landing-section-title">Get started in minutes with our streamlined workflow</h2>
+            <p class="landing-section-sub">From organization onboarding to automated statutory payroll and real-time audit reports.</p>
+          </div>
+
+          <div class="how-it-works-grid">
+            <!-- Step 1 -->
+            <div class="how-step-card">
+              <div class="step-num-badge">01</div>
+              <div class="step-icon-wrap" style="color:#2563eb;background:#eff6ff">
+                <i class="fa fa-sitemap"></i>
               </div>
+              <h3 class="step-card-title">Configure Roles & Positions</h3>
+              <p class="step-card-desc">Create roles and positions, then organize branches and departments with structured permissions to ensure efficient governance.</p>
             </div>
 
-            <div class="landing-stat-box">
-              <div class="stat-icon-pill" style="background:#ecfdf5;color:#10b981"><i class="fa fa-bolt"></i></div>
-              <div>
-                <div class="stat-number">3.5x</div>
-                <div class="stat-title">Faster Employee Onboarding</div>
-                <div class="stat-delta"><i class="fa fa-check"></i> Paperless digital documentation</div>
+            <!-- Step 2 -->
+            <div class="how-step-card">
+              <div class="step-num-badge">02</div>
+              <div class="step-icon-wrap" style="color:#10b981;background:#ecfdf5">
+                <i class="fa fa-fingerprint"></i>
               </div>
+              <h3 class="step-card-title">Track Time & Attendance</h3>
+              <p class="step-card-desc">Team members check in via physical biometric scanners or digital web terminals with automated grace-period validations.</p>
             </div>
 
-            <div class="landing-stat-box">
-              <div class="stat-icon-pill" style="background:#faf5ff;color:#9333ea"><i class="fa fa-arrows-rotate"></i></div>
-              <div>
-                <div class="stat-number">100%</div>
-                <div class="stat-title">Multi-Device Live Sync</div>
-                <div class="stat-delta"><i class="fa fa-check"></i> Real-time SSE database replication</div>
+            <!-- Step 3 -->
+            <div class="how-step-card">
+              <div class="step-num-badge">03</div>
+              <div class="step-icon-wrap" style="color:#9333ea;background:#faf5ff">
+                <i class="fa fa-calculator"></i>
               </div>
+              <h3 class="step-card-title">Review Timesheets & Payroll</h3>
+              <p class="step-card-desc">Managers review detailed timesheets, approve leave quotas, and calculate tax-compliant statutory payroll in a single click.</p>
             </div>
 
-            <div class="landing-stat-box">
-              <div class="stat-icon-pill" style="background:#fffbeb;color:#d97706"><i class="fa fa-shield-halved"></i></div>
-              <div>
-                <div class="stat-number">14</div>
-                <div class="stat-title">Integrated HR Modules</div>
-                <div class="stat-delta"><i class="fa fa-check"></i> Complete organization lifecycle</div>
+            <!-- Step 4 -->
+            <div class="how-step-card">
+              <div class="step-num-badge">04</div>
+              <div class="step-icon-wrap" style="color:#d97706;background:#fffbeb">
+                <i class="fa fa-file-invoice"></i>
               </div>
+              <h3 class="step-card-title">Generate Reports & Invoices</h3>
+              <p class="step-card-desc">Convert approved time entries into official salary slips, bank transfer files, and executive audit reports with one click.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 5. REAL-TIME MONITORING & INTELLIGENCE ─── -->
+        <section class="landing-monitoring-section" id="monitoring">
+          <div class="landing-section-header">
+            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+              <i class="fa fa-shield-halved"></i> Enterprise Analytics
+            </div>
+            <h2 class="landing-section-title">Make informed decisions with comprehensive analytics, real-time tracking, and detailed reporting</h2>
+            <p class="landing-section-sub">Go beyond basic tracking with advanced real-time monitoring and multi-dimensional insights.</p>
+          </div>
+
+          <div class="monitoring-dual-grid">
+            <div class="monitoring-card">
+              <div class="monitoring-card-icon" style="color:#2563eb;background:#eff6ff">
+                <i class="fa fa-chart-line"></i>
+              </div>
+              <h3 class="monitoring-title">Advanced Real-Time Monitoring</h3>
+              <p class="monitoring-desc">Go beyond basic tracking with advanced real-time monitoring, live productivity scoring, and automated event sync across all devices.</p>
+              <ul class="monitoring-list">
+                <li><i class="fa fa-check"></i> Real-time productivity scoring across departments</li>
+                <li><i class="fa fa-check"></i> Multi-location team monitoring and biometric status</li>
+                <li><i class="fa fa-check"></i> Atomic monotonic event stream with zero data loss</li>
+              </ul>
             </div>
 
-            <!-- Testimonial Quote Card -->
-            <div class="landing-testimonial-box">
-              <i class="fa fa-quote-left testimonial-quote-icon"></i>
-              <p class="testimonial-quote-text">
-                "HRM Pro has transformed the way our organization operates. With real-time sync across devices, automated payroll formulas, and multi-level approvals, our administrative overhead dropped by over 60%."
-              </p>
-              <div class="testimonial-author-row">
-                <img src="assets/avatars/sara_malik.jpg" alt="Sara Malik" class="testimonial-avatar" onerror="this.src='https://ui-avatars.com/api/?name=Sara+Malik&background=2563eb&color=fff'">
-                <div>
-                  <div class="testimonial-name">Sara Malik</div>
-                  <div class="testimonial-role">HR Director & People Operations Lead</div>
+            <div class="monitoring-card">
+              <div class="monitoring-card-icon" style="color:#0284c7;background:#f0f9ff">
+                <i class="fa fa-filter"></i>
+              </div>
+              <h3 class="monitoring-title">Intelligent Data Segmentation</h3>
+              <p class="monitoring-desc">Advanced filtering capabilities for deep insights across multiple organizational dimensions, branches, and custom date segments.</p>
+              <ul class="monitoring-list">
+                <li><i class="fa fa-check"></i> Multi-dimensional filtering by branch, role, or tenure</li>
+                <li><i class="fa fa-check"></i> Custom segment creation for payroll and audit groups</li>
+                <li><i class="fa fa-check"></i> Advanced date range analysis and historical comparisons</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 6. TRANSPARENT PRICING & TIERS ─── -->
+        <section class="landing-pricing-section" id="pricing">
+          <div class="landing-section-header">
+            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+              <i class="fa fa-tags"></i> Transparent Plans
+            </div>
+            <h2 class="landing-section-title">Choose the perfect plan for your team</h2>
+            <p class="landing-section-sub">From startups to global enterprises, we have got your workforce covered.</p>
+          </div>
+
+          <div class="pricing-cards-grid">
+            <!-- Free / Community Plan -->
+            <div class="pricing-card">
+              <div class="pricing-card-header">
+                <h3 class="plan-name">Community Free</h3>
+                <p class="plan-desc">Perfect for small teams and startups testing modern HR.</p>
+                <div class="plan-price">
+                  <span class="price-val">$0</span>
+                  <span class="price-period">/ forever</span>
                 </div>
-                <div class="testimonial-stars">
-                  <i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i> <span>5.0</span>
+              </div>
+              <div class="plan-highlights">
+                <div class="highlight-item"><i class="fa fa-users"></i> Up to 25 Employees</div>
+                <div class="highlight-item"><i class="fa fa-calendar-check"></i> Attendance & Leaves</div>
+                <div class="highlight-item"><i class="fa fa-database"></i> 90 Days Data Retention</div>
+              </div>
+              <button class="btn-plan-action btn-outline" onclick="App.showLogin()">Get Started Free</button>
+            </div>
+
+            <!-- Starter Plan -->
+            <div class="pricing-card">
+              <div class="pricing-card-header">
+                <h3 class="plan-name">Starter</h3>
+                <p class="plan-desc">Ideal for growing businesses needing automated operations.</p>
+                <div class="plan-price">
+                  <span class="price-val">$29</span>
+                  <span class="price-period">/ month</span>
                 </div>
+              </div>
+              <div class="plan-highlights">
+                <div class="highlight-item"><i class="fa fa-users"></i> Up to 100 Employees</div>
+                <div class="highlight-item"><i class="fa fa-money-bill-wave"></i> Statutory Payroll & Tax</div>
+                <div class="highlight-item"><i class="fa fa-database"></i> 365 Days Data Retention</div>
+              </div>
+              <button class="btn-plan-action btn-outline" onclick="App.showLogin()">Choose Starter</button>
+            </div>
+
+            <!-- Pro AI (Featured) -->
+            <div class="pricing-card featured">
+              <div class="pricing-popular-badge">Most Popular</div>
+              <div class="pricing-card-header">
+                <h3 class="plan-name">Pro Enterprise</h3>
+                <p class="plan-desc">Advanced workforce monitoring and intelligence for professional teams.</p>
+                <div class="plan-price">
+                  <span class="price-val">$79</span>
+                  <span class="price-period">/ month</span>
+                </div>
+              </div>
+              <div class="plan-highlights">
+                <div class="highlight-item"><i class="fa fa-users"></i> Up to 500 Employees</div>
+                <div class="highlight-item"><i class="fa fa-chart-pie"></i> Performance OKRs & Recruitment ATS</div>
+                <div class="highlight-item"><i class="fa fa-rotate"></i> Real-Time Multi-Device Live Sync</div>
+                <div class="highlight-item"><i class="fa fa-database"></i> 720 Days Data Retention</div>
+              </div>
+              <button class="btn-plan-action btn-primary" onclick="App.showLogin()">Start Free Pro Trial</button>
+            </div>
+
+            <!-- Enterprise Custom -->
+            <div class="pricing-card">
+              <div class="pricing-card-header">
+                <h3 class="plan-name">Enterprise / Custom</h3>
+                <p class="plan-desc">Tailored enterprise solution for large-scale corporations.</p>
+                <div class="plan-price">
+                  <span class="price-val">Custom</span>
+                  <span class="price-period">/ tailored SLA</span>
+                </div>
+              </div>
+              <div class="plan-highlights">
+                <div class="highlight-item"><i class="fa fa-building"></i> Unlimited Branches & Seats</div>
+                <div class="highlight-item"><i class="fa fa-fingerprint"></i> Biometric Hardware Gateway API</div>
+                <div class="highlight-item"><i class="fa fa-cubes"></i> 103-Model Architecture Blueprint</div>
+                <div class="highlight-item"><i class="fa fa-shield-halved"></i> Dedicated Support & Audit SLA</div>
+              </div>
+              <button class="btn-plan-action btn-outline" onclick="Landing.openContactModal()">Contact Enterprise</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 7. ABOUT & CORE VALUES ─── -->
+        <section class="landing-about-section" id="about">
+          <div class="landing-section-header">
+            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+              <i class="fa fa-heart"></i> Mission & Values
+            </div>
+            <h2 class="landing-section-title">Empowering organizations worldwide with transparency, accountability, and real-time insights</h2>
+            <p class="landing-section-sub">We believe that great work happens when teams have the right tools to stay connected and productive.</p>
+          </div>
+
+          <div class="about-values-grid">
+            <div class="about-value-box">
+              <div class="value-icon-wrap" style="color:#2563eb;background:#eff6ff"><i class="fa fa-eye"></i></div>
+              <h4>Transparency</h4>
+              <p>Clear insights and honest reporting for better organizational decision making.</p>
+            </div>
+
+            <div class="about-value-box">
+              <div class="value-icon-wrap" style="color:#10b981;background:#ecfdf5"><i class="fa fa-users-line"></i></div>
+              <h4>Team First</h4>
+              <p>Built for teams of all sizes, from startups to enterprises, with intuitive self-service at the core.</p>
+            </div>
+
+            <div class="about-value-box">
+              <div class="value-icon-wrap" style="color:#9333ea;background:#faf5ff"><i class="fa fa-shield-check"></i></div>
+              <h4>Trusted Platform</h4>
+              <p>Enterprise-grade security, TLS 1.3 encryption, and immutable audit logs you depend on daily.</p>
+            </div>
+
+            <div class="about-value-box">
+              <div class="value-icon-wrap" style="color:#d97706;background:#fffbeb"><i class="fa fa-trophy"></i></div>
+              <h4>Excellence</h4>
+              <p>Committed to delivering unmatched speed, zero data loss, and seamless multi-device replication.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 8. FREQUENTLY ASKED QUESTIONS (ACCORDION) ─── -->
+        <section class="landing-faq-section" id="faq">
+          <div class="landing-section-header">
+            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
+              <i class="fa fa-circle-question"></i> Help & Clarity
+            </div>
+            <h2 class="landing-section-title">Frequently Asked Questions</h2>
+            <p class="landing-section-sub">Everything you need to know about HRM Pro. Can't find the answer? Reach out to our team.</p>
+          </div>
+
+          <div class="landing-faq-container">
+            <div class="landing-faq-item active" id="faq-item-0" onclick="Landing.toggleFaq(0)">
+              <div class="faq-question">
+                <span>Does HRM Pro support real-time cross-device synchronization?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                Yes! HRM Pro utilizes a high-performance central Server-Sent Events (SSE) stream combined with BroadcastChannel. When an employee logs leave, an HR manager approves attendance, or an admin changes a role, all connected devices update immediately with zero manual refresh needed.
+              </div>
+            </div>
+
+            <div class="landing-faq-item" id="faq-item-1" onclick="Landing.toggleFaq(1)">
+              <div class="faq-question">
+                <span>Can we integrate physical biometric attendance machines?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                Absolutely. HRM Pro features an automated biometric attendance gateway supporting physical fingerprint and facial-recognition hardware terminals. Clock-in timestamps are processed with configurable arrival grace buffers and feed directly into statutory payroll calculations.
+              </div>
+            </div>
+
+            <div class="landing-faq-item" id="faq-item-2" onclick="Landing.toggleFaq(2)">
+              <div class="faq-question">
+                <span>How are payroll taxes and deductions computed?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                Our statutory payroll engine applies accurate multi-tier income tax slabs, provincial EOBI contributions, social security, and custom allowances/deductions automatically. You can export verified payslips and bank transfer ledgers with a single click.
+              </div>
+            </div>
+
+            <div class="landing-faq-item" id="faq-item-3" onclick="Landing.toggleFaq(3)">
+              <div class="faq-question">
+                <span>How does role-based access control (RBAC) work?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                HRM Pro provides 5 dedicated role portals (Super Admin, HR Director, Dept Manager, Employee, and Onboarding). Each role is strictly scoped to authorized views. Managers can only view their own department teams, while employees have self-service access to their personal profiles, leaves, and payslips.
+              </div>
+            </div>
+
+            <div class="landing-faq-item" id="faq-item-4" onclick="Landing.toggleFaq(4)">
+              <div class="faq-question">
+                <span>Can we customize our company financial currency and language?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                Yes! Administrators can configure the company's financial currency (8 supported currencies including PKR, USD, EUR, GBP, AED, SAR, CAD, and INR) and operating language (including English, Urdu [RTL], Arabic [RTL], Spanish, French, German, and Chinese) in Company Profile Settings.
+              </div>
+            </div>
+
+            <div class="landing-faq-item" id="faq-item-5" onclick="Landing.toggleFaq(5)">
+              <div class="faq-question">
+                <span>Is our organizational data encrypted and backed up?</span>
+                <i class="fa fa-chevron-down faq-chevron"></i>
+              </div>
+              <div class="faq-answer">
+                Yes. All communications are secured over TLS 1.3 encryption. In addition, the central store maintains atomic monotonic versioning with automated disk snapshots, full JSON backups, and an immutable administrative audit log.
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 5. BOTTOM CTA BANNER ─── -->
+        <!-- ─── 9. BOTTOM CTA CONVERSION BANNER ─── -->
         <section class="landing-cta-banner-section">
           <div class="landing-cta-banner">
             <div class="cta-banner-left">
@@ -1281,14 +1483,14 @@ const Landing = {
                 <i class="fa fa-shield-heart" style="font-size:38px;color:#2563eb"></i>
               </div>
               <div>
-                <h2 class="cta-banner-title">Ready to streamline your HR operations?</h2>
-                <p class="cta-banner-sub">Join forward-thinking teams using HRM Pro to empower their employees, automate payroll, and safeguard institutional data.</p>
+                <h2 class="cta-banner-title">Ready to transform your Workforce & Productivity?</h2>
+                <p class="cta-banner-sub">Join forward-thinking companies using HRM Pro to verify hours, automate payroll, and ensure complete institutional peace of mind.</p>
               </div>
             </div>
 
             <div class="cta-banner-right">
               <button class="landing-btn-banner-action" onclick="App.showLogin()">
-                Access HRM Pro <i class="fa fa-arrow-right"></i>
+                Start Free Trial <i class="fa fa-arrow-right"></i>
               </button>
               <div class="cta-banner-disclaimer">
                 5 Specialized Role Portals • Central Real-Time Database
@@ -1297,37 +1499,47 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 6. LANDING FOOTER (CLEANED ROLE NAMES) ─── -->
+        <!-- ─── 10. MODERN ENTERPRISE FOOTER ─── -->
         <footer class="landing-footer">
           <div class="landing-footer-inner">
             <div class="footer-col-brand">
               <div class="landing-brand" style="margin-bottom:10px">
-                <div class="landing-brand-icon"><i class="fa fa-users-gear"></i></div>
+                <div class="landing-brand-icon" style="background:#2563eb;color:#ffffff;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:16px"><i class="fa fa-users"></i></div>
                 <div>
                   <div class="landing-brand-name">HRM Pro</div>
-                  <div class="landing-brand-tag">Human Resource Management Platform</div>
+                  <div class="landing-brand-tag">Human Resource Information System</div>
                 </div>
               </div>
               <p style="font-size:12.5px;color:#64748b;line-height:1.6;max-width:320px">
-                Enterprise workforce management, statutory compliance, real-time biometrics, and multi-device cloud synchronization.
+                Enterprise workforce management, biometric attendance, statutory payroll compliance, and multi-device real-time cloud synchronization.
               </p>
             </div>
 
             <div class="footer-links-grid">
               <div class="footer-col">
-                <h4>Core Modules</h4>
-                <a href="#" onclick="App.showModule('employees');return false;">Employees & e-DMS</a>
-                <a href="#" onclick="App.showModule('attendance');return false;">Attendance & Shifts</a>
-                <a href="#" onclick="App.showModule('payroll');return false;">Payroll & Taxes</a>
-                <a href="#" onclick="App.showModule('recruitment');return false;">Recruitment ATS</a>
+                <h4>Product</h4>
+                <a href="#features" onclick="Landing.scrollTo('features');return false;">Time & Attendance</a>
+                <a href="#how-it-works" onclick="Landing.scrollTo('how-it-works');return false;">How It Works</a>
+                <a href="#monitoring" onclick="Landing.scrollTo('monitoring');return false;">Live Monitoring</a>
+                <a href="#pricing" onclick="Landing.scrollTo('pricing');return false;">Deployment Pricing</a>
               </div>
+
               <div class="footer-col">
-                <h4>Governance</h4>
-                <a href="#" onclick="App.showModule('settings');return false;">Role-Based Scopes</a>
-                <a href="#" onclick="App.showModule('administration');return false;">Statutory Compliance</a>
-                <a href="#" onclick="App.showModule('settings');return false;">Immutable Audit Log</a>
-                <a href="#" onclick="App.showModule('reports');return false;">Central Sync API</a>
+                <h4>Core Modules</h4>
+                <a href="#" onclick="Landing.showModule('employees');return false;">Employees & e-DMS</a>
+                <a href="#" onclick="Landing.showModule('attendance');return false;">Attendance & Shifts</a>
+                <a href="#" onclick="Landing.showModule('payroll');return false;">Payroll & Taxes</a>
+                <a href="#" onclick="Landing.showModule('recruitment');return false;">Recruitment ATS</a>
               </div>
+
+              <div class="footer-col">
+                <h4>Company</h4>
+                <a href="#about" onclick="Landing.scrollTo('about');return false;">About Us</a>
+                <a href="#about" onclick="Landing.scrollTo('about');return false;">Mission & Values</a>
+                <a href="#faq" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
+                <a href="#contact" onclick="Landing.openContactModal();return false;">Contact Support</a>
+              </div>
+
               <div class="footer-col">
                 <h4>Quick Portal Access</h4>
                 <a href="#" onclick="Login.quickLogin('admin','admin123');return false;">Super Admin</a>
@@ -1342,13 +1554,23 @@ const Landing = {
             <div>© 2026 HRM Pro. All rights reserved. Enterprise Cloud Edition.</div>
             <div style="display:flex;gap:18px">
               <a href="#" onclick="return false;">Privacy Policy</a>
+              <a href="#" onclick="return false;">Terms of Service</a>
               <a href="#" onclick="return false;">Security Protocols</a>
-              <a href="#" onclick="return false;">Compliance Standard</a>
             </div>
           </div>
         </footer>
       </div>
     `;
+  },
+
+  toggleFaq(index) {
+    const item = document.getElementById(`faq-item-${index}`);
+    if (!item) return;
+    const wasActive = item.classList.contains('active');
+    document.querySelectorAll('.landing-faq-item').forEach(el => el.classList.remove('active'));
+    if (!wasActive) {
+      item.classList.add('active');
+    }
   },
 
   scrollTo(id) {

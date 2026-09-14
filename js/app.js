@@ -1262,14 +1262,20 @@ const Login = {
           <div class="split-left-inner">
             <!-- Brand Header -->
             <a href="#" class="split-left-brand" onclick="App.showLanding();return false;">
-              <div class="landing-brand-icon">
-                <i class="fa fa-users-gear"></i>
+              <div class="landing-brand-icon" style="background:#2563eb;color:#ffffff;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px">
+                <i class="fa fa-users"></i>
               </div>
               <div>
-                <div class="landing-brand-name">HRM Pro</div>
-                <div class="landing-brand-tag">Enterprise Human Resource Management</div>
+                <div class="landing-brand-name" style="font-size:22px;font-weight:900;color:var(--text,#0f172a);letter-spacing:-0.5px">HRM Pro</div>
+                <div class="landing-brand-tag" style="font-size:11px;color:var(--text-3,#64748b);font-weight:600">Human Resource Information System</div>
               </div>
             </a>
+
+            <!-- Welcome Headline (Matching Reference Screenshot) -->
+            <div class="split-left-welcome-wrap">
+              <h1 class="split-hero-title">Welcome back,<br><span class="text-blue-highlight" id="login-hero-name">${acc.name.split(' ')[0]}</span></h1>
+              <p class="split-hero-subtitle">Sign in to manage your workforce, payroll, attendance, recruitment, reports, and settings.</p>
+            </div>
 
             <!-- Central Visual Scenario Stage (Matching Reference Artwork) -->
             <div class="login-scenario-stage">
@@ -1503,9 +1509,11 @@ const Login = {
     const nameEl = document.getElementById('active-account-name');
     const roleEl = document.getElementById('active-account-role');
     const imgEl = document.querySelector('.active-user-img');
+    const heroNameEl = document.getElementById('login-hero-name');
     if (nameEl) nameEl.textContent = acc.name;
     if (roleEl) roleEl.textContent = acc.role;
     if (imgEl) imgEl.src = acc.avatar;
+    if (heroNameEl) heroNameEl.textContent = acc.name.split(' ')[0];
 
     // Update Form Inputs
     const uInput = document.getElementById('login-username');
