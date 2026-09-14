@@ -953,7 +953,7 @@ const Landing = {
               <button class="landing-btn-signin" onclick="App.showLogin()">
                 <i class="fa fa-right-to-bracket"></i> Sign In
               </button>
-              <button class="landing-btn-cta" onclick="App.showLogin()">
+              <button class="landing-btn-cta" onclick="App.showTrial()">
                 Start Free Trial
               </button>
             </div>
@@ -978,8 +978,8 @@ const Landing = {
               </p>
 
               <div class="landing-cta-group">
-                <button class="landing-hero-btn-primary" onclick="App.showLogin()">
-                  Start Tracking <i class="fa fa-arrow-right"></i>
+                <button class="landing-hero-btn-primary" onclick="App.showTrial()">
+                  Start Free Trial <i class="fa fa-arrow-right"></i>
                 </button>
                 <button class="landing-hero-btn-secondary" onclick="Landing.showDemoModal()">
                   <i class="fa fa-play-circle" style="color:#2563eb;font-size:16px"></i> System Tour
@@ -1303,7 +1303,7 @@ const Landing = {
                 <div class="highlight-item"><i class="fa fa-calendar-check"></i> Attendance & Leaves</div>
                 <div class="highlight-item"><i class="fa fa-database"></i> 90 Days Data Retention</div>
               </div>
-              <button class="btn-plan-action btn-outline" onclick="App.showLogin()">Get Started Free</button>
+              <button class="btn-plan-action btn-outline" onclick="App.showTrial('Community')">Get Started Free</button>
             </div>
 
             <!-- Starter Plan -->
@@ -1321,7 +1321,7 @@ const Landing = {
                 <div class="highlight-item"><i class="fa fa-money-bill-wave"></i> Statutory Payroll & Tax</div>
                 <div class="highlight-item"><i class="fa fa-database"></i> 365 Days Data Retention</div>
               </div>
-              <button class="btn-plan-action btn-outline" onclick="App.showLogin()">Choose Starter</button>
+              <button class="btn-plan-action btn-outline" onclick="App.showTrial('Starter')">Choose Starter</button>
             </div>
 
             <!-- Pro AI (Featured) -->
@@ -1341,7 +1341,7 @@ const Landing = {
                 <div class="highlight-item"><i class="fa fa-rotate"></i> Real-Time Multi-Device Live Sync</div>
                 <div class="highlight-item"><i class="fa fa-database"></i> 720 Days Data Retention</div>
               </div>
-              <button class="btn-plan-action btn-primary" onclick="App.showLogin()">Start Free Pro Trial</button>
+              <button class="btn-plan-action btn-primary" onclick="App.showTrial('Pro')">Start Free Pro Trial</button>
             </div>
 
             <!-- Enterprise Custom -->
@@ -1489,7 +1489,7 @@ const Landing = {
             </div>
 
             <div class="cta-banner-right">
-              <button class="landing-btn-banner-action" onclick="App.showLogin()">
+              <button class="landing-btn-banner-action" onclick="App.showTrial()">
                 Start Free Trial <i class="fa fa-arrow-right"></i>
               </button>
               <div class="cta-banner-disclaimer">

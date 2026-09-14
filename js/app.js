@@ -32,10 +32,12 @@ const App = {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
+    const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'block';
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'none';
+    if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
     if (typeof Landing !== 'undefined' && Landing.render) {
       Landing.render();
@@ -47,10 +49,12 @@ const App = {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
+    const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'block';
     if (login) login.style.display = 'none';
+    if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
     if (typeof Landing !== 'undefined' && Landing.renderModuleDetail) {
       Landing.renderModuleDetail(moduleId);
@@ -62,12 +66,31 @@ const App = {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
+    const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'flex';
+    if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
     Login.render();
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  },
+
+  showTrial(plan = 'Pro') {
+    const landing = document.getElementById('landing-page');
+    const modDetail = document.getElementById('module-detail-page');
+    const login = document.getElementById('login-page');
+    const trial = document.getElementById('trial-page');
+    const app = document.getElementById('app');
+    if (landing) landing.style.display = 'none';
+    if (modDetail) modDetail.style.display = 'none';
+    if (login) login.style.display = 'none';
+    if (trial) trial.style.display = 'flex';
+    if (app) app.style.display = 'none';
+    if (typeof Trial !== 'undefined' && Trial.render) {
+      Trial.render(plan);
+    }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
@@ -75,10 +98,12 @@ const App = {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
+    const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'none';
+    if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'flex';
     this.renderSidebar();
     this.renderTopbar();
@@ -1474,6 +1499,11 @@ const Login = {
                 <strong class="mfa-title">Multi-factor authentication enabled</strong>
                 <p class="mfa-desc">For your security, real-time cloud data is synchronized across all authorized devices.</p>
               </div>
+            </div>
+
+            <!-- Link to Free Trial -->
+            <div style="text-align:center;margin:18px 0;font-size:13.5px;color:var(--text-2,#64748b)">
+              Don't have an account? <a href="#" onclick="App.showTrial();return false;" style="color:#2563eb;font-weight:700;text-decoration:none">Start 14-day free trial</a>
             </div>
 
             <!-- Footer -->
