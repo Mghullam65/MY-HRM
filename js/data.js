@@ -3,8 +3,21 @@
 // ============================================================
 
 const DB = {
-  // ─── Seed all data into localStorage ───────────────────────
+  clientId: 'client_' + Math.random().toString(36).slice(2, 11) + '_' + Date.now(),
+  serverVersion: 0,
+  pendingSyncQueue: new Map(),
+  syncDebounceTimer: null,
+  realtimeInitialized: false,
+
+  // ─── Seed all data into localStorage & Connect Central Database ───
   init() {
+    if (!this.clientId) {
+      this.clientId = 'client_' + Math.random().toString(36).slice(2, 11) + '_' + Date.now();
+    }
+    if (!this.pendingSyncQueue) {
+      this.pendingSyncQueue = new Map();
+    }
+
     if (localStorage.getItem('hrm_initialized')) {
       this.ensureAuditLogs();
       this.ensureBirthday();
@@ -41,44 +54,48 @@ const DB = {
       this.ensureGovernanceMastersData();
       this.ensureLoansData();
       this.ensureReportsSeedData();
-      return;
+    } else {
+      this.seed();
+      this.ensureBirthday();
+      this.ensureOfferLetters();
+      this.ensureOnboardingData();
+      this.ensureAttendanceLeaveAuditData();
+      this.ensureHierarchyAndCorrections();
+      this.ensureDocumentExpiries();
+      this.ensureExitClearances();
+      this.ensureHRLetters();
+      this.ensureTaxAndStatutoryData();
+      this.ensureRosterAndGeofenceData();
+      this.ensureTalentAndLMSData();
+      this.ensureEngagementData();
+      this.ensureCompanyPolicies();
+      this.ensureLifeEventsAndDependents();
+      this.ensureWebhooksAndTemplates();
+      this.ensureBatch9Data();
+      this.ensureUserNotifications();
+      this.ensureDisciplinaryData();
+      this.ensureNormalizedProfileData();
+      this.ensureTrainingAndCertificates();
+      this.ensureRBACData();
+      this.ensureTravelAndExpenseData();
+      this.ensureSalaryStructureData();
+      this.ensureHierarchyData();
+      this.ensureExitLifecycleData();
+      this.ensureAssetCatalogData();
+      this.ensureTelemetryData();
+      this.ensureRecruitmentPipelineData();
+      this.ensurePerformanceAppraisalData();
+      this.ensureRosterAndAttendanceData();
+      this.ensureProfileMastersData();
+      this.ensureGovernanceMastersData();
+      this.ensureLoansData();
+      this.ensureReportsSeedData();
+      localStorage.setItem('hrm_initialized', '1');
     }
-    this.seed();
-    this.ensureBirthday();
-    this.ensureOfferLetters();
-    this.ensureOnboardingData();
-    this.ensureAttendanceLeaveAuditData();
-    this.ensureHierarchyAndCorrections();
-    this.ensureDocumentExpiries();
-    this.ensureExitClearances();
-    this.ensureHRLetters();
-    this.ensureTaxAndStatutoryData();
-    this.ensureRosterAndGeofenceData();
-    this.ensureTalentAndLMSData();
-    this.ensureEngagementData();
-    this.ensureCompanyPolicies();
-    this.ensureLifeEventsAndDependents();
-    this.ensureWebhooksAndTemplates();
-    this.ensureBatch9Data();
-    this.ensureUserNotifications();
-    this.ensureDisciplinaryData();
-    this.ensureNormalizedProfileData();
-    this.ensureTrainingAndCertificates();
-    this.ensureRBACData();
-    this.ensureTravelAndExpenseData();
-    this.ensureSalaryStructureData();
-    this.ensureHierarchyData();
-    this.ensureExitLifecycleData();
-    this.ensureAssetCatalogData();
-    this.ensureTelemetryData();
-    this.ensureRecruitmentPipelineData();
-    this.ensurePerformanceAppraisalData();
-    this.ensureRosterAndAttendanceData();
-    this.ensureProfileMastersData();
-    this.ensureGovernanceMastersData();
-    this.ensureLoansData();
-    this.ensureReportsSeedData();
-    localStorage.setItem('hrm_initialized', '1');
+
+    // Connect to central server database and start real-time sync
+    this.pullFromServer(true);
+    this.initRealtimeSync();
   },
 
   ensureAuditLogs() {
@@ -4661,8 +4678,161 @@ const DB = {
     catch { return []; }
   },
 
-  set(key, val) {
-    localStorage.setItem(`hrm_${key}`, JSON.stringify(val));
+  set(key, val, options = {}) {
+    try {
+      localStorage.setItem(`hrm_${key}`, JSON.stringify(val));
+    } catch (e) {
+      console.error('Storage error:', e);
+    }
+    if (!options?.skipServerPush) {
+      this.scheduleServerPush(key, val);
+    }
+  },
+
+  scheduleServerPush(table, data) {
+    if (typeof API === 'undefined' || !API.syncSetTable) return;
+    if (!this.pendingSyncQueue) this.pendingSyncQueue = new Map();
+    this.pendingSyncQueue.set(table, data);
+
+    if (this.syncDebounceTimer) clearTimeout(this.syncDebounceTimer);
+    this.syncDebounceTimer = setTimeout(() => {
+      this.flushServerPush();
+    }, 120);
+  },
+
+  async flushServerPush() {
+    if (!this.pendingSyncQueue || this.pendingSyncQueue.size === 0) return;
+    const batch = {};
+    for (const [t, d] of this.pendingSyncQueue.entries()) {
+      batch[t] = d;
+    }
+    this.pendingSyncQueue.clear();
+
+    try {
+      const keys = Object.keys(batch);
+      if (keys.length === 1) {
+        const [table, data] = Object.entries(batch)[0];
+        const res = await API.syncSetTable(table, data, this.clientId);
+        if (res && res.version) this.serverVersion = res.version;
+      } else {
+        const res = await API.syncBatch(batch, this.clientId);
+        if (res && res.version) this.serverVersion = res.version;
+      }
+    } catch (err) {
+      console.warn('[DB] Background push failed, will retry on next poll:', err.message);
+    }
+  },
+
+  async pullFromServer(isInitial = false) {
+    if (typeof API === 'undefined' || !API.syncGetAll) return;
+    try {
+      const res = await API.syncGetAll();
+      if (res && res.success && res.tables) {
+        let hasChanges = false;
+        const changedTables = [];
+        for (const [table, data] of Object.entries(res.tables)) {
+          const currentJson = localStorage.getItem(`hrm_${table}`);
+          const newJson = JSON.stringify(data);
+          if (currentJson !== newJson) {
+            localStorage.setItem(`hrm_${table}`, newJson);
+            hasChanges = true;
+            changedTables.push(table);
+          }
+        }
+        this.serverVersion = res.version || 1;
+        if (hasChanges) {
+          console.log(`[DB] Synchronized ${changedTables.length} tables from central server (version ${res.version})`);
+          if (typeof Auth !== 'undefined' && Auth.refreshSession) {
+            Auth.refreshSession();
+          }
+          if (typeof App !== 'undefined' && App.onDataSync) {
+            App.onDataSync(changedTables);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[DB] Server pull notice:', err.message);
+    }
+  },
+
+  initRealtimeSync() {
+    if (this.realtimeInitialized) return;
+    this.realtimeInitialized = true;
+
+    // 1. Connect Server-Sent Events (SSE) stream for instant real-time pushes
+    try {
+      if (typeof EventSource !== 'undefined') {
+        const sse = new EventSource('/api/sync/stream');
+        sse.addEventListener('table_update', (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.senderClientId === this.clientId) return; // ignore our own push
+            this.handleRemoteTableUpdate(payload.table, payload.version);
+          } catch (err) {}
+        });
+        sse.addEventListener('batch_update', (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.senderClientId === this.clientId) return; // ignore our own push
+            this.handleRemoteBatchUpdate(payload.tables, payload.version);
+          } catch (err) {}
+        });
+        sse.onerror = () => {
+          // SSE auto-reconnects; periodic poll below ensures sync in all environments
+        };
+        this.sseConnection = sse;
+      }
+    } catch (e) {
+      console.warn('[DB] SSE setup notice:', e.message);
+    }
+
+    // 2. Periodic Polling Fallback (every 3 seconds)
+    if (this.syncInterval) clearInterval(this.syncInterval);
+    this.syncInterval = setInterval(() => {
+      this.pollServerVersion();
+    }, 3000);
+  },
+
+  async handleRemoteTableUpdate(table, newVersion) {
+    if (!table) return;
+    try {
+      const res = await API.syncGetTables([table]);
+      if (res && res.tables && res.tables[table]) {
+        localStorage.setItem(`hrm_${table}`, JSON.stringify(res.tables[table]));
+        this.serverVersion = newVersion || res.version;
+        if (['users', 'employees'].includes(table)) {
+          Auth?.refreshSession?.();
+        }
+        App?.onDataSync?.([table]);
+      }
+    } catch (err) {}
+  },
+
+  async handleRemoteBatchUpdate(tables = [], newVersion) {
+    if (!tables.length) return;
+    try {
+      const res = await API.syncGetTables(tables);
+      if (res && res.tables) {
+        for (const [tbl, data] of Object.entries(res.tables)) {
+          localStorage.setItem(`hrm_${tbl}`, JSON.stringify(data));
+        }
+        this.serverVersion = newVersion || res.version;
+        if (tables.some(t => ['users', 'employees'].includes(t))) {
+          Auth?.refreshSession?.();
+        }
+        App?.onDataSync?.(tables);
+      }
+    } catch (err) {}
+  },
+
+  async pollServerVersion() {
+    if (typeof API === 'undefined' || !API.syncGetVersion) return;
+    try {
+      const res = await API.syncGetVersion();
+      if (res && res.success && res.version && res.version > (this.serverVersion || 0)) {
+        await this.pullFromServer();
+      }
+    } catch (err) {}
   },
 
   getObj(key) {
@@ -5817,6 +5987,9 @@ const Utils = {
     return d.toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
   },
   formatCurrency(amount) {
+    if (typeof I18n !== 'undefined' && I18n.formatCurrency) {
+      return I18n.formatCurrency(amount);
+    }
     if (!amount) return 'PKR 0';
     return `PKR ${Number(amount).toLocaleString('en-PK')}`;
   },
@@ -5874,3 +6047,6 @@ const Utils = {
     URL.revokeObjectURL(url);
   },
 };
+
+window.DB = DB;
+window.Utils = Utils;

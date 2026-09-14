@@ -2112,7 +2112,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         ['LocalStorage Tables', allKeys.length],
         ['Storage Used', (allKeys.reduce((s,k) => s + localStorage.getItem(k).length, 0) / 1024).toFixed(1) + ' KB'],
         ['Storage Limit', '~5 MB'],
-        ['Session', Auth.isLoggedIn ? `Active — ${Auth.employee?.fullName} (${Auth.role})` : 'Not logged in'],
+        ['Session', (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user) ? `Active — ${Auth.employee?.fullName} (${Auth.role})` : 'Not logged in'],
       ].map(([l, v]) => `
         <div style="display:flex;padding:10px 0;border-bottom:1px solid var(--border)">
           <div style="width:200px;font-size:12.5px;color:var(--text-3);font-weight:500">${l}</div>

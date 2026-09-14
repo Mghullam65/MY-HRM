@@ -76,13 +76,52 @@ const Auth = {
     sessionStorage.removeItem('hrm_session');
   },
 
+  refreshSession() {
+    if (!this.isLoggedIn()) return;
+    const currentUserId = this._user?.id;
+    const currentEmpId = this._employee?.id;
+    if (!currentUserId && !currentEmpId) return;
+
+    const liveUser = currentUserId ? DB.find('users', currentUserId) : null;
+    const liveEmployee = currentEmpId ? DB.find('employees', currentEmpId) : null;
+
+    if (!liveUser || liveUser.status === 'inactive' || (liveEmployee && (liveEmployee.status === 'inactive' || liveEmployee.status === 'terminated'))) {
+      this.logout();
+      if (typeof Toast !== 'undefined') {
+        Toast.show('Account Inactive: Your account has been deactivated by HR Administration.', 'danger');
+      }
+      if (typeof App !== 'undefined' && App.showLogin) {
+        App.showLogin();
+      }
+      return;
+    }
+
+    const oldRole = this._user.role;
+    const newRole = liveUser.role;
+    this._user = liveUser;
+    if (liveEmployee) this._employee = liveEmployee;
+    sessionStorage.setItem('hrm_session', JSON.stringify({ user: this._user, employee: this._employee }));
+
+    if (oldRole !== newRole) {
+      console.log(`[Auth] User role updated remotely from ${oldRole} to ${newRole}`);
+      if (typeof App !== 'undefined') {
+        App.renderSidebar?.();
+        App.renderTopbar?.();
+        App.navigate?.(App.currentModule || 'dashboard');
+        if (typeof Toast !== 'undefined') {
+          Toast.show(`Role Updated: Your access role is now "${newRole}".`, 'info');
+        }
+      }
+    }
+  },
+
   get user() { return this._user; },
   set user(u) { this._user = u; },
   get employee() { return this._employee; },
   set employee(e) { this._employee = e; },
   get role() { return this._role || this._user?.role || null; },
   set role(r) { this._role = r; if (this._user) this._user.role = r; },
-  get isLoggedIn() { return !!this._user; },
+  isLoggedIn() { return !!this._user; },
 
   SCOPES: {
     SELF: 'SELF',
@@ -248,3 +287,5 @@ const Auth = {
     ];
   }
 };
+
+window.Auth = Auth;

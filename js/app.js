@@ -6,51 +6,80 @@ const App = {
   currentModule: null,
 
   init() {
-    DB.init();
-    Auth.init();
-    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
-      LiveNotifications.init();
-    }
-    // Apply saved theme immediately (default to light mode)
-    const savedTheme = DB.getObj('settings')?.theme || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
-    if (Auth.isLoggedIn) {
-      this.showApp();
-    } else {
-      this.showLogin();
+    try {
+      DB.init();
+      Auth.init();
+      if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
+        LiveNotifications.init();
+      }
+      // Apply saved theme immediately (default to light mode)
+      const savedTheme = (typeof DB !== 'undefined' && DB.getObj) ? (DB.getObj('settings')?.theme || 'light') : 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+
+      const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
+      if (loggedIn) {
+        this.showApp();
+      } else {
+        this.showLanding();
+      }
+    } catch (err) {
+      console.error('App.init error:', err);
+      this.showLanding();
     }
   },
 
-  toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme') || 'light';
-    const next = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', next);
-    const settings = DB.getObj('settings') || {};
-    settings.theme = next;
-    DB.set('settings', settings);
-    const icon = document.querySelector('#login-theme-btn i');
-    if (icon) {
-      icon.className = next === 'dark' ? 'fa fa-sun' : 'fa fa-moon';
+  showLanding() {
+    const landing = document.getElementById('landing-page');
+    const modDetail = document.getElementById('module-detail-page');
+    const login = document.getElementById('login-page');
+    const app = document.getElementById('app');
+    if (landing) landing.style.display = 'block';
+    if (modDetail) modDetail.style.display = 'none';
+    if (login) login.style.display = 'none';
+    if (app) app.style.display = 'none';
+    if (typeof Landing !== 'undefined' && Landing.render) {
+      Landing.render();
     }
-    const label = document.querySelector('#login-theme-btn span');
-    if (label) {
-      label.textContent = next === 'dark' ? 'Light Mode' : 'Dark Mode';
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  },
+
+  showModule(moduleId) {
+    const landing = document.getElementById('landing-page');
+    const modDetail = document.getElementById('module-detail-page');
+    const login = document.getElementById('login-page');
+    const app = document.getElementById('app');
+    if (landing) landing.style.display = 'none';
+    if (modDetail) modDetail.style.display = 'block';
+    if (login) login.style.display = 'none';
+    if (app) app.style.display = 'none';
+    if (typeof Landing !== 'undefined' && Landing.renderModuleDetail) {
+      Landing.renderModuleDetail(moduleId);
     }
-    const topbarIcon = document.querySelector('#theme-toggle-btn i');
-    if (topbarIcon) {
-      topbarIcon.className = next === 'dark' ? 'fa fa-sun' : 'fa fa-moon';
-    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
   showLogin() {
-    document.getElementById('login-page').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
+    const landing = document.getElementById('landing-page');
+    const modDetail = document.getElementById('module-detail-page');
+    const login = document.getElementById('login-page');
+    const app = document.getElementById('app');
+    if (landing) landing.style.display = 'none';
+    if (modDetail) modDetail.style.display = 'none';
+    if (login) login.style.display = 'flex';
+    if (app) app.style.display = 'none';
     Login.render();
+    window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
   showApp() {
-    document.getElementById('login-page').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
+    const landing = document.getElementById('landing-page');
+    const modDetail = document.getElementById('module-detail-page');
+    const login = document.getElementById('login-page');
+    const app = document.getElementById('app');
+    if (landing) landing.style.display = 'none';
+    if (modDetail) modDetail.style.display = 'none';
+    if (login) login.style.display = 'none';
+    if (app) app.style.display = 'flex';
     this.renderSidebar();
     this.renderTopbar();
     this.setupKeyboardShortcuts();
@@ -163,6 +192,7 @@ const App = {
             <span>103 Models</span>
           </button>
         ` : ''}
+        ${typeof I18n !== 'undefined' ? I18n.renderLanguageSelector('topbar') + I18n.renderCurrencySelector('topbar') : ''}
         <button class="theme-toggle-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
           <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
@@ -443,6 +473,35 @@ const App = {
     }
     this.refreshNotifications();
     Toast.show('All notifications marked as read', 'info');
+  },
+
+  onDataSync(changedTables = []) {
+    this.refreshNotifications?.();
+
+    // Map table updates to relevant module views
+    const moduleTableMap = {
+      dashboard: ['employees', 'attendance', 'leave_requests', 'events', 'announcements', 'users'],
+      employees: ['employees', 'departments', 'designations', 'branches', 'documents', 'document_expiries', 'users'],
+      attendance: ['attendance', 'attendance_corrections', 'shifts', 'overtime_tokens'],
+      leaves: ['leave_requests', 'leave_balances', 'leave_types'],
+      payroll: ['salary', 'allowances', 'deductions', 'loans', 'employee_increments'],
+      performance: ['performance_reviews', 'kpis', 'goals'],
+      recruitment: ['recruitment', 'applications', 'interviews'],
+      assets: ['assets', 'asset_assignments'],
+      expenses: ['expense_claims'],
+      helpdesk: ['helpdesk_tickets'],
+      events: ['events', 'announcements'],
+      administration: ['users', 'roles', 'permissions', 'audit_logs'],
+      settings: ['settings'],
+      profile: ['employees', 'documents', 'emergency_contacts', 'users']
+    };
+
+    const current = this.currentModule;
+    const shouldRefresh = changedTables.length === 0 || (current && moduleTableMap[current]?.some(t => changedTables.includes(t)));
+    if (shouldRefresh && this.currentModule && document.getElementById('app')?.style.display !== 'none') {
+      console.log(`[App] Auto-refreshing module "${this.currentModule}" due to remote sync (${changedTables.join(', ')})`);
+      this.navigate(this.currentModule);
+    }
   },
 
   navigate(module, subView) {
@@ -1132,81 +1191,328 @@ const FormValidator = {
   }
 };
 
-// ── LOGIN MODULE ──
+// ── LOGIN MODULE (SPLIT-SCREEN SAAS PORTAL) ──
 const Login = {
+  activeAccount: 'admin',
+
+  accounts: {
+    admin: {
+      name: 'Ahmed Khan',
+      role: 'Super Administrator',
+      email: 'admin',
+      pass: 'admin123',
+      portal: 'HRM Pro Executive Portal',
+      scope: 'Full Administrative Authority • All 14 Modules, Settings & Audit Logs',
+      avatar: 'assets/avatars/ahmed_khan.jpg',
+      badgeColor: '#2563eb'
+    },
+    hr: {
+      name: 'Sara Malik',
+      role: 'HR Director',
+      email: 'sara.malik',
+      pass: 'hr123',
+      portal: 'HR & People Operations Portal',
+      scope: 'People Operations • Employees, Shift Rosters, Statutory Payroll & Leaves',
+      avatar: 'assets/avatars/sara_malik.jpg',
+      badgeColor: '#10b981'
+    },
+    manager: {
+      name: 'Usman Baig',
+      role: 'Engineering Dept Manager',
+      email: 'usman.baig',
+      pass: 'mgr123',
+      portal: 'Department Operations Portal',
+      scope: 'Team Supervision • Attendance Approvals, Shift Assignments & 360 Reviews',
+      avatar: 'assets/avatars/usman_baig.jpg',
+      badgeColor: '#8b5cf6'
+    },
+    employee: {
+      name: 'Fatima Raza',
+      role: 'Senior Software Engineer',
+      email: 'fatima.raza',
+      pass: 'emp123',
+      portal: 'Employee Self-Service Portal',
+      scope: 'Self-Service • Attendance Check-In, Leave Requests & Monthly Payslips',
+      avatar: 'assets/avatars/fatima_raza.jpg',
+      badgeColor: '#0284c7'
+    },
+    onboarding: {
+      name: 'Saad Ibrahim',
+      role: 'New Joiner (Onboarding)',
+      email: 'saad.ibrahim',
+      pass: 'emp123',
+      portal: 'Digital Onboarding Portal',
+      scope: 'Digital Onboarding • Profile Completion, e-DMS Uploads & Induction Checklist',
+      avatar: 'assets/avatars/omar_farhan.jpg',
+      badgeColor: '#f59e0b'
+    }
+  },
+
   render() {
     const container = document.getElementById('login-page');
-    const demos = Auth.getDemoAccounts();
+    if (!container) return;
+
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const acc = this.accounts[this.activeAccount] || this.accounts.admin;
+
     container.innerHTML = `
-      <button class="login-theme-toggle" onclick="App.toggleTheme()" title="Toggle Theme" id="login-theme-btn">
-        <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
-        <span>${isDark ? 'Light Mode' : 'Dark Mode'}</span>
-      </button>
+      <div class="login-split-page">
+        <!-- ─── LEFT HERO & BRAND PANE ─── -->
+        <div class="login-split-left">
+          <div class="split-left-inner">
+            <!-- Brand Logo -->
+            <a href="#" class="split-left-brand" onclick="App.showLanding();return false;">
+              <div class="landing-brand-icon">
+                <i class="fa fa-users-gear"></i>
+              </div>
+              <div>
+                <div class="landing-brand-name">HRM Pro</div>
+                <div class="landing-brand-tag">Human Resource Management Platform</div>
+              </div>
+            </a>
 
-      <div class="login-centered-card animate-slide-up">
-        <div class="login-header-center">
-          <div class="login-badge-pill">
-            <i class="fa fa-shield-check"></i> Enterprise HR Suite
-          </div>
-          <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:10px">
-            <div class="logo-icon" style="width:44px;height:44px;font-size:20px;border-radius:12px">HR</div>
-            <div style="text-align:left">
-              <h2 class="login-brand-title">HRM Pro</h2>
-              <span class="login-brand-sub-title">Human Resource Management</span>
+            <!-- Welcome Headline -->
+            <div class="split-left-headline">
+              <div class="landing-pill-badge" style="margin-bottom:14px;background:rgba(37,99,235,0.08);border-color:rgba(37,99,235,0.2);color:#2563eb">
+                <i class="fa fa-shield-check"></i> Enterprise Access Control
+              </div>
+              <h1 class="split-title">Welcome to<br><span class="text-blue-highlight">HRM Pro</span></h1>
+              <p class="split-subtitle">Sign in to your authorized workspace with real-time multi-device database synchronization and enterprise security.</p>
             </div>
-          </div>
-          <p class="login-brand-sub">Sign in with your corporate credentials to access your portal</p>
-        </div>
 
-        <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:10px">
-          <i class="fa fa-circle-xmark"></i>
-          <span id="login-error-msg"></span>
-        </div>
-
-        <div class="login-input-wrap">
-          <i class="fa fa-user login-input-icon"></i>
-          <input type="text" class="login-input-field" id="login-username" placeholder="Username or employee ID" autocomplete="username">
-        </div>
-
-        <div class="login-input-wrap">
-          <i class="fa fa-lock login-input-icon"></i>
-          <input type="password" class="login-input-field" id="login-password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')Login.submit()">
-          <button type="button" class="login-pw-toggle" onclick="Login.togglePassword()" title="Toggle password visibility">
-            <i class="fa fa-eye" id="pw-eye"></i>
-          </button>
-        </div>
-
-        <button class="login-submit-btn" onclick="Login.submit()" id="login-btn">
-          <i class="fa fa-arrow-right-to-bracket"></i> Sign In to Workspace
-        </button>
-
-        <div style="margin-top:24px">
-          <div class="login-divider">
-            <div class="login-divider-line"></div>
-            <span class="login-divider-text">Quick Demo Access</span>
-            <div class="login-divider-line"></div>
-          </div>
-          <div class="demo-role-grid">
-            ${demos.map(d => `
-              <div class="demo-role-card" onclick="Login.quickLogin('${d.username}','${d.password}')" title="Sign in as ${d.role}">
-                <div class="demo-role-icon" style="background:${d.color}15;border:1px solid ${d.color}35;color:${d.color}">
-                  <i class="fa ${d.icon}"></i>
+            <!-- Central Telemetry & Dynamic Role Scope Card (De-duplicated) -->
+            <div class="split-telemetry-card">
+              <div class="telemetry-header">
+                <div class="telemetry-live-dot"></div>
+                <span class="telemetry-title">Central Cloud Engine • Live Status</span>
+                <span class="telemetry-version">v2.1 Synced</span>
+              </div>
+              <div class="telemetry-grid">
+                <div class="telemetry-item">
+                  <div class="telemetry-item-icon" style="background:rgba(37,99,235,0.1);color:#2563eb"><i class="fa fa-database"></i></div>
+                  <div>
+                    <div class="telemetry-label">Store Engine</div>
+                    <div class="telemetry-val">Atomic Monotonic Store</div>
+                  </div>
                 </div>
-                <div style="flex:1;min-width:0">
-                  <div class="demo-role-name truncate">${d.role}</div>
-                  <div class="demo-role-user">${d.username}</div>
+                <div class="telemetry-item">
+                  <div class="telemetry-item-icon" style="background:rgba(16,185,129,0.1);color:#10b981"><i class="fa fa-rotate"></i></div>
+                  <div>
+                    <div class="telemetry-label">Multi-Device Sync</div>
+                    <div class="telemetry-val">Real-Time SSE Stream</div>
+                  </div>
+                </div>
+                <div class="telemetry-item">
+                  <div class="telemetry-item-icon" style="background:rgba(147,51,234,0.1);color:#9333ea"><i class="fa fa-lock"></i></div>
+                  <div>
+                    <div class="telemetry-label">Data Protection</div>
+                    <div class="telemetry-val">Role Scoped • TLS 1.3</div>
+                  </div>
+                </div>
+                <div class="telemetry-item">
+                  <div class="telemetry-item-icon" style="background:rgba(217,119,6,0.1);color:#d97706"><i class="fa fa-fingerprint"></i></div>
+                  <div>
+                    <div class="telemetry-label">Attendance Sync</div>
+                    <div class="telemetry-val">Biometric Ready</div>
+                  </div>
                 </div>
               </div>
-            `).join('')}
+
+              <!-- Active Role Scope Preview -->
+              <div class="telemetry-scope-preview">
+                <div class="scope-preview-header">
+                  <i class="fa fa-user-shield" style="color:#2563eb"></i>
+                  <strong id="active-scope-title">${acc.role} Permissions</strong>
+                </div>
+                <p id="active-scope-desc" class="scope-preview-desc">${acc.scope}</p>
+              </div>
+            </div>
+
+            <!-- Bottom 3 Distinct Enterprise Badges -->
+            <div class="split-left-footer-badges">
+              <div class="split-footer-badge-item">
+                <div class="badge-icon-wrap"><i class="fa fa-arrows-rotate"></i></div>
+                <div>
+                  <strong>Zero Data Loss</strong>
+                  <span>Real-time cross-device updates</span>
+                </div>
+              </div>
+              <div class="split-footer-badge-item">
+                <div class="badge-icon-wrap"><i class="fa fa-user-lock"></i></div>
+                <div>
+                  <strong>Strict Scopes</strong>
+                  <span>5 Dedicated role portals</span>
+                </div>
+              </div>
+              <div class="split-footer-badge-item">
+                <div class="badge-icon-wrap"><i class="fa fa-file-shield"></i></div>
+                <div>
+                  <strong>Audit Trail</strong>
+                  <span>Immutable electronic logging</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="login-footer-lock">
-          <i class="fa fa-lock"></i> 256-bit SSL Encrypted • Role-Based Access Control
+        <!-- ─── RIGHT FORM PANE ─── -->
+        <div class="login-split-right">
+          <div class="split-right-topbar">
+            <button class="btn-split-back" onclick="App.showLanding()">
+              <i class="fa fa-arrow-left"></i> Back to Home
+            </button>
+            <div style="display:flex;align-items:center;gap:8px">
+              ${typeof I18n !== 'undefined' ? I18n.renderLanguageSelector('login') + I18n.renderCurrencySelector('login') : ''}
+              <button class="login-theme-toggle-simple" onclick="App.toggleTheme()" title="Toggle Theme">
+                <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="login-split-card animate-slide-up">
+            <div class="split-card-header">
+              <h2 class="split-card-title">Sign in to your account</h2>
+              <p class="split-card-subtitle" id="login-portal-subtitle">Continue to ${acc.portal}</p>
+            </div>
+
+            <!-- Active User Profile Bar -->
+            <div class="active-user-badge-bar" id="active-user-banner">
+              <div class="active-user-avatar-wrap">
+                <img src="${acc.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(acc.name)}&background=2563eb&color=fff'" alt="${acc.name}" class="active-user-img">
+                <span class="active-user-online-dot"></span>
+              </div>
+              <div class="active-user-details">
+                <div class="active-user-name" id="active-account-name">${acc.name}</div>
+                <div class="active-user-role" id="active-account-role">${acc.role}</div>
+              </div>
+              <div class="active-user-status-pill">
+                <span class="pulse-dot"></span> Online
+              </div>
+            </div>
+
+            <!-- Quick Account Switcher Chips -->
+            <div class="split-account-chips-row">
+              <button class="split-account-chip ${this.activeAccount==='admin'?'active':''}" data-role="admin" onclick="Login.selectAccount('admin')">Super Admin</button>
+              <button class="split-account-chip ${this.activeAccount==='hr'?'active':''}" data-role="hr" onclick="Login.selectAccount('hr')">HR Director</button>
+              <button class="split-account-chip ${this.activeAccount==='manager'?'active':''}" data-role="manager" onclick="Login.selectAccount('manager')">Dept Manager</button>
+              <button class="split-account-chip ${this.activeAccount==='employee'?'active':''}" data-role="employee" onclick="Login.selectAccount('employee')">Employee</button>
+              <button class="split-account-chip ${this.activeAccount==='onboarding'?'active':''}" data-role="onboarding" onclick="Login.selectAccount('onboarding')">Onboarding</button>
+            </div>
+
+            <!-- Error Banner -->
+            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:8px">
+              <i class="fa fa-circle-xmark"></i>
+              <span id="login-error-msg"></span>
+            </div>
+
+            <!-- Form -->
+            <form onsubmit="event.preventDefault();Login.submit();">
+              <div class="split-form-group">
+                <label class="split-form-label">Email Address or Username</label>
+                <div class="split-input-box">
+                  <i class="fa fa-envelope split-input-icon"></i>
+                  <input type="text" class="split-input-element" id="login-username" value="${acc.email}" placeholder="name@company.com" autocomplete="username">
+                </div>
+              </div>
+
+              <div class="split-form-group">
+                <label class="split-form-label">Password</label>
+                <div class="split-input-box">
+                  <i class="fa fa-lock split-input-icon"></i>
+                  <input type="password" class="split-input-element" id="login-password" value="${acc.pass}" placeholder="••••••••••••" autocomplete="current-password">
+                  <button type="button" class="split-pw-eye" onclick="Login.togglePassword()" title="Toggle visibility">
+                    <i class="fa fa-eye" id="pw-eye"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="split-form-options">
+                <label class="split-checkbox-label">
+                  <input type="checkbox" id="login-remember" checked>
+                  <span>Remember me</span>
+                </label>
+                <a href="#" class="split-forgot-link" onclick="Login.showForgotPasswordModal();return false;">Forgot password?</a>
+              </div>
+
+              <button type="submit" class="split-submit-btn" id="login-btn">
+                <i class="fa fa-arrow-right-to-bracket"></i> Sign In
+              </button>
+            </form>
+
+            <!-- SSO / Alternative Options -->
+            <div class="split-or-divider">
+              <span>or continue with</span>
+            </div>
+
+            <div class="split-sso-grid">
+              <button class="split-sso-btn" onclick="Login.quickLogin('sara.malik','hr123')" title="Quick Sign in as HR Director">
+                <img src="https://www.gstatic.com/images/branding/product/1x/gsuite_48dp.png" alt="Google Workspace" style="width:16px;height:16px;object-fit:contain" onerror="this.remove()">
+                <span>Google Workspace</span>
+              </button>
+              <button class="split-sso-btn" onclick="Login.quickLogin('admin','admin123')" title="Quick Sign in as Super Admin">
+                <i class="fa-brands fa-microsoft" style="color:#00a4ef;font-size:15px"></i>
+                <span>Microsoft 365</span>
+              </button>
+            </div>
+
+            <!-- MFA Notice Banner -->
+            <div class="split-mfa-banner">
+              <div class="mfa-icon-shield">
+                <i class="fa fa-shield-halved"></i>
+              </div>
+              <div>
+                <strong class="mfa-title">Multi-factor authentication enabled</strong>
+                <p class="mfa-desc">For your security, real-time cloud data is synchronized across all authorized devices.</p>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="split-card-footer">
+              <div>© 2026 HRM Pro. Enterprise Cloud Edition.</div>
+              <div style="display:flex;gap:12px;margin-top:4px">
+                <a href="#" onclick="return false;">Privacy Policy</a> •
+                <a href="#" onclick="return false;">Security Protocols</a>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
+  },
+
+  selectAccount(roleKey) {
+    this.activeAccount = roleKey;
+    const acc = this.accounts[roleKey];
+    if (!acc) return;
+
+    // Update Portal Subtitle
+    const sub = document.getElementById('login-portal-subtitle');
+    if (sub) sub.textContent = `Continue to ${acc.portal}`;
+
+    // Update Scope Box
+    const scopeTitle = document.getElementById('active-scope-title');
+    const scopeDesc = document.getElementById('active-scope-desc');
+    if (scopeTitle) scopeTitle.textContent = `${acc.role} Permissions`;
+    if (scopeDesc) scopeDesc.textContent = acc.scope;
+
+    // Update Active User Banner
+    const nameEl = document.getElementById('active-account-name');
+    const roleEl = document.getElementById('active-account-role');
+    const imgEl = document.querySelector('.active-user-img');
+    if (nameEl) nameEl.textContent = acc.name;
+    if (roleEl) roleEl.textContent = acc.role;
+    if (imgEl) imgEl.src = acc.avatar;
+
+    // Update Form Inputs
+    const uInput = document.getElementById('login-username');
+    const pInput = document.getElementById('login-password');
+    if (uInput) uInput.value = acc.email;
+    if (pInput) pInput.value = acc.pass;
+
+    // Update Active Chip
+    document.querySelectorAll('.split-account-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.role === roleKey);
+    });
   },
 
   submit() {
@@ -1233,25 +1539,51 @@ const Login = {
       } else {
         errEl.classList.remove('hidden');
         errMsg.textContent = result.message;
-        btn.innerHTML = '<i class="fa fa-right-to-bracket"></i> Sign In';
+        btn.innerHTML = '<i class="fa fa-arrow-right-to-bracket"></i> Sign In';
         btn.disabled = false;
       }
-    }, 500);
+    }, 400);
   },
 
   quickLogin(username, password) {
-    document.getElementById('login-username').value = username;
-    document.getElementById('login-password').value = password;
+    const uInput = document.getElementById('login-username');
+    const pInput = document.getElementById('login-password');
+    if (uInput) uInput.value = username;
+    if (pInput) pInput.value = password;
     this.submit();
   },
 
   togglePassword() {
     const input = document.getElementById('login-password');
     const eye = document.getElementById('pw-eye');
+    if (!input || !eye) return;
     input.type = input.type === 'password' ? 'text' : 'password';
     eye.className = input.type === 'password' ? 'fa fa-eye' : 'fa fa-eye-slash';
+  },
+
+  showForgotPasswordModal() {
+    Modal.show({
+      title: 'Reset Account Password',
+      body: `
+        <div style="padding:10px">
+          <p style="font-size:13px;color:var(--text-2);margin-bottom:16px">
+            Enter your corporate username or registered employee email. An enterprise reset token will be dispatched.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Corporate Email / Username</label>
+            <input type="text" class="form-control" placeholder="e.g. sara.malik@company.com" id="reset-email">
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="Modal.closeAll();Toast.show('Password reset link sent to your registered corporate email!','info')">
+            Send Reset Instructions
+          </button>
+        </div>
+      `
+    });
   }
 };
+
+window.App = App;
+window.Login = Login;
 
 // Bootstrap on DOM ready
 document.addEventListener('DOMContentLoaded', () => App.init());

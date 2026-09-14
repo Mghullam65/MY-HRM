@@ -222,6 +222,34 @@ const API = {
       method: 'PUT',
       body: JSON.stringify(data)
     });
+  },
+
+  // Central Database Sync APIs
+  async syncGetAll() {
+    return this.request('/sync/all');
+  },
+
+  async syncGetVersion() {
+    return this.request('/sync/version');
+  },
+
+  async syncGetTables(names = []) {
+    const query = new URLSearchParams({ names: names.join(',') }).toString();
+    return this.request(`/sync/tables?${query}`);
+  },
+
+  async syncSetTable(table, data, clientId = null) {
+    return this.request('/sync/set', {
+      method: 'POST',
+      body: JSON.stringify({ table, data, clientId })
+    });
+  },
+
+  async syncBatch(tables = {}, clientId = null) {
+    return this.request('/sync/batch', {
+      method: 'POST',
+      body: JSON.stringify({ tables, clientId })
+    });
   }
 };
 

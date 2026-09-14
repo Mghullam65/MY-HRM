@@ -2,9 +2,63 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../db');
+const store = require('../services/store');
 const { authenticate, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Helper to authenticate using central StoreService
+function loginWithStore(username, password, req, res) {
+  try {
+    const users = store.getTable('users') || [];
+    const user = users.find(u => u.username === username);
+    if (!user || user.status !== 'active') {
+      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+    }
+
+    const employees = store.getTable('employees') || [];
+    const employee = employees.find(e => e.id === user.employeeId) || null;
+
+    if (employee && (employee.status === 'inactive' || employee.status === 'terminated')) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Account Inactive: Your employee profile has been deactivated. Please contact HR Administration.' 
+      });
+    }
+
+    let isValid = false;
+    if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$'))) {
+      isValid = bcrypt.compareSync(password, user.password);
+    } else {
+      isValid = (password === user.password);
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ success: false, message: 'Invalid username or password.' });
+    }
+
+    // Update lastLogin
+    user.lastLogin = new Date().toISOString();
+    store.setTable('users', users);
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { password: _, ...cleanUser } = user;
+    return res.json({
+      success: true,
+      token,
+      user: cleanUser,
+      employee
+    });
+  } catch (err) {
+    console.error('Store login error:', err);
+    return res.status(500).json({ success: false, message: 'Internal authentication error.' });
+  }
+}
 
 // Login
 router.post('/login', async (req, res) => {
@@ -14,19 +68,26 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username and password are required.' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username },
-      include: {
-        employee: {
-          include: {
-            department: true,
-            designation: true,
-            branch: true,
-            shift: true
+    // Fast fallback: if PostgreSQL is not active or Prisma fails, use StoreService
+    let user = null;
+    try {
+      user = await prisma.user.findUnique({
+        where: { username },
+        include: {
+          employee: {
+            include: {
+              department: true,
+              designation: true,
+              branch: true,
+              shift: true
+            }
           }
         }
-      }
-    });
+      });
+    } catch (dbErr) {
+      // Prisma failed (e.g. Postgres offline), authenticate with live StoreService
+      return loginWithStore(username, password, req, res);
+    }
 
     if (!user || user.status !== 'active') {
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
