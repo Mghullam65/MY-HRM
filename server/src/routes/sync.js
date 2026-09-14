@@ -175,39 +175,58 @@ function generateCompliantPdf(candidate) {
   return fullPdf;
 }
 
-function saveApplicantPdf(applicant) {
+function saveApplicantUploadedFile(applicant) {
   try {
-    const safeName = (applicant.name || 'candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const fileName = `${applicant.id}_${safeName}_CV.pdf`;
+    const originalName = (applicant.resumeName || applicant.resume || 'Candidate_CV.pdf').trim();
+    let ext = path.extname(originalName).toLowerCase();
+    if (!ext || ext.length < 2) ext = '.pdf';
+    
+    // Sanitize base name and candidate name
+    const rawBaseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeCandidateName = (applicant.name || 'candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const fileName = `${applicant.id}_${safeCandidateName}_${rawBaseName}${ext}`;
     const filePath = path.join(cvUploadsDir, fileName);
 
-    // If real base64 PDF is provided
-    if (applicant.resumeData && applicant.resumeData.startsWith('data:application/pdf;base64,')) {
-      const b64 = applicant.resumeData.split(',')[1];
+    // If candidate uploaded real file binary data (base64 Data URL)
+    if (applicant.resumeData && typeof applicant.resumeData === 'string' && applicant.resumeData.includes(';base64,')) {
+      const b64 = applicant.resumeData.split(';base64,')[1];
       fs.writeFileSync(filePath, Buffer.from(b64, 'base64'));
       applicant.resumeUrl = `/uploads/cv/${fileName}`;
+      applicant.resumeName = originalName;
+      console.log(`[Store] Successfully saved candidate's uploaded CV: ${fileName} (${originalName})`);
       return applicant.resumeUrl;
     }
 
-    // Otherwise generate a genuine, standards-compliant PDF binary
+    // If candidate file already exists on disk at resumeUrl
+    if (applicant.resumeUrl) {
+      const existingDiskPath = path.join(cvUploadsDir, path.basename(applicant.resumeUrl));
+      if (fs.existsSync(existingDiskPath)) {
+        return applicant.resumeUrl;
+      }
+    }
+
+    // Only fallback if applicant has NO uploaded document at all:
+    const fallbackFileName = `${applicant.id}_${safeCandidateName}_CV.pdf`;
+    const fallbackPath = path.join(cvUploadsDir, fallbackFileName);
     const pdfContent = generateCompliantPdf(applicant);
-    fs.writeFileSync(filePath, pdfContent, 'utf8');
-    applicant.resumeUrl = `/uploads/cv/${fileName}`;
+    fs.writeFileSync(fallbackPath, pdfContent, 'utf8');
+    applicant.resumeUrl = `/uploads/cv/${fallbackFileName}`;
+    applicant.resumeName = originalName.endsWith('.pdf') ? originalName : `${originalName}.pdf`;
     return applicant.resumeUrl;
   } catch (err) {
-    console.error('[Store] Failed to write candidate PDF file:', err.message);
+    console.error('[Store] Failed to write candidate CV file:', err.message);
     return null;
   }
 }
 
-// Ensure all existing applicants have valid PDF files generated on disk
+// Ensure all existing applicants have valid files accessible on disk
 function ensureAllPdfs() {
   try {
     const apps = store.getTable('applications') || [];
     let updated = false;
     apps.forEach(app => {
       if (!app.resumeUrl || !fs.existsSync(path.join(cvUploadsDir, path.basename(app.resumeUrl)))) {
-        saveApplicantPdf(app);
+        saveApplicantUploadedFile(app);
         updated = true;
       }
     });
@@ -230,8 +249,8 @@ router.post('/apply', (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing applicant data' });
     }
 
-    // Ensure applicant has a valid PDF file on disk
-    saveApplicantPdf(applicant);
+    // Ensure candidate's uploaded document is saved on disk with its authentic format
+    saveApplicantUploadedFile(applicant);
 
     const apps = store.getTable('applications') || [];
     // Check if applicant already recorded
@@ -254,7 +273,13 @@ router.post('/apply', (req, res) => {
     }
 
     console.log(`[Store] Received candidate application: ${applicant.name} for Job ID ${jobId}, CV: ${applicant.resumeUrl}`);
-    res.json({ success: true, applicantId: applicant.id, resumeUrl: applicant.resumeUrl, message: 'Application successfully received and recorded' });
+    res.json({
+      success: true,
+      applicantId: applicant.id,
+      resumeUrl: applicant.resumeUrl,
+      resumeName: applicant.resumeName,
+      message: 'Application successfully received and recorded'
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

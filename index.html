@@ -123,6 +123,7 @@
 <!-- ══════════════════════════════════════
      SCRIPTS — Order matters!
 ══════════════════════════════════════ -->
+<script src="js/security.js"></script>
 <script src="js/api.js"></script>
 <script src="js/i18n.js"></script>
 <script src="js/data.js"></script>
@@ -149,7 +150,7 @@
   <script>
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
-      const required = ['API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
+      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
         console.error('HRM: Missing modules:', missing);

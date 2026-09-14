@@ -21,12 +21,14 @@ const Auth = {
           sessionStorage.removeItem('hrm_session');
           return;
         }
+        const safeUser = liveUser ? { ...liveUser } : (s.user ? { ...s.user } : null);
+        if (safeUser && safeUser.password) delete safeUser.password;
 
-        this._user = liveUser || s.user;
+        this._user = safeUser;
         this._employee = liveEmployee || s.employee;
       } catch { 
         this._user = null; 
-        this._employee = null;
+        this._employee = null; 
         sessionStorage.removeItem('hrm_session');
       }
     }
@@ -60,11 +62,15 @@ const Auth = {
       return { success: false, message: 'Employee record not found.' };
     }
 
-    this._user = matchedUser;
+    // Security: Never store passwords in memory or session storage
+    const safeUser = { ...matchedUser };
+    delete safeUser.password;
+
+    this._user = safeUser;
     this._employee = employee || { id: 0, fullName: matchedUser.username, role: matchedUser.role };
     DB.update('users', matchedUser.id, { lastLogin: new Date().toISOString() });
     DB.log('LOGIN', 'Auth', `${this._employee.fullName} logged in`, matchedUser.id);
-    sessionStorage.setItem('hrm_session', JSON.stringify({ user: matchedUser, employee: this._employee }));
+    sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee: this._employee }));
     return { success: true };
   },
 

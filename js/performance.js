@@ -4605,20 +4605,22 @@ const Recruitment = {
   },
 
   getCandidatePdfBlobUrl(app) {
-    if (app.resumeData && app.resumeData.startsWith('data:application/pdf;base64,')) {
+    if (app.resumeUrl) {
+      return app.resumeUrl;
+    }
+    if (app.resumeData && typeof app.resumeData === 'string' && app.resumeData.includes(';base64,')) {
       try {
-        const byteCharacters = atob(app.resumeData.split(',')[1]);
+        const parts = app.resumeData.split(';base64,');
+        const mime = parts[0].replace('data:', '') || 'application/pdf';
+        const byteCharacters = atob(parts[1]);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blob = new Blob([byteArray], { type: mime });
         return URL.createObjectURL(blob);
       } catch (e) {}
-    }
-    if (app.resumeUrl) {
-      return app.resumeUrl;
     }
     const job = DB.find('recruitment', app.jobId);
     const pdfContent = this.generateCandidatePdf(app, job);
@@ -4626,41 +4628,99 @@ const Recruitment = {
     return URL.createObjectURL(blob);
   },
 
+  switchCvView(mode) {
+    const docTab = document.getElementById('cv-tab-doc');
+    const sumTab = document.getElementById('cv-tab-summary');
+    const docPanel = document.getElementById('cv-panel-doc');
+    const sumPanel = document.getElementById('cv-panel-summary');
+    if (!docPanel || !sumPanel) return;
+
+    if (mode === 'doc') {
+      docPanel.style.display = 'block';
+      sumPanel.style.display = 'none';
+      if (docTab) { docTab.className = 'btn btn-sm btn-primary'; }
+      if (sumTab) { sumTab.className = 'btn btn-sm btn-outline'; }
+    } else {
+      docPanel.style.display = 'none';
+      sumPanel.style.display = 'block';
+      if (docTab) { docTab.className = 'btn btn-sm btn-outline'; }
+      if (sumTab) { sumTab.className = 'btn btn-sm btn-primary'; }
+    }
+  },
+
   viewResume(appId) {
     const app = DB.find('applications', appId);
     if (!app) return;
     const job = DB.find('recruitment', app.jobId);
-    const pdfUrl = this.getCandidatePdfBlobUrl(app);
+    const docUrl = this.getCandidatePdfBlobUrl(app);
     const fileName = app.resumeName || app.resume || `${(app.name || 'candidate').replace(/\s+/g,'_')}_CV.pdf`;
+    const isWordDoc = fileName.match(/\.(doc|docx)$/i);
 
-    Modal.show(`Curriculum Vitae — ${app.name}`, `
+    Modal.show(`Candidate Curriculum Vitae — ${app.name}`, `
       <div style="padding:4px">
         <!-- Top Action Bar -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
           <div>
-            <div style="font-weight:800;font-size:15px;color:var(--text)">${app.name}</div>
-            <div style="font-size:12px;color:var(--text-3)">${job?.title || 'Job Opening'} • Applied on ${Utils.formatDate(app.appliedOn)}</div>
+            <div style="font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px">
+              ${app.name}
+              <span class="badge badge-success" style="font-size:10.5px;font-weight:700;padding:3px 8px">${(app.stage || 'applied').toUpperCase()}</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              Target: <strong style="color:var(--text)">${job?.title || 'Job Opening'}</strong> • Applied on ${Utils.formatDate(app.appliedOn)}
+            </div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary btn-sm" onclick="Recruitment.downloadResume(${app.id})" title="Download authentic PDF file">
-              <i class="fa fa-download"></i> Download PDF
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.downloadResume(${app.id})" title="Download authentic uploaded document">
+              <i class="fa fa-download"></i> Download Candidate's Uploaded CV
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="Recruitment.printResume(${app.id})" title="Print or Save as PDF">
-              <i class="fa fa-print"></i> Print / Save as PDF
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="Recruitment.openResumeInNewTab(${app.id})" title="Open in new window">
+            <button class="btn btn-outline btn-sm" onclick="Recruitment.openResumeInNewTab(${app.id})" title="Open document in a new browser tab">
               <i class="fa fa-arrow-up-right-from-square"></i> Open in Tab
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="Recruitment.printResume(${app.id})" title="Print or Save candidate summary">
+              <i class="fa fa-print"></i> Print
             </button>
           </div>
         </div>
 
-        <!-- Embedded CV Document Sheet -->
-        <div id="resume-sheet-container" style="background:#ffffff;color:#1e293b;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.06);max-height:560px;overflow-y:auto;padding:28px 32px">
+        <!-- View Switcher Tabs -->
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button id="cv-tab-doc" class="btn btn-sm btn-primary" onclick="Recruitment.switchCvView('doc')">
+            <i class="fa ${isWordDoc ? 'fa-file-word' : 'fa-file-pdf'}"></i> Candidate's Uploaded Document (${fileName})
+          </button>
+          <button id="cv-tab-summary" class="btn btn-sm btn-outline" onclick="Recruitment.switchCvView('summary')">
+            <i class="fa fa-clipboard-user"></i> HR Candidate Summary & Details
+          </button>
+        </div>
+
+        <!-- Panel 1: Candidate's Actual Uploaded Document -->
+        <div id="cv-panel-doc" style="display:block">
+          ${isWordDoc ? `
+            <div style="background:#f8fafc;border:2px dashed #93c5fd;border-radius:12px;padding:36px 20px;text-align:center;margin-bottom:10px">
+              <div style="width:68px;height:68px;background:#dbeafe;color:#2563eb;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px auto">
+                <i class="fa fa-file-word"></i>
+              </div>
+              <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 6px 0">${fileName}</h3>
+              <p style="font-size:13px;color:#64748b;max-width:440px;margin:0 auto 20px auto">
+                Candidate uploaded an authentic Microsoft Word document. Click below to download and view the original file.
+              </p>
+              <button class="btn btn-primary" onclick="Recruitment.downloadResume(${app.id})" style="padding:10px 24px;font-weight:700;font-size:14px">
+                <i class="fa fa-download"></i> Download & Open ${fileName}
+              </button>
+            </div>
+          ` : `
+            <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#0f172a">
+              <iframe src="${docUrl}#toolbar=1" style="width:100%;height:620px;border:none;background:#ffffff;display:block" title="Candidate CV Document"></iframe>
+            </div>
+          `}
+        </div>
+
+        <!-- Panel 2: HR Application Summary & Details -->
+        <div id="cv-panel-summary" style="display:none;background:#ffffff;color:#1e293b;border:1px solid #cbd5e1;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.06);max-height:580px;overflow-y:auto;padding:24px 28px">
           <!-- Document Header -->
-          <div style="border-bottom:2px solid #2563eb;padding-bottom:18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
+          <div style="border-bottom:2px solid #2563eb;padding-bottom:16px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:14px">
             <div>
-              <h1 style="font-size:24px;font-weight:900;color:#0f172a;margin:0 0 6px 0;letter-spacing:-0.5px">${app.name}</h1>
-              <div style="font-size:14px;font-weight:700;color:#2563eb;margin-bottom:10px">${job?.title || 'Applicant'}</div>
+              <h1 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 4px 0;letter-spacing:-0.5px">${app.name}</h1>
+              <div style="font-size:13.5px;font-weight:700;color:#2563eb;margin-bottom:8px">${job?.title || 'Applicant'}</div>
               <div style="font-size:12.5px;color:#475569;display:flex;flex-wrap:wrap;gap:14px">
                 <span><i class="fa fa-envelope" style="color:#2563eb"></i> ${app.email}</span>
                 <span><i class="fa fa-phone" style="color:#10b981"></i> ${app.phone || '—'}</span>
@@ -4675,33 +4735,33 @@ const Recruitment = {
           </div>
 
           <!-- Summary & Experience Cards -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px">
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-              <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Relevant Industry Experience</div>
+              <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Industry Experience</div>
               <div style="font-size:15px;font-weight:800;color:#0f172a">${app.experience || 'Not specified'}</div>
-              <div style="font-size:11.5px;color:#64748b;margin-top:2px">Target Role: ${job?.title || 'Open Position'}</div>
+              <div style="font-size:11.5px;color:#64748b;margin-top:2px">Applied Role: ${job?.title || 'Open Position'}</div>
             </div>
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px">
-              <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Expected Monthly Compensation</div>
+              <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Expected Monthly Salary</div>
               <div style="font-size:15px;font-weight:800;color:#16a34a">${app.expectedSalary ? (String(app.expectedSalary).includes('PKR') ? app.expectedSalary : `PKR ${app.expectedSalary}`) : 'Negotiable'}</div>
-              <div style="font-size:11.5px;color:#64748b;margin-top:2px">Job Budget: PKR ${job?.salary || 'Market Rate'}</div>
+              <div style="font-size:11.5px;color:#64748b;margin-top:2px">Budget: PKR ${job?.salary || 'Market Rate'}</div>
             </div>
           </div>
 
           <!-- Statement / Cover Note -->
-          <div style="margin-bottom:20px">
-            <h3 style="font-size:13.5px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px 0;border-left:3px solid #2563eb;padding-left:8px">
-              Professional Pitch & Cover Note
+          <div style="margin-bottom:18px">
+            <h3 style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px 0;border-left:3px solid #2563eb;padding-left:8px">
+              Candidate Cover Note & Pitch
             </h3>
             <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-size:13px;line-height:1.7;color:#334155">
-              ${app.coverNote || 'Dedicated professional applying for this open position with confirmed interest in contributing to organizational milestones, core business objectives, and team excellence.'}
+              ${app.coverNote || 'No cover note submitted by candidate.'}
             </div>
           </div>
 
           ${app.portfolio ? `
-            <div style="margin-bottom:20px">
-              <h3 style="font-size:13.5px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px 0;border-left:3px solid #2563eb;padding-left:8px">
-                Online Portfolio & Professional Links
+            <div style="margin-bottom:18px">
+              <h3 style="font-size:13px;font-weight:800;color:#0f172a;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px 0;border-left:3px solid #2563eb;padding-left:8px">
+                Online Portfolio & Links
               </h3>
               <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 14px;font-size:12.5px">
                 <a href="${app.portfolio}" target="_blank" style="color:#2563eb;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px">
@@ -4711,20 +4771,20 @@ const Recruitment = {
             </div>
           ` : ''}
 
-          <!-- Digital File Attachment Banner -->
+          <!-- Original File Attachment Banner -->
           <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div style="display:flex;align-items:center;gap:12px">
               <div style="width:38px;height:38px;background:#2563eb;color:#ffffff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px">
-                <i class="fa fa-file-pdf"></i>
+                <i class="fa ${isWordDoc ? 'fa-file-word' : 'fa-file-pdf'}"></i>
               </div>
               <div>
                 <div style="font-weight:700;font-size:13.5px;color:#0f172a">${fileName}</div>
-                <div style="font-size:11px;color:#475569">Genuine PDF document authenticated by HRM Pro Cloud Edition</div>
+                <div style="font-size:11px;color:#475569">Candidate uploaded document • Authenticated by HRM Pro Cloud</div>
               </div>
             </div>
             <div style="display:flex;gap:8px">
               <button class="btn btn-primary btn-sm" onclick="Recruitment.downloadResume(${app.id})">
-                <i class="fa fa-download"></i> Download PDF
+                <i class="fa fa-download"></i> Download CV
               </button>
             </div>
           </div>
@@ -4735,7 +4795,7 @@ const Recruitment = {
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
         <button class="btn btn-outline" onclick="Modal.close('dynamic-modal');Recruitment.viewApplicant(${app.id})"><i class="fa fa-arrow-left"></i> Applicant Profile</button>
         <button class="btn btn-secondary" onclick="Recruitment.printResume(${app.id})"><i class="fa fa-print"></i> Print / Save as PDF</button>
-        <button class="btn btn-primary" onclick="Recruitment.downloadResume(${app.id})"><i class="fa fa-download"></i> Download PDF File</button>
+        <button class="btn btn-primary" onclick="Recruitment.downloadResume(${app.id})"><i class="fa fa-download"></i> Download Candidate's Uploaded CV</button>
       `
     });
   },
@@ -4751,57 +4811,60 @@ const Recruitment = {
     const app = DB.find('applications', appId);
     if (!app) return;
     const fileName = app.resumeName || app.resume || `${(app.name || 'candidate').replace(/\s+/g,'_')}_CV.pdf`;
-    const cleanFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
 
-    // 1. If uploaded on server, trigger clean direct PDF download
+    // 1. If uploaded on server, trigger direct download of candidate's authentic file
     if (app.resumeUrl) {
       const a = document.createElement('a');
       a.href = app.resumeUrl;
-      a.download = cleanFileName;
+      a.download = fileName;
       a.target = '_blank';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      Toast.show(`Downloaded ${cleanFileName}`, 'success');
+      Toast.show(`Downloading candidate's uploaded CV: ${fileName}`, 'success');
       return;
     }
 
-    // 2. If raw base64 PDF data is stored
-    if (app.resumeData && app.resumeData.startsWith('data:application/pdf;base64,')) {
+    // 2. If raw base64 data is stored in the browser
+    if (app.resumeData && typeof app.resumeData === 'string' && app.resumeData.includes(';base64,')) {
       try {
-        const byteCharacters = atob(app.resumeData.split(',')[1]);
+        const parts = app.resumeData.split(';base64,');
+        const mime = parts[0].replace('data:', '') || 'application/pdf';
+        const byteCharacters = atob(parts[1]);
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
           byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
         const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
+        const blob = new Blob([byteArray], { type: mime });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = cleanFileName;
+        a.download = fileName;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 2000);
-        Toast.show(`Downloaded ${cleanFileName}`, 'success');
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+        Toast.show(`Downloading candidate's uploaded CV: ${fileName}`, 'success');
         return;
-      } catch (err) {}
+      } catch (err) {
+        console.error('Download base64 decode failed:', err);
+      }
     }
 
-    // 3. Fallback: Generate genuine, standards-compliant PDF binary that opens in all PDF readers
+    // 3. Fallback: Generate genuine standards-compliant PDF binary
     const job = DB.find('recruitment', app.jobId);
     const pdfString = this.generateCandidatePdf(app, job);
     const blob = new Blob([pdfString], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = cleanFileName;
+    a.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 2000);
-    Toast.show(`Downloaded ${cleanFileName}`, 'success');
+    Toast.show(`Downloaded candidate document: ${fileName}`, 'success');
   },
 
   printResume(appId) {

@@ -22,6 +22,17 @@ app.use(helmet({
   contentSecurityPolicy: false, // Allow CDN resources (FontAwesome, Chart.js, Google Fonts)
   crossOriginResourcePolicy: false
 }));
+
+// Additional Hardening Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // Prevent clickjacking
+  res.setHeader('X-Content-Type-Options', 'nosniff'); // Prevent MIME-type sniffing
+  res.setHeader('X-XSS-Protection', '1; mode=block'); // XSS filter protection
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // Prevent link/token referrer leaks
+  res.removeHeader('X-Powered-By'); // Hide Express signature from fingerprinting
+  next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));

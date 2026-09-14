@@ -1890,6 +1890,7 @@ const Landing = {
     const dropzoneContent = document.getElementById('cv-dropzone-content');
     if (!file) return;
 
+    Landing._currentCvFile = file;
     Landing._currentCvFileName = file.name;
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -1899,9 +1900,12 @@ const Landing = {
 
     if (dropzoneContent) {
       const sizeKB = Math.round(file.size / 1024);
+      const isDoc = file.name.match(/\.(doc|docx)$/i);
+      const iconClass = isDoc ? 'fa-file-word' : 'fa-file-pdf';
+      const iconColor = isDoc ? '#2563eb' : '#16a34a';
       dropzoneContent.innerHTML = `
-        <i class="fa fa-file-pdf" style="font-size:32px;color:#16a34a;margin-bottom:6px"></i>
-        <div style="font-size:13.5px;font-weight:700;color:#16a34a">${file.name}</div>
+        <i class="fa ${iconClass}" style="font-size:32px;color:${iconColor};margin-bottom:6px"></i>
+        <div style="font-size:13.5px;font-weight:700;color:var(--text)">${file.name}</div>
         <div style="font-size:11px;color:var(--text-3)">${sizeKB} KB • Ready for upload</div>
       `;
     }
@@ -1943,13 +1947,30 @@ const Landing = {
     }
 
     try {
+      // Ensure candidate's uploaded CV file data is fully loaded into memory before submission
+      if (!Landing._currentCvFileData && Landing._currentCvFile) {
+        try {
+          Landing._currentCvFileData = await new Promise((resolve) => {
+            const r = new FileReader();
+            r.onload = e => resolve(e.target.result);
+            r.onerror = () => resolve(null);
+            r.readAsDataURL(Landing._currentCvFile);
+          });
+        } catch (readErr) {
+          console.warn('[Landing] FileReader async read notice:', readErr);
+        }
+      }
+
       const jobs = DB.get('recruitment') || [];
       const job = jobs.find(j => j.id === jobId) || { id: jobId, title: 'Open Position' };
-      const resumeName = Landing._currentCvFileName || `${name.replace(/\s+/g, '_')}_CV.pdf`;
+      const originalFileName = Landing._currentCvFileName || `${name.replace(/\s+/g, '_')}_CV.pdf`;
       const resumeData = Landing._currentCvFileData || null;
       const newAppId = Date.now();
       const safeName = (name || 'candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const expectedResumeUrl = `/uploads/cv/${newAppId}_${safeName}_CV.pdf`;
+      const extMatch = originalFileName.match(/\.[0-9a-z]+$/i);
+      const ext = extMatch ? extMatch[0].toLowerCase() : '.pdf';
+      const safeOriginalBase = originalFileName.replace(/\.[0-9a-z]+$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const expectedResumeUrl = `/uploads/cv/${newAppId}_${safeName}_${safeOriginalBase}${ext}`;
 
       const newApp = {
         id: newAppId,
@@ -1964,8 +1985,8 @@ const Landing = {
         expectedSalary: salary,
         portfolio: portfolio,
         coverNote: cover,
-        resume: resumeName,
-        resumeName: resumeName,
+        resume: originalFileName,
+        resumeName: originalFileName,
         resumeUrl: expectedResumeUrl,
         resumeData: (resumeData && resumeData.length < 120000) ? resumeData : null, // Prevent localStorage quota overflow
         stage: 'applied',
@@ -1975,10 +1996,10 @@ const Landing = {
         notes: `Submitted via Public Careers Portal on ${new Date().toLocaleDateString()}. Location: ${city}. Exp: ${exp}. Expected Salary: PKR ${salary}.`
       };
 
-      // Full payload for the server
+      // Full payload for the backend server
       const serverApplicant = {
         ...newApp,
-        resumeData: resumeData // server receives full base64 to save real PDF to /uploads/cv/
+        resumeData: resumeData // server receives the candidate's exact raw uploaded file bytes
       };
 
       // Add to local applications array
@@ -2005,13 +2026,14 @@ const Landing = {
         });
       }
 
-      // Direct, robust synchronization with backend server store
+      // Direct synchronization with backend server
       if (typeof API !== 'undefined') {
         try {
           if (API.post) {
             const res = await API.post('/api/sync/apply', { applicant: serverApplicant, jobId: job.id });
             if (res && res.resumeUrl) {
               newApp.resumeUrl = res.resumeUrl;
+              newApp.resumeName = res.resumeName || originalFileName;
               DB.set('applications', apps);
             }
           }
