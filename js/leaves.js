@@ -2030,7 +2030,10 @@ const Leaves = {
     const isSalaryDeduct = document.getElementById('lf-salary-deduct')?.checked || false;
 
     if (!from || !to || !reason) { Toast.show('Please fill all required fields (Dates and Reason)', 'error'); return; }
-    if (dur === 'full' && from > to) { Toast.show('From date cannot be after To date', 'error'); return; }
+    if (new Date(to) < new Date(from)) {
+      Toast.show('Validation Error: "To Date" cannot be earlier than "From Date".', 'error');
+      return;
+    }
 
     let days = 1;
     if (dur === 'half_first' || dur === 'half_second') {
@@ -2039,6 +2042,11 @@ const Leaves = {
       days = 0.25;
     } else {
       days = Math.max(1, Math.ceil((new Date(to) - new Date(from)) / 86400000) + 1);
+    }
+
+    if (days <= 0 || isNaN(days)) {
+      Toast.show('Validation Error: Calculated leave duration must be greater than zero.', 'error');
+      return;
     }
 
     const targetEmp = DB.find('employees', empId);

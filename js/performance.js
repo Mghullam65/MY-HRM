@@ -4605,9 +4605,7 @@ const Recruitment = {
   },
 
   getCandidatePdfBlobUrl(app) {
-    if (app.resumeUrl) {
-      return app.resumeUrl;
-    }
+    // 1. Prioritize synchronized Base64 payload (works seamlessly across all remote devices)
     if (app.resumeData && typeof app.resumeData === 'string' && app.resumeData.includes(';base64,')) {
       try {
         const parts = app.resumeData.split(';base64,');
@@ -4620,8 +4618,15 @@ const Recruitment = {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: mime });
         return URL.createObjectURL(blob);
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[Recruitment] Error decoding candidate resumeData:', e);
+      }
     }
+    // 2. If valid external remote URL or server path
+    if (app.resumeUrl && (app.resumeUrl.startsWith('http') || app.resumeUrl.startsWith('blob:'))) {
+      return app.resumeUrl;
+    }
+    // 3. Fallback: Dynamically generate authentic Candidate PDF
     const job = DB.find('recruitment', app.jobId);
     const pdfContent = this.generateCandidatePdf(app, job);
     const blob = new Blob([pdfContent], { type: 'application/pdf' });
@@ -4812,20 +4817,7 @@ const Recruitment = {
     if (!app) return;
     const fileName = app.resumeName || app.resume || `${(app.name || 'candidate').replace(/\s+/g,'_')}_CV.pdf`;
 
-    // 1. If uploaded on server, trigger direct download of candidate's authentic file
-    if (app.resumeUrl) {
-      const a = document.createElement('a');
-      a.href = app.resumeUrl;
-      a.download = fileName;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      Toast.show(`Downloading candidate's uploaded CV: ${fileName}`, 'success');
-      return;
-    }
-
-    // 2. If raw base64 data is stored in the browser
+    // 1. If raw base64 data is synchronized (accessible on all devices & browsers)
     if (app.resumeData && typeof app.resumeData === 'string' && app.resumeData.includes(';base64,')) {
       try {
         const parts = app.resumeData.split(';base64,');
@@ -4845,11 +4837,24 @@ const Recruitment = {
         a.click();
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 3000);
-        Toast.show(`Downloading candidate's uploaded CV: ${fileName}`, 'success');
+        Toast.show(`Downloading candidate's authentic CV: ${fileName}`, 'success');
         return;
       } catch (err) {
-        console.error('Download base64 decode failed:', err);
+        console.error('[Recruitment] Download base64 decode failed:', err);
       }
+    }
+
+    // 2. If uploaded on server, trigger direct download of candidate's authentic file
+    if (app.resumeUrl && (app.resumeUrl.startsWith('http') || app.resumeUrl.startsWith('/uploads'))) {
+      const a = document.createElement('a');
+      a.href = app.resumeUrl;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      Toast.show(`Downloading candidate's uploaded CV: ${fileName}`, 'success');
+      return;
     }
 
     // 3. Fallback: Generate genuine standards-compliant PDF binary

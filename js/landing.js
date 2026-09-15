@@ -1989,7 +1989,7 @@ const Landing = {
         resume: originalFileName,
         resumeName: originalFileName,
         resumeUrl: expectedResumeUrl,
-        resumeData: (resumeData && resumeData.length < 120000) ? resumeData : null, // Prevent localStorage quota overflow
+        resumeData: resumeData || null, // Persists into cloud database for cross-device HR access
         stage: 'applied',
         appliedOn: new Date().toISOString().split('T')[0],
         interviewDate: null,

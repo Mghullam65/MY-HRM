@@ -129,9 +129,15 @@ const API = {
   },
 
   async punch(employeeId) {
+    const currentEmpId = (typeof Auth !== 'undefined' && (Auth.employee?.id || Auth.user?.employeeId)) || null;
+    let targetEmpId = employeeId || currentEmpId;
+    // Prevent IDOR: standard employees cannot punch on behalf of other staff
+    if (typeof Auth !== 'undefined' && (Auth.role === 'employee' || Auth.role === 'onboarding')) {
+      targetEmpId = currentEmpId;
+    }
     return this.request('/attendance/punch', {
       method: 'POST',
-      body: JSON.stringify({ employeeId })
+      body: JSON.stringify({ employeeId: targetEmpId })
     });
   },
 

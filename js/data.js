@@ -129,6 +129,27 @@ const DB = {
     // 4. Connect Real-time SSE stream & version polling
     this.initRealtimeSync();
 
+    // 5. Same-Browser Cross-Tab Instant Synchronization
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function' && !this.storageListenerAttached) {
+      this.storageListenerAttached = true;
+      window.addEventListener('storage', (e) => {
+        if (e.key && e.key.startsWith('hrm_')) {
+          const table = e.key.replace('hrm_', '');
+          if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
+            Auth?.refreshSession?.();
+          }
+          if (table === 'settings') {
+            I18n?.init?.();
+            const savedTheme = (DB.getObj('settings')?.theme) || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+          }
+          if (typeof App !== 'undefined' && App.onDataSync) {
+            App.onDataSync([table]);
+          }
+        }
+      });
+    }
+
     // If Supabase table was empty, seed all master tables into Supabase cloud
     if (this.isSupabaseConnected && this.supabase) {
       this.syncAllToSupabase();
