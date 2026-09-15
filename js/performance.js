@@ -4894,17 +4894,9 @@ const Recruitment = {
           buddyId: offer.reportingManagerId || 1,
           departmentId: offer.departmentId || 1,
           status: 'in_progress',
-          progress: 15,
-          tasks: [
-            { category: 'Pre-Joining & Compliance', task: 'Signed Formal Offer Letter & Employment Agreement', completed: true },
-            { category: 'Pre-Joining & Compliance', task: 'CNIC, Educational Degrees & Experience Letters Verification', completed: false },
-            { category: 'Pre-Joining & Compliance', task: 'Professional Reference & Background Check Clearance', completed: false },
-            { category: 'IT & Equipment Setup', task: 'Corporate Laptop, Workstation & Equipment Issuance', completed: false },
-            { category: 'IT & Systems Access', task: 'Corporate Email, IAM, Slack & Core Tools Provisioning', completed: false },
-            { category: 'Finance & Payroll', task: 'Bank Payout Account Details & NTN Tax Registration', completed: false },
-            { category: 'Orientation & Induction', task: 'HR Policies Briefing & Company Handbook Handover', completed: false },
-            { category: 'Orientation & Induction', task: 'Team Introduction & 30-Day Probation Goal Setting', completed: false }
-          ],
+          progress: 6,
+          tasks: this.getDefaultOnboardingTasks(offer.joiningDate),
+          checklist: JSON.stringify(this.getDefaultOnboardingTasks(offer.joiningDate)),
           createdAt: Utils.today()
         };
         onboardings.push(newOnboarding);
@@ -8090,13 +8082,73 @@ const Recruitment = {
     this.renderView();
   },
 
+  getDefaultOnboardingTasks(joiningDate = null) {
+    const jDate = joiningDate || Utils.today();
+    const preDueDate = jDate;
+    const postDueDate = new Date(new Date(jDate).getTime() + 7 * 86400000).toISOString().split('T')[0];
+
+    return [
+      // PRE-JOINING: HR
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Offer letter accepted & signed', responsible: 'HR Manager', status: 'Completed', completed: true, dueDate: preDueDate, completedDate: Utils.today(), completedBy: 'HR Manager', remarks: 'Official appointment offer accepted' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Documents submission & verification', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'CNIC copy & NADRA verification', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Educational degrees & certificates verification', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Previous employment experience & clearance letters', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Bank account & salary payout information', responsible: 'Finance / HR', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Employee master record profile drafted', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'HR', task: 'Official Employee ID generation', responsible: 'HR Manager', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // PRE-JOINING: IT
+      { phase: 'Pre-Joining', dept: 'IT', task: 'Corporate email account creation', responsible: 'IT Admin', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'IT', task: 'Computer / laptop workstation provisioning', responsible: 'IT Support', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'IT', task: 'Software & dev tooling licenses assignment', responsible: 'IT Admin', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'IT', task: 'HRM Pro ERP & system access setup', responsible: 'IT Support', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // PRE-JOINING: Administration
+      { phase: 'Pre-Joining', dept: 'Administration', task: 'Office seat & workspace allocation', responsible: 'Admin Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'Administration', task: 'RFID building access card issuance', responsible: 'Admin Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'Administration', task: 'Biometric fingerprint registration setup', responsible: 'Admin Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'Administration', task: 'Facilities, locker & parking allocation', responsible: 'Admin Officer', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // PRE-JOINING: Department
+      { phase: 'Pre-Joining', dept: 'Department', task: 'Reporting manager assignment confirmed', responsible: 'Dept Manager', status: 'Completed', completed: true, dueDate: preDueDate, completedDate: Utils.today(), completedBy: 'Dept Manager', remarks: 'Supervising manager confirmed' },
+      { phase: 'Pre-Joining', dept: 'Department', task: 'Workstation & team desk prepared', responsible: 'Dept Buddy', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'Department', task: 'Job responsibilities & first week plan', responsible: 'Dept Manager', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Pre-Joining', dept: 'Department', task: 'Department introduction scheduled', responsible: 'Dept Manager', status: 'Pending', completed: false, dueDate: preDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // POST-JOINING: HR
+      { phase: 'Post-Joining', dept: 'HR', task: 'Formal joining report / form signed', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'HRMS employee self-service activated', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'Biometric attendance roster linked', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'Payroll master setup & tax profile linked', responsible: 'Payroll Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'Annual & sick leave quotas initialized', responsible: 'HR Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'Medical insurance & company benefits enrollment', responsible: 'Benefits Officer', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'HR', task: 'Company policies & culture orientation session', responsible: 'HR Manager', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // POST-JOINING: IT
+      { phase: 'Post-Joining', dept: 'IT', task: 'Email & system login verification & 2FA setup', responsible: 'IT Support', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'IT', task: 'Physical laptop & accessories handover with receipt', responsible: 'IT Support', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'IT', task: 'Required software tools & VPN access verification', responsible: 'IT Admin', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+
+      // POST-JOINING: Department
+      { phase: 'Post-Joining', dept: 'Department', task: 'Team introduction & welcome meeting', responsible: 'Dept Manager', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'Department', task: 'Detailed job description & deliverables walkthrough', responsible: 'Dept Manager', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'Department', task: 'Reporting structure & mentor sync', responsible: 'Dept Buddy', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'Department', task: '30-60-90 Day KPIs & performance expectations set', responsible: 'Dept Manager', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' },
+      { phase: 'Post-Joining', dept: 'Department', task: 'Departmental tools & project workflow training', responsible: 'Dept Lead', status: 'Pending', completed: false, dueDate: postDueDate, completedDate: null, completedBy: null, remarks: '' }
+    ];
+  },
+
   getOnboardingTasks(ob) {
     if (Array.isArray(ob.tasks) && ob.tasks.length > 0) return ob.tasks;
     if (typeof ob.checklist === 'string') {
-      try { return JSON.parse(ob.checklist); } catch (e) { return []; }
+      try {
+        const parsed = JSON.parse(ob.checklist);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
     }
-    if (Array.isArray(ob.checklist)) return ob.checklist;
-    return [];
+    if (Array.isArray(ob.checklist) && ob.checklist.length > 0) return ob.checklist;
+    return this.getDefaultOnboardingTasks(ob.joiningDate);
   },
 
   renderOnboarding(container) {
@@ -8356,39 +8408,53 @@ const Recruitment = {
     const pct = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0;
     const color = pct === 100 ? 'var(--success)' : pct >= 50 ? 'var(--primary)' : 'var(--warning)';
 
-    // Auto-categorize legacy tasks
-    tasks.forEach(t => {
-      if (!t.category) {
-        const txt = (t.task || '').toLowerCase();
-        if (txt.includes('cnic') || txt.includes('degree') || txt.includes('verification') || txt.includes('contract') || txt.includes('offer')) {
-          t.category = 'Pre-Joining & Compliance';
-        } else if (txt.includes('laptop') || txt.includes('macbook') || txt.includes('sim') || txt.includes('hardware') || txt.includes('equipment')) {
-          t.category = 'IT & Equipment Setup';
-        } else if (txt.includes('iam') || txt.includes('slack') || txt.includes('email') || txt.includes('access') || txt.includes('aws')) {
-          t.category = 'IT & Systems Access';
-        } else if (txt.includes('bank') || txt.includes('payout') || txt.includes('tax') || txt.includes('salary') || txt.includes('payroll')) {
-          t.category = 'Finance & Payroll';
-        } else {
-          t.category = 'Orientation & Induction';
-        }
-      }
-    });
+    // Normalize phases and depts
+    const preTasks = tasks.map((t, idx) => ({ ...t, originalIndex: idx })).filter(t => (t.phase === 'Pre-Joining') || (!t.phase && (t.category === 'Pre-Joining & Compliance' || t.category === 'IT & Equipment Setup' || t.category === 'IT & Systems Access')));
+    const postTasks = tasks.map((t, idx) => ({ ...t, originalIndex: idx })).filter(t => (t.phase === 'Post-Joining') || (!t.phase && (t.category === 'Finance & Payroll' || t.category === 'Orientation & Induction')));
 
-    // Group tasks by category
-    const categories = ['Pre-Joining & Compliance', 'IT & Equipment Setup', 'IT & Systems Access', 'Finance & Payroll', 'Orientation & Induction'];
-    const uncategorized = tasks.filter(t => !t.category || !categories.includes(t.category));
+    const renderTaskGroup = (title, icon, color, groupTasks) => {
+      if (groupTasks.length === 0) return '';
+      return `
+        <div style="border:1px solid var(--border);border-radius:8px;padding:12px 16px;background:var(--card);margin-bottom:12px">
+          <div style="font-size:12.5px;font-weight:700;color:${color};margin-bottom:10px;display:flex;align-items:center;gap:6px">
+            <i class="fa ${icon}"></i> ${title}
+            <span class="badge" style="background:${color}22;color:${color};font-size:10px;margin-left:auto">${groupTasks.filter(t=>t.completed).length}/${groupTasks.length} Done</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${groupTasks.map(t => `
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:8px 12px;background:var(--surface);border-radius:6px;gap:10px">
+                <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;flex:1;margin:0">
+                  <input type="checkbox" style="margin-top:3px" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${t.originalIndex}, this.checked)">
+                  <div>
+                    <span style="font-size:12.5px;font-weight:600;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : 'color:var(--text)'}">${t.task}</span>
+                    <div style="font-size:11px;color:var(--text-3);margin-top:2px">
+                      <span class="badge" style="background:var(--surface-2);font-size:9.5px;margin-right:4px">${t.dept || 'HR'}</span>
+                      Responsible: <strong>${t.responsible || 'Assigned Lead'}</strong> &bull; Due: ${t.dueDate || ob.joiningDate || 'Day-1'}
+                      ${t.completedDate ? ` &bull; <span style="color:var(--success)"><i class="fa fa-check"></i> Done ${t.completedDate} by ${t.completedBy || 'HR'}</span>` : ''}
+                    </div>
+                  </div>
+                </label>
+                <span class="badge ${t.completed ? 'badge-success' : 'badge-warning'}" style="font-size:10px;white-space:nowrap;margin-top:2px">
+                  ${t.completed ? 'Completed' : 'Pending'}
+                </span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    };
 
-    Modal.show(`Onboarding Checklist — ${candidate?.name || 'New Hire'}`, `
+    Modal.show(`Onboarding Checklists — ${candidate?.name || 'New Hire'}`, `
       <div style="background:var(--surface);padding:14px 18px;border-radius:10px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
         <div>
           <div style="font-size:16px;font-weight:700">${candidate?.name || 'New Employee'}</div>
           <div style="font-size:12px;color:var(--text-3);margin-top:2px">
-            Role: <strong>${candidate?.role || 'New Hire'}</strong> &bull; Joining: <strong>${ob.joiningDate || '2026-09-15'}</strong> &bull; Buddy: <strong>${buddy?.fullName || 'Assigned Buddy'}</strong>
+            Role: <strong>${candidate?.role || 'New Hire'}</strong> &bull; Proposed Joining: <strong>${ob.joiningDate || '2026-09-15'}</strong> &bull; Buddy: <strong>${buddy?.fullName || 'Assigned Buddy'}</strong>
           </div>
         </div>
         <div style="text-align:right">
-          <div style="font-size:14px;font-weight:800;color:${color}">${pct}% Complete</div>
-          <div style="font-size:11px;color:var(--text-3)">${completedTasks} of ${tasks.length} tasks done</div>
+          <div style="font-size:15px;font-weight:800;color:${color}">${pct}% Completed</div>
+          <div style="font-size:11px;color:var(--text-3)">${completedTasks} of ${tasks.length} total checklist items</div>
         </div>
       </div>
 
@@ -8396,48 +8462,31 @@ const Recruitment = {
         <div class="progress-bar" style="width:${pct}%;background:${color}"></div>
       </div>
 
-      <div style="display:flex;flex-direction:column;gap:16px;max-height:420px;overflow-y:auto;padding-right:4px">
-        ${categories.map(cat => {
-          const catTasks = tasks.map((t, idx) => ({ ...t, originalIndex: idx })).filter(t => t.category === cat);
-          if (catTasks.length === 0) return '';
-          return `
-            <div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--card)">
-              <div style="font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:6px">
-                <i class="fa fa-circle-check"></i> ${cat}
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6px">
-                ${catTasks.map(t => `
-                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-radius:6px;cursor:pointer;transition:all .15s">
-                    <input type="checkbox" id="ob-task-${t.originalIndex}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${t.originalIndex}, this.checked)">
-                    <span style="font-size:13px;font-weight:500;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : 'color:var(--text)'}">${t.task}</span>
-                  </label>
-                `).join('')}
-              </div>
-            </div>
-          `;
-        }).join('')}
-
-        ${uncategorized.length > 0 ? `
-          <div style="border:1px solid var(--border);border-radius:8px;padding:10px 14px;background:var(--card)">
-            <div style="font-size:12px;font-weight:700;color:var(--text-2);text-transform:uppercase;margin-bottom:8px">
-              Additional Onboarding Tasks
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px">
-              ${tasks.map((t, idx) => ({ ...t, originalIndex: idx }))
-                .filter(t => !t.category || !categories.includes(t.category))
-                .map(t => `
-                  <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--surface);border-radius:6px;cursor:pointer">
-                    <input type="checkbox" id="ob-task-${t.originalIndex}" ${t.completed ? 'checked' : ''} onchange="Recruitment.toggleOnboardingTask(${onboardingId}, ${t.originalIndex}, this.checked)">
-                    <span style="font-size:13px;font-weight:500;${t.completed ? 'text-decoration:line-through;color:var(--text-3)' : 'color:var(--text)'}">${t.task}</span>
-                  </label>
-                `).join('')}
-            </div>
+      <div style="max-height:460px;overflow-y:auto;padding-right:6px">
+        <!-- PRE-JOINING SECTION -->
+        <div style="margin-bottom:18px">
+          <div style="font-size:13px;font-weight:800;color:var(--primary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--primary)">
+            <i class="fa fa-clipboard-check" style="margin-right:6px"></i> 1. Pre-Joining Checklist (Prior to Day-1)
           </div>
-        ` : ''}
+          ${renderTaskGroup('Human Resources (HR)', 'fa-users', '#2563eb', preTasks.filter(t => t.dept === 'HR' || (!t.dept && t.category === 'Pre-Joining & Compliance')))}
+          ${renderTaskGroup('Information Technology (IT)', 'fa-laptop-code', '#0284c7', preTasks.filter(t => t.dept === 'IT' || (!t.dept && (t.category === 'IT & Equipment Setup' || t.category === 'IT & Systems Access'))))}
+          ${renderTaskGroup('Administration & Facilities', 'fa-building', '#7c3aed', preTasks.filter(t => t.dept === 'Administration'))}
+          ${renderTaskGroup('Department & Manager', 'fa-sitemap', '#d97706', preTasks.filter(t => t.dept === 'Department'))}
+        </div>
+
+        <!-- POST-JOINING SECTION -->
+        <div style="margin-bottom:16px">
+          <div style="font-size:13px;font-weight:800;color:var(--success);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--success)">
+            <i class="fa fa-user-check" style="margin-right:6px"></i> 2. Post-Joining Checklist (Day-1 & First Week)
+          </div>
+          ${renderTaskGroup('Human Resources (HR)', 'fa-id-card', '#059669', postTasks.filter(t => t.dept === 'HR' || (!t.dept && t.category === 'Finance & Payroll')))}
+          ${renderTaskGroup('Information Technology (IT)', 'fa-network-wired', '#0284c7', postTasks.filter(t => t.dept === 'IT'))}
+          ${renderTaskGroup('Department & Manager', 'fa-people-group', '#d97706', postTasks.filter(t => t.dept === 'Department' || (!t.dept && t.category === 'Orientation & Induction')))}
+        </div>
 
         <!-- Add Custom Task Input -->
-        <div style="display:flex;gap:8px;margin-top:6px">
-          <input type="text" class="form-control" id="new-ob-task-name" placeholder="Add custom onboarding task...">
+        <div style="display:flex;gap:8px;margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px">
+          <input type="text" class="form-control" id="new-ob-task-name" placeholder="Add custom onboarding requirement..." style="font-size:12.5px">
           <button class="btn btn-outline btn-sm" style="white-space:nowrap" onclick="Recruitment.addCustomOnboardingTask(${onboardingId})">
             <i class="fa fa-plus"></i> Add Task
           </button>
@@ -8448,7 +8497,7 @@ const Recruitment = {
         <div style="display:flex;justify-content:space-between;width:100%;align-items:center">
           ${candidate ? `
             <button class="btn btn-ghost btn-sm text-success" onclick="Modal.close('dynamic-modal');Recruitment.onboardCandidateDirectly(${candidate.id})">
-              <i class="fa fa-user-plus"></i> Transfer to Employee Profile
+              <i class="fa fa-user-plus"></i> Register as Active Employee Profile
             </button>
           ` : `<div></div>`}
           <button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Done</button>
@@ -8468,7 +8517,18 @@ const Recruitment = {
     if (!ob) return;
 
     const tasks = this.getOnboardingTasks(ob);
-    tasks.push({ category: 'Orientation & Induction', task: taskName, completed: false });
+    tasks.push({
+      phase: 'Post-Joining',
+      dept: 'Department',
+      task: taskName,
+      responsible: 'Dept Lead',
+      status: 'Pending',
+      completed: false,
+      dueDate: ob.joiningDate || Utils.today(),
+      completedDate: null,
+      completedBy: null,
+      remarks: ''
+    });
     ob.tasks = tasks;
     ob.checklist = JSON.stringify(tasks);
     const completedTasks = tasks.filter(t => t.completed).length;
@@ -8489,6 +8549,9 @@ const Recruitment = {
     const tasks = this.getOnboardingTasks(ob);
     if (!tasks[taskIdx]) return;
     tasks[taskIdx].completed = isCompleted;
+    tasks[taskIdx].status = isCompleted ? 'Completed' : 'Pending';
+    tasks[taskIdx].completedDate = isCompleted ? Utils.today() : null;
+    tasks[taskIdx].completedBy = isCompleted ? (Auth.employee?.fullName || 'HR Manager') : null;
     ob.tasks = tasks;
     ob.checklist = JSON.stringify(tasks);
     const completedTasks = tasks.filter(t => t.completed).length;
@@ -8496,7 +8559,7 @@ const Recruitment = {
     if (ob.progress === 100) ob.status = 'completed';
     else ob.status = 'in_progress';
     DB.set('onboardings', onboardings);
-    DB.log('UPDATE', 'Recruitment', `Updated onboarding task #${taskIdx} for Onboarding #${onboardingId}`, Auth.user?.id);
+    DB.log('UPDATE', 'Recruitment', `Updated onboarding task #${taskIdx} (${tasks[taskIdx].task}) for Onboarding #${onboardingId} to ${tasks[taskIdx].status}`, Auth.user?.id);
     this.renderView();
     // Also re-render the modal if open
     const modal = document.getElementById('dynamic-modal');
