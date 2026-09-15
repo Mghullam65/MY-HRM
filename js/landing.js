@@ -809,12 +809,12 @@ const Landing = {
   // Active state for interactive pillar tabs
   activePillar: 'people',
 
-  // State for interactive tax & salary calculator
+  // State for interactive tax & salary calculator (Official Tax Slabs 2026-27)
   taxCalcState: {
     gross: 150000,
-    includeEobi: true,
-    includePf: true,
-    taxYear: '2024-2025'
+    pfPct: 0,
+    eobiAmount: 0,
+    taxYear: '2026-2027'
   },
 
   render() {
@@ -1273,7 +1273,7 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 6. INTERACTIVE PAKISTAN STATUTORY TAX CALCULATOR ─── -->
+        <!-- ─── 6. INTERACTIVE PAKISTAN STATUTORY TAX CALCULATOR (2026-27) ─── -->
         <section class="tax-calc-section" id="tax-calc">
           <div class="tax-calc-card">
             <div style="text-align:center;max-width:680px;margin:0 auto 36px auto">
@@ -1284,7 +1284,7 @@ const Landing = {
                 Interactive Salary & Income Tax Calculator
               </h2>
               <p style="font-size:14px;color:#cbd5e1;line-height:1.6">
-                Calculate real-time monthly take-home salary, FBR income tax deductions, and statutory funds under official Finance Act 2024-2025 slabs.
+                Calculate real-time monthly take-home salary, FBR income tax deductions, and statutory funds under official Tax Slabs (2026-27).
               </p>
             </div>
 
@@ -1296,12 +1296,12 @@ const Landing = {
                 </label>
                 <div style="position:relative;margin-bottom:14px">
                   <span style="position:absolute;left:14px;top:12px;font-weight:800;color:#94a3b8;font-size:15px">PKR</span>
-                  <input type="number" id="tax-input-gross" value="150000" min="30000" max="2500000" step="5000"
+                  <input type="number" id="tax-input-gross" value="150000" min="0" max="10000000" step="5000"
                     style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:12px 14px 12px 55px;font-size:18px;font-weight:800;color:#ffffff;outline:none"
                     oninput="Landing.updateTaxCalc(this.value)">
                 </div>
 
-                <input type="range" id="tax-slider-gross" min="30000" max="1500000" step="10000" value="150000" class="tax-range-slider"
+                <input type="range" id="tax-slider-gross" min="30000" max="1500000" step="5000" value="150000" class="tax-range-slider"
                   oninput="Landing.updateTaxCalc(this.value)">
 
                 <!-- Quick Presets Chips -->
@@ -1314,16 +1314,106 @@ const Landing = {
                   <span class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)">PKR 1.0M</span>
                 </div>
 
-                <!-- Statutory Deductions Toggles -->
-                <div class="tax-toggles-row">
-                  <label class="tax-toggle-item">
-                    <input type="checkbox" id="tax-opt-eobi" checked onchange="Landing.toggleTaxOption('includeEobi')">
-                    <span>Include EOBI (PKR 1,300/mo)</span>
-                  </label>
-                  <label class="tax-toggle-item">
-                    <input type="checkbox" id="tax-opt-pf" checked onchange="Landing.toggleTaxOption('includePf')">
-                    <span>Include Provident Fund (8.33%)</span>
-                  </label>
+                <!-- Custom PF and EOBI Controls -->
+                <div class="tax-custom-inputs-card">
+                  <!-- Provident Fund Input -->
+                  <div style="margin-bottom:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
+                        <i class="fa fa-piggy-bank text-primary"></i> Provident Fund (PF) Rate (%)
+                      </label>
+                      <span id="tax-pf-summary-badge" style="font-size:11px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.15);padding:2px 8px;border-radius:6px">0% (PKR 0)</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <div style="position:relative;width:110px">
+                        <input type="number" id="tax-input-pf-pct" value="0" min="0" max="50" step="0.5"
+                          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 26px 8px 10px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
+                          oninput="Landing.updatePfPct(this.value)">
+                        <span style="position:absolute;right:8px;top:8px;color:#94a3b8;font-weight:800;font-size:13px">%</span>
+                      </div>
+                      <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        <button type="button" class="tax-mini-chip active" id="chip-pf-0" onclick="Landing.setPfPreset(0)">0% (None)</button>
+                        <button type="button" class="tax-mini-chip" id="chip-pf-5" onclick="Landing.setPfPreset(5)">5%</button>
+                        <button type="button" class="tax-mini-chip" id="chip-pf-833" onclick="Landing.setPfPreset(8.33)">8.33% (Std)</button>
+                        <button type="button" class="tax-mini-chip" id="chip-pf-10" onclick="Landing.setPfPreset(10)">10%</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- EOBI Input -->
+                  <div>
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                      <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
+                        <i class="fa fa-shield-heart text-warning"></i> EOBI Contribution (PKR)
+                      </label>
+                      <span id="tax-eobi-summary-badge" style="font-size:11px;font-weight:700;color:#fcd34d;background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px">PKR 0</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                      <div style="position:relative;width:130px">
+                        <span style="position:absolute;left:9px;top:8px;color:#94a3b8;font-weight:800;font-size:11px">PKR</span>
+                        <input type="number" id="tax-input-eobi-amt" value="0" min="0" max="20000" step="100"
+                          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 8px 8px 36px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
+                          oninput="Landing.updateEobiAmt(this.value)">
+                      </div>
+                      <div style="display:flex;gap:4px;flex-wrap:wrap">
+                        <button type="button" class="tax-mini-chip active" id="chip-eobi-0" onclick="Landing.setEobiPreset(0)">PKR 0 (Exempt)</button>
+                        <button type="button" class="tax-mini-chip" id="chip-eobi-1300" onclick="Landing.setEobiPreset(1300)">PKR 1,300 (Std)</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- View Tax Slabs Table Toggle Button -->
+                <div style="margin-top:14px">
+                  <button type="button" class="tax-mini-chip" style="width:100%;padding:9px;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(37,99,235,0.18);border-color:rgba(59,130,246,0.35);color:#93c5fd" onclick="Landing.toggleSlabsTable()">
+                    <i class="fa fa-table-list"></i> <span id="tax-slabs-toggle-txt">View Official Tax Slabs (2026-27) Table</span>
+                  </button>
+                </div>
+
+                <!-- Collapsible Official Slabs Table (Verbatim 2026-27 Schedule) -->
+                <div id="tax-slabs-table-container" style="display:none;margin-top:14px;background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.12);border-radius:12px;overflow:hidden;max-height:360px;overflow-y:auto">
+                  <table class="tax-slabs-table">
+                    <thead>
+                      <tr>
+                        <th>Taxable Income (PKR)</th>
+                        <th>Tax Rate (2026-27)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr id="slab-row-1">
+                        <td>Up to 600,000</td>
+                        <td>0%</td>
+                      </tr>
+                      <tr id="slab-row-2">
+                        <td>600,001 – 1,200,000</td>
+                        <td>1% of the amount exceeding 600,000</td>
+                      </tr>
+                      <tr id="slab-row-3">
+                        <td>1,200,001 – 2,200,000</td>
+                        <td>PKR 6,000 + 11% of the amount exceeding 1,200,000</td>
+                      </tr>
+                      <tr id="slab-row-4">
+                        <td>2,200,001 – 3,200,000</td>
+                        <td>PKR 116,000 + 20% of the amount exceeding 2,200,000</td>
+                      </tr>
+                      <tr id="slab-row-5">
+                        <td>3,200,001 – 4,100,000</td>
+                        <td>PKR 316,000 + 25% of the amount exceeding 3,200,000</td>
+                      </tr>
+                      <tr id="slab-row-6">
+                        <td>4,100,001 – 5,600,000</td>
+                        <td>PKR 541,000 + 29% of the amount exceeding 4,100,000</td>
+                      </tr>
+                      <tr id="slab-row-7">
+                        <td>5,600,001 – 7,000,000</td>
+                        <td>PKR 976,000 + 32% of the amount exceeding 5,600,000</td>
+                      </tr>
+                      <tr id="slab-row-8">
+                        <td>Above 7,000,000</td>
+                        <td>PKR 1,424,000 + 35% of the amount exceeding 7,000,000</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -1331,15 +1421,15 @@ const Landing = {
               <div class="tax-calc-box-results">
                 <div class="tax-results-net-card">
                   <div style="font-size:11px;color:#a7f3d0;font-weight:800;letter-spacing:0.5px">ESTIMATED NET TAKE-HOME PAY</div>
-                  <div class="tax-net-amount" id="tax-res-net">PKR 131,200</div>
-                  <div style="font-size:11.5px;color:#cbd5e1" id="tax-res-pct">87.5% of gross salary</div>
+                  <div class="tax-net-amount" id="tax-res-net">PKR 144,000</div>
+                  <div style="font-size:11.5px;color:#cbd5e1" id="tax-res-pct">96.0% of gross monthly salary</div>
                 </div>
 
                 <!-- Breakdown Progress Bar -->
                 <div class="tax-breakdown-bar">
-                  <div class="tax-bar-net" id="tax-bar-net" style="width:87.5%" title="Take-Home Pay"></div>
-                  <div class="tax-bar-tax" id="tax-bar-tax" style="width:4.2%" title="Income Tax"></div>
-                  <div class="tax-bar-ded" id="tax-bar-ded" style="width:8.3%" title="EOBI & PF"></div>
+                  <div class="tax-bar-net" id="tax-bar-net" style="width:96.0%" title="Take-Home Pay"></div>
+                  <div class="tax-bar-tax" id="tax-bar-tax" style="width:4.0%" title="Income Tax"></div>
+                  <div class="tax-bar-ded" id="tax-bar-ded" style="width:0%" title="EOBI & PF"></div>
                 </div>
                 <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;margin-bottom:16px">
                   <span><span style="color:#10b981">■</span> Take-Home</span>
@@ -1354,29 +1444,23 @@ const Landing = {
                 </div>
                 <div class="tax-results-row">
                   <span style="color:#cbd5e1">Monthly Income Tax</span>
-                  <strong style="color:#f87171" id="tax-res-monthly-tax">PKR 6,300</strong>
+                  <strong style="color:#f87171" id="tax-res-monthly-tax">PKR 6,000</strong>
                 </div>
                 <div class="tax-results-row">
                   <span style="color:#cbd5e1">Annual Income Tax</span>
-                  <strong style="color:#f87171" id="tax-res-annual-tax">PKR 75,600</strong>
+                  <strong style="color:#f87171" id="tax-res-annual-tax">PKR 72,000</strong>
                 </div>
                 <div class="tax-results-row">
                   <span style="color:#cbd5e1">EOBI Employee Share</span>
-                  <span style="color:#fcd34d" id="tax-res-eobi">PKR 1,300</span>
+                  <span style="color:#fcd34d;font-weight:700" id="tax-res-eobi">PKR 0</span>
                 </div>
                 <div class="tax-results-row">
-                  <span style="color:#cbd5e1">Provident Fund (8.33%)</span>
-                  <span style="color:#fcd34d" id="tax-res-pf">PKR 12,495</span>
+                  <span style="color:#cbd5e1">Provident Fund (<span id="tax-res-pf-pct-label">0%</span>)</span>
+                  <span style="color:#fcd34d;font-weight:700" id="tax-res-pf">PKR 0</span>
                 </div>
                 <div class="tax-results-row">
                   <span style="color:#cbd5e1">FBR Bracket</span>
-                  <span style="font-size:11px;color:#93c5fd;text-align:right;max-width:200px" id="tax-res-slab-desc">Slab 3: PKR 1.2M – 2.2M</span>
-                </div>
-
-                <div style="margin-top:20px">
-                  <button class="btn btn-primary" style="width:100%;font-weight:800;padding:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="App.showLogin()">
-                    <i class="fa fa-play"></i> Process Automated Payroll in Portal
-                  </button>
+                  <span style="font-size:11px;color:#93c5fd;text-align:right;max-width:240px" id="tax-res-slab-desc">Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)</span>
                 </div>
               </div>
             </div>
@@ -2019,9 +2103,9 @@ const Landing = {
     }
   },
 
-  // ─── Interactive Tax Calculator Methods ───
+  // ─── Interactive Tax Calculator Methods (Official Tax Slabs 2026-27) ───
   updateTaxCalc(val) {
-    const gross = Math.max(30000, Number(val) || 150000);
+    const gross = Math.max(0, Number(val) !== undefined && !isNaN(Number(val)) ? Number(val) : 150000);
     this.taxCalcState.gross = gross;
 
     const inputGross = document.getElementById('tax-input-gross');
@@ -2029,50 +2113,69 @@ const Landing = {
     if (inputGross && inputGross.value != gross) inputGross.value = gross;
     if (sliderGross && sliderGross.value != gross) sliderGross.value = gross;
 
-    // Use DB.calculateFBRTax if available, else local Finance Act 2024 calculation
+    // Use DB.calculateFBRTax if available, else local Tax Slabs (2026-27) calculation
     let taxCalc;
     if (typeof DB !== 'undefined' && DB.calculateFBRTax) {
       taxCalc = DB.calculateFBRTax(gross);
     } else {
       const annual = gross * 12;
       let annualTax = 0;
-      let slabDesc = 'Slab 1: Tax-Free up to PKR 600,000';
+      let slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
+      let slabId = 1;
+
       if (annual <= 600000) {
         annualTax = 0;
+        slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
+        slabId = 1;
       } else if (annual <= 1200000) {
-        annualTax = (annual - 600000) * 0.05;
-        slabDesc = 'Slab 2 (PKR 600k – 1.2M): 5% excess';
+        annualTax = (annual - 600000) * 0.01;
+        slabDesc = 'Slab 2 (PKR 600,001 – 1,200,000: 1% of excess over PKR 600,000)';
+        slabId = 2;
       } else if (annual <= 2200000) {
-        annualTax = 30000 + (annual - 1200000) * 0.15;
-        slabDesc = 'Slab 3 (PKR 1.2M – 2.2M): PKR 30k + 15% excess';
+        annualTax = 6000 + (annual - 1200000) * 0.11;
+        slabDesc = 'Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)';
+        slabId = 3;
       } else if (annual <= 3200000) {
-        annualTax = 180000 + (annual - 2200000) * 0.25;
-        slabDesc = 'Slab 4 (PKR 2.2M – 3.2M): PKR 180k + 25% excess';
+        annualTax = 116000 + (annual - 2200000) * 0.20;
+        slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 20% of excess over PKR 2.2M)';
+        slabId = 4;
       } else if (annual <= 4100000) {
-        annualTax = 430000 + (annual - 3200000) * 0.30;
-        slabDesc = 'Slab 5 (PKR 3.2M – 4.1M): PKR 430k + 30% excess';
+        annualTax = 316000 + (annual - 3200000) * 0.25;
+        slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 316,000 + 25% of excess over PKR 3.2M)';
+        slabId = 5;
+      } else if (annual <= 5600000) {
+        annualTax = 541000 + (annual - 4100000) * 0.29;
+        slabDesc = 'Slab 6 (PKR 4,100,001 – 5,600,000: PKR 541,000 + 29% of excess over PKR 4.1M)';
+        slabId = 6;
+      } else if (annual <= 7000000) {
+        annualTax = 976000 + (annual - 5600000) * 0.32;
+        slabDesc = 'Slab 7 (PKR 5,600,001 – 7,000,000: PKR 976,000 + 32% of excess over PKR 5.6M)';
+        slabId = 7;
       } else {
-        annualTax = 700000 + (annual - 4100000) * 0.35;
-        slabDesc = 'Slab 6 (Above PKR 4.1M): PKR 700k + 35% excess';
+        annualTax = 1424000 + (annual - 7000000) * 0.35;
+        slabDesc = 'Slab 8 (Above PKR 7,000,000: PKR 1,424,000 + 35% of excess over PKR 7.0M)';
+        slabId = 8;
       }
       taxCalc = {
         annualIncome: annual,
         annualTax: Math.round(annualTax),
         monthlyTax: Math.round(annualTax / 12),
-        slabDesc
+        slabDesc,
+        slabId
       };
     }
 
     const monthlyTax = taxCalc.monthlyTax;
     const annualTax = taxCalc.annualTax;
-    const eobi = this.taxCalcState.includeEobi ? 1300 : 0;
-    const pf = this.taxCalcState.includePf ? Math.round(gross * 0.0833) : 0;
+    const eobi = Math.max(0, Number(this.taxCalcState.eobiAmount) || 0);
+    const pfPct = Math.max(0, Number(this.taxCalcState.pfPct) || 0);
+    const pf = Math.round(gross * (pfPct / 100));
     const totalDeductions = monthlyTax + eobi + pf;
     const netSalary = Math.max(0, gross - totalDeductions);
 
-    const netPct = ((netSalary / gross) * 100).toFixed(1);
-    const taxPct = ((monthlyTax / gross) * 100).toFixed(1);
-    const dedPct = (((eobi + pf) / gross) * 100).toFixed(1);
+    const netPct = gross > 0 ? ((netSalary / gross) * 100).toFixed(1) : '0.0';
+    const taxPct = gross > 0 ? ((monthlyTax / gross) * 100).toFixed(1) : '0.0';
+    const dedPct = gross > 0 ? (((eobi + pf) / gross) * 100).toFixed(1) : '0.0';
 
     const setTxt = (id, txt) => {
       const el = document.getElementById(id);
@@ -2086,7 +2189,30 @@ const Landing = {
     setTxt('tax-res-annual-tax', 'PKR ' + annualTax.toLocaleString());
     setTxt('tax-res-eobi', 'PKR ' + eobi.toLocaleString());
     setTxt('tax-res-pf', 'PKR ' + pf.toLocaleString());
+    setTxt('tax-res-pf-pct-label', pfPct + '%');
     setTxt('tax-res-slab-desc', taxCalc.slabDesc);
+
+    // Summary badges
+    setTxt('tax-pf-summary-badge', pfPct + '% (PKR ' + pf.toLocaleString() + ')');
+    setTxt('tax-eobi-summary-badge', 'PKR ' + eobi.toLocaleString());
+
+    // Highlight active slab in table if visible
+    if (taxCalc.slabId) {
+      for (let i = 1; i <= 8; i++) {
+        const row = document.getElementById(`slab-row-${i}`);
+        if (row) {
+          if (taxCalc.slabId === i) {
+            row.style.background = 'rgba(37, 99, 235, 0.35)';
+            row.style.fontWeight = '700';
+            row.style.color = '#ffffff';
+          } else {
+            row.style.background = 'transparent';
+            row.style.fontWeight = 'normal';
+            row.style.color = '#cbd5e1';
+          }
+        }
+      }
+    }
 
     const barNet = document.getElementById('tax-bar-net');
     const barTax = document.getElementById('tax-bar-tax');
@@ -2100,9 +2226,57 @@ const Landing = {
     this.updateTaxCalc(amt);
   },
 
-  toggleTaxOption(optionKey) {
-    this.taxCalcState[optionKey] = !this.taxCalcState[optionKey];
+  updatePfPct(pctVal) {
+    const pct = Math.max(0, parseFloat(pctVal) || 0);
+    this.taxCalcState.pfPct = pct;
+    const input = document.getElementById('tax-input-pf-pct');
+    if (input && input.value != pctVal) input.value = pctVal;
+
+    ['0', '5', '833', '10'].forEach(k => {
+      const chip = document.getElementById(`chip-pf-${k}`);
+      if (chip) chip.classList.remove('active');
+    });
+    if (pct === 0) document.getElementById('chip-pf-0')?.classList.add('active');
+    else if (pct === 5) document.getElementById('chip-pf-5')?.classList.add('active');
+    else if (Math.abs(pct - 8.33) < 0.05) document.getElementById('chip-pf-833')?.classList.add('active');
+    else if (pct === 10) document.getElementById('chip-pf-10')?.classList.add('active');
+
     this.updateTaxCalc(this.taxCalcState.gross);
+  },
+
+  setPfPreset(pct) {
+    this.updatePfPct(pct);
+  },
+
+  updateEobiAmt(amtVal) {
+    const amt = Math.max(0, parseInt(amtVal, 10) || 0);
+    this.taxCalcState.eobiAmount = amt;
+    const input = document.getElementById('tax-input-eobi-amt');
+    if (input && input.value != amtVal) input.value = amtVal;
+
+    ['0', '1300'].forEach(k => {
+      const chip = document.getElementById(`chip-eobi-${k}`);
+      if (chip) chip.classList.remove('active');
+    });
+    if (amt === 0) document.getElementById('chip-eobi-0')?.classList.add('active');
+    else if (amt === 1300) document.getElementById('chip-eobi-1300')?.classList.add('active');
+
+    this.updateTaxCalc(this.taxCalcState.gross);
+  },
+
+  setEobiPreset(amt) {
+    this.updateEobiAmt(amt);
+  },
+
+  toggleSlabsTable() {
+    const container = document.getElementById('tax-slabs-table-container');
+    const txt = document.getElementById('tax-slabs-toggle-txt');
+    if (!container) return;
+    const isHidden = container.style.display === 'none';
+    container.style.display = isHidden ? 'block' : 'none';
+    if (txt) {
+      txt.textContent = isHidden ? 'Hide Tax Slabs (2026-27) Table' : 'View Official Tax Slabs (2026-27) Table';
+    }
   },
 
   toggleFaq(index) {
