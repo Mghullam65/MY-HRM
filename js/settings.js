@@ -633,8 +633,9 @@ const Settings = {
     const currEl = document.getElementById('s-company-currency');
     if (currEl) {
       settings.companyCurrency = currEl.value;
+      settings.currency = currEl.value;
       if (typeof I18n !== 'undefined' && I18n.setCurrency) {
-        I18n.setCurrency(currEl.value);
+        I18n.setCurrency(currEl.value, false);
       }
     }
 
@@ -642,7 +643,7 @@ const Settings = {
     if (langEl) {
       settings.companyLanguage = langEl.value;
       if (typeof I18n !== 'undefined' && I18n.setLanguage) {
-        I18n.setLanguage(langEl.value);
+        I18n.setLanguage(langEl.value, false);
       }
     }
 
@@ -657,6 +658,7 @@ const Settings = {
     if (window._tempCompanyStamp !== undefined) settings.companyStamp = window._tempCompanyStamp;
 
     DB.set('settings', settings);
+    DB.flushServerPush();
     DB.log('UPDATE', 'Settings', 'Company profile, financial currency, language, branding, letterhead and authorized signature updated', Auth.user?.id);
 
     // Update live sidebar company name if element exists
@@ -683,17 +685,18 @@ const Settings = {
   // ─── General Settings ─────────────────────────────
   renderGeneral(c) {
     const s = key => this._getSetting(key, '');
+    const activeCurr = s('companyCurrency') || s('currency') || 'PKR';
     c.innerHTML = this._sectionCard('General Settings', 'System-wide configuration', `
       ${this._settingRow('Fiscal Year Start',
         `<select class="form-control" id="s-fiscal-start">
           ${['January','February','March','April','May','June','July','August','September','October','November','December'].map((m,i) => `<option value="${i+1}" ${(s('fiscalYearStart')||'7')==(i+1)?'selected':''}>${m}</option>`).join('')}
         </select>`,
         'When your financial year begins (e.g., July for Pakistani fiscal year)')}
-      ${this._settingRow('Currency',
+      ${this._settingRow('Default Currency',
         `<select class="form-control" id="s-currency">
-          ${['PKR - Pakistani Rupee','USD - US Dollar','GBP - British Pound','EUR - Euro','AED - UAE Dirham','SAR - Saudi Riyal'].map(c => `<option ${(s('currency')||'PKR')==c.split(' ')[0]?'selected':''}>${c}</option>`).join('')}
+          ${['PKR - Pakistani Rupee','USD - US Dollar','GBP - British Pound','EUR - Euro','AED - UAE Dirham','SAR - Saudi Riyal'].map(c => `<option ${activeCurr===c.split(' ')[0]?'selected':''}>${c}</option>`).join('')}
         </select>`,
-        'Default currency for salary and payroll')}
+        'Primary financial currency across payroll, claims, and reporting')}
       ${this._settingRow('Date Format',
         `<select class="form-control" id="s-date-format">
           ${['DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD','DD-MMM-YYYY'].map(f => `<option ${(s('dateFormat')||'DD/MM/YYYY')==f?'selected':''}>${f}</option>`).join('')}
@@ -719,14 +722,20 @@ const Settings = {
 
   saveGeneral() {
     this._setSetting('fiscalYearStart', document.getElementById('s-fiscal-start').value);
-    this._setSetting('currency', document.getElementById('s-currency').value.split(' ')[0]);
+    const newCurr = document.getElementById('s-currency').value.split(' ')[0];
+    this._setSetting('currency', newCurr);
+    this._setSetting('companyCurrency', newCurr);
+    if (typeof I18n !== 'undefined' && I18n.setCurrency) {
+      I18n.setCurrency(newCurr, false);
+    }
     this._setSetting('dateFormat', document.getElementById('s-date-format').value);
     this._setSetting('timezone', document.getElementById('s-timezone').value.split(' ')[0]);
     this._setSetting('empPrefix', document.getElementById('s-emp-prefix').value.trim());
     this._setSetting('weekStart', document.getElementById('s-week-start').value);
     const weekendDays = [...document.querySelectorAll('.s-weekend:checked')].map(el => el.value).join(',');
     this._setSetting('weekendDays', weekendDays);
-    DB.log('UPDATE', 'Settings', 'General settings updated', Auth.user?.id);
+    DB.flushServerPush();
+    DB.log('UPDATE', 'Settings', 'General settings and currency updated', Auth.user?.id);
     Toast.show('General settings saved!', 'success');
   },
 

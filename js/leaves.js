@@ -27,8 +27,10 @@ const Leaves = {
       return allLeaves.filter(l => l.employeeId === Auth.employee?.id);
     }
     if (Auth.role === 'dept_manager') {
-      const teamIds = this.getScopedEmployees().map(e => e.id);
-      return allLeaves.filter(l => teamIds.includes(l.employeeId));
+      const teamEmps = this.getScopedEmployees();
+      const teamIds = teamEmps.map(e => e.id);
+      const myEmpId = Auth.employee?.id;
+      return allLeaves.filter(l => teamIds.includes(l.employeeId) || (myEmpId && l.managerId === myEmpId) || (l.employeeId === myEmpId));
     }
     return allLeaves;
   },
@@ -2090,6 +2092,18 @@ const Leaves = {
     };
 
     DB.add('leave_requests', newLeave);
+    DB.flushServerPush();
+
+    // Broadcast live notification across devices
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.add) {
+      LiveNotifications.add({
+        title: isSelf ? `📋 Leave Application: ${myEmp?.fullName}` : `📋 Leave Marked: ${targetEmp?.fullName}`,
+        message: `${isSelf ? myEmp?.fullName : targetEmp?.fullName} requested ${days}d leave (${from} to ${newLeave.to}) [${newLeave.quotaName}].`,
+        type: 'leaves',
+        link: 'leaves'
+      });
+    }
+
     DB.log('APPLY', 'Leaves', isSelf 
       ? `${myEmp?.fullName} applied for personal leave for ${days}d (${from} to ${newLeave.to}) utilizing ${newLeave.quotaName}`
       : `Leave marked for ${targetEmp?.fullName} by ${myEmp?.fullName} (${days}d from ${from} to ${newLeave.to}) utilizing ${newLeave.quotaName}`, 
@@ -2118,6 +2132,7 @@ const Leaves = {
         managerApprovedAt: new Date().toISOString(),
         comments: `Endorsed by ${Auth.user?.username || 'Deputy Manager'}`
       });
+      DB.flushServerPush();
       DB.log('APPROVE', 'Leaves', `Manager endorsed leave #${leaveId} for employee #${leave.employeeId}`, Auth.user?.id);
       Toast.show('Leave Endorsed by Manager!', 'info', 'Forwarded to HR & Admin for final approval and quota deduction.');
     } else {
@@ -2140,6 +2155,7 @@ const Leaves = {
         }
       }
 
+      DB.flushServerPush();
       DB.log('APPROVE', 'Leaves', `Leave #${leaveId} approved (Final)`, Auth.user?.id);
       if (leave.salaryDeduction) {
         if (['superadmin', 'hr_manager'].includes(Auth.role)) {
@@ -2157,6 +2173,7 @@ const Leaves = {
 
   reject(leaveId) {
     DB.update('leave_requests', leaveId, { status: 'rejected', approvedOn: Utils.today(), comments: 'Rejected' });
+    DB.flushServerPush();
     DB.log('REJECT', 'Leaves', `Leave #${leaveId} rejected`, Auth.user?.id);
     Toast.show('Leave rejected.', 'warning');
     this.renderView();

@@ -5,9 +5,9 @@
 const App = {
   currentModule: null,
 
-  init() {
+  async init() {
     try {
-      DB.init();
+      await DB.init();
       Auth.init();
       if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
         LiveNotifications.init();
@@ -303,7 +303,6 @@ const App = {
             <span>103 Models</span>
           </button>
         ` : ''}
-        ${typeof I18n !== 'undefined' ? I18n.renderLanguageSelector('topbar') + I18n.renderCurrencySelector('topbar') : ''}
         <button class="theme-toggle-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
           <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
@@ -591,15 +590,15 @@ const App = {
 
     // Map table updates to relevant module views
     const moduleTableMap = {
-      dashboard: ['employees', 'attendance', 'leave_requests', 'events', 'announcements', 'users'],
+      dashboard: ['employees', 'attendance', 'leave_requests', 'events', 'announcements', 'users', 'applications', 'job_requisitions', 'recruitment', 'settings'],
       employees: ['employees', 'departments', 'designations', 'branches', 'documents', 'document_expiries', 'users'],
       attendance: ['attendance', 'attendance_corrections', 'shifts', 'overtime_tokens'],
-      leaves: ['leave_requests', 'leave_balances', 'leave_types'],
-      payroll: ['salary', 'allowances', 'deductions', 'loans', 'employee_increments'],
+      leaves: ['leave_requests', 'leave_balances', 'leave_types', 'employees'],
+      payroll: ['salary', 'allowances', 'deductions', 'loans', 'employee_increments', 'settings'],
       performance: ['performance_reviews', 'kpis', 'goals'],
-      recruitment: ['recruitment', 'applications', 'interviews'],
+      recruitment: ['recruitment', 'applications', 'interviews', 'job_requisitions', 'offer_letters', 'onboardings'],
       assets: ['assets', 'asset_assignments'],
-      expenses: ['expense_claims'],
+      expenses: ['expense_claims', 'settings'],
       helpdesk: ['helpdesk_tickets'],
       events: ['events', 'announcements'],
       administration: ['users', 'roles', 'permissions', 'audit_logs'],
@@ -611,7 +610,7 @@ const App = {
     const shouldRefresh = changedTables.length === 0 || (current && moduleTableMap[current]?.some(t => changedTables.includes(t)));
     if (shouldRefresh && this.currentModule && document.getElementById('app')?.style.display !== 'none') {
       console.log(`[App] Auto-refreshing module "${this.currentModule}" due to remote sync (${changedTables.join(', ')})`);
-      this.navigate(this.currentModule);
+      this.navigate(this.currentModule, null, false);
     }
   },
 

@@ -81,9 +81,10 @@ app.get('*', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 ===============================================`);
-  console.log(`   HRM Pro Server is running on http://localhost:${PORT}`);
+  console.log(`   HRM Pro Server is running on http://0.0.0.0:${PORT}`);
+  console.log(`   Local Machine:     http://localhost:${PORT}`);
   console.log(`   Frontend served at http://localhost:${PORT}`);
   console.log(`   REST API ready at  http://localhost:${PORT}/api/health`);
   console.log(`   ===============================================\n`);

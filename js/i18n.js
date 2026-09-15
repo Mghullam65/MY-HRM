@@ -494,33 +494,58 @@ const I18n = {
     return fallback || key;
   },
 
-  setLanguage(langCode) {
+  setLanguage(langCode, shouldRefresh = true) {
     if (!this.languages[langCode]) return;
     this.activeLang = langCode;
     localStorage.setItem('hrm_language', langCode);
+
+    // Also ensure saved in settings table
+    try {
+      if (typeof DB !== 'undefined' && DB.getObj && DB.set) {
+        const s = DB.getObj('settings') || {};
+        s.companyLanguage = langCode;
+        DB.set('settings', s);
+      }
+    } catch (e) {}
+
     this.applyHtmlAttributes();
 
     // Close any open dropdowns
     document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
 
-    // Re-render active view
-    this.refreshActiveViews();
+    // Re-render active view if requested
+    if (shouldRefresh) {
+      this.refreshActiveViews();
+    }
     if (typeof Toast !== 'undefined' && Toast.show) {
       Toast.show(`Language changed to ${this.languages[langCode].name} (${this.languages[langCode].native})`, 'info');
     }
   },
 
-  setCurrency(currCode) {
+  setCurrency(currCode, shouldRefresh = true) {
     if (!this.currencies[currCode]) return;
     this.activeCurrency = currCode;
     localStorage.setItem('hrm_currency', currCode);
+
+    // Also ensure saved in settings table
+    try {
+      if (typeof DB !== 'undefined' && DB.getObj && DB.set) {
+        const s = DB.getObj('settings') || {};
+        s.companyCurrency = currCode;
+        s.currency = currCode;
+        DB.set('settings', s);
+      }
+    } catch (e) {}
+
     this.applyHtmlAttributes();
 
     // Close any open dropdowns
     document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
 
-    // Re-render active view
-    this.refreshActiveViews();
+    // Re-render active view if requested
+    if (shouldRefresh) {
+      this.refreshActiveViews();
+    }
     if (typeof Toast !== 'undefined' && Toast.show) {
       Toast.show(`Currency set to ${this.currencies[currCode].name} (${this.currencies[currCode].symbol})`, 'success');
     }
@@ -583,8 +608,8 @@ const I18n = {
     if (app && app.style.display !== 'none' && typeof App !== 'undefined') {
       App.renderTopbar();
       App.renderSidebar();
-      if (App.currentModule) {
-        App.navigate(App.currentModule);
+      if (App.currentModule && App.currentModule !== 'settings') {
+        App.navigate(App.currentModule, null, false);
       }
     }
   },

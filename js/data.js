@@ -10,7 +10,7 @@ const DB = {
   realtimeInitialized: false,
 
   // ─── Seed all data into localStorage & Connect Central Database ───
-  init() {
+  async init() {
     if (!this.clientId) {
       this.clientId = 'client_' + Math.random().toString(36).slice(2, 11) + '_' + Date.now();
     }
@@ -18,84 +18,82 @@ const DB = {
       this.pendingSyncQueue = new Map();
     }
 
-    if (localStorage.getItem('hrm_initialized')) {
-      this.ensureAuditLogs();
-      this.ensureBirthday();
-      this.ensureOfferLetters();
-      this.ensureOnboardingData();
-      this.ensureAttendanceLeaveAuditData();
-      this.ensureHierarchyAndCorrections();
-      this.ensureDocumentExpiries();
-      this.ensureExitClearances();
-      this.ensureHRLetters();
-      this.ensureTaxAndStatutoryData();
-      this.ensureRosterAndGeofenceData();
-      this.ensureTalentAndLMSData();
-      this.ensureEngagementData();
-      this.ensureCompanyPolicies();
-      this.ensureLifeEventsAndDependents();
-      this.ensureWebhooksAndTemplates();
-      this.ensureBatch9Data();
-      this.ensureUserNotifications();
-      this.ensureDisciplinaryData();
-      this.ensureNormalizedProfileData();
-      this.ensureTrainingAndCertificates();
-      this.ensureRBACData();
-      this.ensureTravelAndExpenseData();
-      this.ensureSalaryStructureData();
-      this.ensureHierarchyData();
-      this.ensureExitLifecycleData();
-      this.ensureAssetCatalogData();
-      this.ensureTelemetryData();
-      this.ensureRecruitmentPipelineData();
-      this.ensurePerformanceAppraisalData();
-      this.ensureRosterAndAttendanceData();
-      this.ensureProfileMastersData();
-      this.ensureGovernanceMastersData();
-      this.ensureLoansData();
-      this.ensureReportsSeedData();
-    } else {
-      this.seed();
-      this.ensureBirthday();
-      this.ensureOfferLetters();
-      this.ensureOnboardingData();
-      this.ensureAttendanceLeaveAuditData();
-      this.ensureHierarchyAndCorrections();
-      this.ensureDocumentExpiries();
-      this.ensureExitClearances();
-      this.ensureHRLetters();
-      this.ensureTaxAndStatutoryData();
-      this.ensureRosterAndGeofenceData();
-      this.ensureTalentAndLMSData();
-      this.ensureEngagementData();
-      this.ensureCompanyPolicies();
-      this.ensureLifeEventsAndDependents();
-      this.ensureWebhooksAndTemplates();
-      this.ensureBatch9Data();
-      this.ensureUserNotifications();
-      this.ensureDisciplinaryData();
-      this.ensureNormalizedProfileData();
-      this.ensureTrainingAndCertificates();
-      this.ensureRBACData();
-      this.ensureTravelAndExpenseData();
-      this.ensureSalaryStructureData();
-      this.ensureHierarchyData();
-      this.ensureExitLifecycleData();
-      this.ensureAssetCatalogData();
-      this.ensureTelemetryData();
-      this.ensureRecruitmentPipelineData();
-      this.ensurePerformanceAppraisalData();
-      this.ensureRosterAndAttendanceData();
-      this.ensureProfileMastersData();
-      this.ensureGovernanceMastersData();
-      this.ensureLoansData();
-      this.ensureReportsSeedData();
-      localStorage.setItem('hrm_initialized', '1');
+    // Flag to prevent any initialization routines from pushing to server
+    this.isInitializing = true;
+
+    // 1. Authoritative Server Sync: Pull central database state FIRST
+    let serverHydrated = false;
+    try {
+      if (typeof API !== 'undefined' && API.syncGetAll) {
+        const res = await API.syncGetAll();
+        if (res && res.success && res.tables && Object.keys(res.tables).length > 0) {
+          for (const [table, data] of Object.entries(res.tables)) {
+            localStorage.setItem(`hrm_${table}`, JSON.stringify(data));
+          }
+          this.serverVersion = res.version || 1;
+          localStorage.setItem('hrm_initialized', '1');
+          serverHydrated = true;
+          console.log(`[DB] Central server connected: hydrated ${Object.keys(res.tables).length} tables (v${this.serverVersion})`);
+        }
+      }
+    } catch (err) {
+      console.warn('[DB] Central server offline or unreachable during startup:', err.message);
     }
 
-    // Connect to central server database and start real-time sync
-    this.pullFromServer(true);
+    // 2. Offline / Fresh Server Fallback
+    if (!serverHydrated) {
+      if (!localStorage.getItem('hrm_initialized')) {
+        console.log('[DB] No central server data & no local storage found, running offline seed...');
+        this.seed({ skipServerPush: true });
+        localStorage.setItem('hrm_initialized', '1');
+      }
+    }
+
+    // Run structural integrity checks without pushing to server
+    this.runIntegrityChecks();
+
+    this.isInitializing = false;
+
+    // 3. Connect Real-time SSE stream & version polling
     this.initRealtimeSync();
+  },
+
+  runIntegrityChecks() {
+    this.ensureAuditLogs();
+    this.ensureBirthday();
+    this.ensureOfferLetters();
+    this.ensureOnboardingData();
+    this.ensureAttendanceLeaveAuditData();
+    this.ensureHierarchyAndCorrections();
+    this.ensureDocumentExpiries();
+    this.ensureExitClearances();
+    this.ensureHRLetters();
+    this.ensureTaxAndStatutoryData();
+    this.ensureRosterAndGeofenceData();
+    this.ensureTalentAndLMSData();
+    this.ensureEngagementData();
+    this.ensureCompanyPolicies();
+    this.ensureLifeEventsAndDependents();
+    this.ensureWebhooksAndTemplates();
+    this.ensureBatch9Data();
+    this.ensureUserNotifications();
+    this.ensureDisciplinaryData();
+    this.ensureNormalizedProfileData();
+    this.ensureTrainingAndCertificates();
+    this.ensureRBACData();
+    this.ensureTravelAndExpenseData();
+    this.ensureSalaryStructureData();
+    this.ensureHierarchyData();
+    this.ensureExitLifecycleData();
+    this.ensureAssetCatalogData();
+    this.ensureTelemetryData();
+    this.ensureRecruitmentPipelineData();
+    this.ensurePerformanceAppraisalData();
+    this.ensureRosterAndAttendanceData();
+    this.ensureProfileMastersData();
+    this.ensureGovernanceMastersData();
+    this.ensureLoansData();
+    this.ensureReportsSeedData();
   },
 
   ensureAuditLogs() {
@@ -4626,51 +4624,51 @@ const DB = {
     localStorage.setItem('hrm_initialized', '1');
   },
 
-  seed() {
-    this.set('departments', departments);
-    this.set('designations', designations);
-    this.set('branches', branches);
-    this.set('shifts', shifts);
-    this.set('locations', locations);
-    this.set('employees', employees);
-    this.set('attendance', attendance);
-    this.set('attendance_logs', attendanceLogs);
-    this.set('overtime_tokens', overtimeTokens);
-    this.set('leave_requests', leaveRequests);
-    this.set('leave_balances', leaveBalances);
-    this.set('leave_types', leaveTypes);
-    this.set('holidays', holidays);
-    this.set('salary', salaryRecords);
-    this.set('allowances', allowances);
-    this.set('deductions', deductions);
-    this.set('performance_reviews', performanceReviews);
-    this.set('kpis', kpis);
-    this.set('recruitment', recruitmentJobs);
-    this.set('applications', applications);
-    this.set('events', events);
-    this.set('announcements', announcements);
-    this.set('audit_logs', auditLogs);
-    this.set('roles', roles);
-    this.set('permissions', permissions);
-    this.set('users', users);
-    this.set('assets', assets);
-    this.set('trainings', trainings);
-    this.set('promotions', promotions);
-    this.set('transfers', transfers);
-    this.set('skills', skills);
-    this.set('banks', banks);
-    this.set('salary_grades', salaryGrades);
-    this.set('job_titles', jobTitles);
-    this.set('projects', projects);
-    this.set('teams', teams);
-    this.set('loans', loans);
-    this.set('documents', documents);
-    this.set('notes', notes);
-    this.set('dependents', dependentsList);
-    this.set('exit_records', exitRecords);
-    this.set('goals', goals);
-    this.set('offer_letters', offerLetters);
-    this.set('attendance_corrections', attendanceCorrections);
+  seed(options = { skipServerPush: true }) {
+    this.set('departments', departments, options);
+    this.set('designations', designations, options);
+    this.set('branches', branches, options);
+    this.set('shifts', shifts, options);
+    this.set('locations', locations, options);
+    this.set('employees', employees, options);
+    this.set('attendance', attendance, options);
+    this.set('attendance_logs', attendanceLogs, options);
+    this.set('overtime_tokens', overtimeTokens, options);
+    this.set('leave_requests', leaveRequests, options);
+    this.set('leave_balances', leaveBalances, options);
+    this.set('leave_types', leaveTypes, options);
+    this.set('holidays', holidays, options);
+    this.set('salary', salaryRecords, options);
+    this.set('allowances', allowances, options);
+    this.set('deductions', deductions, options);
+    this.set('performance_reviews', performanceReviews, options);
+    this.set('kpis', kpis, options);
+    this.set('recruitment', recruitmentJobs, options);
+    this.set('applications', applications, options);
+    this.set('events', events, options);
+    this.set('announcements', announcements, options);
+    this.set('audit_logs', auditLogs, options);
+    this.set('roles', roles, options);
+    this.set('permissions', permissions, options);
+    this.set('users', users, options);
+    this.set('assets', assets, options);
+    this.set('trainings', trainings, options);
+    this.set('promotions', promotions, options);
+    this.set('transfers', transfers, options);
+    this.set('skills', skills, options);
+    this.set('banks', banks, options);
+    this.set('salary_grades', salaryGrades, options);
+    this.set('job_titles', jobTitles, options);
+    this.set('projects', projects, options);
+    this.set('teams', teams, options);
+    this.set('loans', loans, options);
+    this.set('documents', documents, options);
+    this.set('notes', notes, options);
+    this.set('dependents', dependentsList, options);
+    this.set('exit_records', exitRecords, options);
+    this.set('goals', goals, options);
+    this.set('offer_letters', offerLetters, options);
+    this.set('attendance_corrections', attendanceCorrections, options);
   },
 
   get(key) {
@@ -4683,6 +4681,10 @@ const DB = {
       localStorage.setItem(`hrm_${key}`, JSON.stringify(val));
     } catch (e) {
       console.error('Storage error:', e);
+    }
+    // Never push seed/integrity data during initialization unless explicitly forced
+    if (this.isInitializing && !options?.forceServerPush) {
+      return;
     }
     if (!options?.skipServerPush) {
       this.scheduleServerPush(key, val);
@@ -4697,7 +4699,19 @@ const DB = {
     if (this.syncDebounceTimer) clearTimeout(this.syncDebounceTimer);
     this.syncDebounceTimer = setTimeout(() => {
       this.flushServerPush();
-    }, 120);
+    }, 25);
+  },
+
+  async syncPush(table, data) {
+    if (typeof API === 'undefined' || !API.syncSetTable) return null;
+    try {
+      const res = await API.syncSetTable(table, data, this.clientId);
+      if (res && res.version) this.serverVersion = res.version;
+      return res;
+    } catch (err) {
+      console.warn(`[DB] Direct push for table "${table}" failed:`, err.message);
+      return null;
+    }
   },
 
   async flushServerPush() {
@@ -4800,8 +4814,15 @@ const DB = {
       if (res && res.tables && res.tables[table]) {
         localStorage.setItem(`hrm_${table}`, JSON.stringify(res.tables[table]));
         this.serverVersion = newVersion || res.version;
-        if (['users', 'employees'].includes(table)) {
+        if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
           Auth?.refreshSession?.();
+        }
+        if (table === 'settings') {
+          if (typeof I18n !== 'undefined' && I18n.init) {
+            I18n.init();
+          }
+          const savedTheme = (this.getObj('settings')?.theme) || 'light';
+          document.documentElement.setAttribute('data-theme', savedTheme);
         }
         App?.onDataSync?.([table]);
       }
@@ -4817,8 +4838,15 @@ const DB = {
           localStorage.setItem(`hrm_${tbl}`, JSON.stringify(data));
         }
         this.serverVersion = newVersion || res.version;
-        if (tables.some(t => ['users', 'employees'].includes(t))) {
+        if (tables.some(t => ['users', 'employees', 'roles', 'permissions'].includes(t))) {
           Auth?.refreshSession?.();
+        }
+        if (tables.includes('settings')) {
+          if (typeof I18n !== 'undefined' && I18n.init) {
+            I18n.init();
+          }
+          const savedTheme = (this.getObj('settings')?.theme) || 'light';
+          document.documentElement.setAttribute('data-theme', savedTheme);
         }
         App?.onDataSync?.(tables);
       }
