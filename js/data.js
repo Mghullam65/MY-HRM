@@ -9,6 +9,23 @@ const DB = {
   syncDebounceTimer: null,
   realtimeInitialized: false,
 
+  // Supabase Cloud PostgreSQL Configuration
+  supabaseUrl: 'https://fualeqgyjvflgkjgpohb.supabase.co',
+  supabaseKey: 'sb_publishable_Yx_qmwQzE6x2NLmy9dJ44w_RotLBdbA',
+  supabase: null,
+  isSupabaseConnected: false,
+
+  initSupabase() {
+    try {
+      if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
+        this.supabase = window.supabase.createClient(this.supabaseUrl, this.supabaseKey);
+        console.log('[Supabase] Initialized client for:', this.supabaseUrl);
+      }
+    } catch (e) {
+      console.warn('[Supabase] Client init notice:', e.message);
+    }
+  },
+
   // ─── Seed all data into localStorage & Connect Central Database ───
   async init() {
     if (!this.clientId) {
@@ -18,32 +35,65 @@ const DB = {
       this.pendingSyncQueue = new Map();
     }
 
+    // Initialize Supabase Client
+    this.initSupabase();
+
     // Flag to prevent any initialization routines from pushing to server
     this.isInitializing = true;
 
-    // 1. Authoritative Server Sync: Pull central database state FIRST
-    let serverHydrated = false;
-    try {
-      if (typeof API !== 'undefined' && API.syncGetAll) {
-        const res = await API.syncGetAll();
-        if (res && res.success && res.tables && Object.keys(res.tables).length > 0) {
-          for (const [table, data] of Object.entries(res.tables)) {
-            localStorage.setItem(`hrm_${table}`, JSON.stringify(data));
-          }
-          this.serverVersion = res.version || 1;
+    // 1. Authoritative Supabase Cloud Sync (PostgreSQL)
+    let cloudHydrated = false;
+    if (this.supabase) {
+      try {
+        const { data, error } = await this.supabase.from('hrm_store').select('*');
+        if (!error && data && data.length > 0) {
+          data.forEach(row => {
+            if (row.id && row.data) {
+              localStorage.setItem(`hrm_${row.id}`, JSON.stringify(row.data));
+            }
+          });
+          this.isSupabaseConnected = true;
+          cloudHydrated = true;
           localStorage.setItem('hrm_initialized', '1');
-          serverHydrated = true;
-          console.log(`[DB] Central server connected: hydrated ${Object.keys(res.tables).length} tables (v${this.serverVersion})`);
+          console.log(`[Supabase] ✅ Connected & Hydrated ${data.length} tables from Supabase Cloud PostgreSQL!`);
+          this.initSupabaseRealtime();
+        } else if (!error && data && data.length === 0) {
+          this.isSupabaseConnected = true;
+          console.log('[Supabase] Database table exists and is ready for master data.');
+          this.initSupabaseRealtime();
+        } else if (error) {
+          console.info('[Supabase] Notice:', error.message);
         }
+      } catch (err) {
+        console.warn('[Supabase] Connection attempt notice:', err.message);
       }
-    } catch (err) {
-      console.warn('[DB] Central server offline or unreachable during startup:', err.message);
     }
 
-    // 2. Offline / Fresh Server Fallback
-    if (!serverHydrated) {
+    // 2. Authoritative REST / Local Server Sync (Fallback if Supabase table not created yet)
+    let serverHydrated = cloudHydrated;
+    if (!cloudHydrated) {
+      try {
+        if (typeof API !== 'undefined' && API.syncGetAll) {
+          const res = await API.syncGetAll();
+          if (res && res.success && res.tables && Object.keys(res.tables).length > 0) {
+            for (const [table, data] of Object.entries(res.tables)) {
+              localStorage.setItem(`hrm_${table}`, JSON.stringify(data));
+            }
+            this.serverVersion = res.version || 1;
+            localStorage.setItem('hrm_initialized', '1');
+            serverHydrated = true;
+            console.log(`[DB] Central server connected: hydrated ${Object.keys(res.tables).length} tables (v${this.serverVersion})`);
+          }
+        }
+      } catch (err) {
+        console.warn('[DB] Central server offline or unreachable during startup:', err.message);
+      }
+    }
+
+    // 3. Offline / Fresh Fallback
+    if (!serverHydrated && !cloudHydrated) {
       if (!localStorage.getItem('hrm_initialized')) {
-        console.log('[DB] No central server data & no local storage found, running offline seed...');
+        console.log('[DB] No cloud/server data found, running initial seed...');
         this.seed({ skipServerPush: true });
         localStorage.setItem('hrm_initialized', '1');
       }
@@ -54,8 +104,79 @@ const DB = {
 
     this.isInitializing = false;
 
-    // 3. Connect Real-time SSE stream & version polling
+    // 4. Connect Real-time SSE stream & version polling
     this.initRealtimeSync();
+
+    // If Supabase table was empty, seed all master tables into Supabase cloud
+    if (this.isSupabaseConnected && this.supabase) {
+      this.syncAllToSupabase();
+    }
+  },
+
+  initSupabaseRealtime() {
+    if (!this.supabase || this.supabaseRealtimeSubscribed) return;
+    this.supabaseRealtimeSubscribed = true;
+
+    try {
+      this.supabase
+        .channel('hrm-realtime-cloud')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'hrm_store' }, (payload) => {
+          const table = payload.new?.id;
+          const data = payload.new?.data;
+          const sender = payload.new?.senderClientId;
+          if (sender === this.clientId) return; // Ignore our own push
+
+          if (table && data) {
+            console.log(`[Supabase Realtime] ⚡ Received live update for "${table}" from remote device`);
+            localStorage.setItem(`hrm_${table}`, JSON.stringify(data));
+            if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
+              Auth?.refreshSession?.();
+            }
+            if (table === 'settings') {
+              I18n?.init?.();
+              const savedTheme = (this.getObj('settings')?.theme) || 'light';
+              document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+            App?.onDataSync?.([table]);
+          }
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log('[Supabase Realtime] 🟢 Live multi-device cloud synchronization active worldwide via WebSockets');
+          }
+        });
+    } catch (e) {
+      console.warn('[Supabase Realtime] Subscription notice:', e.message);
+    }
+  },
+
+  async syncAllToSupabase() {
+    if (!this.supabase || !this.isSupabaseConnected) return;
+    try {
+      const { data, error } = await this.supabase.from('hrm_store').select('id');
+      if (!error && (!data || data.length < 10)) {
+        console.log('[Supabase] Populating Supabase cloud database with master tables...');
+        const tables = [
+          'departments', 'designations', 'branches', 'shifts', 'locations',
+          'employees', 'attendance', 'leave_requests', 'leave_balances', 'leave_types',
+          'salary', 'allowances', 'deductions', 'performance_reviews', 'kpis',
+          'recruitment', 'applications', 'events', 'announcements', 'audit_logs',
+          'roles', 'permissions', 'users', 'assets', 'trainings', 'projects', 'loans',
+          'documents', 'offer_letters', 'attendance_corrections', 'settings'
+        ];
+        const rows = tables.map(t => ({
+          id: t,
+          data: this.get(t) || [],
+          senderClientId: this.clientId,
+          version: 1,
+          updated_at: new Date().toISOString()
+        }));
+        await this.supabase.from('hrm_store').upsert(rows);
+        console.log(`[Supabase] ✅ Master cloud seed complete (${rows.length} tables stored in PostgreSQL)!`);
+      }
+    } catch (e) {
+      console.warn('[Supabase] Cloud seed notice:', e.message);
+    }
   },
 
   runIntegrityChecks() {
@@ -4703,6 +4824,18 @@ const DB = {
   },
 
   async syncPush(table, data) {
+    if (this.supabase && this.isSupabaseConnected) {
+      try {
+        this.supabase.from('hrm_store').upsert({
+          id: table,
+          data: data,
+          senderClientId: this.clientId,
+          version: Date.now(),
+          updated_at: new Date().toISOString()
+        }).catch(e => console.warn('[Supabase] syncPush notice:', e.message));
+      } catch (e) {}
+    }
+
     if (typeof API === 'undefined' || !API.syncSetTable) return null;
     try {
       const res = await API.syncSetTable(table, data, this.clientId);
@@ -4722,6 +4855,21 @@ const DB = {
     }
     this.pendingSyncQueue.clear();
 
+    // 1. Push to Supabase Cloud PostgreSQL
+    if (this.supabase && this.isSupabaseConnected) {
+      try {
+        const rows = Object.entries(batch).map(([tbl, val]) => ({
+          id: tbl,
+          data: val,
+          senderClientId: this.clientId,
+          version: Date.now(),
+          updated_at: new Date().toISOString()
+        }));
+        this.supabase.from('hrm_store').upsert(rows).catch(e => console.warn('[Supabase] Flush notice:', e.message));
+      } catch (e) {}
+    }
+
+    // 2. Push to local / REST backend server
     try {
       const keys = Object.keys(batch);
       if (keys.length === 1) {
