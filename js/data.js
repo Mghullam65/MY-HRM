@@ -123,22 +123,24 @@ const DB = {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'hrm_store' }, (payload) => {
           const table = payload.new?.id;
           const data = payload.new?.data;
-          const sender = payload.new?.senderClientId;
-          if (sender === this.clientId) return; // Ignore our own push
+          if (!table || !data) return;
 
-          if (table && data) {
-            console.log(`[Supabase Realtime] ⚡ Received live update for "${table}" from remote device`);
-            localStorage.setItem(`hrm_${table}`, JSON.stringify(data));
-            if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
-              Auth?.refreshSession?.();
-            }
-            if (table === 'settings') {
-              I18n?.init?.();
-              const savedTheme = (this.getObj('settings')?.theme) || 'light';
-              document.documentElement.setAttribute('data-theme', savedTheme);
-            }
-            App?.onDataSync?.([table]);
+          // Check if local data is already identical to prevent unnecessary loops
+          const currentJson = localStorage.getItem(`hrm_${table}`);
+          const newJson = JSON.stringify(data);
+          if (currentJson === newJson) return;
+
+          console.log(`[Supabase Realtime] ⚡ Received live update for "${table}" from remote device`);
+          localStorage.setItem(`hrm_${table}`, newJson);
+          if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
+            Auth?.refreshSession?.();
           }
+          if (table === 'settings') {
+            I18n?.init?.();
+            const savedTheme = (this.getObj('settings')?.theme) || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+          }
+          App?.onDataSync?.([table]);
         })
         .subscribe((status) => {
           if (status === 'SUBSCRIBED') {
@@ -167,7 +169,6 @@ const DB = {
         const rows = tables.map(t => ({
           id: t,
           data: this.get(t) || [],
-          senderClientId: this.clientId,
           version: 1,
           updated_at: new Date().toISOString()
         }));
@@ -4829,7 +4830,6 @@ const DB = {
         this.supabase.from('hrm_store').upsert({
           id: table,
           data: data,
-          senderClientId: this.clientId,
           version: Date.now(),
           updated_at: new Date().toISOString()
         }).catch(e => console.warn('[Supabase] syncPush notice:', e.message));
@@ -4861,7 +4861,6 @@ const DB = {
         const rows = Object.entries(batch).map(([tbl, val]) => ({
           id: tbl,
           data: val,
-          senderClientId: this.clientId,
           version: Date.now(),
           updated_at: new Date().toISOString()
         }));
