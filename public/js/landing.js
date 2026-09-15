@@ -844,7 +844,7 @@ const Landing = {
         <header class="landing-header">
           <div class="landing-nav-container">
             <a href="#" class="landing-brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
-              <div class="landing-brand-icon" style="background:#2563eb;color:#ffffff;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px">
+              <div class="landing-brand-icon" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #06b6d4 100%);color:#ffffff;border-radius:12px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 6px 18px rgba(79, 70, 229, 0.35)">
                 <i class="fa fa-users"></i>
               </div>
               <div>
@@ -1775,7 +1775,7 @@ const Landing = {
             <!-- Brand Column -->
             <div class="landing-footer-brand-col">
               <div class="landing-brand" style="margin-bottom:12px">
-                <div class="landing-brand-icon" style="background:#2563eb;color:#ffffff;border-radius:10px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:18px">
+                <div class="landing-brand-icon" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #06b6d4 100%);color:#ffffff;border-radius:12px;width:40px;height:40px;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 6px 18px rgba(79, 70, 229, 0.35)">
                   <i class="fa fa-users"></i>
                 </div>
                 <div>
