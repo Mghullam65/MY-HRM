@@ -30,3 +30,4 @@ server/.env.local
 scratch/
 *.tmp
 serve.js
+Design Copy/
