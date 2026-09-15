@@ -17,9 +17,11 @@ const DB = {
 
   initSupabase() {
     try {
-      if (typeof window !== 'undefined' && window.supabase && window.supabase.createClient) {
-        this.supabase = window.supabase.createClient(this.supabaseUrl, this.supabaseKey);
-        console.log('[Supabase] Initialized client for:', this.supabaseUrl);
+      const factory = (typeof window !== 'undefined' && (window.supabase?.createClient || (typeof supabase !== 'undefined' && supabase?.createClient) || window.createClient));
+      if (factory && !this.supabase) {
+        this.supabase = factory(this.supabaseUrl, this.supabaseKey);
+        this.isSupabaseConnected = true;
+        console.log('[Supabase Cloud] ✅ Initialized client for:', this.supabaseUrl);
       }
     } catch (e) {
       console.warn('[Supabase] Client init notice:', e.message);
@@ -43,30 +45,50 @@ const DB = {
 
     // 1. Authoritative Supabase Cloud Sync (PostgreSQL)
     let cloudHydrated = false;
+    let cloudRows = null;
+
     if (this.supabase) {
       try {
         const { data, error } = await this.supabase.from('hrm_store').select('*');
-        if (!error && data && data.length > 0) {
-          data.forEach(row => {
-            if (row.id && row.data) {
-              localStorage.setItem(`hrm_${row.id}`, JSON.stringify(row.data));
-            }
-          });
-          this.isSupabaseConnected = true;
-          cloudHydrated = true;
-          localStorage.setItem('hrm_initialized', '1');
-          console.log(`[Supabase] ✅ Connected & Hydrated ${data.length} tables from Supabase Cloud PostgreSQL!`);
-          this.initSupabaseRealtime();
-        } else if (!error && data && data.length === 0) {
-          this.isSupabaseConnected = true;
-          console.log('[Supabase] Database table exists and is ready for master data.');
-          this.initSupabaseRealtime();
-        } else if (error) {
-          console.info('[Supabase] Notice:', error.message);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          cloudRows = data;
         }
       } catch (err) {
-        console.warn('[Supabase] Connection attempt notice:', err.message);
+        console.warn('[Supabase] SDK query notice:', err.message);
       }
+    }
+
+    // Direct HTTPS PostgREST query fallback if SDK did not return rows
+    if (!cloudRows && typeof fetch !== 'undefined') {
+      try {
+        const res = await fetch(`${this.supabaseUrl}/rest/v1/hrm_store?select=*`, {
+          headers: {
+            'apikey': this.supabaseKey,
+            'Authorization': `Bearer ${this.supabaseKey}`
+          }
+        });
+        if (res.ok) {
+          const fetched = await res.json();
+          if (Array.isArray(fetched) && fetched.length > 0) {
+            cloudRows = fetched;
+          }
+        }
+      } catch (err) {
+        console.warn('[Supabase REST] Query notice:', err.message);
+      }
+    }
+
+    if (cloudRows && cloudRows.length > 0) {
+      cloudRows.forEach(row => {
+        if (row.id && row.data) {
+          localStorage.setItem(`hrm_${row.id}`, JSON.stringify(row.data));
+        }
+      });
+      this.isSupabaseConnected = true;
+      cloudHydrated = true;
+      localStorage.setItem('hrm_initialized', '1');
+      console.log(`[Supabase Cloud] ⚡ Hydrated ${cloudRows.length} tables from persistent cloud database!`);
+      this.initSupabaseRealtime();
     }
 
     // 2. Authoritative REST / Local Server Sync (Fallback if Supabase table not created yet)
@@ -4825,15 +4847,30 @@ const DB = {
   },
 
   async syncPush(table, data) {
-    if (this.supabase && this.isSupabaseConnected) {
+    const row = {
+      id: table,
+      data: data,
+      version: Date.now(),
+      updated_at: new Date().toISOString()
+    };
+
+    if (this.supabase) {
       try {
-        this.supabase.from('hrm_store').upsert({
-          id: table,
-          data: data,
-          version: Date.now(),
-          updated_at: new Date().toISOString()
-        }).catch(e => console.warn('[Supabase] syncPush notice:', e.message));
+        this.supabase.from('hrm_store').upsert(row).catch(e => console.warn('[Supabase] syncPush notice:', e.message));
       } catch (e) {}
+    }
+
+    if (typeof fetch !== 'undefined') {
+      fetch(`${this.supabaseUrl}/rest/v1/hrm_store`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(row)
+      }).catch(e => console.warn('[Supabase REST] syncPush notice:', e.message));
     }
 
     if (typeof API === 'undefined' || !API.syncSetTable) return null;
@@ -4855,17 +4892,32 @@ const DB = {
     }
     this.pendingSyncQueue.clear();
 
-    // 1. Push to Supabase Cloud PostgreSQL
-    if (this.supabase && this.isSupabaseConnected) {
+    const rows = Object.entries(batch).map(([tbl, val]) => ({
+      id: tbl,
+      data: val,
+      version: Date.now(),
+      updated_at: new Date().toISOString()
+    }));
+
+    // 1. Push to Supabase Cloud PostgreSQL via SDK
+    if (this.supabase) {
       try {
-        const rows = Object.entries(batch).map(([tbl, val]) => ({
-          id: tbl,
-          data: val,
-          version: Date.now(),
-          updated_at: new Date().toISOString()
-        }));
         this.supabase.from('hrm_store').upsert(rows).catch(e => console.warn('[Supabase] Flush notice:', e.message));
       } catch (e) {}
+    }
+
+    // Direct HTTPS PostgREST batch upsert for universal reliability across all networks/browsers
+    if (typeof fetch !== 'undefined') {
+      fetch(`${this.supabaseUrl}/rest/v1/hrm_store`, {
+        method: 'POST',
+        headers: {
+          'apikey': this.supabaseKey,
+          'Authorization': `Bearer ${this.supabaseKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify(rows)
+      }).catch(e => console.warn('[Supabase REST] Flush notice:', e.message));
     }
 
     // 2. Push to local / REST backend server

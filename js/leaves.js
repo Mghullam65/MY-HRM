@@ -2182,6 +2182,7 @@ const Leaves = {
   cancelLeave(leaveId) {
     Modal.confirm('Cancel Leave', 'Are you sure you want to cancel this leave request?', () => {
       DB.delete('leave_requests', leaveId);
+      DB.flushServerPush();
       Toast.show('Leave request cancelled.', 'info');
       this.renderView();
     });

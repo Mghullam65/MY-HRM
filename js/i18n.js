@@ -462,222 +462,49 @@ const I18n = {
 
   // ─── Initialization ───
   init() {
-    let companyLang = null;
-    let companyCurr = null;
-    try {
-      if (typeof DB !== 'undefined' && DB.getObj) {
-        const s = DB.getObj('settings');
-        if (s) {
-          if (s.companyLanguage) companyLang = s.companyLanguage;
-          if (s.companyCurrency) companyCurr = s.companyCurrency;
-        }
-      }
-    } catch (e) {}
-
-    this.activeLang = companyLang || localStorage.getItem('hrm_language') || 'en';
-    this.activeCurrency = companyCurr || localStorage.getItem('hrm_currency') || 'PKR';
+    this.activeLang = 'en';
+    this.activeCurrency = 'PKR';
     this.applyHtmlAttributes();
   },
 
   applyHtmlAttributes() {
-    const langObj = this.languages[this.activeLang] || this.languages.en;
-    document.documentElement.setAttribute('lang', this.activeLang);
-    document.documentElement.setAttribute('dir', langObj.dir || 'ltr');
-    document.documentElement.setAttribute('data-currency', this.activeCurrency);
+    document.documentElement.setAttribute('lang', 'en');
+    document.documentElement.setAttribute('dir', 'ltr');
+    document.documentElement.setAttribute('data-currency', 'PKR');
   },
 
   t(key, fallback) {
-    const dict = this.translations[this.activeLang] || this.translations.en;
-    if (dict && dict[key]) return dict[key];
     const enDict = this.translations.en;
     if (enDict && enDict[key]) return enDict[key];
     return fallback || key;
   },
 
-  setLanguage(langCode, shouldRefresh = true) {
-    if (!this.languages[langCode]) return;
-    this.activeLang = langCode;
-    localStorage.setItem('hrm_language', langCode);
-
-    // Also ensure saved in settings table
-    try {
-      if (typeof DB !== 'undefined' && DB.getObj && DB.set) {
-        const s = DB.getObj('settings') || {};
-        s.companyLanguage = langCode;
-        DB.set('settings', s);
-      }
-    } catch (e) {}
-
-    this.applyHtmlAttributes();
-
-    // Close any open dropdowns
-    document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
-
-    // Re-render active view if requested
-    if (shouldRefresh) {
-      this.refreshActiveViews();
-    }
-    if (typeof Toast !== 'undefined' && Toast.show) {
-      Toast.show(`Language changed to ${this.languages[langCode].name} (${this.languages[langCode].native})`, 'info');
-    }
+  setLanguage(langCode) {
+    // Single consistent default language (English)
+    return;
   },
 
-  setCurrency(currCode, shouldRefresh = true) {
-    if (!this.currencies[currCode]) return;
-    this.activeCurrency = currCode;
-    localStorage.setItem('hrm_currency', currCode);
-
-    // Also ensure saved in settings table
-    try {
-      if (typeof DB !== 'undefined' && DB.getObj && DB.set) {
-        const s = DB.getObj('settings') || {};
-        s.companyCurrency = currCode;
-        s.currency = currCode;
-        DB.set('settings', s);
-      }
-    } catch (e) {}
-
-    this.applyHtmlAttributes();
-
-    // Close any open dropdowns
-    document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
-
-    // Re-render active view if requested
-    if (shouldRefresh) {
-      this.refreshActiveViews();
-    }
-    if (typeof Toast !== 'undefined' && Toast.show) {
-      Toast.show(`Currency set to ${this.currencies[currCode].name} (${this.currencies[currCode].symbol})`, 'success');
-    }
+  setCurrency(currCode) {
+    // Single consistent default currency (PKR)
+    return;
   },
 
   formatCurrency(amount) {
     if (amount === undefined || amount === null || isNaN(amount)) return '—';
     const num = Number(amount);
-    const curr = this.currencies[this.activeCurrency] || this.currencies.PKR;
-
-    // Convert from base PKR
-    const converted = num * (curr.rate || 1.0);
-
-    // Format with locale
-    if (curr.code === 'PKR') {
-      return `PKR ${Math.round(converted).toLocaleString('en-PK')}`;
-    }
-    if (curr.code === 'USD') {
-      return `$${Math.round(converted).toLocaleString('en-US')}`;
-    }
-    if (curr.code === 'EUR') {
-      return `€${Math.round(converted).toLocaleString('de-DE')}`;
-    }
-    if (curr.code === 'GBP') {
-      return `£${Math.round(converted).toLocaleString('en-GB')}`;
-    }
-    if (curr.code === 'AED') {
-      return `AED ${Math.round(converted).toLocaleString('en-US')}`;
-    }
-    if (curr.code === 'SAR') {
-      return `SAR ${Math.round(converted).toLocaleString('en-US')}`;
-    }
-    if (curr.code === 'CAD') {
-      return `CA$${Math.round(converted).toLocaleString('en-CA')}`;
-    }
-    if (curr.code === 'INR') {
-      return `₹${Math.round(converted).toLocaleString('en-IN')}`;
-    }
-
-    return `${curr.symbol} ${Math.round(converted).toLocaleString()}`;
+    return `PKR ${Math.round(num).toLocaleString('en-PK')}`;
   },
 
-  refreshActiveViews() {
-    // If on landing page
-    const landing = document.getElementById('landing-page');
-    if (landing && landing.style.display !== 'none' && typeof Landing !== 'undefined') {
-      Landing.render();
-      return;
-    }
-
-    // If on login page
-    const login = document.getElementById('login-page');
-    if (login && login.style.display !== 'none' && typeof Login !== 'undefined') {
-      Login.render();
-      return;
-    }
-
-    // If on app shell
-    const app = document.getElementById('app');
-    if (app && app.style.display !== 'none' && typeof App !== 'undefined') {
-      App.renderTopbar();
-      App.renderSidebar();
-      if (App.currentModule && App.currentModule !== 'settings') {
-        App.navigate(App.currentModule, null, false);
-      }
-    }
+  renderLanguageSelector() {
+    return '';
   },
 
-  // ─── Component Renderers for UI Dropdowns ───
-  renderLanguageSelector(containerId) {
-    const cur = this.languages[this.activeLang] || this.languages.en;
-    return `
-      <div class="i18n-dropdown-wrapper" onclick="event.stopPropagation()">
-        <button type="button" class="i18n-selector-btn" onclick="I18n.toggleDropdown('${containerId}-lang-menu')" title="Change Language">
-          <span class="i18n-flag">${cur.flag}</span>
-          <span class="i18n-label">${cur.code.toUpperCase()}</span>
-          <i class="fa fa-chevron-down i18n-chevron"></i>
-        </button>
-        <div class="i18n-dropdown-menu" id="${containerId}-lang-menu">
-          <div class="i18n-menu-title">${this.t('language', 'Language')}</div>
-          ${Object.values(this.languages).map(l => `
-            <div class="i18n-menu-item ${l.code === this.activeLang ? 'active' : ''}" onclick="I18n.setLanguage('${l.code}')">
-              <span class="i18n-item-flag">${l.flag}</span>
-              <span class="i18n-item-name">${l.name}</span>
-              <span class="i18n-item-native">${l.native}</span>
-              ${l.code === this.activeLang ? '<i class="fa fa-check i18n-check"></i>' : ''}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
+  renderCurrencySelector() {
+    return '';
   },
 
-  renderCurrencySelector(containerId) {
-    const cur = this.currencies[this.activeCurrency] || this.currencies.PKR;
-    return `
-      <div class="i18n-dropdown-wrapper" onclick="event.stopPropagation()">
-        <button type="button" class="i18n-selector-btn" onclick="I18n.toggleDropdown('${containerId}-curr-menu')" title="Change Currency">
-          <span class="i18n-flag">${cur.flag}</span>
-          <span class="i18n-label">${cur.code} (${cur.symbol})</span>
-          <i class="fa fa-chevron-down i18n-chevron"></i>
-        </button>
-        <div class="i18n-dropdown-menu" id="${containerId}-curr-menu">
-          <div class="i18n-menu-title">${this.t('currency', 'Currency')}</div>
-          ${Object.values(this.currencies).map(c => `
-            <div class="i18n-menu-item ${c.code === this.activeCurrency ? 'active' : ''}" onclick="I18n.setCurrency('${c.code}')">
-              <span class="i18n-item-flag">${c.flag}</span>
-              <span class="i18n-item-name">${c.code}</span>
-              <span class="i18n-item-native">${c.symbol} • ${c.name}</span>
-              ${c.code === this.activeCurrency ? '<i class="fa fa-check i18n-check"></i>' : ''}
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  },
-
-  toggleDropdown(menuId) {
-    const el = document.getElementById(menuId);
-    if (!el) return;
-    const wasOpen = el.classList.contains('open');
-    document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
-    if (!wasOpen) {
-      el.classList.add('open');
-    }
-  }
+  toggleDropdown() {}
 };
-
-// Global click to dismiss dropdowns
-window.addEventListener('click', () => {
-  document.querySelectorAll('.i18n-dropdown-menu').forEach(m => m.classList.remove('open'));
-});
 
 // Auto-initialize on load
 I18n.init();
