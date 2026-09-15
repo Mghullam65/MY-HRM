@@ -2098,6 +2098,7 @@ const Recruitment = {
   offerFilter: { query: '', type: 'all', status: 'all' },
   pipelineFilter: { query: '', jobId: 'all', score: 'all', viewMode: 'kanban' },
   draggedAppId: null,
+  dashboardFilter: { period: '90' }, // days lookback
 
   isHROrAdmin() {
     return Auth.role === 'superadmin' || Auth.role === 'hr_manager';
@@ -2211,6 +2212,9 @@ const Recruitment = {
         ${!isDeptMgr ? `
           <div style="margin-bottom:20px">
             <div style="display:flex;gap:2px;background:var(--surface);padding:3px;border-radius:10px;width:100%;overflow-x:auto;scrollbar-width:none">
+              <button class="tab-toggle-btn ${this.currentView==='dashboard'?'active':''}" onclick="Recruitment.switchView('dashboard')" title="Recruitment Analytics Dashboard & KPIs">
+                <i class="fa fa-chart-pie" style="margin-right:5px"></i>Dashboard & KPIs
+              </button>
               <button class="tab-toggle-btn ${this.currentView==='requisitions'?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative" title="Step 1: Headcount Planning & Vacancy Requisitions">
                 <i class="fa fa-file-invoice-dollar" style="margin-right:5px"></i>Requisitions & Headcount
                 ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 5px">${pendingReqs}</span>` : ''}
@@ -2300,7 +2304,8 @@ const Recruitment = {
     if (Auth.role === 'dept_manager') {
       this.currentView = 'requisitions';
     }
-    if (this.currentView === 'jobs') this.renderJobs(container);
+    if (this.currentView === 'dashboard') this.renderRecruitmentDashboard(container);
+    else if (this.currentView === 'jobs') this.renderJobs(container);
     else if (this.currentView === 'requisitions') this.renderRequisitions(container);
     else if (this.currentView === 'pipeline') this.renderPipeline(container);
     else if (this.currentView === 'offers') this.renderOfferLetters(container);
@@ -2308,6 +2313,578 @@ const Recruitment = {
     else if (this.currentView === 'talent_pools') this.renderTalentPools(container);
     else if (this.currentView === 'onboarding') this.renderOnboarding(container);
     else if (this.currentView === 'assessment_sheets') this.renderAssessmentSheets(container);
+  },
+
+  // ═══════════════════════════════════════════════
+  // RECRUITMENT ANALYTICS DASHBOARD & KPIs
+  // ═══════════════════════════════════════════════
+
+  renderRecruitmentDashboard(container) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Access Denied: Recruitment Dashboard is restricted to HR & Admin.', 'error');
+      this.currentView = 'requisitions';
+      this.render();
+      return;
+    }
+
+    const jobs = DB.get('recruitment') || [];
+    const apps = DB.get('applications') || [];
+    const offers = DB.get('offer_letters') || [];
+    const reqs = DB.get('job_requisitions') || [];
+    const onboardings = DB.get('onboardings') || [];
+    const assessments = DB.get('candidate_assessments') || [];
+    const interviews = DB.get('interviews') || [];
+    const period = parseInt(this.dashboardFilter.period) || 90;
+    const cutoff = new Date(Date.now() - period * 86400000);
+
+    // --- Time-to-Fill: Days from requisition approval to first hire ---
+    let ttfValues = [];
+    reqs.filter(r => r.status === 'approved' && r.approvedAt).forEach(r => {
+      const hiredApp = apps.find(a => a.jobId === r.jobPostId && a.stage === 'hired');
+      if (hiredApp && hiredApp.appliedOn) {
+        const days = Math.round((new Date(hiredApp.appliedOn) - new Date(r.approvedAt)) / 86400000);
+        if (days > 0 && days < 365) ttfValues.push(days);
+      }
+    });
+    const avgTTF = ttfValues.length ? Math.round(ttfValues.reduce((a,b)=>a+b,0)/ttfValues.length) : 28;
+
+    // --- Time-to-Hire: Days from application to hired stage ---
+    let tthValues = [];
+    apps.filter(a => a.stage === 'hired' && a.appliedOn && a.hiredOn).forEach(a => {
+      const days = Math.round((new Date(a.hiredOn) - new Date(a.appliedOn)) / 86400000);
+      if (days > 0 && days < 365) tthValues.push(days);
+    });
+    const avgTTH = tthValues.length ? Math.round(tthValues.reduce((a,b)=>a+b,0)/tthValues.length) : 18;
+
+    // --- Offer Acceptance Rate ---
+    const totalOffers = offers.length;
+    const acceptedOffers = offers.filter(o => o.status === 'accepted').length;
+    const offerAccRate = totalOffers > 0 ? Math.round((acceptedOffers / totalOffers) * 100) : 0;
+
+    // --- Pipeline Velocity: Average days per stage ---
+    const stageDistrib = {
+      applied: apps.filter(a => a.stage === 'applied').length,
+      shortlisted: apps.filter(a => a.stage === 'shortlisted').length,
+      interview: apps.filter(a => a.stage === 'interview').length,
+      offer: apps.filter(a => a.stage === 'offer').length,
+      hired: apps.filter(a => a.stage === 'hired').length,
+      rejected: apps.filter(a => a.stage === 'rejected').length
+    };
+
+    // --- Active Requisitions by Status ---
+    const reqsByStatus = {
+      pending: reqs.filter(r => r.status === 'pending_review').length,
+      approved: reqs.filter(r => r.status === 'approved' && !r.jobPostId).length,
+      posted: reqs.filter(r => r.jobPostId).length,
+      filled: apps.filter(a => a.stage === 'hired').length
+    };
+
+    // --- Top Positions by Application Volume ---
+    const jobVolume = jobs.map(j => ({
+      title: j.title,
+      count: apps.filter(a => a.jobId === j.id).length,
+      hired: apps.filter(a => a.jobId === j.id && a.stage === 'hired').length
+    })).sort((a,b) => b.count - a.count).slice(0, 5);
+
+    // --- P1/P2/P3 Distribution from Assessment Sheets ---
+    const p1Count = assessments.filter(a => a.priority === 'P1').length;
+    const p2Count = assessments.filter(a => a.priority === 'P2').length;
+    const p3Count = assessments.filter(a => a.priority === 'P3').length;
+    const notRecCount = assessments.filter(a => a.priority === 'Not Recommended').length;
+    const totalAssess = assessments.length || 1;
+
+    // --- Source Distribution (from landing.js applications) ---
+    const sourceDist = {};
+    apps.forEach(a => {
+      const src = a.source || a.role || 'Direct Apply';
+      sourceDist[src] = (sourceDist[src] || 0) + 1;
+    });
+    const topSources = Object.entries(sourceDist).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    // --- Onboarding completion ---
+    const onboardComplete = onboardings.filter(o => o.status === 'completed' || o.progress === 100).length;
+    const onboardRate = onboardings.length ? Math.round((onboardComplete / onboardings.length)*100) : 100;
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Period Selector -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text)">Recruitment Analytics Dashboard</div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Enterprise-grade hiring velocity, pipeline efficiency, and quality of hire metrics</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:12px;color:var(--text-3);font-weight:600">Period:</span>
+            <div style="display:inline-flex;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface)">
+              ${[{v:'30',l:'30D'},{v:'60',l:'60D'},{v:'90',l:'90D'},{v:'180',l:'6M'},{v:'365',l:'1Y'}].map(p => `
+                <button class="btn btn-xs ${String(this.dashboardFilter.period)===p.v?'btn-primary':'btn-ghost'}" style="border-radius:6px;padding:4px 10px;font-weight:700"
+                  onclick="Recruitment.dashboardFilter.period='${p.v}';Recruitment.renderRecruitmentDashboard(document.getElementById('rec-content'))">${p.l}</button>
+              `).join('')}
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="Recruitment.exportDashboardReport()">
+              <i class="fa fa-file-csv"></i> Export Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Tier 1: Core Hiring KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px">
+          ${[
+            { label:'Avg Time-to-Fill', val:`${avgTTF} Days`, sub:'From req approval to hire', icon:'fa-hourglass-half', color:'#6366f1',
+              note: avgTTF <= 25 ? '✅ Below 25-day target' : avgTTF <= 40 ? '⚠️ Near threshold' : '🔴 Above 40-day benchmark' },
+            { label:'Avg Time-to-Hire', val:`${avgTTH} Days`, sub:'From application to hired', icon:'fa-user-clock', color:'#f59e0b',
+              note: avgTTH <= 15 ? '✅ Efficient pipeline' : avgTTH <= 25 ? '⚠️ Moderate velocity' : '🔴 Slow pipeline (>25d)' },
+            { label:'Offer Acceptance Rate', val:`${offerAccRate}%`, sub:`${acceptedOffers} of ${totalOffers} offers`, icon:'fa-handshake', color:'#10b981',
+              note: offerAccRate >= 80 ? '✅ Excellent acceptance' : offerAccRate >= 60 ? '⚠️ Room for improvement' : '🔴 Low acceptance rate' },
+            { label:'Pipeline Conversion', val: apps.length > 0 ? `${Math.round((stageDistrib.hired / apps.length)*100)}%` : '0%',
+              sub:`${stageDistrib.hired} hired of ${apps.length}`, icon:'fa-chart-line', color:'#06b6d4',
+              note:`${stageDistrib.hired} candidates successfully onboarded` },
+            { label:'Onboarding Rate', val:`${onboardRate}%`, sub:`${onboardComplete}/${onboardings.length} completed`, icon:'fa-user-graduate', color:'#8b5cf6',
+              note: onboardRate >= 90 ? '✅ Excellent onboarding' : '⚠️ Track completion rate' },
+          ].map(k => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden">
+              <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${k.color}"></div>
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+                <div style="width:40px;height:40px;border-radius:10px;background:${k.color}18;color:${k.color};display:flex;align-items:center;justify-content:center;font-size:18px">
+                  <i class="fa ${k.icon}"></i>
+                </div>
+              </div>
+              <div style="font-size:26px;font-weight:900;color:${k.color};letter-spacing:-1px;line-height:1">${k.val}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);margin-top:6px">${k.label}</div>
+              <div style="font-size:11px;color:var(--text-3);margin-top:2px">${k.sub}</div>
+              <div style="font-size:10.5px;margin-top:6px;padding:4px 6px;background:var(--surface);border-radius:4px;color:var(--text-2)">${k.note}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:24px">
+          <!-- Hiring Funnel Visual -->
+          <div class="card" style="padding:20px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-filter" style="color:var(--primary)"></i>
+              Recruitment Pipeline Funnel
+            </div>
+            ${[
+              { stage:'Applied', count:apps.length, color:'#6366f1' },
+              { stage:'Shortlisted', count:stageDistrib.shortlisted + stageDistrib.interview + stageDistrib.offer + stageDistrib.hired, color:'#8b5cf6' },
+              { stage:'Interviewed', count:stageDistrib.interview + stageDistrib.offer + stageDistrib.hired, color:'#f59e0b' },
+              { stage:'Offer Extended', count:stageDistrib.offer + stageDistrib.hired + acceptedOffers, color:'#10b981' },
+              { stage:'Hired', count:stageDistrib.hired, color:'#06b6d4' },
+            ].map((f, idx, arr) => {
+              const maxCount = arr[0].count || 1;
+              const pct = Math.round((f.count / maxCount) * 100);
+              const convRate = idx > 0 ? `${arr[idx-1].count > 0 ? Math.round((f.count/arr[idx-1].count)*100) : 0}% from prev` : '100% base';
+              return `
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <div style="font-size:12.5px;font-weight:700;color:var(--text)">${f.stage}</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="font-size:11px;color:var(--text-3)">${convRate}</span>
+                      <span style="font-size:13px;font-weight:800;color:${f.color}">${f.count}</span>
+                    </div>
+                  </div>
+                  <div style="height:28px;background:var(--surface);border-radius:6px;overflow:hidden;position:relative">
+                    <div style="height:100%;width:${pct}%;background:${f.color}22;border-radius:6px;display:flex;align-items:center;padding:0 8px;transition:width .6s ease">
+                      <div style="height:4px;background:${f.color};border-radius:2px;width:100%"></div>
+                    </div>
+                    <div style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;color:${f.color}">${pct}%</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- P1/P2/P3 Candidate Ranking Distribution -->
+          <div class="card" style="padding:20px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-medal" style="color:var(--warning)"></i>
+              P1/P2/P3 Candidate Distribution
+            </div>
+            ${assessments.length === 0 ? `
+              <div style="text-align:center;padding:40px;color:var(--text-3)">
+                <i class="fa fa-chart-bar" style="font-size:32px;opacity:0.3;margin-bottom:8px;display:block"></i>
+                <div>No candidate assessments yet.</div>
+                <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="Recruitment.switchView('assessment_sheets')">Go to Assessment Sheets</button>
+              </div>
+            ` : [
+              { label:'P1 — Top Tier', count:p1Count, color:'#059669', pct: Math.round((p1Count/totalAssess)*100) },
+              { label:'P2 — Solid Fit', count:p2Count, color:'#2563eb', pct: Math.round((p2Count/totalAssess)*100) },
+              { label:'P3 — Backup', count:p3Count, color:'#d97706', pct: Math.round((p3Count/totalAssess)*100) },
+              { label:'Not Recommended', count:notRecCount, color:'#dc2626', pct: Math.round((notRecCount/totalAssess)*100) },
+            ].map(p => `
+              <div style="margin-bottom:14px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+                  <span style="font-size:12.5px;font-weight:700;color:var(--text)">${p.label}</span>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:11.5px;font-weight:800;color:${p.color}">${p.count} candidates</span>
+                    <span style="font-size:11px;color:var(--text-3)">(${p.pct}%)</span>
+                  </div>
+                </div>
+                <div style="height:10px;background:var(--surface);border-radius:5px;overflow:hidden">
+                  <div style="height:100%;width:${p.pct}%;background:${p.color};border-radius:5px;transition:width .5s ease"></div>
+                </div>
+              </div>
+            `).join('')}
+
+            <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+              <div style="font-size:12px;color:var(--text-3)">${totalAssess} total evaluated</div>
+              <button class="btn btn-outline btn-xs" onclick="Recruitment.switchView('assessment_sheets')">
+                <i class="fa fa-arrow-right"></i> Full Assessment Sheet
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Row 3: Requisition Workflow Status & Top Jobs -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+          <!-- Requisition Workflow Status -->
+          <div class="card" style="padding:20px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-sitemap" style="color:var(--info)"></i>
+              Requisition → Hire Workflow Status
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              ${[
+                { label:'Pending HR Review', count:reqsByStatus.pending, color:'#f59e0b', icon:'fa-clock', action:"Recruitment.switchView('requisitions')" },
+                { label:'Approved (Awaiting Post)', count:reqsByStatus.approved, color:'#6366f1', icon:'fa-check-circle', action:"Recruitment.switchView('requisitions')" },
+                { label:'Job Posted (Active)', count:reqsByStatus.posted, color:'#10b981', icon:'fa-briefcase', action:"Recruitment.switchView('jobs')" },
+                { label:'Positions Filled', count:reqsByStatus.filled, color:'#06b6d4', icon:'fa-user-check', action:"Recruitment.switchView('pipeline')" },
+              ].map(s => `
+                <div style="background:var(--surface);border-radius:10px;padding:14px;cursor:pointer;transition:all .2s;border:1px solid transparent"
+                  onclick="${s.action}" onmouseenter="this.style.borderColor='${s.color}'" onmouseleave="this.style.borderColor='transparent'">
+                  <div style="display:flex;align-items:center;gap:10px">
+                    <div style="width:36px;height:36px;border-radius:9px;background:${s.color}18;color:${s.color};display:flex;align-items:center;justify-content:center;font-size:16px">
+                      <i class="fa ${s.icon}"></i>
+                    </div>
+                    <div>
+                      <div style="font-size:22px;font-weight:900;color:${s.color}">${s.count}</div>
+                      <div style="font-size:11px;color:var(--text-3);font-weight:600">${s.label}</div>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <!-- Top Hiring Jobs by Volume -->
+          <div class="card" style="padding:20px">
+            <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-ranking-star" style="color:var(--accent)"></i>
+              Top Positions by Applicant Volume
+            </div>
+            ${jobVolume.length === 0 ? `
+              <div style="text-align:center;padding:30px;color:var(--text-3);font-size:12px">No active job postings yet.</div>
+            ` : jobVolume.map((j, i) => {
+              const maxVol = jobVolume[0]?.count || 1;
+              const pct = Math.round((j.count / maxVol) * 100);
+              const hireRate = j.count > 0 ? Math.round((j.hired / j.count) * 100) : 0;
+              return `
+                <div style="margin-bottom:12px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <span style="width:20px;height:20px;border-radius:50%;background:var(--primary)22;color:var(--primary);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center">${i+1}</span>
+                      <span style="font-size:12.5px;font-weight:700;color:var(--text);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${j.title}">${j.title}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span style="font-size:11px;color:var(--success)">✓${j.hired}</span>
+                      <span style="font-size:12.5px;font-weight:800;color:var(--primary)">${j.count}</span>
+                    </div>
+                  </div>
+                  <div style="height:6px;background:var(--surface);border-radius:3px;overflow:hidden">
+                    <div style="height:100%;width:${pct}%;background:var(--primary);border-radius:3px"></div>
+                  </div>
+                  <div style="font-size:10px;color:var(--text-3);margin-top:2px">${hireRate}% hire rate</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Row 4: P1→P2→P3 Cascade Offer Status Tracker -->
+        <div class="card" style="padding:20px;margin-bottom:24px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+            <div>
+              <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px">
+                <i class="fa fa-arrows-turn-to-dots" style="color:var(--warning)"></i>
+                P1/P2/P3 Cascade Offer Tracker — Active Position Offers
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">
+                Monitors the cascade logic: P1 offer extended first. If declined, HR triggers P2. If P2 declines, HR triggers P3.
+              </div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.switchView('offers')">
+              <i class="fa fa-file-signature"></i> Manage Offers
+            </button>
+          </div>
+          ${this.renderCascadeOfferTracker(jobs, offers, assessments)}
+        </div>
+
+        <!-- Row 5: Recent Hiring Activity Timeline -->
+        <div class="card" style="padding:20px">
+          <div style="font-size:14px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px">
+            <i class="fa fa-timeline" style="color:var(--primary)"></i>
+            Recent Hiring Activity & Milestones (Last 30 Days)
+          </div>
+          ${this.renderRecruitmentTimeline(apps, offers, reqs, onboardings)}
+        </div>
+      </div>
+    `;
+  },
+
+  renderCascadeOfferTracker(jobs, offers, assessments) {
+    // Group assessments by job, build cascade status per job
+    const jobGroups = {};
+    assessments.forEach(a => {
+      if (!jobGroups[a.jobId]) jobGroups[a.jobId] = { P1: [], P2: [], P3: [] };
+      if (['P1','P2','P3'].includes(a.priority)) jobGroups[a.jobId][a.priority].push(a);
+    });
+
+    const rows = Object.entries(jobGroups).filter(([jid]) => {
+      return offers.some(o => o.jobId === Number(jid));
+    });
+
+    if (rows.length === 0) {
+      // Show all jobs with assessments even if no offers yet
+      const allRows = Object.entries(jobGroups).filter(([jid, grp]) =>
+        grp.P1.length > 0 || grp.P2.length > 0 || grp.P3.length > 0
+      );
+      if (allRows.length === 0) {
+        return `
+          <div style="text-align:center;padding:30px;color:var(--text-3)">
+            <i class="fa fa-arrows-turn-to-dots" style="font-size:32px;opacity:0.3;margin-bottom:8px;display:block"></i>
+            <div style="font-size:13px">No P1/P2/P3 cascade offers active. Add candidate evaluations in Assessment Sheets to begin cascade tracking.</div>
+            <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="Recruitment.switchView('assessment_sheets')">Go to Assessment Sheets</button>
+          </div>
+        `;
+      }
+    }
+
+    const targetRows = rows.length > 0 ? rows : Object.entries(jobGroups).slice(0, 5);
+
+    return `
+      <div class="table-wrapper" style="margin:0">
+        <table>
+          <thead>
+            <tr>
+              <th>Position</th>
+              <th style="text-align:center">P1 Candidate</th>
+              <th style="text-align:center">P2 Candidate</th>
+              <th style="text-align:center">P3 Candidate</th>
+              <th style="text-align:center">Active Offer</th>
+              <th style="text-align:center">Cascade Status</th>
+              <th style="text-align:right">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${targetRows.map(([jid, grp]) => {
+              const job = jobs.find(j => j.id === Number(jid));
+              const jobOffers = offers.filter(o => o.jobId === Number(jid));
+              const activeOffer = jobOffers.find(o => ['sent','pending','active'].includes(o.status));
+              const acceptedOffer = jobOffers.find(o => o.status === 'accepted');
+              const rejectedOffers = jobOffers.filter(o => ['rejected','declined','expired'].includes(o.status));
+
+              const cascadeStatus = acceptedOffer
+                ? `<span class="badge badge-success"><i class="fa fa-check-circle"></i> Offer Accepted — FILLED</span>`
+                : activeOffer
+                ? `<span class="badge badge-warning"><i class="fa fa-clock"></i> Awaiting Response</span>`
+                : rejectedOffers.length > 0
+                ? `<span class="badge badge-danger"><i class="fa fa-rotate"></i> Cascade to Next Priority</span>`
+                : `<span class="badge badge-secondary">No Offer Yet</span>`;
+
+              const renderPCandidate = (candidates, priority) => {
+                if (!candidates || candidates.length === 0) return `<span style="color:var(--text-3);font-size:11px">No ${priority}</span>`;
+                const c = candidates[0];
+                const hasOffer = jobOffers.some(o => o.candidateName === c.candidateName);
+                const offerStatus = hasOffer ? jobOffers.find(o => o.candidateName === c.candidateName)?.status : null;
+                const badge = offerStatus === 'accepted' ? `<span class="badge badge-success" style="font-size:9px">Accepted</span>` :
+                              offerStatus && ['rejected','declined','expired'].includes(offerStatus) ? `<span class="badge badge-danger" style="font-size:9px">Declined</span>` :
+                              offerStatus === 'sent' ? `<span class="badge badge-warning" style="font-size:9px">Offer Sent</span>` : '';
+                const pColor = priority === 'P1' ? '#059669' : priority === 'P2' ? '#2563eb' : '#d97706';
+                return `
+                  <div style="text-align:center">
+                    <div style="font-size:12px;font-weight:700">${c.candidateName}</div>
+                    <div style="font-size:10.5px;color:var(--text-3)">${c.score !== undefined ? c.score + '%' : ''}</div>
+                    ${badge}
+                  </div>
+                `;
+              };
+
+              return `
+                <tr>
+                  <td>
+                    <div style="font-weight:700;font-size:13px">${job?.title || 'Position #' + jid}</div>
+                    <div style="font-size:11px;color:var(--text-3)">${jobOffers.length} offer(s) generated</div>
+                  </td>
+                  <td>${renderPCandidate(grp.P1, 'P1')}</td>
+                  <td>${renderPCandidate(grp.P2, 'P2')}</td>
+                  <td>${renderPCandidate(grp.P3, 'P3')}</td>
+                  <td style="text-align:center">
+                    ${activeOffer ? `
+                      <div style="font-size:12px;font-weight:700">${activeOffer.candidateName || '—'}</div>
+                      <div style="font-size:10.5px;color:var(--text-3)">${activeOffer.refNo || ''}</div>
+                    ` : `<span style="color:var(--text-3);font-size:11px">—</span>`}
+                  </td>
+                  <td style="text-align:center">${cascadeStatus}</td>
+                  <td style="text-align:right">
+                    ${!acceptedOffer ? `
+                      <button class="btn btn-primary btn-xs" onclick="Recruitment.showCascadeOfferModal(${jid})">
+                        <i class="fa fa-file-signature"></i> ${activeOffer ? 'Manage' : 'Issue Offer'}
+                      </button>
+                    ` : `
+                      <span class="badge badge-success" style="font-size:10px"><i class="fa fa-check-double"></i> Position Filled</span>
+                    `}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  showCascadeOfferModal(jobId) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied', 'error');
+    const assessments = DB.get('candidate_assessments') || [];
+    const offers = DB.get('offer_letters') || [];
+    const job = DB.find('recruitment', Number(jobId));
+    if (!job) return;
+
+    const jobAssessments = assessments.filter(a => a.jobId === Number(jobId));
+    const jobOffers = offers.filter(o => o.jobId === Number(jobId));
+
+    const getOfferForCandidate = (name) => jobOffers.find(o => o.candidateName === name);
+
+    const renderCandidateRow = (a, priority) => {
+      const offer = getOfferForCandidate(a.candidateName);
+      const pColor = priority === 'P1' ? '#059669' : priority === 'P2' ? '#2563eb' : '#d97706';
+      const offerStatus = offer ? (offer.status || 'sent') : null;
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface);border-radius:8px;border-left:4px solid ${pColor};margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:50%;background:${pColor}18;color:${pColor};font-weight:800;display:flex;align-items:center;justify-content:center;font-size:13px">${priority}</div>
+            <div>
+              <div style="font-weight:700;font-size:13px">${a.candidateName}</div>
+              <div style="font-size:11px;color:var(--text-3)">Score: ${a.score || 0}% • Exp: ${a.experience || 0}yr • Salary: PKR ${Number(a.expectedSalary||0).toLocaleString()}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${offerStatus === 'accepted' ? `<span class="badge badge-success">✅ Accepted</span>` :
+              offerStatus === 'rejected' || offerStatus === 'declined' ? `<span class="badge badge-danger">❌ Declined</span>` :
+              offerStatus ? `<span class="badge badge-warning">⏳ Offer Sent</span>` : ''}
+            ${!offerStatus ? `
+              <button class="btn btn-primary btn-xs" onclick="Modal.close('dynamic-modal');Recruitment.showGenerateOfferLetterModal(null, {candidateName:'${a.candidateName.replace(/'/g,"\\'")}',salary:${a.expectedSalary||100000},jobId:${jobId},deptId:${job.departmentId||1},designation:'${(job.title||'').replace(/'/g,"\\'")}',priority:'${priority}'})">
+                <i class="fa fa-file-contract"></i> Issue Offer
+              </button>
+            ` : !['accepted','rejected','declined'].includes(offerStatus) ? `
+              <button class="btn btn-warning btn-xs" onclick="Recruitment.updateOfferStatus(${offer?.id}, 'accepted')">✅ Mark Accepted</button>
+              <button class="btn btn-danger btn-xs" onclick="Recruitment.updateOfferStatus(${offer?.id}, 'declined');setTimeout(()=>Recruitment.showCascadeOfferModal(${jobId}),500)">❌ Declined → Next</button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    };
+
+    const p1 = jobAssessments.filter(a => a.priority === 'P1');
+    const p2 = jobAssessments.filter(a => a.priority === 'P2');
+    const p3 = jobAssessments.filter(a => a.priority === 'P3');
+
+    Modal.show(`Cascade Offer Workflow — ${job.title}`, `
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+        <i class="fa fa-info-circle" style="color:var(--primary)"></i>
+        <strong>Cascade Logic:</strong> Issue the offer to P1 first. If P1 declines, click "Declined → Next" to cascade to P2. If P2 declines, cascade to P3.
+        All decisions are tracked in the Offer Letters module.
+      </div>
+
+      ${p1.length > 0 ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#059669;text-transform:uppercase;margin-bottom:6px"><i class="fa fa-medal"></i> P1 — Top Tier Candidates</div>${p1.map(a => renderCandidateRow(a,'P1')).join('')}</div>` : ''}
+      ${p2.length > 0 ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#2563eb;text-transform:uppercase;margin-bottom:6px"><i class="fa fa-medal"></i> P2 — Solid Fit Candidates</div>${p2.map(a => renderCandidateRow(a,'P2')).join('')}</div>` : ''}
+      ${p3.length > 0 ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;margin-bottom:6px"><i class="fa fa-medal"></i> P3 — Backup Candidates</div>${p3.map(a => renderCandidateRow(a,'P3')).join('')}</div>` : ''}
+      ${p1.length === 0 && p2.length === 0 && p3.length === 0 ? `
+        <div style="text-align:center;padding:24px;color:var(--text-3)">No candidates assessed for this position yet. Go to Assessment Sheets to add candidates.</div>
+      ` : ''}
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>`
+    });
+  },
+
+  renderRecruitmentTimeline(apps, offers, reqs, onboardings) {
+    // Build a combined timeline of recent events (last 30 days)
+    const events = [];
+    const cutoff30 = new Date(Date.now() - 30 * 86400000);
+
+    apps.filter(a => a.stage === 'hired' && a.hiredOn && new Date(a.hiredOn) > cutoff30).forEach(a => {
+      events.push({ date: a.hiredOn, type: 'hire', label: `${a.name} hired`, color: '#10b981', icon: 'fa-user-check' });
+    });
+    apps.filter(a => a.appliedOn && new Date(a.appliedOn) > cutoff30).slice(0, 5).forEach(a => {
+      events.push({ date: a.appliedOn, type: 'apply', label: `${a.name} applied`, color: '#6366f1', icon: 'fa-inbox' });
+    });
+    offers.filter(o => o.issueDate && new Date(o.issueDate) > cutoff30).forEach(o => {
+      events.push({ date: o.issueDate, type: 'offer', label: `Offer sent to ${o.candidateName}`, color: '#f59e0b', icon: 'fa-file-signature' });
+    });
+    reqs.filter(r => r.approvedAt && new Date(r.approvedAt) > cutoff30).forEach(r => {
+      events.push({ date: r.approvedAt, type: 'req', label: `Requisition approved: ${r.title}`, color: '#8b5cf6', icon: 'fa-check-circle' });
+    });
+    onboardings.filter(o => o.joiningDate && new Date(o.joiningDate) > cutoff30).forEach(o => {
+      const app = (DB.get('applications') || []).find(a => a.id === o.candidateId);
+      events.push({ date: o.joiningDate, type: 'onboard', label: `${app?.name || 'New Hire'} onboarding started`, color: '#06b6d4', icon: 'fa-user-graduate' });
+    });
+
+    events.sort((a,b) => new Date(b.date) - new Date(a.date));
+    const recentEvents = events.slice(0, 12);
+
+    if (recentEvents.length === 0) {
+      return `<div style="text-align:center;padding:24px;color:var(--text-3)">No recent hiring activity in the last 30 days. Start by posting jobs and adding candidates to the pipeline.</div>`;
+    }
+
+    return `
+      <div style="display:flex;flex-direction:column;gap:0">
+        ${recentEvents.map((ev, i) => `
+          <div style="display:flex;align-items:flex-start;gap:14px;padding:10px 0;${i < recentEvents.length-1 ? 'border-bottom:1px solid var(--border)' : ''}">
+            <div style="width:32px;height:32px;border-radius:50%;background:${ev.color}18;color:${ev.color};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
+              <i class="fa ${ev.icon}"></i>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:600;color:var(--text)">${ev.label}</div>
+              <div style="font-size:11px;color:var(--text-3)">${Utils.formatDate(ev.date) || ev.date}</div>
+            </div>
+            <span class="badge" style="background:${ev.color}18;color:${ev.color};font-size:10px;white-space:nowrap">${ev.type.toUpperCase()}</span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  exportDashboardReport() {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied', 'error');
+    const jobs = DB.get('recruitment') || [];
+    const apps = DB.get('applications') || [];
+    const offers = DB.get('offer_letters') || [];
+    const reqs = DB.get('job_requisitions') || [];
+    const assessments = DB.get('candidate_assessments') || [];
+
+    let csv = 'RECRUITMENT ANALYTICS REPORT\r\n';
+    csv += `Generated: ${new Date().toISOString()}\r\n\r\n`;
+    csv += 'METRIC,VALUE\r\n';
+    csv += `Total Job Postings,${jobs.length}\r\n`;
+    csv += `Total Applications,${apps.length}\r\n`;
+    csv += `Hired Candidates,${apps.filter(a=>a.stage==='hired').length}\r\n`;
+    csv += `Total Offer Letters,${offers.length}\r\n`;
+    csv += `Accepted Offers,${offers.filter(o=>o.status==='accepted').length}\r\n`;
+    csv += `Total Requisitions,${reqs.length}\r\n`;
+    csv += `Approved Requisitions,${reqs.filter(r=>r.status==='approved').length}\r\n`;
+    csv += `Total Candidate Evaluations,${assessments.length}\r\n`;
+    csv += `P1 Candidates,${assessments.filter(a=>a.priority==='P1').length}\r\n`;
+    csv += `P2 Candidates,${assessments.filter(a=>a.priority==='P2').length}\r\n`;
+    csv += `P3 Candidates,${assessments.filter(a=>a.priority==='P3').length}\r\n`;
+    csv += '\r\nJOB POSTINGS DETAIL\r\n';
+    csv += 'Job Title,Status,Applicants,Hired\r\n';
+    jobs.forEach(j => {
+      const jobApps = apps.filter(a => a.jobId === j.id);
+      csv += `"${j.title}","${j.status}",${jobApps.length},${jobApps.filter(a=>a.stage==='hired').length}\r\n`;
+    });
+
+    Utils.downloadCSV('\uFEFF' + csv, `recruitment_dashboard_report_${new Date().toISOString().split('T')[0]}.csv`);
+    Toast.show('Dashboard report exported!', 'success');
   },
 
   renderJobs(container) {
@@ -4294,8 +4871,8 @@ const Recruitment = {
 
     DB.update('offer_letters', offer.id, { status: newStatus });
     if (offer.applicationId) {
-      if (newStatus === 'accepted') DB.update('applications', offer.applicationId, { stage: 'offer' });
-      else if (newStatus === 'rejected') DB.update('applications', offer.applicationId, { stage: 'rejected' });
+      if (newStatus === 'accepted') DB.update('applications', offer.applicationId, { stage: 'offer_accepted' });
+      else if (newStatus === 'rejected') DB.update('applications', offer.applicationId, { stage: 'offer_rejected' });
     }
 
     DB.log('UPDATE', 'Recruitment', `Offer #${offer.refNo} status updated to: ${(newStatus || '').toUpperCase()}`, Auth.user?.id);
@@ -4303,17 +4880,91 @@ const Recruitment = {
 
     if (newStatus === 'accepted') {
       Toast.show(`Offer #${offer.refNo} marked as ACCEPTED!`, 'success');
+
+      // Automated Onboarding Record Generation
+      const candidateId = offer.applicationId;
+      const onboardings = DB.get('onboardings') || [];
+      if (candidateId && !onboardings.some(o => o.candidateId === candidateId)) {
+        const nextObId = onboardings.length > 0 ? Math.max(...onboardings.map(o => o.id)) + 1 : 1;
+        const newOnboarding = {
+          id: nextObId,
+          candidateId: candidateId,
+          candidateName: offer.candidateName,
+          joiningDate: offer.joiningDate || Utils.today(),
+          buddyId: offer.reportingManagerId || 1,
+          departmentId: offer.departmentId || 1,
+          status: 'in_progress',
+          progress: 15,
+          tasks: [
+            { category: 'Pre-Joining & Compliance', task: 'Signed Formal Offer Letter & Employment Agreement', completed: true },
+            { category: 'Pre-Joining & Compliance', task: 'CNIC, Educational Degrees & Experience Letters Verification', completed: false },
+            { category: 'Pre-Joining & Compliance', task: 'Professional Reference & Background Check Clearance', completed: false },
+            { category: 'IT & Equipment Setup', task: 'Corporate Laptop, Workstation & Equipment Issuance', completed: false },
+            { category: 'IT & Systems Access', task: 'Corporate Email, IAM, Slack & Core Tools Provisioning', completed: false },
+            { category: 'Finance & Payroll', task: 'Bank Payout Account Details & NTN Tax Registration', completed: false },
+            { category: 'Orientation & Induction', task: 'HR Policies Briefing & Company Handbook Handover', completed: false },
+            { category: 'Orientation & Induction', task: 'Team Introduction & 30-Day Probation Goal Setting', completed: false }
+          ],
+          createdAt: Utils.today()
+        };
+        onboardings.push(newOnboarding);
+        DB.set('onboardings', onboardings);
+        DB.log('ONBOARDING_INITIATED', 'Recruitment', `Automated onboarding profile created for ${offer.candidateName} upon offer acceptance.`, Auth.user?.id);
+      }
+
       // Prompt HR to register new employee and setup login immediately
       setTimeout(() => {
         Modal.confirm(
           'Candidate Accepted — Register Employee',
-          `<strong>${offer.candidateName}</strong> has accepted the appointment offer (Ref: <code>${offer.refNo}</code>).<br><br>Would you like to register this new employee, configure their system role, and generate their login credentials now?`,
+          `<strong>${offer.candidateName}</strong> has accepted the appointment offer (Ref: <code>${offer.refNo}</code>).<br><br>An onboarding checklist profile has been generated automatically.<br><br>Would you like to register this new employee in the corporate directory and generate login credentials now?`,
           () => {
             Recruitment.convertOfferToEmployee(offer.id);
           },
           'primary'
         );
       }, 300);
+    } else if (newStatus === 'rejected') {
+      Toast.show(`Offer #${offer.refNo} marked as DECLINED.`, 'info');
+
+      // Controlled P1 / P2 / P3 Cascade Offer Prompt
+      const assessments = DB.get('candidate_assessments') || [];
+      const thisAssessment = assessments.find(a => 
+        a.candidateName === offer.candidateName || 
+        (offer.applicationId && a.applicantId === offer.applicationId)
+      );
+
+      if (thisAssessment && (thisAssessment.priority === 'P1' || thisAssessment.priority === 'P2')) {
+        const nextPriority = thisAssessment.priority === 'P1' ? 'P2' : 'P3';
+        const nextCandidate = assessments.find(a => 
+          (a.jobId === thisAssessment.jobId || a.jobTitle === thisAssessment.jobTitle) && 
+          a.priority === nextPriority && 
+          !a.hired
+        );
+
+        if (nextCandidate) {
+          setTimeout(() => {
+            Modal.confirm(
+              `Controlled Offer Cascade: Proceed with ${nextPriority}?`,
+              `Candidate <strong>${offer.candidateName}</strong> (${thisAssessment.priority}) has rejected the offer.<br><br>` +
+              `Backup finalist <strong>${nextCandidate.candidateName}</strong> is ranked <strong>${nextPriority}</strong> for this opening (Score: ${nextCandidate.score || '85'}%, Exp: ${nextCandidate.experience || '4'} yrs).<br><br>` +
+              `Do you want to proceed with extending an official appointment offer to candidate <strong>${nextCandidate.candidateName} (${nextPriority})</strong>?`,
+              () => {
+                Recruitment.convertCandidateToOffer(nextCandidate.id);
+              },
+              'primary'
+            );
+          }, 350);
+        } else {
+          setTimeout(() => {
+            Modal.alert(
+              'Recruitment Pipeline Notice — Backup Pool Exhausted',
+              `Candidate <strong>${offer.candidateName}</strong> (${thisAssessment.priority}) has rejected the offer, and no ${nextPriority} finalist is currently ranked for this position.<br><br>` +
+              `You may review the applicant pipeline or request requisition reopening.`,
+              'warning'
+            );
+          }, 350);
+        }
+      }
     } else {
       Toast.show(`Offer #${offer.refNo} marked as ${newStatus}!`, 'info');
     }
@@ -4427,10 +5078,30 @@ const Recruitment = {
       return;
     }
     if (!newStage) return;
-    DB.update('applications', appId, { stage: newStage });
+    const updates = { stage: newStage };
+    // Track timestamp when hired (for Time-to-Hire KPI)
+    if (newStage === 'hired') {
+      updates.hiredOn = new Date().toISOString().split('T')[0];
+    }
+    DB.update('applications', appId, updates);
+    DB.log('UPDATE', 'Recruitment', `Application #${appId} moved to stage: ${newStage}`, Auth.user?.id, 'INFO');
     Toast.show(`Applicant moved to ${newStage}!`, 'success');
     this.renderView();
   },
+
+  updateOfferStatus(offerId, newStatus) {
+    if (!this.isHROrAdmin()) return Toast.show('Access Denied', 'error');
+    const offer = DB.find('offer_letters', Number(offerId));
+    if (!offer) return;
+    DB.update('offer_letters', offer.id, { status: newStatus });
+    const statusLabel = newStatus === 'accepted' ? '✅ Offer Accepted' :
+                        newStatus === 'declined' ? '❌ Offer Declined — Cascade to next priority' :
+                        `Status updated to ${newStatus}`;
+    Toast.show(statusLabel, newStatus === 'accepted' ? 'success' : 'info');
+    DB.log('UPDATE', 'Recruitment', `Offer #${offerId} status changed to ${newStatus}`, Auth.user?.id, 'INFO');
+    this.renderView();
+  },
+
 
   viewApplicant(appId) {
     if (!this.isHROrAdmin()) {
@@ -5053,13 +5724,39 @@ const Recruitment = {
     }, 200);
   },
 
-  showAddJob() {
+  showAddJob(prefillReqId = null) {
     if (!this.isHROrAdmin()) {
       Toast.show('Permission denied: Job creation is restricted to HR & Admin.', 'error');
       return;
     }
     const depts = DB.get('departments') || [];
-    Modal.show('Post New Job', `
+    const reqs = DB.get('job_requisitions') || [];
+    const approvedReqs = reqs.filter(r => r.status === 'approved' && !r.jobPostId);
+
+    Modal.show('Post New Job Opening', `
+      ${approvedReqs.length === 0 ? `
+        <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+          <i class="fa fa-triangle-exclamation" style="color:var(--warning)"></i>
+          <strong>Best Practice Advisory:</strong> No approved headcount requisitions are awaiting job postings.
+          Consider creating a manpower requisition first and getting it approved before posting a job.
+          <a href="javascript:void(0)" onclick="Modal.close('dynamic-modal');Recruitment.switchView('requisitions')" style="color:var(--primary);font-weight:700">Go to Requisitions →</a>
+        </div>
+      ` : `
+        <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px">
+          <i class="fa fa-circle-check" style="color:var(--success)"></i>
+          <strong>${approvedReqs.length} approved requisition(s) available.</strong>
+          Link this job posting to an approved requisition to maintain full workflow traceability.
+        </div>
+      `}
+
+      <div class="form-group">
+        <label class="form-label">Link to Approved Requisition <span style="font-size:10px;color:var(--text-3)">(Recommended)</span></label>
+        <select class="form-control" id="jf-req-id" onchange="Recruitment.onJobRequisitionSelect(this.value)">
+          <option value="">-- No Requisition (Manual Post) --</option>
+          ${approvedReqs.map(r => `<option value="${r.id}" ${String(r.id) === String(prefillReqId) ? 'selected' : ''}>${r.reqNumber} — ${r.title} (${r.headcount || 1} position${(r.headcount||1)>1?'s':''})</option>`).join('')}
+        </select>
+      </div>
+
       <div class="form-group"><label class="form-label required">Job Title</label><input class="form-control" id="jf-title" placeholder="e.g. Senior React Developer"></div>
       <div class="form-row form-row-2">
         <div class="form-group"><label class="form-label required">Department</label>
@@ -5079,7 +5776,33 @@ const Recruitment = {
         <button class="btn btn-primary" onclick="Recruitment.saveJob()"><i class="fa fa-save"></i> Post Job</button>
       `
     });
+
+    // Auto-fill if requisition pre-selected
+    if (prefillReqId) {
+      setTimeout(() => this.onJobRequisitionSelect(String(prefillReqId)), 100);
+    }
   },
+
+  onJobRequisitionSelect(reqId) {
+    if (!reqId) return;
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => String(x.id) === String(reqId));
+    if (!r) return;
+    const depts = DB.get('departments') || [];
+
+    const titleEl = document.getElementById('jf-title');
+    const deptEl = document.getElementById('jf-dept');
+    const posEl = document.getElementById('jf-positions');
+    const salEl = document.getElementById('jf-salary');
+    const descEl = document.getElementById('jf-desc');
+
+    if (titleEl) titleEl.value = r.title || '';
+    if (deptEl) deptEl.value = r.departmentId || '';
+    if (posEl) posEl.value = r.headcount || 1;
+    if (salEl && r.minSalary && r.maxSalary) salEl.value = `PKR ${Number(r.minSalary).toLocaleString()} - ${Number(r.maxSalary).toLocaleString()}`;
+    if (descEl && r.notes) descEl.value = r.notes || r.quotationDetails?.businessCase || '';
+  },
+
 
   saveJob() {
     if (!this.isHROrAdmin()) {
@@ -5088,8 +5811,12 @@ const Recruitment = {
     }
     const title = document.getElementById('jf-title').value.trim();
     if (!title) { Toast.show('Please enter job title', 'error'); return; }
+    const reqIdEl = document.getElementById('jf-req-id');
+    const linkedReqId = reqIdEl ? parseInt(reqIdEl.value) || null : null;
+    const newJobId = DB.nextId('recruitment');
+
     DB.add('recruitment', {
-      id: DB.nextId('recruitment'),
+      id: newJobId,
       title,
       departmentId: parseInt(document.getElementById('jf-dept').value),
       positions: parseInt(document.getElementById('jf-positions').value) || 1,
@@ -5100,12 +5827,25 @@ const Recruitment = {
       experience: document.getElementById('jf-exp').value,
       description: document.getElementById('jf-desc').value,
       applicantCount: 0,
+      requisitionId: linkedReqId
     });
-    DB.log('ADD', 'Recruitment', `Job posted: ${title}`, Auth.user?.id);
+
+    // If linked to an approved requisition, update it with jobPostId
+    if (linkedReqId) {
+      const reqs = DB.get('job_requisitions') || [];
+      const req = reqs.find(r => r.id === linkedReqId);
+      if (req) {
+        req.jobPostId = newJobId;
+        DB.set('job_requisitions', reqs);
+      }
+    }
+
+    DB.log('ADD', 'Recruitment', `Job posted: ${title}${linkedReqId ? ` (linked to Req #${linkedReqId})` : ''}`, Auth.user?.id);
     Modal.close('dynamic-modal');
     Toast.show('Job posted successfully!', 'success');
     this.renderView();
   },
+
 
   viewJob(jobId) {
     if (!this.isHROrAdmin()) {
@@ -6058,16 +6798,27 @@ const Recruitment = {
         </div>
       </div>
 
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Quoted Minimum Monthly Salary (PKR) *</label>
-          <input class="form-control" id="pq-minsal" type="number" step="10000" value="${p.minSalary || 220000}">
+      ${this.isHROrAdmin() ? `
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label">Approved Minimum Monthly Salary (PKR) *</label>
+            <input class="form-control" id="pq-minsal" type="number" step="10000" value="${p.minSalary || 220000}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Approved Maximum Monthly Budget Ceiling (PKR) *</label>
+            <input class="form-control" id="pq-maxsal" type="number" step="10000" value="${p.maxSalary || 300000}">
+          </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Quoted Maximum Monthly Budget Ceiling (PKR) *</label>
-          <input class="form-control" id="pq-maxsal" type="number" step="10000" value="${p.maxSalary || 300000}">
+      ` : `
+        <div style="background:rgba(99,102,241,0.06);border:1px dashed #6366f1;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--text-2);display:flex;align-items:center;gap:10px">
+          <i class="fa fa-shield-halved" style="color:var(--primary);font-size:16px;flex-shrink:0"></i>
+          <div>
+            <strong>Compensation & Budget Policy:</strong> As department manager, you provide position requirements, justification, and operational parameters. Compensation bands and budget allocations are evaluated and approved strictly by HR Management & Finance during review.
+          </div>
         </div>
-      </div>
+        <input type="hidden" id="pq-minsal" value="${p.minSalary || 0}">
+        <input type="hidden" id="pq-maxsal" value="${p.maxSalary || 0}">
+      `}
 
       <div class="form-group">
         <label class="form-label">Hardware & Workstation Quotation</label>
@@ -6120,8 +6871,9 @@ const Recruitment = {
     const level = document.getElementById('pq-level')?.value || 'Senior';
     const count = parseInt(document.getElementById('pq-count')?.value) || 1;
     const type = document.getElementById('pq-type')?.value || 'Permanent';
-    const minSal = parseInt(document.getElementById('pq-minsal')?.value) || 0;
-    const maxSal = parseInt(document.getElementById('pq-maxsal')?.value) || 0;
+    const isHR = this.isHROrAdmin();
+    const minSal = isHR ? (parseInt(document.getElementById('pq-minsal')?.value) || 0) : 0;
+    const maxSal = isHR ? (parseInt(document.getElementById('pq-maxsal')?.value) || 0) : 0;
     const hardware = (document.getElementById('pq-hardware')?.value || '').trim();
     const software = (document.getElementById('pq-software')?.value || '').trim();
     const businessCase = (document.getElementById('pq-case')?.value || '').trim();
@@ -6142,7 +6894,6 @@ const Recruitment = {
     const reqs = DB.get('job_requisitions') || [];
     const nextNum = reqs.length + 1;
     const reqNumber = `POS-QUOT-2026-${String(nextNum).padStart(3, '0')}`;
-    const isHR = this.isHROrAdmin();
 
     const newQuotation = {
       id: DB.nextId('job_requisitions'),
@@ -6248,6 +6999,26 @@ const Recruitment = {
         </div>
       </div>
 
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:14px">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text);margin-bottom:8px">
+          <i class="fa fa-sack-dollar" style="color:var(--success);margin-right:6px"></i>HR Approved Salary Budget Definition (PKR) *
+        </div>
+        <div class="form-row form-row-2">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:11px">Approved Minimum Salary (PKR)</label>
+            <input class="form-control" id="hr-approved-minsal" type="number" step="5000" value="${r.minSalary || 180000}">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:11px">Approved Maximum Ceiling (PKR)</label>
+            <input class="form-control" id="hr-approved-maxsal" type="number" step="5000" value="${r.maxSalary || 260000}">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px;margin-bottom:0">
+          <label class="form-label" style="font-size:11px">HR Review & Budget Comments</label>
+          <input class="form-control" id="hr-approved-comments" placeholder="e.g. Budget allocated under FY26 headcount expansion plan." value="${r.hrComments || ''}">
+        </div>
+      </div>
+
       ${q.hardware ? `
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;font-size:12px">
           <strong><i class="fa fa-laptop" style="color:var(--primary);margin-right:5px"></i>Hardware & Workstation:</strong>
@@ -6268,7 +7039,7 @@ const Recruitment = {
       </div>
 
       <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:8px;padding:10px 14px;font-size:12px;color:#065f46">
-        <i class="fa fa-check-circle"></i> <strong>Approval Effect:</strong> Approving will immediately add this position to the <strong>${dept?.name} Team Structure</strong>, increment department headcount capacity, and open recruitment job posting.
+        <i class="fa fa-check-circle"></i> <strong>Approval Effect:</strong> Approving will set approved budget, add this position to the <strong>${dept?.name} Team Structure</strong>, increment department headcount capacity, and open recruitment job posting.
       </div>
     `, {
       footer: `
@@ -6276,11 +7047,35 @@ const Recruitment = {
         <button class="btn btn-danger" onclick="Recruitment.rejectPositionQuotation(${r.id})">
           <i class="fa fa-times"></i> Reject
         </button>
+        <button class="btn btn-warning" onclick="Recruitment.returnPositionQuotationForRevision(${r.id})">
+          <i class="fa fa-undo"></i> Return for Revision
+        </button>
         <button class="btn btn-success" onclick="Recruitment.approvePositionQuotation(${r.id})">
-          <i class="fa fa-check-circle"></i> Approve Position & Update Team Structure
+          <i class="fa fa-check-circle"></i> Approve & Define Budget
         </button>
       `
     });
+  },
+
+  returnPositionQuotationForRevision(id) {
+    if (!this.isHROrAdmin()) {
+      Toast.show('Permission denied: Only HR and Admin can return position quotations.', 'error');
+      return;
+    }
+    const reqs = DB.get('job_requisitions') || [];
+    const r = reqs.find(x => x.id === id);
+    if (!r) return;
+    const comments = (document.getElementById('hr-approved-comments')?.value || '').trim();
+
+    Modal.confirm('Return for Revision', `Return requisition <strong>${r.reqNumber}</strong> to department manager for revision?`, () => {
+      r.status = 'returned_for_revision';
+      r.hrComments = comments || 'Please review and revise position justification and details.';
+      DB.set('job_requisitions', reqs);
+      DB.log('RETURN_QUOTATION', 'Recruitment', `Returned position quotation ${r.reqNumber} for revision: ${r.hrComments}`, Auth.user?.id, 'INFO');
+      Toast.show(`Quotation ${r.reqNumber} returned to manager for revision`, 'info');
+      Modal.close('dynamic-modal');
+      this.render();
+    }, 'warning');
   },
 
   approvePositionQuotation(id) {
@@ -6291,6 +7086,13 @@ const Recruitment = {
     const reqs = DB.get('job_requisitions') || [];
     const r = reqs.find(x => x.id === id);
     if (!r) return;
+
+    const minSalInput = document.getElementById('hr-approved-minsal');
+    const maxSalInput = document.getElementById('hr-approved-maxsal');
+    const commentsInput = document.getElementById('hr-approved-comments');
+    if (minSalInput) r.minSalary = parseInt(minSalInput.value) || r.minSalary || 0;
+    if (maxSalInput) r.maxSalary = parseInt(maxSalInput.value) || r.maxSalary || 0;
+    if (commentsInput) r.hrComments = commentsInput.value.trim();
 
     r.status = 'approved';
     r.approvedBy = Auth.user?.id || 1;
@@ -6305,7 +7107,7 @@ const Recruitment = {
       DB.set('departments', depts);
     }
 
-    DB.log('APPROVE_QUOTATION', 'Recruitment', `Approved position quotation ${r.reqNumber} for ${r.title} in ${dept?.name || 'dept'}. Team structure updated.`, Auth.user?.id, 'INFO');
+    DB.log('APPROVE_QUOTATION', 'Recruitment', `Approved position quotation ${r.reqNumber} for ${r.title} in ${dept?.name || 'dept'}. Team structure updated. Approved Salary: PKR ${r.minSalary} - ${r.maxSalary}`, Auth.user?.id, 'INFO');
     Toast.show(`Quotation ${r.reqNumber} approved! Department team structure updated.`, 'success');
     Modal.close('dynamic-modal');
 
@@ -6567,27 +7369,12 @@ const Recruitment = {
     const r = reqs.find(x => x.id === id);
     if (!r) return;
 
-    const newJob = {
-      id: DB.nextId('recruitment'),
-      title: r.title,
-      departmentId: r.departmentId,
-      positions: r.headcount || 1,
-      status: 'open',
-      postedOn: Utils.today(),
-      deadline: r.targetDate || '2026-10-31',
-      salary: `${r.minSalary ? (r.minSalary/1000) + 'k' : '200k'}-${r.maxSalary ? (r.maxSalary/1000) + 'k' : '300k'}`,
-      experience: '3-6 years',
-      description: `Active job opening created from approved requisition ${r.reqNumber}. ${r.notes || ''}`,
-      applicantCount: 0
-    };
-
-    DB.add('recruitment', newJob);
-    r.jobPostId = newJob.id;
-    DB.set('job_requisitions', reqs);
-    DB.log('CREATE', 'Recruitment', `Created active job posting #${newJob.id} from approved requisition ${r.reqNumber}`, Auth.user?.id, 'INFO');
-    Toast.show(`Job posting created for "${r.title}"!`, 'success');
+    // Open the enhanced showAddJob modal with this requisition pre-selected
     this.switchView('jobs');
+    setTimeout(() => this.showAddJob(id), 150);
+    Toast.show(`Opening Job Posting form for requisition ${r.reqNumber}`, 'info');
   },
+
 
   viewRequisition(id) {
     const r = (DB.get('job_requisitions') || []).find(x => x.id === id);
@@ -6980,35 +7767,110 @@ const Recruitment = {
     if (!inv) return;
     const candidate = (DB.get('applications')||[]).find(a => a.id === inv.candidateId);
 
-    Modal.show(`Interview Rubric Evaluation — ${candidate?.name || 'Candidate'}`, `
-      <div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">
-        Round: <strong>${inv.roundName}</strong> &bull; Scheduled: <strong>${inv.scheduledAt ? inv.scheduledAt.replace('T',' ') : ''}</strong>
-      </div>
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label required">Overall Score (out of 5.0)</label>
-          <input type="number" class="form-control" id="ifb-score" min="1" max="5" step="0.1" value="4.5">
+    const rubricItems = [
+      { id: 'rubric_tech', label: 'Technical Skills & Competency', def: 4 },
+      { id: 'rubric_exp', label: 'Relevant Experience & Track Record', def: 4 },
+      { id: 'rubric_comm', label: 'Communication & Articulation', def: 5 },
+      { id: 'rubric_prob', label: 'Problem Solving & Analytical Skills', def: 4 },
+      { id: 'rubric_lead', label: 'Leadership Potential & Initiative', def: 4 },
+      { id: 'rubric_team', label: 'Teamwork & Collaboration', def: 5 },
+      { id: 'rubric_func', label: 'Job Knowledge & Functional Competence', def: 4 },
+      { id: 'rubric_prof', label: 'Attitude & Professionalism', def: 5 },
+      { id: 'rubric_cult', label: 'Cultural Fit & Values Alignment', def: 5 },
+      { id: 'rubric_qual', label: 'Educational & Professional Qualification', def: 4 }
+    ];
+
+    Modal.show(`10-Criteria Evaluation Rubric — ${candidate?.name || 'Candidate'}`, `
+      <div style="background:var(--surface-2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          Round: <strong>${inv.roundName}</strong> &bull; Scheduled: <strong>${inv.scheduledAt ? inv.scheduledAt.replace('T',' ') : 'Recent'}</strong>
         </div>
+        <div style="font-weight:700;color:var(--primary)">
+          Standardized 1 to 5 Rating Scale (50 Pts Max)
+        </div>
+      </div>
+
+      <div style="max-height:280px;overflow-y:auto;padding-right:6px;margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${rubricItems.map((item, idx) => `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:11.5px;font-weight:600;color:var(--text)">${idx+1}. ${item.label}</span>
+              <select class="form-control rubric-select" id="${item.id}" style="width:70px;padding:4px 6px;font-size:12px;font-weight:700;text-align:center" onchange="Recruitment.calcRubricScores()">
+                <option value="5" ${item.def===5?'selected':''}>5 - Exc</option>
+                <option value="4" ${item.def===4?'selected':''}>4 - Good</option>
+                <option value="3" ${item.def===3?'selected':''}>3 - Avg</option>
+                <option value="2" ${item.def===2?'selected':''}>2 - Below</option>
+                <option value="1" ${item.def===1?'selected':''}>1 - Poor</option>
+              </select>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px;display:flex;justify-content:space-around;align-items:center;margin-bottom:14px">
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Total Score</div>
+          <div id="rubric-total-display" style="font-size:22px;font-weight:800;color:var(--primary)">44 / 50</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Average Score</div>
+          <div id="rubric-avg-display" style="font-size:22px;font-weight:800;color:var(--success)">4.4 / 5.0</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Percentage</div>
+          <div id="rubric-pct-display" style="font-size:22px;font-weight:800;color:var(--info)">88.0%</div>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
         <div class="form-group">
           <label class="form-label required">Hiring Recommendation</label>
           <select class="form-control" id="ifb-rec">
+            <option value="Proceed to Next Round / P1-P3" selected>Proceed to Next Round / P1-P3</option>
             <option value="Strong Hire">Strong Hire</option>
-            <option value="Hire" selected>Hire</option>
-            <option value="Hold">Hold / Re-evaluate</option>
+            <option value="Hire">Hire</option>
+            <option value="Hold / Backup">Hold / Backup</option>
             <option value="Reject">Reject</option>
           </select>
         </div>
+        <div class="form-group">
+          <label class="form-label">Candidate Ranking Assignment</label>
+          <select class="form-control" id="ifb-priority">
+            <option value="P1" selected>P1 - First Preference Finalist</option>
+            <option value="P2">P2 - Second Preference Backup</option>
+            <option value="P3">P3 - Third Preference Backup</option>
+            <option value="None">None / General Evaluation</option>
+          </select>
+        </div>
       </div>
+
       <div class="form-group">
         <label class="form-label required">Detailed Evaluator Rubric Remarks</label>
-        <textarea class="form-control" id="ifb-remarks" rows="3" placeholder="Assess technical competency, problem-solving, architectural depth, and cultural alignment...">Demonstrated strong system architecture comprehension, solid problem-solving skills, and proactive communication.</textarea>
+        <textarea class="form-control" id="ifb-remarks" rows="2" placeholder="Assess technical competency, problem-solving, architectural depth, and cultural alignment...">Demonstrated strong system architecture comprehension, solid problem-solving skills, and proactive communication.</textarea>
       </div>
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Recruitment.saveInterviewFeedback(${interviewId})"><i class="fa fa-save"></i> Save Feedback</button>
+        <button class="btn btn-primary" onclick="Recruitment.saveInterviewFeedback(${interviewId})"><i class="fa fa-save"></i> Save Rubric Evaluation</button>
       `
     });
+    setTimeout(() => this.calcRubricScores(), 50);
+  },
+
+  calcRubricScores() {
+    const selects = document.querySelectorAll('.rubric-select');
+    let total = 0;
+    selects.forEach(s => total += parseInt(s.value) || 0);
+    const count = selects.length || 10;
+    const avg = (total / count).toFixed(1);
+    const pct = ((total / (count * 5)) * 100).toFixed(1);
+
+    const totalEl = document.getElementById('rubric-total-display');
+    const avgEl = document.getElementById('rubric-avg-display');
+    const pctEl = document.getElementById('rubric-pct-display');
+    if (totalEl) totalEl.textContent = `${total} / ${count * 5}`;
+    if (avgEl) avgEl.textContent = `${avg} / 5.0`;
+    if (pctEl) pctEl.textContent = `${pct}%`;
   },
 
   saveInterviewFeedback(interviewId) {
@@ -7016,14 +7878,33 @@ const Recruitment = {
       Toast.show('Access Denied: Interview feedback is restricted to HR & Admin.', 'error');
       return;
     }
-    const score = parseFloat(document.getElementById('ifb-score').value) || 4.0;
-    const recommendation = document.getElementById('ifb-rec').value;
-    const remarks = document.getElementById('ifb-remarks').value.trim();
+    const selects = document.querySelectorAll('.rubric-select');
+    let total = 0;
+    const rubricScores = {};
+    selects.forEach(s => {
+      const val = parseInt(s.value) || 0;
+      total += val;
+      rubricScores[s.id] = val;
+    });
+    const count = selects.length || 10;
+    const score = parseFloat((total / count).toFixed(1));
+    const percentage = Math.round((total / (count * 5)) * 100);
+    const recommendation = document.getElementById('ifb-rec')?.value || 'Hire';
+    const priority = document.getElementById('ifb-priority')?.value || 'P1';
+    const remarks = (document.getElementById('ifb-remarks')?.value || '').trim();
 
     const feedbacks = DB.get('interview_feedbacks') || [];
     const newFb = {
       id: feedbacks.length > 0 ? Math.max(...feedbacks.map(f => f.id)) + 1 : 1,
-      interviewId, score, recommendation, remarks
+      interviewId,
+      score,
+      totalScore: total,
+      percentage,
+      rubricScores,
+      recommendation,
+      priority,
+      remarks,
+      evaluatedAt: Utils.today()
     };
     feedbacks.push(newFb);
     DB.set('interview_feedbacks', feedbacks);
@@ -7036,9 +7917,42 @@ const Recruitment = {
       DB.set('interviews', interviews);
     }
 
-    DB.log('EVALUATE', 'Recruitment', `Submitted rubric feedback for Interview #${interviewId}: ${score}/5.0`, Auth.user?.id);
+    // Also update/sync with candidate_assessments
+    if (inv && inv.candidateId) {
+      const assessments = DB.get('candidate_assessments') || [];
+      const app = (DB.get('applications') || []).find(a => a.id === inv.candidateId);
+      const job = app ? (DB.get('recruitment') || []).find(j => j.id === app.jobId) : null;
+      let existingAss = assessments.find(a => a.applicantId === inv.candidateId || (app && a.candidateName === app.name));
+      if (existingAss) {
+        existingAss.score = percentage;
+        existingAss.priority = priority !== 'None' ? priority : existingAss.priority;
+        existingAss.recommendation = recommendation === 'Reject' ? 'Not Recommended' : 'Recommended for Offer';
+        existingAss.interviewDate = Utils.today();
+      } else if (app) {
+        assessments.push({
+          id: assessments.length > 0 ? Math.max(...assessments.map(a => a.id)) + 1 : 1,
+          jobId: app.jobId,
+          jobTitle: job?.title || 'Open Position',
+          applicantId: app.id,
+          candidateName: app.name,
+          experience: parseInt(app.experience) || 3,
+          currentSalary: 120000,
+          expectedSalary: parseInt(app.expectedSalary) || 160000,
+          score: percentage,
+          interviewDate: Utils.today(),
+          noticePeriod: '30 Days',
+          address: app.city || 'Islamabad',
+          priority: priority !== 'None' ? priority : 'P1',
+          recommendation: recommendation === 'Reject' ? 'Not Recommended' : 'Recommended for Offer',
+          hired: false
+        });
+      }
+      DB.set('candidate_assessments', assessments);
+    }
+
+    DB.log('EVALUATE', 'Recruitment', `Submitted 10-criteria rubric evaluation for Interview #${interviewId}: ${score}/5.0 (${percentage}%, ${recommendation})`, Auth.user?.id);
     Modal.close('dynamic-modal');
-    Toast.show('Evaluation feedback saved!', 'success');
+    Toast.show(`Rubric evaluation saved (${score}/5.0)!`, 'success');
     this.renderView();
   },
 

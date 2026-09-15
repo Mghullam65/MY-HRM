@@ -1942,6 +1942,21 @@ const Landing = {
       return;
     }
 
+    // Check for duplicate application for the same position by email
+    const existingApps = DB.get('applications') || [];
+    const isDuplicate = existingApps.some(a => 
+      a.jobId === jobId && 
+      a.email && 
+      a.email.toLowerCase() === email.toLowerCase()
+    );
+    if (isDuplicate) {
+      if (errAlert) {
+        errAlert.textContent = `You have already submitted an application for this position with ${email}. Duplicate submissions are restricted.`;
+        errAlert.style.display = 'block';
+      }
+      return;
+    }
+
     if (submitBtn) {
       submitBtn.disabled = true;
       submitBtn.innerHTML = '<i class="fa fa-circle-notch fa-spin"></i> Submitting application & uploading CV...';
