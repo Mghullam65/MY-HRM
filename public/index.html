@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>HRM Pro — Human Resource Management System</title>
+  <meta name="description" content="Comprehensive HRM system with employee management, attendance tracking, payroll processing, leave management, performance reviews, and more.">
+  <meta name="theme-color" content="#0f1729">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Favicon (inline SVG as data URI) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f80f7'/><text x='16' y='23' font-size='18' font-weight='900' text-anchor='middle' fill='white' font-family='Arial'>HR</text></svg>">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/main.css?v=2.2.0">
+
+  <style>
+    /* ── Additional inline overrides ── */
+    .page-content { animation: fadeIn 0.25s ease; }
+    .nav-item { animation: none; }
+
+    /* Print styles */
+    @media print {
+      .sidebar, .topbar, #toast-container, .btn, .tbl-actions, .filter-bar,
+      .topbar-actions, .topbar-search, .sidebar-toggle, .modal-close, .modal-footer { display: none !important; }
+      .main-content { margin: 0 !important; padding: 0 !important; width: 100% !important; }
+      body { background: white !important; color: #111 !important; }
+      .card { border: 1px solid #ddd; box-shadow: none !important; }
+      th, td { color: #111 !important; }
+      .stat-card, .chart-card { border: 1px solid #ddd; }
+      .modal-overlay.open {
+        position: static !important;
+        background: transparent !important;
+        padding: 0 !important;
+        display: block !important;
+      }
+      .modal-overlay.open .modal {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .modal-overlay.open .modal-header {
+        border-bottom: 2px solid #2563eb !important;
+        padding: 10px 0 !important;
+      }
+      .modal-overlay.open .modal-body {
+        padding: 10px 0 !important;
+      }
+      @page {
+        size: A4 portrait;
+        margin: 12mm;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- ══════════════════════════════════════
+     LANDING PAGE
+══════════════════════════════════════ -->
+<div id="landing-page" style="display:none"></div>
+
+<!-- ══════════════════════════════════════
+     MODULE DETAIL PAGE
+══════════════════════════════════════ -->
+<div id="module-detail-page" style="display:none"></div>
+
+<!-- ══════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════ -->
+<div id="login-page" style="display:none"></div>
+
+<!-- ══════════════════════════════════════
+     FREE TRIAL / SIGNUP PAGE
+══════════════════════════════════════ -->
+<div id="trial-page" style="display:none"></div>
+
+<!-- ══════════════════════════════════════
+     MAIN APP SHELL
+══════════════════════════════════════ -->
+<div id="app" style="display:none">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar"></aside>
+
+  <!-- Main Area -->
+  <div class="main-content">
+    <!-- Top Bar -->
+    <header id="topbar" class="topbar"></header>
+
+    <!-- Page Content -->
+    <main id="page-content" class="page-content"></main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TOAST CONTAINER
+══════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════
+     BROWSER-STYLE ACTIVITY HISTORY DRAWER
+══════════════════════════════════════ -->
+<div id="history-drawer-overlay" class="history-drawer-overlay" onclick="App.closeHistoryDrawer()"></div>
+<aside id="history-drawer" class="history-drawer"></aside>
+
+<!-- Supabase Cloud Database SDK (Local bundle with CDN fallback) -->
+<script src="js/vendor/supabase.js"></script>
+<script>if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>'); }</script>
+
+<script src="js/security.js?v=2.2.0"></script>
+<script src="js/api.js?v=2.2.0"></script>
+<script src="js/i18n.js?v=2.2.0"></script>
+<script src="js/data.js?v=2.2.0"></script>
+<script src="js/notifications.js?v=2.2.0"></script>
+<script src="js/auth.js?v=2.2.0"></script>
+<script src="js/landing.js?v=2.2.0"></script>
+<script src="js/trial.js?v=2.2.0"></script>
+<script src="js/app.js?v=2.2.0"></script>
+<script src="js/dashboard.js?v=2.2.0"></script>
+<script src="js/employees.js?v=2.2.0"></script>
+<script src="js/attendance.js?v=2.2.0"></script>
+<script src="js/leaves.js?v=2.2.0"></script>
+<script src="js/payroll.js?v=2.2.0"></script>
+<script src="js/performance.js?v=2.2.0"></script>
+<script src="js/events.js?v=2.2.0"></script>
+<script src="js/assets.js?v=2.2.0"></script>
+<script src="js/expenses.js?v=2.2.0"></script>
+<script src="js/helpdesk.js?v=2.2.0"></script>
+<script src="js/reports.js?v=2.2.0"></script>
+<script src="js/administration.js?v=2.2.0"></script>
+<script src="js/settings.js?v=2.2.0"></script>
+
+  <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
+  <script>
+    // Safety check — ensure all modules loaded
+    window.addEventListener('DOMContentLoaded', () => {
+      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
+      const missing = required.filter(m => typeof window[m] === 'undefined');
+      if (missing.length > 0) {
+        console.error('HRM: Missing modules:', missing);
+      } else {
+        console.log('%c✅ HRM Pro loaded successfully — all modules ready', 'color:#10b981;font-weight:700;font-size:14px');
+      }
+    });
+  </script>
+
+<noscript>
+  <div style="font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0f1729;color:white;text-align:center;padding:20px">
+    <div>
+      <div style="font-size:48px;margin-bottom:16px">⚠️</div>
+      <h2 style="font-size:24px;margin-bottom:8px">JavaScript Required</h2>
+      <p style="color:#8899aa">HRM Pro requires JavaScript to run. Please enable JavaScript in your browser settings.</p>
+    </div>
+  </div>
+</noscript>
+
+</body>
+</html>
