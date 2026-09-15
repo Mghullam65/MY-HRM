@@ -5568,6 +5568,22 @@ const employees = [
     emergencyContact: { name: 'Saima Butt', relation: 'Wife', phone: '0300-7788990' },
     qualifications: [], experience: [],
   },
+  {
+    id: 26, empNo: 'EMP-026', firstName: 'Saad', lastName: 'Ibrahim', fullName: 'Saad Ibrahim',
+    email: 'saad.ibrahim@company.com', phone: '0345-4444444', cnic: '42101-5849201-3',
+    dob: '1995-04-18', gender: 'Male', maritalStatus: 'Single',
+    address: 'Sector F-7/2, Islamabad',
+    departmentId: 4, designationId: 8, branchId: 3, shiftId: 1,
+    joiningDate: '2026-09-05', confirmationDate: null,
+    employmentType: 'Permanent', status: 'active', role: 'onboarding',
+    onboardingStatus: 'submitted_for_review',
+    salary: 140000, photo: null, managerId: 8, reportingTo: 8,
+    bloodGroup: 'B+', nationality: 'Pakistani', religion: 'Islam',
+    bankName: 'HBL', accountNo: '1122334455667', iban: 'PK36HABB0000001122334455',
+    emergencyContact: { name: 'Tariq Ibrahim', relation: 'Father', phone: '0345-9988776' },
+    qualifications: [{ degree: 'BBA / Marketing', institution: 'NUST', year: '2018', grade: '3.6 CGPA' }],
+    experience: [{ company: 'Apex Global', designation: 'Assistant Sales Lead', from: '2019', to: '2026' }],
+  },
 ];
 
 // ── Generate attendance for current month ──
@@ -6018,6 +6034,7 @@ const users = [
   { id: 2, employeeId: 2, username: 'sara.malik', password: 'hr123', role: 'hr_manager', status: 'active', lastLogin: new Date(Date.now()-3600000).toISOString() },
   { id: 3, employeeId: 3, username: 'usman.baig', password: 'mgr123', role: 'dept_manager', status: 'active', lastLogin: null },
   { id: 4, employeeId: 4, username: 'fatima.raza', password: 'emp123', role: 'employee', status: 'active', lastLogin: null },
+  { id: 5, employeeId: 26, username: 'saad.ibrahim', password: 'emp123', role: 'onboarding', status: 'active', lastLogin: null },
 ];
 
 const assets = [
