@@ -2017,10 +2017,25 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   animation-play-state: paused !important;
 }
 .ticker-track.fast {
-  animation-duration: 25s !important;
+  animation-duration: 45s !important;
 }
 .ticker-track.slow {
+  animation-duration: 150s !important;
+}
+.ticker-track.speed-0-5x {
   animation-duration: 90s !important;
+}
+.ticker-track.speed-0-4x {
+  animation-duration: 115s !important;
+}
+.ticker-track.speed-0-3x {
+  animation-duration: 150s !important;
+}
+.ticker-track.speed-0-2x {
+  animation-duration: 225s !important;
+}
+.ticker-track.speed-0-1x {
+  animation-duration: 450s !important;
 }
 @keyframes tickerMarquee {
   0% { transform: translateX(0); }

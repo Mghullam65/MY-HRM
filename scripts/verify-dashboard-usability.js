@@ -66,4 +66,9 @@ assert(css.includes('.badge-subtle-success {\n  background: var(--surface-2);'),
 assert(css.includes('--font-xs') && css.includes('--font-sm') && css.includes('--font-base'), 'Issue 1: Consistent type scale tokens active');
 assert(css.includes('--r-xs') && css.includes('--r-sm') && css.includes('--r-md') && css.includes('--r-full'), 'Issue 3: Consistent border radii tokens active');
 
+// Headline Speed Feature: 0.1x to 0.5x
+assert(dashJs.includes("tickerSpeeds: ['0.5x', '0.4x', '0.3x', '0.2x', '0.1x']"), 'Headline speed supports 0.1x to 0.5x speeds');
+assert(css.includes('.ticker-track.speed-0-5x') && css.includes('.ticker-track.speed-0-1x'), 'CSS includes animation-duration rules for 0.1x through 0.5x');
+assert(dashJs.includes("setTickerSpeed(speed)") && dashJs.includes("getTickerDuration"), 'Dashboard provides setTickerSpeed and getTickerDuration methods');
+
 console.log('\n🎉 ALL 13 DASHBOARD USABILITY AUDIT CHECKS PASSED WITH 100% SUCCESS!\n');

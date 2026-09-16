@@ -6,7 +6,23 @@ const Dashboard = {
   charts: {},
   inboxCollapsed: typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_inbox_collapsed') === 'true' : false,
   inboxFilter: 'all',
-  tickerSpeed: typeof localStorage !== 'undefined' ? (localStorage.getItem('hrm_ticker_speed') || '1x') : '1x',
+  tickerSpeeds: ['0.5x', '0.4x', '0.3x', '0.2x', '0.1x'],
+  tickerSpeed: (function() {
+    const valid = ['0.5x', '0.4x', '0.3x', '0.2x', '0.1x'];
+    const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_ticker_speed') : null;
+    return valid.includes(saved) ? saved : '0.3x';
+  })(),
+
+  getTickerDuration(speed) {
+    const durations = {
+      '0.5x': '90s',
+      '0.4x': '115s',
+      '0.3x': '150s',
+      '0.2x': '225s',
+      '0.1x': '450s'
+    };
+    return durations[speed] || '150s';
+  },
 
   toggleInboxCollapse() {
     this.inboxCollapsed = !this.inboxCollapsed;
@@ -29,7 +45,11 @@ const Dashboard = {
   },
 
   renderHeadlinesTicker(tickerItemsHtml) {
-    const isSlow = this.tickerSpeed === '0.5x';
+    const currentSpeed = this.tickerSpeed || '0.3x';
+    const duration = this.getTickerDuration(currentSpeed);
+    const speedClass = 'speed-' + currentSpeed.replace('.', '-');
+    const nextIdx = (this.tickerSpeeds.indexOf(currentSpeed) + 1) % this.tickerSpeeds.length;
+    const nextSpeed = this.tickerSpeeds[nextIdx];
     return `
       <div class="dash-ticker">
         <div class="ticker-badge">
@@ -37,7 +57,7 @@ const Dashboard = {
           <i class="fa fa-bolt" style="color:var(--primary)"></i> Headlines
         </div>
         <div class="ticker-track-wrap">
-          <div class="ticker-track ${isSlow ? 'slow' : ''}" id="dash-ticker-track">
+          <div class="ticker-track ${speedClass}" id="dash-ticker-track" style="animation-duration:${duration}">
             ${tickerItemsHtml}
             ${tickerItemsHtml}
           </div>
@@ -46,8 +66,8 @@ const Dashboard = {
           <button class="ticker-ctrl-btn" id="ticker-play-btn" onclick="Dashboard.toggleTickerPlay()" title="Pause/Play Headlines" aria-label="Pause ticker">
             <i class="fa fa-pause"></i>
           </button>
-          <button class="ticker-ctrl-btn" id="ticker-speed-btn" onclick="Dashboard.toggleTickerSpeed()" title="Toggle Speed (1x / 0.5x)" aria-label="Toggle speed">
-            <i class="fa fa-gauge"></i> ${this.tickerSpeed || '1x'}
+          <button class="ticker-ctrl-btn" id="ticker-speed-btn" onclick="Dashboard.toggleTickerSpeed()" title="Current Speed: ${currentSpeed} (Click for ${nextSpeed})" aria-label="Toggle headline speed, current ${currentSpeed}">
+            <i class="fa fa-gauge"></i> ${currentSpeed}
           </button>
           <button class="ticker-ctrl-btn" onclick="Dashboard.showAllHeadlinesModal()" title="View All Events & Notices" aria-label="View all notices">
             <i class="fa fa-list"></i>
@@ -1142,25 +1162,35 @@ const Dashboard = {
     btn.title = isPaused ? 'Play Headlines' : 'Pause Headlines';
   },
 
-  toggleTickerSpeed() {
-    const track = document.getElementById('dash-ticker-track');
-    const btn = document.getElementById('ticker-speed-btn');
-    if (!track || !btn) return;
-    track.classList.remove('fast');
-    if (this.tickerSpeed === '1x') {
-      this.tickerSpeed = '0.5x';
-      track.classList.add('slow');
-      btn.innerHTML = `<i class="fa fa-gauge"></i> 0.5x`;
-      btn.title = 'Current Speed: 0.5x (Click for 1x)';
-    } else {
-      this.tickerSpeed = '1x';
-      track.classList.remove('slow');
-      btn.innerHTML = `<i class="fa fa-gauge"></i> 1x`;
-      btn.title = 'Current Speed: 1x (Click for 0.5x)';
-    }
+  setTickerSpeed(speed) {
+    if (!this.tickerSpeeds.includes(speed)) speed = '0.3x';
+    this.tickerSpeed = speed;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('hrm_ticker_speed', this.tickerSpeed);
     }
+    const track = document.getElementById('dash-ticker-track');
+    const btn = document.getElementById('ticker-speed-btn');
+    if (track) {
+      track.style.animationDuration = this.getTickerDuration(speed);
+      track.classList.remove('fast', 'slow', 'speed-0-5x', 'speed-0-4x', 'speed-0-3x', 'speed-0-2x', 'speed-0-1x');
+      track.classList.add('speed-' + speed.replace('.', '-'));
+    }
+    if (btn) {
+      btn.innerHTML = `<i class="fa fa-gauge"></i> ${speed}`;
+      const nextIdx = (this.tickerSpeeds.indexOf(speed) + 1) % this.tickerSpeeds.length;
+      const nextSpeed = this.tickerSpeeds[nextIdx];
+      btn.title = `Current Speed: ${speed} (Click for ${nextSpeed})`;
+      btn.setAttribute('aria-label', `Speed ${speed}. Click to switch to ${nextSpeed}`);
+    }
+    if (typeof Toast !== 'undefined' && Toast.show) {
+      Toast.show(`Headline speed set to ${speed}`, 'info');
+    }
+  },
+
+  toggleTickerSpeed() {
+    const idx = this.tickerSpeeds.indexOf(this.tickerSpeed);
+    const nextIdx = (idx + 1) % this.tickerSpeeds.length;
+    this.setTickerSpeed(this.tickerSpeeds[nextIdx]);
   },
 
   showBirthdayWishModal(empId) {
