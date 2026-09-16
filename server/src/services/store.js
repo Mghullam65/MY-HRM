@@ -1,0 +1,226 @@
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+class StoreService {
+  constructor() {
+    this.dataDir = path.join(__dirname, '../../data');
+    this.storePath = path.join(this.dataDir, 'hrm_store.json');
+    this.metaPath = path.join(this.dataDir, 'hrm_meta.json');
+    this.store = {};
+    this.version = 1;
+    this.updatedAt = Date.now();
+    this.saveTimeout = null;
+    this.sseClients = new Set();
+    this.isInitialized = false;
+  }
+
+  init() {
+    if (this.isInitialized) return;
+    if (!fs.existsSync(this.dataDir)) {
+      fs.mkdirSync(this.dataDir, { recursive: true });
+    }
+
+    if (fs.existsSync(this.storePath)) {
+      try {
+        const raw = fs.readFileSync(this.storePath, 'utf8');
+        this.store = JSON.parse(raw);
+        if (fs.existsSync(this.metaPath)) {
+          const meta = JSON.parse(fs.readFileSync(this.metaPath, 'utf8'));
+          this.version = meta.version || 1;
+          this.updatedAt = meta.updatedAt || Date.now();
+        }
+        console.log(`[StoreService] Loaded existing database from disk (${Object.keys(this.store).length} tables, version ${this.version})`);
+      } catch (err) {
+        console.error('[StoreService] Failed to read store, falling back to seed:', err.message);
+        this.seedFromDataJs();
+      }
+    } else {
+      console.log('[StoreService] No database found on disk, running master seed generation...');
+      this.seedFromDataJs();
+    }
+
+    this.isInitialized = true;
+  }
+
+  seedFromDataJs() {
+    try {
+      const dataJsPath = path.join(__dirname, '../../../js/data.js');
+      if (!fs.existsSync(dataJsPath)) {
+        throw new Error(`Master data file not found at ${dataJsPath}`);
+      }
+
+      const mockStorage = {};
+      const sandbox = {
+        localStorage: {
+          getItem: (k) => mockStorage[k] || null,
+          setItem: (k, v) => { mockStorage[k] = v; },
+          removeItem: (k) => { delete mockStorage[k]; },
+          clear: () => { Object.keys(mockStorage).forEach(k => delete mockStorage[k]); }
+        },
+        console: { log: () => {}, warn: () => {}, error: () => {} },
+        setTimeout: setTimeout,
+        clearTimeout: clearTimeout,
+        Math: Math,
+        Date: Date,
+        JSON: JSON,
+        parseInt: parseInt,
+        parseFloat: parseFloat,
+        isNaN: isNaN
+      };
+      sandbox.window = sandbox;
+      sandbox.global = sandbox;
+
+      const code = fs.readFileSync(dataJsPath, 'utf8') + '\n; this.DB = DB;';
+      vm.createContext(sandbox);
+      vm.runInContext(code, sandbox);
+      sandbox.DB.init();
+
+      const newStore = {};
+      for (const [key, val] of Object.entries(mockStorage)) {
+        if (key.startsWith('hrm_')) {
+          const tableName = key.replace(/^hrm_/, '');
+          if (tableName !== 'initialized') {
+            try {
+              newStore[tableName] = JSON.parse(val);
+            } catch {
+              newStore[tableName] = val;
+            }
+          }
+        }
+      }
+
+      this.store = newStore;
+      this.version = 1;
+      this.updatedAt = Date.now();
+      this.flushToDisk();
+      console.log(`[StoreService] Master seed successful! Created ${Object.keys(this.store).length} tables.`);
+    } catch (err) {
+      console.error('[StoreService] Critical error during master seed:', err);
+      this.store = {};
+    }
+  }
+
+  flushToDisk() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+      this.saveTimeout = null;
+    }
+    try {
+      const tmpStore = this.storePath + '.tmp';
+      const tmpMeta = this.metaPath + '.tmp';
+
+      fs.writeFileSync(tmpStore, JSON.stringify(this.store), 'utf8');
+      fs.renameSync(tmpStore, this.storePath);
+
+      fs.writeFileSync(tmpMeta, JSON.stringify({ version: this.version, updatedAt: this.updatedAt }), 'utf8');
+      fs.renameSync(tmpMeta, this.metaPath);
+    } catch (err) {
+      console.error('[StoreService] Disk save error:', err.message);
+    }
+  }
+
+  scheduleSave() {
+    if (this.saveTimeout) return;
+    this.saveTimeout = setTimeout(() => {
+      this.flushToDisk();
+    }, 50);
+  }
+
+  getAll() {
+    return {
+      success: true,
+      version: this.version,
+      updatedAt: this.updatedAt,
+      tables: this.store
+    };
+  }
+
+  getVersion() {
+    return {
+      version: this.version,
+      updatedAt: this.updatedAt
+    };
+  }
+
+  getTable(name) {
+    return this.store[name] || null;
+  }
+
+  getTables(names = []) {
+    const result = {};
+    names.forEach(name => {
+      if (this.store[name] !== undefined) {
+        result[name] = this.store[name];
+      }
+    });
+    return result;
+  }
+
+  setTable(name, data, senderClientId = null) {
+    this.store[name] = data;
+    this.version++;
+    this.updatedAt = Date.now();
+    this.scheduleSave();
+
+    this.broadcast('table_update', {
+      table: name,
+      version: this.version,
+      updatedAt: this.updatedAt,
+      senderClientId
+    });
+
+    return {
+      success: true,
+      table: name,
+      version: this.version,
+      updatedAt: this.updatedAt
+    };
+  }
+
+  setBatch(tablesObj = {}, senderClientId = null) {
+    const updatedNames = [];
+    for (const [name, data] of Object.entries(tablesObj)) {
+      this.store[name] = data;
+      updatedNames.push(name);
+    }
+    this.version++;
+    this.updatedAt = Date.now();
+    this.scheduleSave();
+
+    this.broadcast('batch_update', {
+      tables: updatedNames,
+      version: this.version,
+      updatedAt: this.updatedAt,
+      senderClientId
+    });
+
+    return {
+      success: true,
+      tables: updatedNames,
+      version: this.version,
+      updatedAt: this.updatedAt
+    };
+  }
+
+  subscribe(res) {
+    this.sseClients.add(res);
+    res.on('close', () => {
+      this.sseClients.delete(res);
+    });
+  }
+
+  broadcast(event, payload) {
+    const dataStr = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+    for (const client of this.sseClients) {
+      try {
+        client.write(dataStr);
+      } catch {
+        this.sseClients.delete(client);
+      }
+    }
+  }
+}
+
+const instance = new StoreService();
+module.exports = instance;

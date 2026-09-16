@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const express = require('express');
@@ -11,6 +12,7 @@ const leaveRoutes = require('./routes/leaves');
 const payrollRoutes = require('./routes/payroll');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
+const syncRoutes = require('./routes/sync');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +22,17 @@ app.use(helmet({
   contentSecurityPolicy: false, // Allow CDN resources (FontAwesome, Chart.js, Google Fonts)
   crossOriginResourcePolicy: false
 }));
+
+// Additional Hardening Security Headers
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN'); // Prevent clickjacking
+  res.setHeader('X-Content-Type-Options', 'nosniff'); // Prevent MIME-type sniffing
+  res.setHeader('X-XSS-Protection', '1; mode=block'); // XSS filter protection
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // Prevent link/token referrer leaks
+  res.removeHeader('X-Powered-By'); // Hide Express signature from fingerprinting
+  next();
+});
+
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -48,6 +61,12 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/sync', syncRoutes);
+
+// Serve uploaded files (CVs, documents)
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
 
 // Serve static frontend files directly from the parent directory
 const clientDir = path.join(__dirname, '../../');
@@ -62,9 +81,10 @@ app.get('*', (req, res) => {
 });
 
 // Start Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 ===============================================`);
-  console.log(`   HRM Pro Server is running on http://localhost:${PORT}`);
+  console.log(`   HRM Pro Server is running on http://0.0.0.0:${PORT}`);
+  console.log(`   Local Machine:     http://localhost:${PORT}`);
   console.log(`   Frontend served at http://localhost:${PORT}`);
   console.log(`   REST API ready at  http://localhost:${PORT}/api/health`);
   console.log(`   ===============================================\n`);

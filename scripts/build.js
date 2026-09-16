@@ -26,6 +26,26 @@ if (fs.existsSync(localServerPrisma)) {
   prismaBin = `"${process.execPath}" "${rootPrisma}"`;
 }
 
+// 0. Ensure public directory exists and mirrors static assets for Vercel builds
+const publicDir = path.join(__dirname, '../public');
+if (!fs.existsSync(publicDir)) {
+  fs.mkdirSync(publicDir, { recursive: true });
+}
+try {
+  fs.copyFileSync(path.join(__dirname, '../index.html'), path.join(publicDir, 'index.html'));
+  const dirsToCopy = ['css', 'js', 'img', 'assets'];
+  for (const d of dirsToCopy) {
+    const src = path.join(__dirname, '..', d);
+    const dest = path.join(publicDir, d);
+    if (fs.existsSync(src)) {
+      fs.cpSync(src, dest, { recursive: true, force: true });
+    }
+  }
+  console.log('✅ [Build] Static assets mirrored to public/ directory for Vercel.');
+} catch (e) {
+  console.warn('⚠️ [Build] Notice on copying assets to public/:', e.message);
+}
+
 console.log('⚡ [Build] Generating Prisma client...');
 try {
   execSync(`${prismaBin} generate --schema=server/prisma/schema.prisma`, {
@@ -51,3 +71,5 @@ if (dbUrl && !dbUrl.includes('dummy')) {
     console.warn('⚠️ [Build] Notice: db push could not complete during build container step (will sync at runtime):', err.message);
   }
 }
+
+
