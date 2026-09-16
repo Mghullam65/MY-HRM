@@ -24,7 +24,7 @@ class EmailService {
       try {
         nodemailer = require('nodemailer');
       } catch (e) {
-        return null;
+        return { transporter: null, isRealSmtp: false };
       }
     }
 
@@ -32,23 +32,63 @@ class EmailService {
     const user = process.env.SMTP_USER || customSettings.smtpUser;
     const pass = process.env.SMTP_PASS || customSettings.smtpPass;
     const port = parseInt(process.env.SMTP_PORT || customSettings.smtpPort || '587', 10);
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const secure = process.env.SMTP_SECURE === 'true' || customSettings.smtpSecure === true || port === 465;
 
     // Real SMTP configuration
     if (host && user && pass) {
-      return nodemailer.createTransport({
+      return {
+        transporter: nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: { user, pass },
+          tls: { rejectUnauthorized: false }
+        }),
+        isRealSmtp: true,
         host,
-        port,
-        secure,
-        auth: { user, pass },
-        tls: { rejectUnauthorized: false }
-      });
+        user,
+        port
+      };
     }
 
     // Zero-dependency local JSON/stream transporter (safe fallback for dev/testing)
-    return nodemailer.createTransport({
-      jsonTransport: true
-    });
+    return {
+      transporter: nodemailer.createTransport({
+        jsonTransport: true
+      }),
+      isRealSmtp: false,
+      host: 'local-archive',
+      user: 'none',
+      port
+    };
+  }
+
+  /**
+   * Verify SMTP connection with the mail server
+   */
+  async verifyConnection(customSettings = {}) {
+    const { transporter, isRealSmtp, host, port } = this.getTransporter(customSettings);
+    if (!isRealSmtp) {
+      return {
+        success: false,
+        isRealSmtp: false,
+        message: 'SMTP credentials missing. Please provide SMTP Host, Username, and Password.'
+      };
+    }
+    try {
+      await transporter.verify();
+      return {
+        success: true,
+        isRealSmtp: true,
+        message: `SMTP Connected and authenticated successfully with ${host}:${port}!`
+      };
+    } catch (err) {
+      return {
+        success: false,
+        isRealSmtp: true,
+        message: `SMTP Verification failed: ${err.message}`
+      };
+    }
   }
 
   /**
@@ -307,7 +347,7 @@ class EmailService {
     }
 
     const fromAddress = process.env.SMTP_FROM || customSettings.smtpFrom || 'HRM Telemetry <no-reply@company.com>';
-    const transporter = this.getTransporter(customSettings);
+    const { transporter, isRealSmtp, host } = this.getTransporter(customSettings);
 
     const mailOptions = {
       from: fromAddress,
@@ -331,7 +371,7 @@ class EmailService {
     if (transporter) {
       try {
         result = await transporter.sendMail(mailOptions);
-        console.log(`[EmailService] ✅ Email dispatched to [${toList.join(', ')}]. Message ID: ${result.messageId || 'local-stream'}`);
+        console.log(`[EmailService] ✅ Email dispatched to [${toList.join(', ')}] via ${isRealSmtp ? host : 'Local JSON'}. Message ID: ${result.messageId || 'local-stream'}`);
       } catch (err) {
         console.error('[EmailService] ❌ SMTP transport error:', err.message);
         throw err;
@@ -342,9 +382,12 @@ class EmailService {
 
     return {
       success: true,
+      isRealSmtp,
+      provider: isRealSmtp ? host : 'Local Stream (Simulated)',
       recipients: toList,
       archivedFile: fallbackSavedPath,
-      messageId: result?.messageId || `archive-${Date.now()}`
+      messageId: result?.messageId || `archive-${Date.now()}`,
+      warning: !isRealSmtp ? 'SMTP credentials not configured. Email was rendered and saved to disk, but NOT delivered to live inboxes. Please enter SMTP credentials in Settings -> Attendance Rules or environment variables.' : null
     };
   }
 }

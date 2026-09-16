@@ -77,7 +77,13 @@ class DailyAttendanceJobEngine {
       companyName: settings.companyName || 'ApexHRM Enterprise',
       officeStartTime: settings.officeStartTime || '09:00',
       gracePeriod: parseInt(settings.gracePeriod || 15, 10),
-      weekendDays: (settings.weekendDays || 'Sat,Sun').split(',').map(s => s.trim().toLowerCase())
+      weekendDays: (settings.weekendDays || 'Sat,Sun').split(',').map(s => s.trim().toLowerCase()),
+      smtpHost: process.env.SMTP_HOST || settings.smtpHost || '',
+      smtpPort: parseInt(process.env.SMTP_PORT || settings.smtpPort || '587', 10),
+      smtpSecure: process.env.SMTP_SECURE === 'true' || settings.smtpSecure === true || settings.smtpSecure === 'true',
+      smtpUser: process.env.SMTP_USER || settings.smtpUser || '',
+      smtpPass: process.env.SMTP_PASS || settings.smtpPass || '',
+      smtpFrom: process.env.SMTP_FROM || settings.smtpFrom || ''
     };
   }
 
@@ -347,6 +353,8 @@ class DailyAttendanceJobEngine {
         },
         durationMs,
         archivedFile: dispatchResult.archivedFile,
+        provider: dispatchResult.provider,
+        isRealSmtp: dispatchResult.isRealSmtp,
         error: null,
         sentAt: new Date().toISOString()
       };
@@ -364,18 +372,21 @@ class DailyAttendanceJobEngine {
           subject,
           templateCode: 'DAILY_ATTENDANCE_SUMMARY',
           status: 'sent',
-          provider: process.env.SMTP_HOST ? 'SMTP' : 'Local Stream / Archive',
+          provider: dispatchResult.provider || 'SMTP',
           sentAt: new Date().toISOString(),
-          errorMessage: null
+          errorMessage: dispatchResult.warning || null
         });
         storeService.setTable('email_logs', emailLogs);
       }
 
-      console.log(`✅ [DailyAttendanceJob] Summary for ${dateToProcess} sent successfully in ${durationMs}ms to ${dispatchResult.recipients.length} recipients.\n`);
+      console.log(`✅ [DailyAttendanceJob] Summary for ${dateToProcess} processed in ${durationMs}ms via ${dispatchResult.provider} to ${dispatchResult.recipients.length} recipients.\n`);
 
       return {
         success: true,
         date: dateToProcess,
+        isRealSmtp: dispatchResult.isRealSmtp,
+        provider: dispatchResult.provider,
+        warning: dispatchResult.warning,
         recipients: dispatchResult.recipients,
         stats: summaryData,
         archivedFile: dispatchResult.archivedFile,

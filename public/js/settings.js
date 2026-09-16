@@ -740,7 +740,36 @@ const Settings = {
           </button>
         </div>
       </div>
-    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save Rules & Automation</button>`);
+    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save Rules & Automation</button>`) +
+
+    this._sectionCard('Corporate SMTP Server Configuration (For Real Inbox Delivery)', 'Configure your Gmail, SendGrid, Office365, or Corporate SMTP server to deliver real emails to inboxes', `
+      ${this._settingRow('SMTP Server Host',
+        `<input class="form-control" id="s-smtp-host" placeholder="e.g. smtp.gmail.com or smtp.sendgrid.net" value="${s('smtpHost') || ''}">`,
+        'Outgoing mail server hostname (also configurable via SMTP_HOST env variable)')}
+      ${this._settingRow('SMTP Server Port',
+        `<input class="form-control" id="s-smtp-port" type="number" placeholder="587" value="${s('smtpPort') || 587}">`,
+        'Common ports: 587 (STARTTLS) or 465 (SSL)')}
+      ${this._settingRow('Encryption / Security',
+        `<select class="form-control" id="s-smtp-secure">
+          <option value="false" ${s('smtpSecure')===false || !s('smtpSecure') ? 'selected' : ''}>STARTTLS (Recommended for Port 587)</option>
+          <option value="true" ${s('smtpSecure')===true ? 'selected' : ''}>SSL / TLS (For Port 465)</option>
+        </select>`,
+        'Connection encryption protocol')}
+      ${this._settingRow('SMTP Username / Email',
+        `<input class="form-control" id="s-smtp-user" placeholder="e.g. hr.notifications@company.com" value="${s('smtpUser') || ''}">`,
+        'Account username or email address for authentication')}
+      ${this._settingRow('SMTP Password / App Password',
+        `<input class="form-control" id="s-smtp-pass" type="password" placeholder="••••••••••••••••" value="${s('smtpPass') || ''}">`,
+        'Mail server password (for Gmail, generate and use a 16-character Google App Password)')}
+      ${this._settingRow('From Sender Address',
+        `<input class="form-control" id="s-smtp-from" placeholder="ApexHRM Telemetry <no-reply@company.com>" value="${s('smtpFrom') || ''}">`,
+        'Display name and email shown in recipient inboxes')}
+      <div style="margin-top:14px;display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn btn-secondary btn-sm" onclick="Settings.verifySmtpConnection()">
+          <i class="fa fa-plug"></i> Test & Verify SMTP Connection
+        </button>
+      </div>
+    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save SMTP & Rules</button>`);
   },
 
   saveAttendanceRules() {
@@ -763,9 +792,93 @@ const Settings = {
     if (tzEl) this._setSetting('dailyAttendanceEmailTimezone', tzEl.value);
     if (recEl) this._setSetting('dailyAttendanceEmailRecipients', recEl.value.trim());
 
+    // Save SMTP Settings
+    const hostEl = document.getElementById('s-smtp-host');
+    const portEl = document.getElementById('s-smtp-port');
+    const secureEl = document.getElementById('s-smtp-secure');
+    const userEl = document.getElementById('s-smtp-user');
+    const passEl = document.getElementById('s-smtp-pass');
+    const fromEl = document.getElementById('s-smtp-from');
+
+    if (hostEl) this._setSetting('smtpHost', hostEl.value.trim());
+    if (portEl) this._setSetting('smtpPort', parseInt(portEl.value.trim(), 10) || 587);
+    if (secureEl) this._setSetting('smtpSecure', secureEl.value === 'true');
+    if (userEl) this._setSetting('smtpUser', userEl.value.trim());
+    if (passEl && passEl.value) this._setSetting('smtpPass', passEl.value);
+    if (fromEl) this._setSetting('smtpFrom', fromEl.value.trim());
+
     DB.flushServerPush();
-    DB.log('UPDATE', 'Settings', 'Attendance rules and Daily Email Automation settings updated', Auth.user?.id);
-    Toast.show('Attendance rules and Daily Summary Automation saved!', 'success');
+    DB.log('UPDATE', 'Settings', 'Attendance rules, Daily Email Automation and SMTP settings updated', Auth.user?.id);
+    Toast.show('Settings and SMTP credentials saved successfully!', 'success');
+  },
+
+  async verifySmtpConnection() {
+    const smtpHost = document.getElementById('s-smtp-host')?.value.trim() || this._getSetting('smtpHost', '');
+    const smtpPort = document.getElementById('s-smtp-port')?.value.trim() || this._getSetting('smtpPort', 587);
+    const smtpSecure = document.getElementById('s-smtp-secure')?.value === 'true';
+    const smtpUser = document.getElementById('s-smtp-user')?.value.trim() || this._getSetting('smtpUser', '');
+    const smtpPass = document.getElementById('s-smtp-pass')?.value || this._getSetting('smtpPass', '');
+
+    if (!smtpHost || !smtpUser || !smtpPass) {
+      Modal.show('SMTP Configuration Incomplete', `
+        <div style="padding:10px 0;line-height:1.6;">
+          <p style="color:var(--text)">Please enter your <strong>SMTP Server Host</strong>, <strong>Username</strong>, and <strong>Password</strong> to test connection.</p>
+          <div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;margin-top:10px;">
+            <strong>Example for Gmail:</strong><br>
+            • Host: <code>smtp.gmail.com</code><br>
+            • Port: <code>587</code><br>
+            • Username: <code>your-email@gmail.com</code><br>
+            • Password: <em>16-character Google App Password (not standard account password)</em>
+          </div>
+        </div>
+      `, {
+        footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Understood</button>`
+      });
+      return;
+    }
+
+    Toast.show('Connecting to mail server...', 'info');
+
+    try {
+      const resp = await fetch('/api/jobs/daily-attendance-summary/verify-smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        Modal.show('SMTP Verification Succeeded! 🎉', `
+          <div style="text-align:center;padding:16px;">
+            <div style="font-size:40px;color:var(--success);margin-bottom:12px;"><i class="fa fa-circle-check"></i></div>
+            <h4 style="margin:0 0 8px 0;">Mail Server Authenticated</h4>
+            <p style="color:var(--text-2);font-size:13px;">${data.message}</p>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:8px;padding:10px;font-size:12px;margin-top:12px;">
+              Your emails will now be delivered straight to real Outlook, Gmail, and corporate inboxes!
+            </div>
+          </div>
+        `, {
+          footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close</button>`
+        });
+      } else {
+        Modal.show('SMTP Verification Failed ⚠️', `
+          <div style="padding:12px 0;">
+            <div style="color:var(--danger);font-weight:700;margin-bottom:8px;"><i class="fa fa-triangle-exclamation"></i> Mail Server Rejected Connection</div>
+            <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:12px;font-size:12px;line-height:1.5;font-family:monospace;">
+              ${data.message}
+            </div>
+            <p style="font-size:12px;color:var(--text-3);margin-top:12px;">
+              <strong>Common fixes:</strong><br>
+              • If using Gmail, make sure you enabled 2-Step Verification and generated a Google <strong>App Password</strong>.<br>
+              • Ensure your port (587 or 465) and firewall allow outbound connections.
+            </p>
+          </div>
+        `, {
+          footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close</button>`
+        });
+      }
+    } catch (e) {
+      Toast.show('Verification Request Error', 'error', e.message);
+    }
   },
 
   async sendTestDailyAttendanceEmail() {
@@ -782,12 +895,35 @@ const Settings = {
 
       if (resp && resp.ok) {
         const json = await resp.json();
-        const stats = json.data?.stats;
-        Toast.show(
-          'Daily Attendance Summary Dispatched!',
-          'success',
-          `Sent to ${json.data?.recipients?.join(', ')}. Stats: ${stats?.presentCount || 0} Present, ${stats?.absentCount || 0} Absent, ${stats?.leaveCount || 0} On Leave.`
-        );
+        const data = json.data || {};
+        const stats = data.stats;
+
+        if (data.isRealSmtp) {
+          Toast.show(
+            'Daily Attendance Summary Delivered! 🚀',
+            'success',
+            `Delivered to ${data.recipients?.join(', ')} via ${data.provider}. Stats: ${stats?.presentCount || 0} Present, ${stats?.absentCount || 0} Absent, ${stats?.leaveCount || 0} On Leave.`
+          );
+        } else {
+          Modal.show('Summary Email Generated (Simulated Delivery)', `
+            <div style="padding:14px 0;">
+              <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:14px;font-size:13px;line-height:1.6;margin-bottom:14px;">
+                <i class="fa fa-circle-info" style="font-size:16px;color:#d97706;margin-right:6px"></i>
+                <strong>Notice:</strong> The report was compiled and archived to server disk, but <strong>NOT delivered to your actual email inbox</strong> because real SMTP credentials have not been entered yet.
+              </div>
+              <p style="font-size:13px;color:var(--text);">To receive this email in your live Gmail or Outlook inbox, simply enter your mail server details under <strong>Corporate SMTP Server Configuration</strong> below and click <strong>Save</strong>.</p>
+              <div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;color:var(--text-2);">
+                • <strong>Recipients:</strong> ${data.recipients?.join(', ') || recipients}<br>
+                • <strong>Present:</strong> ${stats?.presentCount || 0} employees<br>
+                • <strong>Absent:</strong> ${stats?.absentCount || 0} employees<br>
+                • <strong>On Leave:</strong> ${stats?.leaveCount || 0} employees<br>
+                • <strong>Archived File:</strong> <code style="font-size:11px">${data.archivedFile || 'data/sent_emails/'}</code>
+              </div>
+            </div>
+          `, {
+            footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Understood</button>`
+          });
+        }
       } else {
         Toast.show('Summary email archived to disk and logged successfully!', 'success', `Saved locally at data/sent_emails/`);
       }

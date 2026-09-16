@@ -1,5 +1,6 @@
 const express = require('express');
 const jobEngine = require('../jobs/dailyAttendanceSummary');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -159,6 +160,20 @@ router.get('/cron/daily-attendance-summary', async (req, res) => {
 
   } catch (err) {
     res.status(500).json({ success: false, message: 'Cron execution error', error: err.message });
+  }
+});
+
+/**
+ * POST /api/jobs/daily-attendance-summary/verify-smtp
+ * Test real SMTP handshake with the mail server
+ */
+router.post('/daily-attendance-summary/verify-smtp', async (req, res) => {
+  try {
+    const customSettings = req.body || {};
+    const result = await emailService.verifyConnection(customSettings);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
