@@ -1174,8 +1174,7 @@ const Landing = {
             <!-- Card 1 -->
             <div class="ps-card">
               <div class="ps-card-badges">
-                <span class="ps-badge-problem"><i class="fa fa-triangle-exclamation"></i> Manual Pain Point</span>
-                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> HRM Pro Automated</span>
+                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Automated Payroll Engine</span>
               </div>
               <h3 class="ps-card-title">Say No to End-of-Month Payroll Panic</h3>
               <p class="ps-card-text">
@@ -1189,8 +1188,7 @@ const Landing = {
             <!-- Card 2 -->
             <div class="ps-card">
               <div class="ps-card-badges">
-                <span class="ps-badge-problem"><i class="fa fa-triangle-exclamation"></i> Compliance Risk</span>
-                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Audit-Ready</span>
+                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Audit-Ready Compliance</span>
               </div>
               <h3 class="ps-card-title">Spending Too Long on Statutory Compliance?</h3>
               <p class="ps-card-text">
@@ -1204,7 +1202,6 @@ const Landing = {
             <!-- Card 3 -->
             <div class="ps-card">
               <div class="ps-card-badges">
-                <span class="ps-badge-problem"><i class="fa fa-triangle-exclamation"></i> Operational Silos</span>
                 <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Multi-Branch Sync</span>
               </div>
               <h3 class="ps-card-title">Multi-Location Attendance Minus The Mess</h3>
@@ -1219,8 +1216,7 @@ const Landing = {
             <!-- Card 4 -->
             <div class="ps-card">
               <div class="ps-card-badges">
-                <span class="ps-badge-problem"><i class="fa fa-triangle-exclamation"></i> Disconnected ATS</span>
-                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Hire to Retire</span>
+                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Hire to Retire ATS</span>
               </div>
               <h3 class="ps-card-title">Fragmented Hiring, Appraisals & Offboarding</h3>
               <p class="ps-card-text">
@@ -1305,7 +1301,7 @@ const Landing = {
                   oninput="Landing.updateTaxCalc(this.value)">
 
                 <!-- Quick Presets Chips -->
-                <div style="font-size:11px;color:#94a3b8;margin-top:12px;font-weight:700">QUICK PRESETS:</div>
+                <div style="font-size:12px;color:#94a3b8;margin-top:14px;margin-bottom:6px;font-weight:700">Quick Presets:</div>
                 <div class="tax-presets-row">
                   <span class="tax-preset-chip" onclick="Landing.setTaxPreset(80000)">PKR 80k</span>
                   <span class="tax-preset-chip" onclick="Landing.setTaxPreset(150000)">PKR 150k</span>
@@ -1330,7 +1326,7 @@ const Landing = {
                         <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
                           <i class="fa fa-piggy-bank text-primary"></i> Provident Fund (PF) Rate (%)
                         </label>
-                        <span id="tax-pf-summary-badge" style="font-size:11px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.15);padding:2px 8px;border-radius:6px">0% (PKR 0)</span>
+                        <span id="tax-pf-summary-badge" style="font-size:12px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.15);padding:3px 10px;border-radius:6px">0% (PKR 0)</span>
                       </div>
                       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <div style="position:relative;width:110px">
@@ -1354,11 +1350,11 @@ const Landing = {
                         <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
                           <i class="fa fa-shield-heart text-warning"></i> EOBI Contribution (PKR)
                         </label>
-                        <span id="tax-eobi-summary-badge" style="font-size:11px;font-weight:700;color:#fcd34d;background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px">PKR 0</span>
+                        <span id="tax-eobi-summary-badge" style="font-size:12px;font-weight:700;color:#fcd34d;background:rgba(245,158,11,0.15);padding:3px 10px;border-radius:6px">PKR 0</span>
                       </div>
                       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
                         <div style="position:relative;width:130px">
-                          <span style="position:absolute;left:9px;top:8px;color:#94a3b8;font-weight:800;font-size:11px">PKR</span>
+                          <span style="position:absolute;left:9px;top:8px;color:#94a3b8;font-weight:800;font-size:12px">PKR</span>
                           <input type="number" id="tax-input-eobi-amt" value="0" min="0" max="20000" step="100"
                             style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 8px 8px 36px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
                             oninput="Landing.updateEobiAmt(this.value)">
@@ -1374,7 +1370,7 @@ const Landing = {
 
                 <!-- View Tax Slabs Table Toggle Button -->
                 <div style="margin-top:14px">
-                  <button type="button" class="tax-mini-chip" style="width:100%;padding:9px;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(37,99,235,0.18);border-color:rgba(59,130,246,0.35);color:#93c5fd" onclick="Landing.toggleSlabsTable()">
+                  <button type="button" class="tax-mini-chip" style="width:100%;padding:10px 18px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(37,99,235,0.18);border-color:rgba(59,130,246,0.35);color:#93c5fd" onclick="Landing.toggleSlabsTable()" aria-expanded="false" aria-controls="tax-slabs-table-container">
                     <i class="fa fa-table-list"></i> <span id="tax-slabs-toggle-txt">View Official Tax Slabs (2026-27) Table</span>
                   </button>
                 </div>
@@ -1429,9 +1425,9 @@ const Landing = {
               <!-- Results Display Side -->
               <div class="tax-calc-box-results">
                 <div class="tax-results-net-card">
-                  <div style="font-size:11px;color:#a7f3d0;font-weight:800;letter-spacing:0.5px">ESTIMATED NET TAKE-HOME PAY</div>
+                  <div style="font-size:12px;color:#a7f3d0;font-weight:700;letter-spacing:0.3px">Estimated Net Take-Home Pay</div>
                   <div class="tax-net-amount" id="tax-res-net">PKR 144,000</div>
-                  <div style="font-size:11.5px;color:#cbd5e1" id="tax-res-pct">96.0% of gross monthly salary</div>
+                  <div style="font-size:13px;color:#cbd5e1" id="tax-res-pct">96.0% of gross monthly salary</div>
                 </div>
 
                 <!-- Breakdown Progress Bar -->
@@ -1440,7 +1436,7 @@ const Landing = {
                   <div class="tax-bar-tax" id="tax-bar-tax" style="width:4.0%" title="Income Tax"></div>
                   <div class="tax-bar-ded" id="tax-bar-ded" style="width:0%" title="EOBI & PF"></div>
                 </div>
-                <div style="display:flex;justify-content:space-between;font-size:10.5px;color:#94a3b8;margin-bottom:16px">
+                <div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:16px">
                   <span><span style="color:#10b981">■</span> Take-Home</span>
                   <span><span style="color:#ef4444">■</span> Income Tax</span>
                   <span><span style="color:#f59e0b">■</span> EOBI & PF</span>
@@ -1469,7 +1465,7 @@ const Landing = {
                 </div>
                 <div class="tax-results-row">
                   <span style="color:#cbd5e1">FBR Bracket</span>
-                  <span style="font-size:11px;color:#93c5fd;text-align:right;max-width:240px" id="tax-res-slab-desc">Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)</span>
+                  <span style="font-size:12px;color:#93c5fd;text-align:right;max-width:260px" id="tax-res-slab-desc">Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)</span>
                 </div>
               </div>
             </div>
@@ -1632,7 +1628,7 @@ const Landing = {
                         <i class="fa fa-business-time"></i> ${job.experience}
                       </span>
                       <span class="career-chip">
-                        <i class="fa fa-money-bill-wave"></i> PKR ${job.salary}
+                        <i class="fa fa-money-bill-wave"></i> Rs. ${job.salary} / mo
                       </span>
                       <span class="career-chip">
                         <i class="fa fa-users"></i> ${job.positions} Open
@@ -1644,9 +1640,9 @@ const Landing = {
                     </p>
 
                     <div class="career-card-bottom">
-                      <a href="#" class="career-view-link" onclick="Landing.viewJobDetails(${job.id});return false;">
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="Landing.viewJobDetails(${job.id})">
                         <i class="fa fa-circle-info"></i> View Requirements
-                      </a>
+                      </button>
                       <button class="btn-career-apply" onclick="Landing.openApplyModal(${job.id})">
                         Apply Now <i class="fa fa-arrow-right"></i>
                       </button>
@@ -1980,7 +1976,7 @@ const Landing = {
               Explore Full ${p.badge} Tour <i class="fa fa-arrow-right" style="margin-left:6px"></i>
             </button>
             <button class="btn btn-secondary" onclick="App.showLogin()" style="font-weight:600">
-              Open Portal Access
+              <i class="fa fa-arrow-up-right-from-square" style="margin-right:6px"></i> Open Portal Access
             </button>
           </div>
         </div>
@@ -2286,16 +2282,16 @@ const Landing = {
 
           <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:16px">
             <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
-              <div style="font-size:11px;color:var(--text-3)">Vacancies</div>
+              <div style="font-size:12px;color:var(--text-3)">Vacancies</div>
               <div style="font-weight:700;font-size:14px;color:var(--text)">${job.positions} Open</div>
             </div>
             <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
-              <div style="font-size:11px;color:var(--text-3)">Experience</div>
+              <div style="font-size:12px;color:var(--text-3)">Experience</div>
               <div style="font-weight:700;font-size:14px;color:var(--text)">${job.experience}</div>
             </div>
             <div class="card" style="padding:10px;margin:0;text-align:center;background:var(--surface)">
-              <div style="font-size:11px;color:var(--text-3)">Salary Range</div>
-              <div style="font-weight:700;font-size:14px;color:#10b981">PKR ${job.salary}</div>
+              <div style="font-size:12px;color:var(--text-3)">Salary Range</div>
+              <div style="font-weight:700;font-size:14px;color:#10b981">Rs. ${job.salary} / mo</div>
             </div>
           </div>
 
@@ -2349,7 +2345,7 @@ const Landing = {
               </div>
               <div>
                 <div style="font-weight:800;font-size:15px;color:#0f172a">${job.title}</div>
-                <div style="font-size:12px;color:#64748b">${dept?.name || 'Department'} • PKR ${job.salary} • ${job.experience} experience</div>
+                <div style="font-size:12px;color:#64748b">${dept?.name || 'Department'} • Rs. ${job.salary} / mo • ${job.experience} experience</div>
               </div>
             </div>
             <span class="badge badge-success" style="font-size:11px;font-weight:700"><i class="fa fa-circle-check"></i> Actively Hiring</span>
