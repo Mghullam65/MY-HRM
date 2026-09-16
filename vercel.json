@@ -1,5 +1,5 @@
 {
-  "outputDirectory": ".",
+  "outputDirectory": "public",
   "headers": [
     {
       "source": "/(.*)",
@@ -17,6 +17,11 @@
       "schedule": "*/15 * * * *"
     }
   ],
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "server/**"
+    }
+  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ]
