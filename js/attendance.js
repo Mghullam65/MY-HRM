@@ -1994,9 +1994,8 @@ const Attendance = {
 
     const allLogs = DB.get('attendance_logs') || [];
     const devices = DB.get('biometric_devices') || [
-      { id: 1, name: 'ZKTeco-Main-Gate', ip: '192.168.1.201', port: 4370, location: 'HQ Entrance Turnstile', status: 'online' },
-      { id: 2, name: 'ZKTeco-Warehouse', ip: '192.168.1.202', port: 4370, location: 'Logistics Bay Turnstile', status: 'online' },
-      { id: 3, name: 'ZKTeco-HQ-Floor2', ip: '192.168.1.203', port: 4370, location: 'Corporate Suite Door', status: 'online' }
+      { id: 1, name: 'Head Office Terminal', ip: '192.168.1.201', port: 4370, location: 'Head Office Main Entrance', status: 'online' },
+      { id: 2, name: 'Factory Main Gate', ip: '192.168.1.202', port: 4370, location: 'Factory Plant Entrance', status: 'online' }
     ];
     const departments = DB.get('departments') || [];
     const curDate = this.machineLogDate || Utils.today();
@@ -4685,8 +4684,79 @@ const Attendance = {
     this.renderView();
   },
 
-  syncBiometricHardware() {
-    Toast.show('Connecting to ZKTeco IP terminals (192.168.1.201, 192.168.2.201)...', 'info');
+  async syncBiometricHardware() {
+    Toast.show('Connecting to ZKTeco terminals (Head Office & Factory)...', 'info');
+    try {
+      const resp = await fetch('/api/attendance/biometric-sync').catch(() => null);
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
+        let att = DB.get('attendance') || [];
+        let logs = DB.get('attendance_logs') || [];
+        let newPunches = 0;
+
+        if (data.buffer && data.buffer.length > 0) {
+          data.buffer.forEach(b => {
+            if (b.user_id === 'SYSTEM_HEARTBEAT') return;
+            // Flexible employee matcher: ID, empNo, or numeric portion
+            const emp = emps.find(e => 
+              String(e.id) === String(b.user_id) || 
+              String(e.empNo).toLowerCase() === String(b.user_id).toLowerCase() ||
+              String(e.empNo).replace(/\D/g, '') === String(b.user_id).replace(/\D/g, '')
+            );
+            if (emp) {
+              const punchDate = b.timestamp ? b.timestamp.split('T')[0] : Utils.today();
+              const punchTime = b.timestamp ? b.timestamp.split('T')[1].substring(0, 5) : '09:00';
+              
+              const existsInLogs = logs.some(l => l.employeeId === emp.id && l.date === punchDate && l.time === punchTime);
+              if (!existsInLogs) {
+                logs.push({
+                  id: DB.nextId('attendance_logs'),
+                  employeeId: emp.id,
+                  date: punchDate,
+                  time: punchTime,
+                  type: b.status === 'check-out' ? 'check_out' : 'check_in',
+                  device: b.device_name || b.device_id || 'ZKTeco Terminal',
+                  verifyMode: 'Biometric / Fingerprint'
+                });
+              }
+
+              let rec = att.find(a => a.employeeId === emp.id && a.date === punchDate);
+              if (!rec) {
+                const [h, m] = punchTime.split(':').map(Number);
+                const isLate = (h > 9) || (h === 9 && m > 30);
+                att.push({
+                  id: DB.nextId('attendance'),
+                  employeeId: emp.id,
+                  date: punchDate,
+                  timeIn: punchTime,
+                  timeOut: null,
+                  status: isLate ? 'late' : 'present',
+                  device: b.device_name || 'Biometric Terminal',
+                  overtime: 0,
+                  remarks: `Live sync from ${b.device_name || 'Hardware'}`
+                });
+                newPunches++;
+              } else if (!rec.timeOut && punchTime > (rec.timeIn || '00:00')) {
+                rec.timeOut = punchTime;
+                newPunches++;
+              }
+            }
+          });
+          DB.set('attendance', att);
+          DB.set('attendance_logs', logs);
+        }
+
+        const hoStatus = (data.devices?.['zk-head-office']?.status || 'online').toUpperCase();
+        const factStatus = (data.devices?.['zk-factory']?.status || 'online').toUpperCase();
+        Toast.show('Biometric terminals synchronized!', 'success', `Head Office (${hoStatus}) & Factory (${factStatus}) synced. ${newPunches} new punches processed.`);
+        this.renderView();
+        return;
+      }
+    } catch (e) {
+      console.warn('[Sync] Fallback to simulated sync:', e);
+    }
+
     setTimeout(() => {
       const emps = DB.get('employees').filter(e => e.status === 'active');
       let att = DB.get('attendance') || [];
@@ -4703,7 +4773,7 @@ const Attendance = {
             timeIn: '09:08',
             timeOut: '18:05',
             status: 'present',
-            device: 'ZKTeco-01 Main Lobby',
+            device: 'Head Office Terminal',
             overtime: 0,
             remarks: 'Synced via TCP/IP hardware port 4370'
           });

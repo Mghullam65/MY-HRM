@@ -1,0 +1,11 @@
+{
+  "device_id": "zk-factory",
+  "device_name": "Factory Main Gate",
+  "device_ip": "192.168.1.202",
+  "device_port": 4370,
+  "device_timeout": 5,
+  "comm_key": 0,
+  "hrm_api_url": "http://localhost:3000/api/attendance/biometric-sync",
+  "sync_interval_seconds": 300,
+  "api_secret": "hrm-biometric-secret-key-2026"
+}

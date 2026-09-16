@@ -30,3 +30,5 @@ server/.env.local
 scratch/
 *.tmp
 serve.js
+data/
+last_sync_*.json

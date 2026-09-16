@@ -1,6 +1,15 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const prisma = require('../db');
 const { authenticate, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
+
+const DATA_DIR = path.join(__dirname, '../../../data');
+if (!fs.existsSync(DATA_DIR)) {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+}
+const BUFFER_FILE = path.join(DATA_DIR, 'biometric_sync_buffer.json');
+const STATUS_FILE = path.join(DATA_DIR, 'biometric_sync_status.json');
 
 const router = express.Router();
 
@@ -160,6 +169,142 @@ router.post('/punch', authenticate, async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || 'Error processing punch.' });
+  }
+});
+
+// ─── BIOMETRIC HARDWARE SYNC ENDPOINTS ───────────────────
+router.get('/biometric-sync', async (req, res) => {
+  try {
+    let buffer = [];
+    let statusMap = {
+      'zk-head-office': { name: 'Head Office Terminal', status: 'pending', lastSync: null, totalPunches: 0 },
+      'zk-factory': { name: 'Factory Main Gate', status: 'pending', lastSync: null, totalPunches: 0 }
+    };
+    if (fs.existsSync(BUFFER_FILE)) {
+      try { buffer = JSON.parse(fs.readFileSync(BUFFER_FILE, 'utf8') || '[]'); } catch (e) {}
+    }
+    if (fs.existsSync(STATUS_FILE)) {
+      try { statusMap = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')); } catch (e) {}
+    }
+    res.json({
+      success: true,
+      devices: statusMap,
+      buffer: buffer.slice(-100),
+      totalBuffered: buffer.length
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to retrieve biometric status', error: err.message });
+  }
+});
+
+router.post('/biometric-sync', async (req, res) => {
+  try {
+    const records = req.body || [];
+    const punchList = Array.isArray(records) ? records : [records];
+
+    let existing = [];
+    if (fs.existsSync(BUFFER_FILE)) {
+      try { existing = JSON.parse(fs.readFileSync(BUFFER_FILE, 'utf8') || '[]'); } catch (e) {}
+    }
+
+    let statusMap = {
+      'zk-head-office': { name: 'Head Office Terminal', status: 'pending', lastSync: null, count: 0 },
+      'zk-factory': { name: 'Factory Main Gate', status: 'pending', lastSync: null, count: 0 }
+    };
+    if (fs.existsSync(STATUS_FILE)) {
+      try { statusMap = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')); } catch (e) {}
+    }
+
+    const seen = new Set(existing.map(p => `${p.user_id}_${p.timestamp}`));
+    let newCount = 0;
+    punchList.forEach(p => {
+      const key = `${p.user_id}_${p.timestamp}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        existing.push(p);
+        newCount++;
+      }
+      const devId = p.device_id || 'zk-head-office';
+      statusMap[devId] = {
+        name: p.device_name || statusMap[devId]?.name || devId,
+        status: 'online',
+        lastSync: new Date().toISOString(),
+        lastBatchCount: punchList.length,
+        totalPunches: (statusMap[devId]?.totalPunches || 0) + 1
+      };
+    });
+
+    fs.writeFileSync(BUFFER_FILE, JSON.stringify(existing, null, 2));
+    fs.writeFileSync(STATUS_FILE, JSON.stringify(statusMap, null, 2));
+
+    // Also attempt to upsert into database if Prisma models are active
+    try {
+      for (const p of punchList) {
+        if (p.user_id && p.user_id !== 'SYSTEM_HEARTBEAT') {
+          const punchDate = p.timestamp ? p.timestamp.split('T')[0] : new Date().toISOString().split('T')[0];
+          const punchTime = p.timestamp ? p.timestamp.split('T')[1]?.substring(0, 5) : '09:00';
+          
+          // Match employee by id or empNo
+          const numericId = parseInt(p.user_id, 10);
+          let emp = null;
+          if (!isNaN(numericId)) {
+            emp = await prisma.employee.findUnique({ where: { id: numericId } }).catch(() => null);
+          }
+          if (!emp) {
+            emp = await prisma.employee.findFirst({
+              where: {
+                OR: [
+                  { empNo: String(p.user_id) },
+                  { empNo: { contains: String(p.user_id) } }
+                ]
+              }
+            }).catch(() => null);
+          }
+
+          if (emp) {
+            const existingAtt = await prisma.attendance.findFirst({
+              where: { employeeId: emp.id, date: punchDate }
+            }).catch(() => null);
+
+            if (!existingAtt) {
+              const [h, m] = (punchTime || '09:00').split(':').map(Number);
+              const isLate = (h > 9) || (h === 9 && m > 30);
+              const lateMinutes = isLate ? Math.max(0, (h - 9) * 60 + (m - 30)) : 0;
+              await prisma.attendance.create({
+                data: {
+                  employeeId: emp.id,
+                  date: punchDate,
+                  checkIn: punchTime,
+                  status: isLate ? 'late' : 'present',
+                  lateMinutes,
+                  notes: `Synced from ${p.device_name || p.device_id || 'Hardware'}`
+                }
+              }).catch(() => null);
+            } else if (!existingAtt.checkOut && punchTime > (existingAtt.checkIn || '00:00')) {
+              await prisma.attendance.update({
+                where: { id: existingAtt.id },
+                data: {
+                  checkOut: punchTime,
+                  notes: `${existingAtt.notes || ''} | Out synced from ${p.device_name || 'Hardware'}`
+                }
+              }).catch(() => null);
+            }
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.warn('[BiometricSync DB Warning]', dbErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: `Successfully ingested ${newCount} new biometric punches.`,
+      processed: newCount,
+      totalBuffered: existing.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: 'Invalid payload', error: err.message });
   }
 });
 
