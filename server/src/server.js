@@ -13,6 +13,8 @@ const payrollRoutes = require('./routes/payroll');
 const adminRoutes = require('./routes/admin');
 const notificationRoutes = require('./routes/notifications');
 const syncRoutes = require('./routes/sync');
+const jobsRoutes = require('./routes/jobs');
+const jobEngine = require('./jobs/dailyAttendanceSummary');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +64,8 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/jobs', jobsRoutes);
+app.use('/api', jobsRoutes);
 
 // Serve uploaded files (CVs, documents)
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -88,6 +92,13 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`   Frontend served at http://localhost:${PORT}`);
   console.log(`   REST API ready at  http://localhost:${PORT}/api/health`);
   console.log(`   ===============================================\n`);
+
+  // Start server-side background job scheduler
+  try {
+    jobEngine.startSchedulerTicker();
+  } catch (err) {
+    console.error('[Server] Failed to initialize background job scheduler:', err.message);
+  }
 });
 
 module.exports = app;

@@ -21,6 +21,7 @@ const payrollRoutes = require('../server/src/routes/payroll');
 const adminRoutes = require('../server/src/routes/admin');
 const notificationRoutes = require('../server/src/routes/notifications');
 const syncRoutes = require('../server/src/routes/sync');
+const jobsRoutes = require('../server/src/routes/jobs');
 
 const app = express();
 
@@ -89,5 +90,7 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/jobs', jobsRoutes);
+app.use('/api', jobsRoutes);
 
 module.exports = app;

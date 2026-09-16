@@ -33,3 +33,5 @@ serve.js
 data/
 last_sync_*.json
 Design Copy/
+server/data/sent_emails/
+server/data/daily_summary_job_log.json

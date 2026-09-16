@@ -11,6 +11,12 @@
       ]
     }
   ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-attendance-summary",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" }
   ]

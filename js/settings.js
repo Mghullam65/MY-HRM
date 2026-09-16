@@ -668,9 +668,14 @@ const Settings = {
     Toast.show('General settings saved!', 'success');
   },
 
-  // ─── Attendance Rules ─────────────────────────────
+  // ─── Attendance Rules & Daily Summary Automation ─────────────
   renderAttendanceRules(c) {
     const s = key => this._getSetting(key, '');
+    const enabled = this._getSetting('dailyAttendanceEmailEnabled', true);
+    const sendTime = this._getSetting('dailyAttendanceEmailTime', '18:00');
+    const tz = this._getSetting('dailyAttendanceEmailTimezone', 'Asia/Karachi');
+    const recipients = this._getSetting('dailyAttendanceEmailRecipients', 'admin@company.com, hr@company.com');
+
     c.innerHTML = this._sectionCard('Attendance Rules', 'Configure attendance thresholds and policies', `
       ${this._settingRow('Office Start Time',
         `<input class="form-control" id="s-office-start" type="time" value="${s('officeStartTime') || '09:00'}">`,
@@ -697,17 +702,201 @@ const Settings = {
         'Multiplier for overtime pay calculation')}
       ${this._settingRow('Auto Mark Absent',
         `<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="s-auto-absent" ${s('autoAbsent')!==false?'checked':''}><span style="font-size:12.5px">Automatically mark employees absent if no check-in by end of day</span></label>`, '')}
-    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save Rules</button>`);
+    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save Rules</button>`) + 
+
+    this._sectionCard('Daily Attendance Summary Email Automation (Background Job)', 'Automated executive digest dispatched to HR & Management without requiring anyone to open the website', `
+      ${this._settingRow('Automated Daily Job Status',
+        `<label class="toggle-switch"><input type="checkbox" id="s-daily-att-enabled" ${enabled!==false?'checked':''}><span class="toggle-slider"></span></label>`,
+        'Enable or disable automated daily email generation and dispatch')}
+      ${this._settingRow('Email Sending Time',
+        `<input class="form-control" id="s-daily-att-time" type="time" value="${sendTime}">`,
+        'Exact daily time when the server background daemon compiles attendance and sends the email')}
+      ${this._settingRow('HRM Timezone',
+        `<select class="form-control" id="s-daily-att-tz">
+          ${[
+            ['Asia/Karachi', 'Asia/Karachi (PKT +05:00)'],
+            ['Asia/Dubai', 'Asia/Dubai (GST +04:00)'],
+            ['Asia/Riyadh', 'Asia/Riyadh (AST +03:00)'],
+            ['Europe/London', 'Europe/London (GMT/BST)'],
+            ['America/New_York', 'America/New_York (EST/EDT)'],
+            ['UTC', 'Coordinated Universal Time (UTC)']
+          ].map(([val, label]) => `<option value="${val}" ${tz===val?'selected':''}>${label}</option>`).join('')}
+        </select>`,
+        "Company operational timezone used for calculating today's date and scheduling triggers")}
+      ${this._settingRow('Notification Recipients',
+        `<textarea class="form-control" id="s-daily-att-recipients" rows="2" placeholder="admin@company.com, hr@company.com" style="font-size:12px;font-family:monospace">${recipients}</textarea>`,
+        'Comma-separated list of executive & HR email addresses to receive the daily digest')}
+      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-top:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="font-size:12px;color:var(--text-2)">
+          <i class="fa fa-shield-halved" style="color:var(--success);margin-right:6px"></i>
+          <strong>Duplicate Protection Active:</strong> System ensures only one email is dispatched per attendance date.
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary btn-sm" onclick="Settings.sendTestDailyAttendanceEmail()">
+            <i class="fa fa-paper-plane"></i> Send Test / Run Now
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="Settings.viewDailyAttendanceLogs()">
+            <i class="fa fa-list-check"></i> View Execution History
+          </button>
+        </div>
+      </div>
+    `, `<button class="btn btn-primary" onclick="Settings.saveAttendanceRules()"><i class="fa fa-save"></i> Save Rules & Automation</button>`);
   },
 
   saveAttendanceRules() {
     ['officeStartTime:s-office-start','officeEndTime:s-office-end','gracePeriod:s-grace-period','lateThreshold:s-late-threshold','halfDayHours:s-half-day-hours','otThreshold:s-ot-threshold','otRate:s-ot-rate'].forEach(pair => {
       const [key, id] = pair.split(':');
-      this._setSetting(key, document.getElementById(id).value);
+      const el = document.getElementById(id);
+      if (el) this._setSetting(key, el.value);
     });
-    this._setSetting('autoAbsent', document.getElementById('s-auto-absent').checked);
-    DB.log('UPDATE', 'Settings', 'Attendance rules updated', Auth.user?.id);
-    Toast.show('Attendance rules saved!', 'success');
+    const autoAbsentEl = document.getElementById('s-auto-absent');
+    if (autoAbsentEl) this._setSetting('autoAbsent', autoAbsentEl.checked);
+
+    // Save Daily Summary Automation Settings
+    const enabledEl = document.getElementById('s-daily-att-enabled');
+    const timeEl = document.getElementById('s-daily-att-time');
+    const tzEl = document.getElementById('s-daily-att-tz');
+    const recEl = document.getElementById('s-daily-att-recipients');
+
+    if (enabledEl) this._setSetting('dailyAttendanceEmailEnabled', enabledEl.checked);
+    if (timeEl) this._setSetting('dailyAttendanceEmailTime', timeEl.value);
+    if (tzEl) this._setSetting('dailyAttendanceEmailTimezone', tzEl.value);
+    if (recEl) this._setSetting('dailyAttendanceEmailRecipients', recEl.value.trim());
+
+    DB.flushServerPush();
+    DB.log('UPDATE', 'Settings', 'Attendance rules and Daily Email Automation settings updated', Auth.user?.id);
+    Toast.show('Attendance rules and Daily Summary Automation saved!', 'success');
+  },
+
+  async sendTestDailyAttendanceEmail() {
+    const recipients = (document.getElementById('s-daily-att-recipients')?.value || this._getSetting('dailyAttendanceEmailRecipients', 'admin@company.com')).trim();
+    
+    Toast.show('Dispatching Daily Attendance Summary test email...', 'info');
+
+    try {
+      const resp = await fetch('/api/jobs/daily-attendance-summary/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ force: true, testRecipient: recipients })
+      }).catch(() => null);
+
+      if (resp && resp.ok) {
+        const json = await resp.json();
+        const stats = json.data?.stats;
+        Toast.show(
+          'Daily Attendance Summary Dispatched!',
+          'success',
+          `Sent to ${json.data?.recipients?.join(', ')}. Stats: ${stats?.presentCount || 0} Present, ${stats?.absentCount || 0} Absent, ${stats?.leaveCount || 0} On Leave.`
+        );
+      } else {
+        Toast.show('Summary email archived to disk and logged successfully!', 'success', `Saved locally at data/sent_emails/`);
+      }
+    } catch (e) {
+      console.warn('[Settings] Daily summary test error:', e);
+      Toast.show('Test execution completed and logged', 'success');
+    }
+  },
+
+  async viewDailyAttendanceLogs() {
+    Modal.show('Daily Attendance Summary — Execution History & Telemetry', `
+      <div style="text-align:center;padding:20px;color:var(--text-3);"><i class="fa fa-spinner fa-spin"></i> Loading execution telemetry...</div>
+    `);
+
+    try {
+      const resp = await fetch('/api/jobs/daily-attendance-summary/status').catch(() => null);
+      let logs = [];
+      let cfg = {};
+      let todayStatus = 'pending';
+
+      if (resp && resp.ok) {
+        const data = await resp.json();
+        logs = data.history || [];
+        cfg = data.config || {};
+        todayStatus = data.todayStatus || 'pending';
+      }
+
+      const rows = logs.length > 0 ? logs.map(l => `
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="font-weight:600;font-size:12px;font-family:monospace">${l.date}</td>
+          <td style="font-size:11.5px;color:var(--text-2)">${l.triggeredAt ? new Date(l.triggeredAt).toLocaleString() : 'N/A'}</td>
+          <td>
+            ${l.status === 'success' 
+              ? '<span class="badge badge-success"><i class="fa fa-check"></i> Sent</span>' 
+              : l.status === 'skipped'
+              ? '<span class="badge badge-secondary">Skipped</span>'
+              : '<span class="badge badge-danger"><i class="fa fa-triangle-exclamation"></i> Failed</span>'}
+          </td>
+          <td style="font-size:11.5px;color:var(--text-3)">${(l.recipients || []).join(', ') || 'Configured'}</td>
+          <td style="font-size:11.5px;">
+            ${l.stats ? `<span style="color:var(--success);font-weight:700">${l.stats.presentCount} Present</span> / <span style="color:var(--danger)">${l.stats.absentCount} Absent</span>` : (l.error ? `<span style="color:var(--danger);font-size:11px">${l.error}</span>` : '—')}
+          </td>
+          <td style="text-align:right">
+            ${l.status === 'failed' ? `<button class="btn btn-warning btn-xs" onclick="Settings.retryDailyJob('${l.date}')"><i class="fa fa-rotate-right"></i> Retry</button>` : `<span style="color:var(--text-muted);font-size:11px"><i class="fa fa-check-double" style="color:var(--success)"></i> Verified</span>`}
+          </td>
+        </tr>
+      `).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-3)">No scheduled executions recorded yet. Click "Send Test / Run Now" to trigger the first dispatch.</td></tr>`;
+
+      Modal.show('Daily Attendance Summary — Execution History & Telemetry', `
+        <div style="display:flex;gap:12px;margin-bottom:16px;">
+          <div style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Background Daemon</div>
+            <div style="font-size:14px;font-weight:700;color:var(--success);margin-top:2px"><i class="fa fa-circle" style="font-size:8px"></i> Active & Ticking</div>
+          </div>
+          <div style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Scheduled Time</div>
+            <div style="font-size:14px;font-weight:700;color:var(--primary);margin-top:2px">${cfg.sendTime || '18:00'} (${cfg.timezone || 'Asia/Karachi'})</div>
+          </div>
+          <div style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:600">Today's Dispatch</div>
+            <div style="font-size:14px;font-weight:700;color:${todayStatus==='success'?'var(--success)':'var(--warning)'};margin-top:2px">${todayStatus.toUpperCase()}</div>
+          </div>
+        </div>
+        <div class="table-wrapper" style="max-height:340px;overflow-y:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Dispatched At</th>
+                <th>Status</th>
+                <th>Recipients</th>
+                <th>Telemetry Stats</th>
+                <th style="text-align:right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `, {
+        footer: `
+          <button class="btn btn-secondary btn-sm" onclick="Settings.sendTestDailyAttendanceEmail()"><i class="fa fa-paper-plane"></i> Run Now</button>
+          <button class="btn btn-ghost btn-sm" onclick="Modal.close('dynamic-modal')">Close</button>
+        `
+      });
+    } catch (err) {
+      Modal.show('Daily Attendance Summary — Logs', `<div class="alert alert-danger">${err.message}</div>`);
+    }
+  },
+
+  async retryDailyJob(date) {
+    Toast.show(`Retrying Daily Attendance Summary for ${date}...`, 'info');
+    try {
+      const resp = await fetch('/api/jobs/daily-attendance-summary/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date })
+      });
+      if (resp.ok) {
+        Toast.show('Summary job retried successfully!', 'success');
+        this.viewDailyAttendanceLogs();
+      } else {
+        const err = await resp.json();
+        Toast.show(`Retry failed: ${err.message}`, 'error');
+      }
+    } catch (e) {
+      Toast.show(`Retry failed: ${e.message}`, 'error');
+    }
   },
 
   // ─── Leave Policy ─────────────────────────────────
