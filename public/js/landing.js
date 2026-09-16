@@ -1246,29 +1246,29 @@ const Landing = {
           </div>
 
           <!-- Horizontal Tabs Navigation -->
-          <div class="pillar-tabs-nav">
-            <button class="pillar-tab-btn ${Landing.activePillar === 'people' ? 'active' : ''}" onclick="Landing.switchPillar('people')">
+          <div class="pillar-tabs-nav" role="tablist" aria-label="Core HR Platforms">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'people' ? 'active' : ''}" role="tab" id="tab-pillar-people" aria-selected="${Landing.activePillar === 'people'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('people')">
               <i class="fa fa-users"></i> People & e-DMS
             </button>
-            <button class="pillar-tab-btn ${Landing.activePillar === 'attendance' ? 'active' : ''}" onclick="Landing.switchPillar('attendance')">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'attendance' ? 'active' : ''}" role="tab" id="tab-pillar-attendance" aria-selected="${Landing.activePillar === 'attendance'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('attendance')">
               <i class="fa fa-clock"></i> Biometric Attendance
             </button>
-            <button class="pillar-tab-btn ${Landing.activePillar === 'payroll' ? 'active' : ''}" onclick="Landing.switchPillar('payroll')">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'payroll' ? 'active' : ''}" role="tab" id="tab-pillar-payroll" aria-selected="${Landing.activePillar === 'payroll'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('payroll')">
               <i class="fa fa-money-bill-wave"></i> Statutory Payroll
             </button>
-            <button class="pillar-tab-btn ${Landing.activePillar === 'recruitment' ? 'active' : ''}" onclick="Landing.switchPillar('recruitment')">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'recruitment' ? 'active' : ''}" role="tab" id="tab-pillar-recruitment" aria-selected="${Landing.activePillar === 'recruitment'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('recruitment')">
               <i class="fa fa-briefcase"></i> Recruitment ATS
             </button>
-            <button class="pillar-tab-btn ${Landing.activePillar === 'performance' ? 'active' : ''}" onclick="Landing.switchPillar('performance')">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'performance' ? 'active' : ''}" role="tab" id="tab-pillar-performance" aria-selected="${Landing.activePillar === 'performance'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('performance')">
               <i class="fa fa-chart-line"></i> Performance & OKRs
             </button>
-            <button class="pillar-tab-btn ${Landing.activePillar === 'training' ? 'active' : ''}" onclick="Landing.switchPillar('training')">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'training' ? 'active' : ''}" role="tab" id="tab-pillar-training" aria-selected="${Landing.activePillar === 'training'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('training')">
               <i class="fa fa-graduation-cap"></i> Training & LMS
             </button>
           </div>
 
           <!-- Dynamic Tab Display Card -->
-          <div id="pillar-showcase-panel">
+          <div id="pillar-showcase-panel" role="tabpanel" aria-labelledby="tab-pillar-${Landing.activePillar}">
             ${Landing.getPillarCardHtml(Landing.activePillar)}
           </div>
         </section>
@@ -1314,50 +1314,59 @@ const Landing = {
                   <span class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)">PKR 1.0M</span>
                 </div>
 
-                <!-- Custom PF and EOBI Controls -->
+                <!-- Custom PF and EOBI Controls (Collapsible Accordion for Usability Heuristic #10) -->
                 <div class="tax-custom-inputs-card">
-                  <!-- Provident Fund Input -->
-                  <div style="margin-bottom:16px">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                      <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
-                        <i class="fa fa-piggy-bank text-primary"></i> Provident Fund (PF) Rate (%)
-                      </label>
-                      <span id="tax-pf-summary-badge" style="font-size:11px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.15);padding:2px 8px;border-radius:6px">0% (PKR 0)</span>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <div style="position:relative;width:110px">
-                        <input type="number" id="tax-input-pf-pct" value="0" min="0" max="50" step="0.5"
-                          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 26px 8px 10px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
-                          oninput="Landing.updatePfPct(this.value)">
-                        <span style="position:absolute;right:8px;top:8px;color:#94a3b8;font-weight:800;font-size:13px">%</span>
-                      </div>
-                      <div style="display:flex;gap:4px;flex-wrap:wrap">
-                        <button type="button" class="tax-mini-chip active" id="chip-pf-0" onclick="Landing.setPfPreset(0)">0% (None)</button>
-                        <button type="button" class="tax-mini-chip" id="chip-pf-5" onclick="Landing.setPfPreset(5)">5%</button>
-                        <button type="button" class="tax-mini-chip" id="chip-pf-833" onclick="Landing.setPfPreset(8.33)">8.33% (Std)</button>
-                        <button type="button" class="tax-mini-chip" id="chip-pf-10" onclick="Landing.setPfPreset(10)">10%</button>
-                      </div>
-                    </div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none" onclick="Landing.toggleCustomDeductions()">
+                    <span style="font-size:13px;font-weight:700;color:#93c5fd;display:flex;align-items:center;gap:8px">
+                      <i class="fa fa-sliders text-primary"></i> Customize PF & EOBI Deductions (Optional)
+                    </span>
+                    <i class="fa fa-chevron-down" id="tax-custom-ded-icon" style="color:#93c5fd;font-size:12px;transition:transform 0.2s"></i>
                   </div>
 
-                  <!-- EOBI Input -->
-                  <div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                      <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
-                        <i class="fa fa-shield-heart text-warning"></i> EOBI Contribution (PKR)
-                      </label>
-                      <span id="tax-eobi-summary-badge" style="font-size:11px;font-weight:700;color:#fcd34d;background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px">PKR 0</span>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                      <div style="position:relative;width:130px">
-                        <span style="position:absolute;left:9px;top:8px;color:#94a3b8;font-weight:800;font-size:11px">PKR</span>
-                        <input type="number" id="tax-input-eobi-amt" value="0" min="0" max="20000" step="100"
-                          style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 8px 8px 36px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
-                          oninput="Landing.updateEobiAmt(this.value)">
+                  <div id="tax-custom-ded-body" style="display:none;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.1)">
+                    <!-- Provident Fund Input -->
+                    <div style="margin-bottom:16px">
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                        <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
+                          <i class="fa fa-piggy-bank text-primary"></i> Provident Fund (PF) Rate (%)
+                        </label>
+                        <span id="tax-pf-summary-badge" style="font-size:11px;font-weight:700;color:#93c5fd;background:rgba(59,130,246,0.15);padding:2px 8px;border-radius:6px">0% (PKR 0)</span>
                       </div>
-                      <div style="display:flex;gap:4px;flex-wrap:wrap">
-                        <button type="button" class="tax-mini-chip active" id="chip-eobi-0" onclick="Landing.setEobiPreset(0)">PKR 0 (Exempt)</button>
-                        <button type="button" class="tax-mini-chip" id="chip-eobi-1300" onclick="Landing.setEobiPreset(1300)">PKR 1,300 (Std)</button>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <div style="position:relative;width:110px">
+                          <input type="number" id="tax-input-pf-pct" value="0" min="0" max="50" step="0.5"
+                            style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 26px 8px 10px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
+                            oninput="Landing.updatePfPct(this.value)">
+                          <span style="position:absolute;right:8px;top:8px;color:#94a3b8;font-weight:800;font-size:13px">%</span>
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap">
+                          <button type="button" class="tax-mini-chip active" id="chip-pf-0" onclick="Landing.setPfPreset(0)">0% (None)</button>
+                          <button type="button" class="tax-mini-chip" id="chip-pf-5" onclick="Landing.setPfPreset(5)">5%</button>
+                          <button type="button" class="tax-mini-chip" id="chip-pf-833" onclick="Landing.setPfPreset(8.33)">8.33% (Std)</button>
+                          <button type="button" class="tax-mini-chip" id="chip-pf-10" onclick="Landing.setPfPreset(10)">10%</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- EOBI Input -->
+                    <div>
+                      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                        <label style="font-size:13px;font-weight:700;color:#e2e8f0;display:flex;align-items:center;gap:6px">
+                          <i class="fa fa-shield-heart text-warning"></i> EOBI Contribution (PKR)
+                        </label>
+                        <span id="tax-eobi-summary-badge" style="font-size:11px;font-weight:700;color:#fcd34d;background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px">PKR 0</span>
+                      </div>
+                      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                        <div style="position:relative;width:130px">
+                          <span style="position:absolute;left:9px;top:8px;color:#94a3b8;font-weight:800;font-size:11px">PKR</span>
+                          <input type="number" id="tax-input-eobi-amt" value="0" min="0" max="20000" step="100"
+                            style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 8px 8px 36px;font-size:14px;font-weight:700;color:#ffffff;outline:none"
+                            oninput="Landing.updateEobiAmt(this.value)">
+                        </div>
+                        <div style="display:flex;gap:4px;flex-wrap:wrap">
+                          <button type="button" class="tax-mini-chip active" id="chip-eobi-0" onclick="Landing.setEobiPreset(0)">PKR 0 (Exempt)</button>
+                          <button type="button" class="tax-mini-chip" id="chip-eobi-1300" onclick="Landing.setEobiPreset(1300)">PKR 1,300 (Std)</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1536,98 +1545,7 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 8. MOBILE APP & REMOTE WORKFORCE SHOWCASE ─── -->
-        <section class="mobile-showcase-section">
-          <div class="mobile-showcase-grid">
-            <!-- Left Side: Phone Mockup Frame -->
-            <div>
-              <div class="phone-mockup-outer">
-                <div class="phone-screen-inner">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:11px;font-weight:700">
-                    <span>9:41 AM</span>
-                    <span><i class="fa fa-wifi"></i> <i class="fa fa-battery-full"></i></span>
-                  </div>
-                  
-                  <div style="background:#eff6ff;border-radius:12px;padding:12px;margin-bottom:12px;text-align:center">
-                    <div style="font-size:11px;color:#2563eb;font-weight:700">MOBILE BIOMETRIC PUNCH</div>
-                    <div style="font-size:18px;font-weight:900;color:#0f172a;margin:4px 0">09:41:22 AM</div>
-                    <div style="font-size:10px;color:#16a34a"><i class="fa fa-location-dot"></i> In Geofence Radius (Office HQ)</div>
-                  </div>
 
-                  <button class="btn btn-primary btn-sm" style="width:100%;font-weight:800;margin-bottom:14px;border-radius:8px">
-                    <i class="fa fa-fingerprint"></i> Tap to Clock In
-                  </button>
-
-                  <div style="font-size:11px;font-weight:800;color:#334155;margin-bottom:8px">QUICK ACTIONS</div>
-                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-                    <div style="background:var(--surface,#f8fafc);border:1px solid #e2e8f0;border-radius:8px;padding:8px;text-align:center">
-                      <i class="fa fa-calendar-plus text-primary"></i>
-                      <div style="font-size:10.5px;font-weight:700;margin-top:4px">Apply Leave</div>
-                    </div>
-                    <div style="background:var(--surface,#f8fafc);border:1px solid #e2e8f0;border-radius:8px;padding:8px;text-align:center">
-                      <i class="fa fa-file-invoice text-success"></i>
-                      <div style="font-size:10.5px;font-weight:700;margin-top:4px">View Payslip</div>
-                    </div>
-                  </div>
-
-                  <div style="font-size:11px;font-weight:800;color:#334155;margin-bottom:6px">RECENT PAYSLIP</div>
-                  <div style="background:#f1f5f9;border-radius:8px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center">
-                    <div>
-                      <div style="font-size:11px;font-weight:800">August 2026</div>
-                      <div style="font-size:9.5px;color:#64748b">Direct Bank Deposit</div>
-                    </div>
-                    <strong style="color:#16a34a;font-size:11px">PKR 142,500</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Side: Features -->
-            <div>
-              <div class="landing-pill-badge" style="margin-bottom:12px">
-                <i class="fa fa-mobile-screen text-primary"></i> Mobile Workforce Experience
-              </div>
-              <h2 style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:16px;color:var(--text,#0f172a)">
-                Stay in Control, Wherever Work Happens
-              </h2>
-              <p style="font-size:15px;color:#64748b;line-height:1.6;margin-bottom:24px">
-                Empower distributed teams with mobile self-service. From biometric GPS check-in to 1-tap leave approvals and digital payslips.
-              </p>
-
-              <div style="display:flex;flex-direction:column;gap:16px">
-                <div style="display:flex;align-items:flex-start;gap:14px">
-                  <div style="width:36px;height:36px;border-radius:10px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">
-                    <i class="fa fa-location-crosshairs"></i>
-                  </div>
-                  <div>
-                    <h4 style="font-size:15px;font-weight:800;color:var(--text,#0f172a);margin:0 0 3px 0">Biometric GPS Clock-In</h4>
-                    <p style="font-size:13px;color:#64748b;margin:0">Verify physical arrival within authorized branch geofence radii with zero hardware overhead.</p>
-                  </div>
-                </div>
-
-                <div style="display:flex;align-items:flex-start;gap:14px">
-                  <div style="width:36px;height:36px;border-radius:10px;background:#ecfdf5;color:#10b981;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">
-                    <i class="fa fa-check-double"></i>
-                  </div>
-                  <div>
-                    <h4 style="font-size:15px;font-weight:800;color:var(--text,#0f172a);margin:0 0 3px 0">1-Tap Manager Approvals</h4>
-                    <p style="font-size:13px;color:#64748b;margin:0">Review team leave requests, overtime approvals, and expense receipts on the go.</p>
-                  </div>
-                </div>
-
-                <div style="display:flex;align-items:flex-start;gap:14px">
-                  <div style="width:36px;height:36px;border-radius:10px;background:#faf5ff;color:#9333ea;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px">
-                    <i class="fa fa-file-pdf"></i>
-                  </div>
-                  <div>
-                    <h4 style="font-size:15px;font-weight:800;color:var(--text,#0f172a);margin:0 0 3px 0">Instant Digital Payslips</h4>
-                    <p style="font-size:13px;color:#64748b;margin:0">Employees download encrypted, audit-ready PDF payslips with complete tax breakdown directly from their phone.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
 
         <!-- ─── 9. ENTERPRISE SECURITY & COMPLIANCE GRID ─── -->
         <section class="security-compliance-section" id="security">
@@ -1711,36 +1629,27 @@ const Landing = {
 
                     <div class="career-chips-wrap">
                       <span class="career-chip">
-                        <i class="fa fa-users"></i> ${job.positions} Position${job.positions > 1 ? 's' : ''}
-                      </span>
-                      <span class="career-chip">
                         <i class="fa fa-business-time"></i> ${job.experience}
                       </span>
                       <span class="career-chip">
                         <i class="fa fa-money-bill-wave"></i> PKR ${job.salary}
                       </span>
                       <span class="career-chip">
-                        <i class="fa fa-calendar-days"></i> Due: ${Utils.formatDate(job.deadline)}
+                        <i class="fa fa-users"></i> ${job.positions} Open
                       </span>
                     </div>
 
-                    <p class="career-job-summary">
+                    <p class="career-job-summary" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
                       ${job.description || 'Join our high-performing team to build scalable enterprise solutions, lead mission-critical workflows, and accelerate organizational growth.'}
                     </p>
 
                     <div class="career-card-bottom">
-                      <div class="career-applicant-tally">
-                        <i class="fa fa-user-check" style="color:#2563eb"></i>
-                        <span><strong>${job.applicantCount || 0}</strong> applicants</span>
-                      </div>
-                      <div class="career-actions-row">
-                        <button class="btn-career-view" onclick="Landing.viewJobDetails(${job.id})">
-                          <i class="fa fa-eye"></i> Details
-                        </button>
-                        <button class="btn-career-apply" onclick="Landing.openApplyModal(${job.id})">
-                          Apply with CV <i class="fa fa-arrow-right"></i>
-                        </button>
-                      </div>
+                      <a href="#" class="career-view-link" onclick="Landing.viewJobDetails(${job.id});return false;">
+                        <i class="fa fa-circle-info"></i> View Requirements
+                      </a>
+                      <button class="btn-career-apply" onclick="Landing.openApplyModal(${job.id})">
+                        Apply Now <i class="fa fa-arrow-right"></i>
+                      </button>
                     </div>
                   </div>
                 `;
@@ -1879,7 +1788,7 @@ const Landing = {
 
             <!-- Links: Product -->
             <div class="landing-footer-col">
-              <h4 class="landing-footer-heading">Platform Modules</h4>
+              <h3 class="landing-footer-heading">Platform Modules</h3>
               <div class="landing-footer-links">
                 <a href="#" onclick="Landing.showModule('employees');return false;">Employees & e-DMS</a>
                 <a href="#" onclick="Landing.showModule('attendance');return false;">Biometric Attendance</a>
@@ -1892,19 +1801,19 @@ const Landing = {
 
             <!-- Links: Governance -->
             <div class="landing-footer-col">
-              <h4 class="landing-footer-heading">Enterprise & Security</h4>
+              <h3 class="landing-footer-heading">Enterprise & Security</h3>
               <div class="landing-footer-links">
                 <a href="#security" onclick="Landing.scrollTo('security');return false;">ISO 27001 Architecture</a>
                 <a href="#security" onclick="Landing.scrollTo('security');return false;">256-Bit Data Encryption</a>
                 <a href="#security" onclick="Landing.scrollTo('security');return false;">5-Tier Role Matrix</a>
                 <a href="#security" onclick="Landing.scrollTo('security');return false;">Audit Trails & Logs</a>
-                <a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;">FBR Tax Slabs 2024-25</a>
+                <a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;">FBR Tax Slabs 2026-27</a>
               </div>
             </div>
 
             <!-- Links: Quick Portals -->
             <div class="landing-footer-col">
-              <h4 class="landing-footer-heading">Interactive Access</h4>
+              <h3 class="landing-footer-heading">Interactive Access</h3>
               <div class="landing-footer-links">
                 <a href="#" onclick="App.showLogin();return false;">Sign In to Portal</a>
                 <a href="#" onclick="App.showTrial();return false;">Start Free Trial</a>
@@ -2276,6 +2185,17 @@ const Landing = {
     container.style.display = isHidden ? 'block' : 'none';
     if (txt) {
       txt.textContent = isHidden ? 'Hide Tax Slabs (2026-27) Table' : 'View Official Tax Slabs (2026-27) Table';
+    }
+  },
+
+  toggleCustomDeductions() {
+    const body = document.getElementById('tax-custom-ded-body');
+    const icon = document.getElementById('tax-custom-ded-icon');
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (icon) {
+      icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
     }
   },
 

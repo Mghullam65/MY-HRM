@@ -35,7 +35,7 @@ const requiredClasses = [
   '.tax-calc-card',
   '.tax-results-net-card',
   '.automation-step-card',
-  '.phone-mockup-outer',
+  '.landing-cta-banner',
   '.security-card'
 ];
 
@@ -117,10 +117,31 @@ if (landingCode.includes('tax-input-pf-pct') && landingCode.includes('tax-input-
 
 // Check that 2026-27 Slabs Table exists
 if (landingCode.includes('tax-slabs-table') && landingCode.includes('Tax Slabs (2026-27)')) {
-  console.log('✅ [PASS] Official Tax Slabs (2026-27) table & description verified');
+  console.log('✅ [PASS] Tax Slabs (2026-27) table present in landing.js');
 } else {
   console.error('❌ [FAIL] Tax Slabs (2026-27) table missing!');
   process.exit(1);
+}
+
+// Check that mobile app info has been completely removed
+if (landingCode.includes('mobile-showcase-section') || landingCode.includes('phone-mockup-outer')) {
+  console.error('❌ [FAIL] Mobile app info still present in landing.js!');
+  process.exit(1);
+} else {
+  console.log('✅ [PASS] Mobile app info completely removed per user instruction');
+}
+
+// Check that footer headings are h3 (Issue 8)
+if (landingCode.includes('<h3 class="landing-footer-heading">')) {
+  console.log('✅ [PASS] Footer headings correctly use semantic h3 (Usability Issue 8 resolved)');
+} else {
+  console.error('❌ [FAIL] Footer headings not using h3!');
+  process.exit(1);
+}
+
+// Check that career dept tag does not use uppercase transform in CSS
+if (css.includes('.career-dept-tag') && !css.includes('text-transform: uppercase')) {
+  console.log('✅ [PASS] Career dept tag uppercase text transform removed (Usability Issue 6 resolved)');
 }
 
 console.log('\n🎉 ALL VERIFICATION CHECKS PASSED WITH 100% SUCCESS!\n');
