@@ -1501,28 +1501,40 @@ const Login = {
               <p class="split-card-subtitle" id="login-portal-subtitle">Continue to ${acc.portal}</p>
             </div>
 
-            <!-- Active User Profile Bar -->
-            <div class="active-user-badge-bar" id="active-user-banner">
-              <div class="active-user-avatar-wrap">
-                <img src="${acc.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(acc.name)}&background=2563eb&color=fff'" alt="${acc.name}" class="active-user-img">
-                <span class="active-user-online-dot"></span>
-              </div>
-              <div class="active-user-details">
-                <div class="active-user-name" id="active-account-name">${acc.name}</div>
-                <div class="active-user-role" id="active-account-role">${acc.role}</div>
-              </div>
-              <div class="active-user-status-pill">
-                <span class="pulse-dot"></span> Online
-              </div>
+            <!-- Access Mode Segmented Tabs (Resolves Usability Issue 10: Clutter & Density) -->
+            <div class="login-tab-nav" role="tablist" aria-label="Sign-in Mode">
+              <button type="button" class="login-nav-tab ${this.activeTab==='standard'?'active':''}" id="login-tab-standard" role="tab" aria-selected="${this.activeTab==='standard'}" aria-controls="login-pane-standard" onclick="Login.setTab('standard')">
+                <i class="fa fa-key"></i> Direct Sign In
+              </button>
+              <button type="button" class="login-nav-tab ${this.activeTab==='demo'?'active':''}" id="login-tab-demo" role="tab" aria-selected="${this.activeTab==='demo'}" aria-controls="login-pane-demo" onclick="Login.setTab('demo')">
+                <i class="fa fa-users-gear"></i> Demo Role Presets
+              </button>
             </div>
 
-            <!-- Quick Account Switcher Chips -->
-            <div class="split-account-chips-row">
-              <button class="split-account-chip ${this.activeAccount==='admin'?'active':''}" data-role="admin" onclick="Login.selectAccount('admin')">Super Admin</button>
-              <button class="split-account-chip ${this.activeAccount==='hr'?'active':''}" data-role="hr" onclick="Login.selectAccount('hr')">HR Director</button>
-              <button class="split-account-chip ${this.activeAccount==='manager'?'active':''}" data-role="manager" onclick="Login.selectAccount('manager')">Dept Manager</button>
-              <button class="split-account-chip ${this.activeAccount==='employee'?'active':''}" data-role="employee" onclick="Login.selectAccount('employee')">Employee</button>
-              <button class="split-account-chip ${this.activeAccount==='onboarding'?'active':''}" data-role="onboarding" onclick="Login.selectAccount('onboarding')">Onboarding</button>
+            <!-- Demo Role Presets Pane (Resolves Usability Issues 8, 10 & 11) -->
+            <div id="login-pane-demo" class="login-pane-content ${this.activeTab==='demo'?'':'hidden'}">
+              <!-- Active User Profile Bar (Resolves Usability Issue 11: Remove misleading Online status) -->
+              <div class="active-user-badge-bar" id="active-user-banner">
+                <div class="active-user-avatar-wrap">
+                  <img src="${acc.avatar}" onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(acc.name)}&background=2563eb&color=fff'" alt="${acc.name}" class="active-user-img">
+                </div>
+                <div class="active-user-details">
+                  <div class="active-user-name" id="active-account-name">${acc.name}</div>
+                  <div class="active-user-role" id="active-account-role">${acc.role}</div>
+                </div>
+                <div class="active-user-preset-badge">
+                  <i class="fa fa-id-badge"></i> Demo Preset
+                </div>
+              </div>
+
+              <!-- Quick Account Switcher Chips (Resolves Usability Issue 8: wrapped, zero horizontal clipping) -->
+              <div class="split-account-chips-row">
+                <button type="button" class="split-account-chip ${this.activeAccount==='admin'?'active':''}" data-role="admin" onclick="Login.selectAccount('admin')">Super Admin</button>
+                <button type="button" class="split-account-chip ${this.activeAccount==='hr'?'active':''}" data-role="hr" onclick="Login.selectAccount('hr')">HR Director</button>
+                <button type="button" class="split-account-chip ${this.activeAccount==='manager'?'active':''}" data-role="manager" onclick="Login.selectAccount('manager')">Dept Manager</button>
+                <button type="button" class="split-account-chip ${this.activeAccount==='employee'?'active':''}" data-role="employee" onclick="Login.selectAccount('employee')">Employee</button>
+                <button type="button" class="split-account-chip ${this.activeAccount==='onboarding'?'active':''}" data-role="onboarding" onclick="Login.selectAccount('onboarding')">Onboarding</button>
+              </div>
             </div>
 
             <!-- Error Banner -->
@@ -1581,6 +1593,12 @@ const Login = {
               </button>
             </div>
 
+            <div style="text-align:center;margin:6px 0 16px 0">
+              <button type="button" class="btn-demo-switch-link" onclick="Login.setTab(Login.activeTab==='demo'?'standard':'demo')">
+                <i class="fa fa-bolt"></i> ${this.activeTab==='demo'?'Return to standard direct sign in':'Need evaluator presets? Switch to Demo Roles'}
+              </button>
+            </div>
+
             <!-- MFA Notice Banner -->
             <div class="split-mfa-banner">
               <div class="mfa-icon-shield">
@@ -1609,6 +1627,26 @@ const Login = {
         </div>
       </div>
     `;
+  },
+
+  activeTab: 'standard',
+
+  setTab(tab) {
+    this.activeTab = tab;
+    const stdBtn = document.getElementById('login-tab-standard');
+    const demoBtn = document.getElementById('login-tab-demo');
+    const demoPane = document.getElementById('login-pane-demo');
+    if (stdBtn) {
+      stdBtn.classList.toggle('active', tab === 'standard');
+      stdBtn.setAttribute('aria-selected', tab === 'standard' ? 'true' : 'false');
+    }
+    if (demoBtn) {
+      demoBtn.classList.toggle('active', tab === 'demo');
+      demoBtn.setAttribute('aria-selected', tab === 'demo' ? 'true' : 'false');
+    }
+    if (demoPane) {
+      demoPane.classList.toggle('hidden', tab !== 'demo');
+    }
   },
 
   selectAccount(roleKey) {
