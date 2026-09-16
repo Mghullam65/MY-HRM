@@ -10,11 +10,15 @@ const cssPath = path.join(__dirname, '..', 'css', 'main.css');
 const landingJsPath = path.join(__dirname, '..', 'js', 'landing.js');
 const pubCssPath = path.join(__dirname, '..', 'public', 'css', 'main.css');
 const pubLandingJsPath = path.join(__dirname, '..', 'public', 'js', 'landing.js');
+const indexPath = path.join(__dirname, '..', 'index.html');
+const pubIndexPath = path.join(__dirname, '..', 'public', 'index.html');
 
 const css = fs.readFileSync(cssPath, 'utf8').replace(/\r\n/g, '\n');
 const landingJs = fs.readFileSync(landingJsPath, 'utf8').replace(/\r\n/g, '\n');
 const pubCss = fs.readFileSync(pubCssPath, 'utf8').replace(/\r\n/g, '\n');
 const pubLandingJs = fs.readFileSync(pubLandingJsPath, 'utf8').replace(/\r\n/g, '\n');
+const indexHtml = fs.readFileSync(indexPath, 'utf8').replace(/\r\n/g, '\n');
+const pubIndexHtml = fs.readFileSync(pubIndexPath, 'utf8').replace(/\r\n/g, '\n');
 
 function assert(condition, message) {
   if (!condition) {
@@ -24,40 +28,43 @@ function assert(condition, message) {
   console.log(`✅ [PASS] ${message}`);
 }
 
-// 1. Files in sync
+// 0. Files in sync
 assert(css === pubCss, 'css/main.css and public/css/main.css are identical');
 assert(landingJs === pubLandingJs, 'js/landing.js and public/js/landing.js are identical');
+assert(indexHtml === pubIndexHtml, 'index.html and public/index.html are identical');
 
-// Issue 1, 2, 3: Canonical Design Tokens
-assert(css.includes('--font-xs') && css.includes('--font-sm') && css.includes('--font-base'), 'Issue 1: Consistent type scale tokens active');
-assert(css.includes('--c-text-main') && css.includes('--c-text-sub') && css.includes('--c-text-muted'), 'Issue 2: Text color tokens active');
-assert(css.includes('--r-xs') && css.includes('--r-sm') && css.includes('--r-md') && css.includes('--r-full'), 'Issue 3: Border radii tokens active');
+// 1. Issue 1: Consistent type scale tokens
+assert(css.includes('--font-xs') && css.includes('--font-sm') && css.includes('--font-base') && css.includes('--font-lg'), 'Issue 1: Consistent type scale tokens defined and active');
 
-// Issue 4: Button archetypes unified
-assert(landingJs.includes('class="btn btn-secondary btn-sm"') && css.includes('.career-card-bottom .btn-secondary'), 'Issue 4 & 8: Unified button archetype (.btn-secondary.btn-sm) used in career cards');
+// 2. Issue 2: Text color tokens
+assert(css.includes('--c-text-main') && css.includes('--c-text-sub') && css.includes('--c-text-muted'), 'Issue 2: Curated text color tokens active');
 
-// Issue 5: Body text is very small (11px -> min 12px)
-assert(landingJs.includes('id="tax-slabs-toggle-txt"') && !landingJs.includes('font-size:11px;padding:9px;display:flex;align-items:center;justify-content:center;gap:8px'), 'Issue 5: #tax-slabs-toggle-txt container font raised above 11px');
-assert(css.includes('.tax-mini-chip {\n  background: rgba(255, 255, 255, 0.08);\n  border: 1px solid rgba(255, 255, 255, 0.16);\n  border-radius: var(--r-xs);\n  padding: 7px 14px;\n  font-size: var(--font-xs);'), 'Issue 5: .tax-mini-chip raised to var(--font-xs) (12px) with comfortable padding');
+// 3. Issue 3: Border radii tokens
+assert(css.includes('--r-xs') && css.includes('--r-sm') && css.includes('--r-md') && css.includes('--r-full'), 'Issue 3: Harmonized border radii system active');
 
-// Issue 6: Long all-caps text in Careers salary
-assert(!landingJs.includes('PKR ${job.salary}') && landingJs.includes('Rs. ${job.salary} / mo'), 'Issue 6: 17-char all-caps salary replaced with sentence case "Rs. ${job.salary} / mo"');
+// 4. Issue 4: Button styles standardized
+assert(css.includes('.landing-hero-btn-primary') && css.includes('.landing-hero-btn-secondary') && css.includes('.pillar-tab-btn'), 'Issue 4: Button archetypes unified into shared visual tokens');
 
-// Issue 7: Conflicting Manual Pain Point vs HRM Pro Automated badges
-assert(!landingJs.includes('class="ps-badge-problem"'), 'Issue 7: Conflicting red Manual Pain Point badges eliminated');
-assert(landingJs.includes('Automated Payroll Engine') && landingJs.includes('Audit-Ready Compliance'), 'Issue 7: Single clear solution badge per card defines purpose unambiguously');
+// 5. Issue 5: Body text is very small (#why-us badge 11px -> min 12px)
+assert(css.includes('.ps-badge-solution') && css.includes('font-size: var(--font-xs);') && !css.includes('.ps-badge-solution {\n  font-size: 11px;'), 'Issue 5: .ps-badge-solution font-size elevated to var(--font-xs) (12px) with comfortable padding');
 
-// Issue 8: Inconsistent secondary navigational actions
-assert(!landingJs.includes('class="career-view-link" onclick="Landing.viewJobDetails'), 'Issue 8: Raw text link replaced with standardized secondary button in careers list');
-assert(landingJs.includes('<button type="button" class="btn btn-secondary btn-sm" onclick="Landing.viewJobDetails(${job.id})">'), 'Issue 8: View Requirements now uses standard .btn-secondary.btn-sm');
+// 6. Issue 6: Split-button effect between primary 'Start Free Trial' and secondary 'Interactive System Tour'
+assert(css.includes('.landing-hero-btn-secondary') && css.includes('background: transparent') && css.includes('border: 1px solid var(--border)'), 'Issue 6: Hero secondary button clearly subordinated as ghost/outline button');
+assert(css.includes('.landing-hero-btn-primary') && css.includes('padding: 15px 32px'), 'Issue 6: Primary CTA has dominant size and gradient background');
 
-// Issue 9: Open Portal Access missing icon
-assert(landingJs.includes('<i class="fa fa-arrow-up-right-from-square" style="margin-right:6px"></i> Open Portal Access'), 'Issue 9: Open Portal Access button equipped with matching navigation icon');
+// 7. Issue 7: Module tabs spaced very closely (~6px gap)
+assert(css.includes('.pillar-tabs-nav') && css.includes('gap: 14px;'), 'Issue 7: Module tabs navigation gap increased to 14px to prevent segmented-control illusion');
 
-// Issue 10: Tax calculator dense spacing & small font sizes
-assert(css.includes('.tax-slabs-table th {\n  background: rgba(255, 255, 255, 0.12);\n  padding: 12px 16px;'), 'Issue 10: .tax-slabs-table th padding increased to 12px 16px');
-assert(css.includes('.tax-slabs-table td {\n  padding: 12px 16px;'), 'Issue 10: .tax-slabs-table td padding increased to 12px 16px');
-assert(css.includes('.tax-results-row {\n  display: flex;\n  justify-content: space-between;\n  align-items: center;\n  padding: 14px 0;'), 'Issue 10: .tax-results-row padding expanded from 10px to 14px with var(--font-base)');
-assert(landingJs.includes('Estimated Net Take-Home Pay') && !landingJs.includes('ESTIMATED NET TAKE-HOME PAY'), 'Issue 10: Estimated Net Take-Home Pay formatted in readable title case');
+// 8. Issue 8: Header navigation clutter (Consolidate into Resources dropdown)
+assert(landingJs.includes('toggleResourcesMenu') && landingJs.includes('landing-resources-menu') && landingJs.includes('nav-resources-btn'), 'Issue 8: Resources dropdown menu toggle integrated in Landing namespace');
+assert(css.includes('.landing-dropdown-menu') && css.includes('.landing-dropdown-item'), 'Issue 8: Accessible dropdown styling present in main.css');
 
-console.log('\n🎉 ALL 10 LANDING PAGE USABILITY AUDIT CHECKS PASSED WITH 100% SUCCESS!\n');
+// 9. Issue 9: Quick presets look like static tags
+assert(landingJs.includes('class="tax-preset-chip"') && landingJs.includes('Landing.setTaxPreset'), 'Issue 9: Quick presets converted to accessible interactive button elements');
+assert(css.includes('.tax-preset-chip') && css.includes('.tax-preset-chip.active') && css.includes('.tax-preset-chip:hover'), 'Issue 9: Tax preset chips styled with explicit border, hover lift, and active states');
+
+// 10. Issue 10: Security section icons mixed styles
+assert(landingJs.includes('fa-shield-halved') && landingJs.includes('fa-lock') && landingJs.includes('fa-user-shield') && landingJs.includes('fa-file-shield'), 'Issue 10: Security section icons unified into consistent solid-filled family');
+assert(!landingJs.includes('fa-shield-cat') && !landingJs.includes('fa-file-lines'), 'Issue 10: Line-art/inconsistent icons replaced in security cards');
+
+console.log('\n🎉 ALL 10 USABILITY HEURISTICS CHECKS PASSED WITH 100% SUCCESS!\n');

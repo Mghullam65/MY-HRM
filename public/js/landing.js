@@ -607,14 +607,10 @@ const Landing = {
 
   toggleModulesMenu(e) {
     if (e) e.stopPropagation();
+    this.closeResourcesMenu();
     const menu = document.getElementById('landing-mega-menu');
     if (!menu) return;
-    const isShown = menu.classList.contains('open');
-    if (isShown) {
-      menu.classList.remove('open');
-    } else {
-      menu.classList.add('open');
-    }
+    menu.classList.toggle('open');
   },
 
   closeModulesMenu() {
@@ -622,8 +618,31 @@ const Landing = {
     if (menu) menu.classList.remove('open');
   },
 
-  showModule(moduleId) {
+  toggleResourcesMenu(e) {
+    if (e) e.stopPropagation();
     this.closeModulesMenu();
+    const menu = document.getElementById('landing-resources-menu');
+    const btn = document.getElementById('nav-resources-btn');
+    if (!menu) return;
+    menu.classList.toggle('open');
+    const isOpen = menu.classList.contains('open');
+    if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  },
+
+  closeResourcesMenu() {
+    const menu = document.getElementById('landing-resources-menu');
+    const btn = document.getElementById('nav-resources-btn');
+    if (menu) menu.classList.remove('open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  },
+
+  closeAllMenus() {
+    this.closeModulesMenu();
+    this.closeResourcesMenu();
+  },
+
+  showModule(moduleId) {
+    this.closeAllMenus();
     App.showModule(moduleId);
   },
 
@@ -839,7 +858,7 @@ const Landing = {
     const openJobs = openJobsCount;
 
     container.innerHTML = `
-      <div class="landing-wrapper" onclick="Landing.closeModulesMenu()">
+      <div class="landing-wrapper" onclick="Landing.closeAllMenus()">
         <!-- ─── 1. TOP NAVBAR WITH MEGA-MENU ─── -->
         <header class="landing-header">
           <div class="landing-nav-container">
@@ -867,10 +886,10 @@ const Landing = {
                 <div class="landing-mega-menu" id="landing-mega-menu">
                   <div class="mega-menu-header">
                     <div>
-                      <strong style="font-size:13.5px;color:var(--text);font-weight:800">All 15 HRM Pro Modules</strong>
-                      <div style="font-size:11.5px;color:var(--text-3)">Click any module to inspect comprehensive features and role permissions</div>
+                      <strong style="font-size:14px;color:var(--text);font-weight:800">All 15 HRM Pro Modules</strong>
+                      <div style="font-size:12px;color:var(--text-3)">Click any module to inspect comprehensive features and role permissions</div>
                     </div>
-                    <button class="btn btn-sm btn-secondary" onclick="Landing.closeModulesMenu();App.showLogin()">
+                    <button class="btn btn-sm btn-secondary" onclick="Landing.closeAllMenus();App.showLogin()">
                       Open Full Portal <i class="fa fa-arrow-right" style="font-size:10px;margin-left:4px"></i>
                     </button>
                   </div>
@@ -1005,10 +1024,38 @@ const Landing = {
               </div>
 
               <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Calculator</a>
-              <a href="#workflow" class="landing-nav-link" onclick="Landing.scrollTo('workflow');return false;">Workflow</a>
               <a href="#careers" class="landing-nav-link" onclick="Landing.scrollTo('careers');return false;">Careers <span class="landing-careers-nav-pill">${openJobsCount}&nbsp;Open</span></a>
-              <a href="#security" class="landing-nav-link" onclick="Landing.scrollTo('security');return false;">Security</a>
-              <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
+
+              <!-- Resources Dropdown (Workflow, Security, FAQ - Issue 8) -->
+              <div class="landing-nav-dropdown-wrapper" onclick="event.stopPropagation()">
+                <button class="landing-nav-link landing-dropdown-btn" id="nav-resources-btn" onclick="Landing.toggleResourcesMenu(event)" aria-expanded="false" aria-haspopup="true">
+                  Resources <i class="fa fa-chevron-down" style="font-size:10px;margin-left:4px;opacity:0.75"></i>
+                </button>
+
+                <div class="landing-dropdown-menu" id="landing-resources-menu">
+                  <a href="#workflow" class="landing-dropdown-item" onclick="Landing.closeResourcesMenu();Landing.scrollTo('workflow');return false;">
+                    <div class="dropdown-item-icon" style="background:#eff6ff;color:#2563eb"><i class="fa fa-arrows-split-up-and-left"></i></div>
+                    <div>
+                      <div class="dropdown-item-title">Enterprise Workflow</div>
+                      <div class="dropdown-item-desc">6-phase payroll & HR automation flow</div>
+                    </div>
+                  </a>
+                  <a href="#security" class="landing-dropdown-item" onclick="Landing.closeResourcesMenu();Landing.scrollTo('security');return false;">
+                    <div class="dropdown-item-icon" style="background:#ecfdf5;color:#10b981"><i class="fa fa-shield-halved"></i></div>
+                    <div>
+                      <div class="dropdown-item-title">Security & Compliance</div>
+                      <div class="dropdown-item-desc">AES-256, 5-tier RBAC & statutory audit trail</div>
+                    </div>
+                  </a>
+                  <a href="#faq" class="landing-dropdown-item" onclick="Landing.closeResourcesMenu();Landing.scrollTo('faq');return false;">
+                    <div class="dropdown-item-icon" style="background:#f5f3ff;color:#8b5cf6"><i class="fa fa-circle-question"></i></div>
+                    <div>
+                      <div class="dropdown-item-title">Frequently Asked Questions</div>
+                      <div class="dropdown-item-desc">Implementation, pricing & deployment FAQ</div>
+                    </div>
+                  </a>
+                </div>
+              </div>
             </nav>
 
             <div class="landing-nav-actions">
@@ -1079,47 +1126,47 @@ const Landing = {
               <div class="hero-3d-wrapper">
                 <!-- Floating Metric 1: Biometric Attendance Rate -->
                 <div class="hero-3d-badge-floating badge-pos-att" onclick="App.showModule('attendance')" style="cursor:pointer" title="Click to view Attendance Module">
-                  <div style="width:36px;height:36px;border-radius:10px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:18px">
+                  <div style="width:36px;height:36px;border-radius:var(--r-sm);background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:var(--font-lg)">
                     <i class="fa fa-fingerprint"></i>
                   </div>
                   <div>
-                    <div style="font-size:10.5px;color:#64748b;font-weight:700">Attendance Rate</div>
-                    <div style="font-size:17px;font-weight:900;color:#0f172a">96.8%</div>
-                    <div style="font-size:10px;color:#10b981;font-weight:700"><i class="fa fa-circle-check"></i> Live Biometric Sync</div>
+                    <div style="font-size:var(--font-xs);color:var(--text-3);font-weight:700">Attendance Rate</div>
+                    <div style="font-size:var(--font-lg);font-weight:900;color:var(--text)">96.8%</div>
+                    <div style="font-size:var(--font-xs);color:var(--success);font-weight:700"><i class="fa fa-circle-check"></i> Live Biometric Sync</div>
                   </div>
                 </div>
 
                 <!-- Floating Metric 2: Monthly Payroll Processed -->
                 <div class="hero-3d-badge-floating badge-pos-pay" onclick="App.showModule('payroll')" style="cursor:pointer" title="Click to view Payroll Module">
-                  <div style="width:36px;height:36px;border-radius:10px;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:18px">
+                  <div style="width:36px;height:36px;border-radius:var(--r-sm);background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:var(--font-lg)">
                     <i class="fa fa-coins"></i>
                   </div>
                   <div>
-                    <div style="font-size:10.5px;color:#64748b;font-weight:700">Monthly Payroll</div>
-                    <div style="font-size:17px;font-weight:900;color:#0f172a">PKR 3.45M</div>
-                    <div style="font-size:10px;color:#10b981;font-weight:700"><i class="fa fa-shield-check"></i> 100% Tax Compliant</div>
+                    <div style="font-size:var(--font-xs);color:var(--text-3);font-weight:700">Monthly Payroll</div>
+                    <div style="font-size:var(--font-lg);font-weight:900;color:var(--text)">PKR 3.45M</div>
+                    <div style="font-size:var(--font-xs);color:var(--success);font-weight:700"><i class="fa fa-shield-check"></i> 100% Tax Compliant</div>
                   </div>
                 </div>
 
                 <!-- Floating Metric 3: Real-Time Sync Status -->
                 <div class="hero-3d-badge-floating badge-pos-sync">
-                  <div style="width:32px;height:32px;border-radius:8px;background:#ecfeff;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:15px">
+                  <div style="width:32px;height:32px;border-radius:var(--r-xs);background:#ecfeff;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:var(--font-md)">
                     <i class="fa fa-database"></i>
                   </div>
                   <div>
-                    <div style="font-size:10.5px;color:#64748b;font-weight:700">Cloud Persistence</div>
-                    <div style="font-size:12px;font-weight:800;color:#0891b2">Multi-Device Synced</div>
+                    <div style="font-size:var(--font-xs);color:var(--text-3);font-weight:700">Cloud Persistence</div>
+                    <div style="font-size:var(--font-xs);font-weight:800;color:#0891b2">Multi-Device Synced</div>
                   </div>
                 </div>
 
                 <!-- Floating Metric 4: Workforce Master Files -->
                 <div class="hero-3d-badge-floating badge-pos-team" onclick="App.showModule('employees')" style="cursor:pointer" title="Click to view Directory">
-                  <div style="width:32px;height:32px;border-radius:8px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:15px">
+                  <div style="width:32px;height:32px;border-radius:var(--r-xs);background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:var(--font-md)">
                     <i class="fa fa-users"></i>
                   </div>
                   <div>
-                    <div style="font-size:10.5px;color:#64748b;font-weight:700">Active Workforce</div>
-                    <div style="font-size:14px;font-weight:800;color:#0f172a">${totalEmps} Master Files</div>
+                    <div style="font-size:var(--font-xs);color:var(--text-3);font-weight:700">Active Workforce</div>
+                    <div style="font-size:var(--font-base);font-weight:800;color:var(--text)">${totalEmps} Master Files</div>
                   </div>
                 </div>
 
@@ -1302,12 +1349,12 @@ const Landing = {
 
                 <!-- Quick Presets Chips -->
                 <div style="font-size:12px;color:#94a3b8;margin-top:14px;margin-bottom:6px;font-weight:700">Quick Presets:</div>
-                <div class="tax-presets-row">
-                  <span class="tax-preset-chip" onclick="Landing.setTaxPreset(80000)">PKR 80k</span>
-                  <span class="tax-preset-chip" onclick="Landing.setTaxPreset(150000)">PKR 150k</span>
-                  <span class="tax-preset-chip" onclick="Landing.setTaxPreset(250000)">PKR 250k</span>
-                  <span class="tax-preset-chip" onclick="Landing.setTaxPreset(500000)">PKR 500k</span>
-                  <span class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)">PKR 1.0M</span>
+                <div class="tax-presets-row" role="group" aria-label="Salary Presets">
+                  <button type="button" id="preset-tax-80000" class="tax-preset-chip" onclick="Landing.setTaxPreset(80000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 80k</button>
+                  <button type="button" id="preset-tax-150000" class="tax-preset-chip active" onclick="Landing.setTaxPreset(150000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 150k</button>
+                  <button type="button" id="preset-tax-250000" class="tax-preset-chip" onclick="Landing.setTaxPreset(250000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 250k</button>
+                  <button type="button" id="preset-tax-500000" class="tax-preset-chip" onclick="Landing.setTaxPreset(500000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 500k</button>
+                  <button type="button" id="preset-tax-1000000" class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 1.0M</button>
                 </div>
 
                 <!-- Custom PF and EOBI Controls (Collapsible Accordion for Usability Heuristic #10) -->
@@ -1557,7 +1604,7 @@ const Landing = {
 
           <div class="security-grid">
             <div class="security-card">
-              <div class="security-icon"><i class="fa fa-certificate"></i></div>
+              <div class="security-icon"><i class="fa fa-shield-halved"></i></div>
               <h3 class="security-title">ISO 27001 Aligned</h3>
               <p class="security-desc">Structured information security controls safeguarding sensitive HR personnel files.</p>
             </div>
@@ -1575,7 +1622,7 @@ const Landing = {
             </div>
 
             <div class="security-card">
-              <div class="security-icon"><i class="fa fa-clock-rotate-left"></i></div>
+              <div class="security-icon"><i class="fa fa-file-shield"></i></div>
               <h3 class="security-title">Immutable Audit Trail</h3>
               <p class="security-desc">Monotonic timestamped event logs tracking every salary revision, punch edit, and approval.</p>
             </div>
@@ -2128,6 +2175,9 @@ const Landing = {
   },
 
   setTaxPreset(amt) {
+    document.querySelectorAll('.tax-preset-chip').forEach(c => c.classList.remove('active'));
+    const btn = document.getElementById(`preset-tax-${amt}`);
+    if (btn) btn.classList.add('active');
     this.updateTaxCalc(amt);
   },
 
