@@ -28,11 +28,21 @@ class EmailService {
       }
     }
 
-    const host = process.env.SMTP_HOST || customSettings.smtpHost;
-    const user = process.env.SMTP_USER || customSettings.smtpUser;
+    let host = process.env.SMTP_HOST || customSettings.smtpHost;
+    let user = process.env.SMTP_USER || customSettings.smtpUser;
     const pass = process.env.SMTP_PASS || customSettings.smtpPass;
     const port = parseInt(process.env.SMTP_PORT || customSettings.smtpPort || '587', 10);
     const secure = process.env.SMTP_SECURE === 'true' || customSettings.smtpSecure === true || port === 465;
+
+    // Smart Auto-Correction: If user accidentally passed an email address as the host
+    if (host && host.includes('@')) {
+      if (!user) user = host;
+      const lower = host.toLowerCase();
+      if (lower.includes('gmail')) host = 'smtp.gmail.com';
+      else if (lower.includes('office365') || lower.includes('outlook') || lower.includes('hotmail')) host = 'smtp.office365.com';
+      else if (lower.includes('yahoo')) host = 'smtp.mail.yahoo.com';
+      else if (lower.includes('sendgrid')) host = 'smtp.sendgrid.net';
+    }
 
     // Real SMTP configuration
     if (host && user && pass) {

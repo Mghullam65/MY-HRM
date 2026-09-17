@@ -813,11 +813,30 @@ const Settings = {
   },
 
   async verifySmtpConnection() {
-    const smtpHost = document.getElementById('s-smtp-host')?.value.trim() || this._getSetting('smtpHost', '');
-    const smtpPort = document.getElementById('s-smtp-port')?.value.trim() || this._getSetting('smtpPort', 587);
+    let smtpHost = document.getElementById('s-smtp-host')?.value.trim() || this._getSetting('smtpHost', '');
+    let smtpPort = document.getElementById('s-smtp-port')?.value.trim() || this._getSetting('smtpPort', 587);
     const smtpSecure = document.getElementById('s-smtp-secure')?.value === 'true';
-    const smtpUser = document.getElementById('s-smtp-user')?.value.trim() || this._getSetting('smtpUser', '');
+    let smtpUser = document.getElementById('s-smtp-user')?.value.trim() || this._getSetting('smtpUser', '');
     const smtpPass = document.getElementById('s-smtp-pass')?.value || this._getSetting('smtpPass', '');
+
+    // Auto-detect and fix if user entered an email address as the SMTP host
+    if (smtpHost.includes('@')) {
+      const emailEntered = smtpHost;
+      if (!smtpUser) {
+        smtpUser = emailEntered;
+        const uEl = document.getElementById('s-smtp-user');
+        if (uEl) uEl.value = emailEntered;
+      }
+      const lower = emailEntered.toLowerCase();
+      if (lower.includes('gmail')) smtpHost = 'smtp.gmail.com';
+      else if (lower.includes('office365') || lower.includes('outlook') || lower.includes('hotmail')) smtpHost = 'smtp.office365.com';
+      else if (lower.includes('yahoo')) smtpHost = 'smtp.mail.yahoo.com';
+      else if (lower.includes('sendgrid')) smtpHost = 'smtp.sendgrid.net';
+
+      const hEl = document.getElementById('s-smtp-host');
+      if (hEl) hEl.value = smtpHost;
+      Toast.show(`Auto-corrected host to "${smtpHost}"`, 'info');
+    }
 
     if (!smtpHost || !smtpUser || !smtpPass) {
       Modal.show('SMTP Configuration Incomplete', `
@@ -825,10 +844,10 @@ const Settings = {
           <p style="color:var(--text)">Please enter your <strong>SMTP Server Host</strong>, <strong>Username</strong>, and <strong>Password</strong> to test connection.</p>
           <div style="background:var(--surface-2);border-radius:8px;padding:12px;font-size:12px;margin-top:10px;">
             <strong>Example for Gmail:</strong><br>
-            • Host: <code>smtp.gmail.com</code><br>
-            • Port: <code>587</code><br>
-            • Username: <code>your-email@gmail.com</code><br>
-            • Password: <em>16-character Google App Password (not standard account password)</em>
+            • <strong>SMTP Server Host:</strong> <code>smtp.gmail.com</code> (not your email address)<br>
+            • <strong>SMTP Server Port:</strong> <code>587</code><br>
+            • <strong>SMTP Username:</strong> <code>your-email@gmail.com</code><br>
+            • <strong>SMTP Password:</strong> <em>16-character Google App Password (not standard account password)</em>
           </div>
         </div>
       `, {
@@ -860,12 +879,21 @@ const Settings = {
           footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close</button>`
         });
       } else {
+        const isDnsHostError = data.message?.includes('getaddrinfo') || data.message?.includes('ENOTFOUND') || data.message?.includes('EBUSY');
         Modal.show('SMTP Verification Failed ⚠️', `
           <div style="padding:12px 0;">
             <div style="color:var(--danger);font-weight:700;margin-bottom:8px;"><i class="fa fa-triangle-exclamation"></i> Mail Server Rejected Connection</div>
             <div style="background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:8px;padding:12px;font-size:12px;line-height:1.5;font-family:monospace;">
               ${data.message}
             </div>
+            ${isDnsHostError ? `
+              <div style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:8px;padding:10px;font-size:12px;margin-top:10px;line-height:1.5;">
+                <strong>⚠️ Invalid SMTP Host:</strong> You may have entered an email address into the <strong>SMTP Server Host</strong> field.<br>
+                • For Gmail, the host must be exactly: <code>smtp.gmail.com</code><br>
+                • For Outlook / Office365: <code>smtp.office365.com</code><br>
+                • Put your personal email address into <strong>SMTP Username / Email</strong>.
+              </div>
+            ` : ''}
             <p style="font-size:12px;color:var(--text-3);margin-top:12px;">
               <strong>Common fixes:</strong><br>
               • If using Gmail, make sure you enabled 2-Step Verification and generated a Google <strong>App Password</strong>.<br>
