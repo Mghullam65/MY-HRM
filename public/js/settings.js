@@ -2288,19 +2288,66 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     `, `<button class="btn btn-primary" onclick="Settings.saveAppearance()"><i class="fa fa-save"></i> Apply & Save</button>`);
   },
 
+    applyAppearance(settings = null) {
+    if (!settings) {
+      settings = (typeof DB !== 'undefined' && DB.getObj) ? (DB.getObj('settings') || {}) : {};
+    }
+    const theme = settings.theme || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+
+    // 1. Accent Color
+    const accent = settings.accentColor || '#4f80f7';
+    if (accent) {
+      document.documentElement.style.setProperty('--primary', accent);
+      document.documentElement.style.setProperty('--primary-light', accent + 'cc');
+      document.documentElement.style.setProperty('--primary-dark', accent);
+      document.documentElement.style.setProperty('--primary-glow', accent + '33');
+    }
+
+    // 2. Compact Density Mode
+    const isCompact = settings.compactMode === true || settings.compactMode === 'true';
+    document.body.classList.toggle('compact-mode', isCompact);
+    document.documentElement.classList.toggle('compact-mode', isCompact);
+
+    // 3. Sidebar Position
+    const sidebarPos = settings.sidebarPosition || 'left';
+    const appEl = document.getElementById('app');
+    if (appEl) {
+      if (sidebarPos === 'right') {
+        appEl.style.flexDirection = 'row-reverse';
+      } else {
+        appEl.style.flexDirection = 'row';
+      }
+    }
+  },
+
   setTheme(theme) {
     this._setSetting('theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
+    this.applyAppearance();
     this.renderSection();
     Toast.show(`Theme changed to ${theme} mode`, 'success');
   },
 
   saveAppearance() {
-    this._setSetting('accentColor', document.getElementById('s-accent').value);
-    this._setSetting('sidebarPosition', document.getElementById('s-sidebar-pos').value);
-    this._setSetting('compactMode', document.getElementById('s-compact').checked);
+    const accent = document.getElementById('s-accent')?.value || '#4f80f7';
+    const pos = document.getElementById('s-sidebar-pos')?.value || 'left';
+    const compact = document.getElementById('s-compact')?.checked || false;
+
+    this._setSetting('accentColor', accent);
+    this._setSetting('sidebarPosition', pos);
+    this._setSetting('compactMode', compact);
+
+    this.applyAppearance({
+      theme: this._getSetting('theme', 'dark'),
+      accentColor: accent,
+      sidebarPosition: pos,
+      compactMode: compact
+    });
+
+    DB.flushServerPush();
     DB.log('UPDATE', 'Settings', 'Appearance settings updated', Auth.user?.id);
-    Toast.show('Appearance settings saved!', 'success');
+    Toast.show('Appearance settings applied & saved successfully!', 'success');
   },
 
   // ─── Backup & Restore ────────────────────────────

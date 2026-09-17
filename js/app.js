@@ -12,9 +12,26 @@ const App = {
       if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
         LiveNotifications.init();
       }
-      // Apply saved theme immediately (default to light mode)
-      const savedTheme = (typeof DB !== 'undefined' && DB.getObj) ? (DB.getObj('settings')?.theme || 'light') : 'light';
-      document.documentElement.setAttribute('data-theme', savedTheme);
+      // Apply saved appearance settings immediately
+        if (typeof DB !== 'undefined' && DB.getObj) {
+          const s = DB.getObj('settings') || {};
+          const savedTheme = s.theme || 'light';
+          document.documentElement.setAttribute('data-theme', savedTheme);
+          if (s.accentColor) {
+            document.documentElement.style.setProperty('--primary', s.accentColor);
+            document.documentElement.style.setProperty('--primary-light', s.accentColor + 'cc');
+            document.documentElement.style.setProperty('--primary-dark', s.accentColor);
+            document.documentElement.style.setProperty('--primary-glow', s.accentColor + '33');
+          }
+          if (s.compactMode === true || s.compactMode === 'true') {
+            document.body.classList.add('compact-mode');
+            document.documentElement.classList.add('compact-mode');
+          }
+          const appEl = document.getElementById('app');
+          if (appEl && s.sidebarPosition === 'right') {
+            appEl.style.flexDirection = 'row-reverse';
+          }
+        }
 
       // Initialize Browser Back/Forward navigation router
       this.setupHistoryRouter();

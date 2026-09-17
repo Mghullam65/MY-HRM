@@ -8329,3 +8329,31 @@ html[dir="rtl"] .btn-split-back i {
   border-color: #3b82f6;
   background: rgba(59, 130, 246, 0.1);
 }
+
+/* ============================================================
+   APPEARANCE CONFIGURATION: Compact Mode & Layout
+   ============================================================ */
+body.compact-mode .page-content,
+html.compact-mode .page-content {
+  padding: 12px 18px !important;
+}
+body.compact-mode .card,
+html.compact-mode .card {
+  padding: 14px 18px !important;
+  margin-bottom: 12px !important;
+}
+body.compact-mode table th,
+body.compact-mode table td,
+html.compact-mode table th,
+html.compact-mode table td {
+  padding: 6px 10px !important;
+}
+body.compact-mode .form-group,
+html.compact-mode .form-group {
+  margin-bottom: 10px !important;
+}
+body.compact-mode .nav-item,
+html.compact-mode .nav-item {
+  padding: 8px 12px !important;
+  font-size: 12.5px !important;
+}
