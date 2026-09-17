@@ -282,6 +282,22 @@ router.post('/biometric-sync', async (req, res) => {
               }
             }).catch(() => null);
           }
+            if (!emp) {
+              try {
+                const storeService = require('../services/store');
+                const storeEmps = storeService ? storeService.getTable('employees') || [] : [];
+                const matched = storeEmps.find(e => 
+                  String(e.biometricId) === String(p.user_id) ||
+                  String(e.id) === String(p.user_id) ||
+                  String(e.empNo).toLowerCase() === String(p.user_id).toLowerCase()
+                );
+                if (matched) {
+                  emp = await prisma.employee.findFirst({
+                    where: { OR: [{ id: matched.id }, { empNo: matched.empNo }] }
+                  }).catch(() => null) || matched;
+                }
+              } catch (e) {}
+            }
 
           if (emp) {
             const existingAtt = await prisma.attendance.findFirst({

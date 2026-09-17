@@ -4700,10 +4700,10 @@ const Attendance = {
             if (b.user_id === 'SYSTEM_HEARTBEAT') return;
             // Flexible employee matcher: ID, empNo, or numeric portion
             const emp = emps.find(e => 
-              String(e.id) === String(b.user_id) || 
-              String(e.empNo).toLowerCase() === String(b.user_id).toLowerCase() ||
-              String(e.empNo).replace(/\D/g, '') === String(b.user_id).replace(/\D/g, '')
-            );
+              (e.biometricId && String(e.biometricId) === String(b.user_id)) ||
+                String(e.id) === String(b.user_id) || 
+                String(e.empNo).toLowerCase() === String(b.user_id).toLowerCase() ||
+                String(e.empNo).replace(/\D/g, '') === String(b.user_id).replace(/\D/g, ''));
             if (emp) {
               const punchDate = b.timestamp ? b.timestamp.split('T')[0] : Utils.today();
               const punchTime = b.timestamp ? b.timestamp.split('T')[1].substring(0, 5) : '09:00';
