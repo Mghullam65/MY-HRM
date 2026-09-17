@@ -126,7 +126,7 @@ const App = {
     const login = document.getElementById('login-page');
     const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
-    if (landing) landing.style.display = 'block';
+    if (landing) { landing.style.display = 'block'; landing.setAttribute('data-theme', 'dark'); }
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
@@ -147,7 +147,7 @@ const App = {
     const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
-    if (modDetail) modDetail.style.display = 'block';
+    if (modDetail) { modDetail.style.display = 'block'; modDetail.setAttribute('data-theme', 'dark'); }
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
@@ -187,7 +187,7 @@ const App = {
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'none';
-    if (trial) trial.style.display = 'flex';
+    if (trial) { trial.style.display = 'flex'; trial.setAttribute('data-theme', 'dark'); }
     if (app) app.style.display = 'none';
     if (typeof Trial !== 'undefined' && Trial.render) {
       Trial.render(plan);

@@ -839,6 +839,7 @@ const Landing = {
   render() {
     const container = document.getElementById('landing-page');
     if (!container) return;
+    container.setAttribute('data-theme', 'dark');
 
     // Live database counts
     const emps = (typeof DB !== 'undefined' && DB.get) ? (DB.get('employees') || []) : [];

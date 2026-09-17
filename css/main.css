@@ -8414,3 +8414,178 @@ body.sidebar-pos-right .sidebar {
   transform: scale(1.15);
   box-shadow: 0 2px 8px rgba(0,0,0,0.25);
 }
+
+
+/* ═════════════════════════════════════════════════════════════════
+   PERMANENT SIGNATURE DARK SCHEME FOR PUBLIC LANDING & SHOWCASE PAGES
+   Maintains high-impact dark aesthetic independent of internal app theme toggles
+   ═════════════════════════════════════════════════════════════════ */
+#landing-page,
+#landing-page[data-theme],
+.landing-wrapper,
+#module-detail-page,
+#module-detail-page[data-theme],
+#trial-page,
+#trial-page[data-theme] {
+  --bg:             hsl(222, 47%, 7%) !important;
+  --bg-2:           hsl(222, 40%, 10%) !important;
+  --surface:        hsl(222, 35%, 13%) !important;
+  --surface-2:      hsl(222, 30%, 17%) !important;
+  --card:           hsl(222, 28%, 15%) !important;
+  --card-hover:     hsl(222, 28%, 19%) !important;
+  --border:         hsl(222, 25%, 22%) !important;
+  --border-light:   hsl(222, 20%, 28%) !important;
+  --text:           hsl(210, 40%, 96%) !important;
+  --text-2:         hsl(210, 20%, 72%) !important;
+  --text-3:         hsl(210, 15%, 52%) !important;
+  --text-muted:     hsl(210, 12%, 40%) !important;
+  --sidebar-bg:     hsl(222, 47%, 8%) !important;
+  --sidebar-border: hsl(222, 30%, 16%) !important;
+  color-scheme: dark !important;
+}
+
+/* Also ensure base landing elements default permanently to dark scheme */
+.landing-wrapper {
+  background: 
+    radial-gradient(ellipse 85% 45% at 50% -15%, rgba(99, 102, 241, 0.24), transparent),
+    radial-gradient(circle at 92% 18%, rgba(56, 189, 248, 0.14), transparent 45%),
+    radial-gradient(circle at 8% 35%, rgba(139, 92, 246, 0.12), transparent 45%),
+    #080c16 !important;
+  color: #f8fafc !important;
+}
+
+.landing-header {
+  background: rgba(8, 12, 22, 0.88) !important;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.7) !important;
+}
+
+.landing-brand-name {
+  color: #f8fafc !important;
+}
+
+.landing-nav-link {
+  color: #94a3b8 !important;
+}
+.landing-nav-link:hover {
+  color: #ffffff !important;
+}
+.landing-btn-signin {
+  color: #e2e8f0 !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+}
+.landing-btn-signin:hover {
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  background: rgba(30, 41, 59, 0.85) !important;
+}
+.landing-pill-badge {
+  background: rgba(30, 41, 59, 0.7) !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  color: #93c5fd !important;
+}
+.landing-hero-title {
+  color: #ffffff !important;
+}
+.landing-hero-sub {
+  color: #94a3b8 !important;
+}
+.landing-hero-btn-secondary {
+  color: #cbd5e1 !important;
+  border-color: rgba(51, 65, 85, 0.9) !important;
+  background: rgba(15, 23, 42, 0.6) !important;
+}
+.landing-hero-btn-secondary:hover {
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  background: rgba(30, 41, 59, 0.9) !important;
+}
+.landing-trust-item strong {
+  color: #f1f5f9 !important;
+}
+.hero-dashboard-mockup {
+  background: rgba(15, 23, 42, 0.75) !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.7) !important;
+}
+.mockup-topbar {
+  background: rgba(11, 17, 32, 0.9) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+.mockup-kpi-box {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border-color: rgba(30, 41, 59, 0.7) !important;
+}
+.kpi-val {
+  color: #f1f5f9 !important;
+}
+.mockup-chart-area, .mockup-activity-area {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(30, 41, 59, 0.7) !important;
+}
+.mockup-activity-row {
+  border-color: rgba(30, 41, 59, 0.5) !important;
+  color: #94a3b8 !important;
+}
+.hero-floating-card {
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(51, 65, 85, 0.8) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55) !important;
+}
+.hero-small-pill {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(51, 65, 85, 0.7) !important;
+}
+.landing-section-title {
+  color: #ffffff !important;
+}
+.landing-section-sub {
+  color: #94a3b8 !important;
+}
+.landing-feature-card {
+  background: rgba(15, 23, 42, 0.65) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+.landing-feature-card:hover {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-color: rgba(79, 70, 229, 0.5) !important;
+}
+.feature-card-title {
+  color: #f1f5f9 !important;
+}
+.feature-card-desc {
+  color: #94a3b8 !important;
+}
+.landing-stat-box {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+.stat-number {
+  color: #ffffff !important;
+}
+.landing-testimonial-box {
+  background: rgba(15, 23, 42, 0.7) !important;
+  border-color: rgba(30, 41, 59, 0.8) !important;
+}
+.testimonial-quote-text {
+  color: #cbd5e1 !important;
+}
+.testimonial-name {
+  color: #f1f5f9 !important;
+}
+.landing-footer {
+  background: #050811 !important;
+  border-top-color: rgba(30, 41, 59, 0.8) !important;
+}
+.footer-col h4 {
+  color: #f8fafc !important;
+}
+.footer-col a {
+  color: #64748b !important;
+}
+.footer-col a:hover {
+  color: #38bdf8 !important;
+}
+.landing-footer-bottom {
+  border-top-color: rgba(30, 41, 59, 0.6) !important;
+}
