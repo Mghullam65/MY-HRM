@@ -21,9 +21,14 @@ const onceFlag = args.includes('--once');
 const dryRunFlag = args.includes('--dry-run');
 const configIdx = args.indexOf('--config');
 if (configIdx !== -1 && args[configIdx + 1]) {
-  configFile = path.isAbsolute(args[configIdx + 1]) 
-    ? args[configIdx + 1] 
-    : path.join(BASE_DIR, args[configIdx + 1]);
+  const rawPath = args[configIdx + 1];
+  if (path.isAbsolute(rawPath)) {
+    configFile = rawPath;
+  } else if (fs.existsSync(path.resolve(process.cwd(), rawPath))) {
+    configFile = path.resolve(process.cwd(), rawPath);
+  } else {
+    configFile = path.join(BASE_DIR, rawPath);
+  }
 }
 
 function log(msg, level = 'INFO') {

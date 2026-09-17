@@ -4,10 +4,28 @@ const path = require('path');
 const prisma = require('../db');
 const { authenticate, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
 
-const DATA_DIR = path.join(__dirname, '../../../data');
-if (!fs.existsSync(DATA_DIR)) {
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const os = require('os');
+
+function resolveDataDir() {
+  const localDir = path.join(__dirname, '../../data');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    const testFile = path.join(localDir, '.write_test');
+    fs.writeFileSync(testFile, '1');
+    fs.unlinkSync(testFile);
+    return localDir;
+  } catch (e) {
+    const tmpDir = path.join(os.tmpdir(), 'hrm_data');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (err) {}
+    }
+    return tmpDir;
+  }
 }
+
+const DATA_DIR = resolveDataDir();
 const BUFFER_FILE = path.join(DATA_DIR, 'biometric_sync_buffer.json');
 const STATUS_FILE = path.join(DATA_DIR, 'biometric_sync_status.json');
 
@@ -234,8 +252,12 @@ router.post('/biometric-sync', async (req, res) => {
       };
     });
 
-    fs.writeFileSync(BUFFER_FILE, JSON.stringify(existing, null, 2));
-    fs.writeFileSync(STATUS_FILE, JSON.stringify(statusMap, null, 2));
+    try {
+      fs.writeFileSync(BUFFER_FILE, JSON.stringify(existing, null, 2));
+      fs.writeFileSync(STATUS_FILE, JSON.stringify(statusMap, null, 2));
+    } catch (fsErr) {
+      console.warn('[BiometricSync File Notice]', fsErr.message);
+    }
 
     // Also attempt to upsert into database if Prisma models are active
     try {

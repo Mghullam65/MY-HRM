@@ -2,11 +2,29 @@ const fs = require('fs');
 const path = require('path');
 const emailService = require('../services/emailService');
 
-// Resolve data directory and execution ledger
-const DATA_DIR = path.join(__dirname, '../../../data');
-if (!fs.existsSync(DATA_DIR)) {
-  try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch (e) {}
+const os = require('os');
+
+// Resolve data directory and execution ledger (support serverless /tmp fallback)
+function resolveDataDir() {
+  const localDir = path.join(__dirname, '../../data');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    const testFile = path.join(localDir, '.write_test');
+    fs.writeFileSync(testFile, '1');
+    fs.unlinkSync(testFile);
+    return localDir;
+  } catch (e) {
+    const tmpDir = path.join(os.tmpdir(), 'hrm_data');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (err) {}
+    }
+    return tmpDir;
+  }
 }
+
+const DATA_DIR = resolveDataDir();
 const LEDGER_FILE = path.join(DATA_DIR, 'daily_summary_job_log.json');
 
 // Helper to safely load store service if running in server context

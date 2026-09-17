@@ -5,7 +5,7 @@
   "device_port": 4370,
   "device_timeout": 5,
   "comm_key": 0,
-  "hrm_api_url": "http://localhost:3000/api/attendance/biometric-sync",
+  "hrm_api_url": "https://my-hrm-rosy.vercel.app/api/attendance/biometric-sync",
   "sync_interval_seconds": 300,
   "api_secret": "hrm-biometric-secret-key-2026"
 }
