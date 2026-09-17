@@ -2255,48 +2255,157 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
 
   // ─── Appearance ───────────────────────────────────
   renderAppearance(c) {
-    const theme = this._getSetting('theme', 'dark');
-    const accent = this._getSetting('accentColor', '#4f80f7');
+    const currentTheme = document.documentElement.getAttribute('data-theme') || this._getSetting('theme', 'light');
+    const accent = this._getSetting('accentColor', '#2563eb');
     const sidebarPosition = this._getSetting('sidebarPosition', 'left');
-    c.innerHTML = this._sectionCard('Appearance', 'Customize the look and feel', `
-      ${this._settingRow('Theme',
-        `<div style="display:flex;gap:10px">
+    const isCompact = this._getSetting('compactMode', false);
+
+    c.innerHTML = this._sectionCard('Appearance', 'Customize interface styling, colors, sidebar position, and density', `
+      ${this._settingRow('Theme Mode',
+        `<div style="display:flex;gap:12px;align-items:center">
           ${[
-            { id:'dark', label:'Dark', bg:'#0f1729', color:'white' },
-            { id:'light', label:'Light', bg:'#f8fafc', color:'#1a1a2e' },
-          ].map(t => `
-            <div onclick="Settings.setTheme('${t.id}')" style="cursor:pointer;padding:12px 20px;border-radius:10px;border:2px solid ${theme===t.id?'var(--primary)':'var(--border)'};background:${t.bg};color:${t.color};font-size:13px;font-weight:600;text-align:center;min-width:80px;transition:.2s">
-              ${t.id === 'dark' ? '<i class="fa fa-moon" style="margin-right:6px"></i>' : '<i class="fa fa-sun" style="margin-right:6px"></i>'}${t.label}
-            </div>
-          `).join('')}
+            { id:'light', label:'Light', icon:'fa-sun', bg:'#ffffff', color:'#1e293b' },
+            { id:'dark', label:'Dark', icon:'fa-moon', bg:'#0f172a', color:'#f8fafc' },
+          ].map(t => {
+            const isSel = currentTheme === t.id;
+            return `
+              <div onclick="Settings.setTheme('${t.id}')" role="button" class="theme-select-card ${isSel ? 'active' : ''}" style="cursor:pointer;padding:10px 22px;border-radius:10px;border:2px solid ${isSel ? 'var(--primary)' : 'var(--border)'};background:${t.bg};color:${t.color};font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:${isSel ? '0 0 0 3px var(--primary-glow)' : 'none'};transition:all .2s ease">
+                <i class="fa ${t.icon}" style="${isSel ? 'color:var(--primary)' : ''}"></i>
+                <span>${t.label}</span>
+                ${isSel ? '<i class="fa fa-check-circle" style="color:var(--primary);margin-left:6px;font-size:14px"></i>' : ''}
+              </div>
+            `;
+          }).join('')}
         </div>`,
-        'Switch between dark and light themes')}
+        'Instantly switch the entire application between Clean Light and Enterprise Dark modes')}
+
       ${this._settingRow('Accent Color',
-        `<div style="display:flex;gap:8px;align-items:center">
-          <input type="color" id="s-accent" value="${accent}" style="width:40px;height:34px;border:none;border-radius:8px;cursor:pointer;background:none">
-          <span style="font-family:monospace;font-size:12px;color:var(--text-3)">${accent}</span>
+        `<div style="display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+            <!-- Native Color Picker & Hex Input -->
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">
+              <input type="color" id="s-accent" value="${accent}" oninput="Settings.previewAccent(this.value)" style="width:36px;height:32px;border:none;border-radius:6px;cursor:pointer;background:none">
+              <input type="text" id="s-accent-hex" value="${accent}" maxlength="7" oninput="Settings.onHexInput(this.value)" style="width:85px;font-family:monospace;font-size:13px;font-weight:700;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);text-transform:lowercase">
+            </div>
+
+            <!-- Quick Swatches Palette -->
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              ${[
+                { name: 'Corporate Blue', hex: '#2563eb' },
+                { name: 'Crimson Coral', hex: '#f75050' },
+                { name: 'Emerald Green', hex: '#10b981' },
+                { name: 'Royal Purple', hex: '#7c3aed' },
+                { name: 'Amber Sunrise', hex: '#f59e0b' },
+                { name: 'Electric Indigo', hex: '#6366f1' },
+                { name: 'Cyan Teal', hex: '#06b6d4' }
+              ].map(p => `
+                <button type="button" title="${p.name} (${p.hex})" onclick="Settings.pickAccent('${p.hex}')" class="color-preset-pill" data-color="${p.hex}" style="width:28px;height:28px;border-radius:50%;border:2px solid var(--surface);background:${p.hex};cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,0.2);outline:${accent.toLowerCase() === p.hex.toLowerCase() ? '2px solid var(--text)' : 'none'};transition:all .15s ease"></button>
+              `).join('')}
+            </div>
+          </div>
+          <div style="font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+            <i class="fa fa-circle-info" style="color:var(--primary)"></i> Live Preview: Changes reflect in real time on buttons, active badges, tabs, and brand highlights.
+          </div>
         </div>`,
-        'Primary color used throughout the interface')}
+        'Primary brand accent color utilized across buttons, icons, and interactive elements')}
+
       ${this._settingRow('Sidebar Position',
-        `<select class="form-control" id="s-sidebar-pos">
-          <option value="left" ${sidebarPosition==='left'?'selected':''}>Left</option>
-          <option value="right" ${sidebarPosition==='right'?'selected':''}>Right</option>
-        </select>`, '')}
-      ${this._settingRow('Compact Mode',
-        `<label class="toggle-switch"><input type="checkbox" id="s-compact" ${this._getSetting('compactMode',false)?'checked':''}><span class="toggle-slider"></span></label>`,
-        'Reduce spacing for more content density')}
-    `, `<button class="btn btn-primary" onclick="Settings.saveAppearance()"><i class="fa fa-save"></i> Apply & Save</button>`);
+        `<div style="display:flex;flex-direction:column;gap:6px">
+          <select class="form-control" id="s-sidebar-pos" onchange="Settings.previewSidebar(this.value)" style="max-width:200px;font-weight:600">
+            <option value="left" ${sidebarPosition === 'left' ? 'selected' : ''}>Left (Standard)</option>
+            <option value="right" ${sidebarPosition === 'right' ? 'selected' : ''}>Right (RTL / Flipped)</option>
+          </select>
+          <div style="font-size:11.5px;color:var(--text-3)">Dock main navigation menu on the left or right side of the screen.</div>
+        </div>`, '')}
+
+      ${this._settingRow('Compact Density Mode',
+        `<div style="display:flex;align-items:center;gap:12px">
+          <label class="toggle-switch">
+            <input type="checkbox" id="s-compact" ${(isCompact === true || isCompact === 'true') ? 'checked' : ''} onchange="Settings.previewCompact(this.checked)">
+            <span class="toggle-slider"></span>
+          </label>
+          <span id="s-compact-status" style="font-size:12.5px;font-weight:600;color:var(--text)">${(isCompact === true || isCompact === 'true') ? 'Enabled (High Density)' : 'Standard Spacing'}</span>
+        </div>`,
+        'Reduces table padding, margin heights, and nav item gaps for dense high-volume display')}
+    `, `
+      <button type="button" class="btn btn-secondary" onclick="Settings.resetAppearanceDefaults()" style="margin-right:8px"><i class="fa fa-rotate-left"></i> Reset Defaults</button>
+      <button type="button" class="btn btn-primary" onclick="Settings.saveAppearance()"><i class="fa fa-save"></i> Apply & Save</button>
+    `);
   },
 
-    applyAppearance(settings = null) {
+  previewAccent(hex) {
+    if (!hex) return;
+    let clean = hex.trim();
+    if (!clean.startsWith('#')) clean = '#' + clean;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(clean)) return;
+
+    const hexInput = document.getElementById('s-accent-hex');
+    if (hexInput && hexInput.value.toLowerCase() !== clean.toLowerCase()) {
+      hexInput.value = clean.toLowerCase();
+    }
+    const colorPicker = document.getElementById('s-accent');
+    if (colorPicker && colorPicker.value.toLowerCase() !== clean.toLowerCase()) {
+      colorPicker.value = clean;
+    }
+
+    // Dynamic CSS variable injection
+    document.documentElement.style.setProperty('--primary', clean);
+    document.documentElement.style.setProperty('--primary-light', clean + 'cc');
+    document.documentElement.style.setProperty('--primary-dark', clean);
+    document.documentElement.style.setProperty('--primary-glow', clean + '33');
+
+    // Update preset outlines
+    document.querySelectorAll('.color-preset-pill').forEach(btn => {
+      const c = btn.getAttribute('data-color') || '';
+      btn.style.outline = (c.toLowerCase() === clean.toLowerCase()) ? '2px solid var(--text)' : 'none';
+    });
+  },
+
+  onHexInput(val) {
+    let clean = val.trim();
+    if (!clean.startsWith('#')) clean = '#' + clean;
+    if (/^#[0-9A-Fa-f]{6}$/.test(clean)) {
+      this.previewAccent(clean);
+    }
+  },
+
+  pickAccent(hex) {
+    this.previewAccent(hex);
+  },
+
+  previewSidebar(pos) {
+    const appEl = document.getElementById('app');
+    if (appEl) {
+      if (pos === 'right') {
+        appEl.style.flexDirection = 'row-reverse';
+        appEl.setAttribute('data-sidebar-pos', 'right');
+        document.body.classList.add('sidebar-pos-right');
+      } else {
+        appEl.style.flexDirection = 'row';
+        appEl.setAttribute('data-sidebar-pos', 'left');
+        document.body.classList.remove('sidebar-pos-right');
+      }
+    }
+  },
+
+  previewCompact(checked) {
+    document.body.classList.toggle('compact-mode', checked);
+    document.documentElement.classList.toggle('compact-mode', checked);
+    const statusEl = document.getElementById('s-compact-status');
+    if (statusEl) {
+      statusEl.textContent = checked ? 'Enabled (High Density)' : 'Standard Spacing';
+    }
+  },
+
+  applyAppearance(settings = null) {
     if (!settings) {
       settings = (typeof DB !== 'undefined' && DB.getObj) ? (DB.getObj('settings') || {}) : {};
     }
-    const theme = settings.theme || 'light';
+    const theme = settings.theme || document.documentElement.getAttribute('data-theme') || 'light';
     document.documentElement.setAttribute('data-theme', theme);
 
     // 1. Accent Color
-    const accent = settings.accentColor || '#4f80f7';
+    const accent = settings.accentColor || '#2563eb';
     if (accent) {
       document.documentElement.style.setProperty('--primary', accent);
       document.documentElement.style.setProperty('--primary-light', accent + 'cc');
@@ -2315,8 +2424,12 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     if (appEl) {
       if (sidebarPos === 'right') {
         appEl.style.flexDirection = 'row-reverse';
+        appEl.setAttribute('data-sidebar-pos', 'right');
+        document.body.classList.add('sidebar-pos-right');
       } else {
         appEl.style.flexDirection = 'row';
+        appEl.setAttribute('data-sidebar-pos', 'left');
+        document.body.classList.remove('sidebar-pos-right');
       }
     }
   },
@@ -2324,30 +2437,73 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
   setTheme(theme) {
     this._setSetting('theme', theme);
     document.documentElement.setAttribute('data-theme', theme);
-    this.applyAppearance();
+    
+    this.applyAppearance({
+      theme: theme,
+      accentColor: this._getSetting('accentColor', '#2563eb'),
+      sidebarPosition: this._getSetting('sidebarPosition', 'left'),
+      compactMode: this._getSetting('compactMode', false)
+    });
+
+    // Synchronize topbar theme toggle button
+    const btn = document.querySelector('.theme-toggle-btn');
+    if (btn) {
+      btn.innerHTML = `<i class="fa ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>`;
+      btn.title = theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
+    }
+
+    if (typeof DB !== 'undefined' && DB.flushServerPush) {
+      DB.flushServerPush();
+    }
     this.renderSection();
-    Toast.show(`Theme changed to ${theme} mode`, 'success');
+    Toast.show(`Theme changed to ${theme === 'dark' ? 'Dark' : 'Light'} mode`, 'success');
   },
 
   saveAppearance() {
-    const accent = document.getElementById('s-accent')?.value || '#4f80f7';
+    const accent = document.getElementById('s-accent')?.value || '#2563eb';
     const pos = document.getElementById('s-sidebar-pos')?.value || 'left';
     const compact = document.getElementById('s-compact')?.checked || false;
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
 
+    this._setSetting('theme', currentTheme);
     this._setSetting('accentColor', accent);
     this._setSetting('sidebarPosition', pos);
     this._setSetting('compactMode', compact);
 
-    this.applyAppearance({
-      theme: this._getSetting('theme', 'dark'),
+    const config = {
+      theme: currentTheme,
       accentColor: accent,
       sidebarPosition: pos,
       compactMode: compact
-    });
+    };
 
-    DB.flushServerPush();
-    DB.log('UPDATE', 'Settings', 'Appearance settings updated', Auth.user?.id);
-    Toast.show('Appearance settings applied & saved successfully!', 'success');
+    this.applyAppearance(config);
+
+    if (typeof DB !== 'undefined' && DB.flushServerPush) {
+      DB.flushServerPush();
+      DB.log('UPDATE', 'Settings', `Appearance settings saved: ${JSON.stringify(config)}`, Auth?.user?.id);
+    }
+    Toast.show('Appearance settings applied and saved successfully!', 'success');
+  },
+
+  resetAppearanceDefaults() {
+    const defaults = {
+      theme: 'light',
+      accentColor: '#2563eb',
+      sidebarPosition: 'left',
+      compactMode: false
+    };
+    this._setSetting('theme', defaults.theme);
+    this._setSetting('accentColor', defaults.accentColor);
+    this._setSetting('sidebarPosition', defaults.sidebarPosition);
+    this._setSetting('compactMode', defaults.compactMode);
+
+    this.applyAppearance(defaults);
+    if (typeof DB !== 'undefined' && DB.flushServerPush) {
+      DB.flushServerPush();
+    }
+    this.renderSection();
+    Toast.show('Appearance restored to factory defaults!', 'info');
   },
 
   // ─── Backup & Restore ────────────────────────────

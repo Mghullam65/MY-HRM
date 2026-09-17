@@ -749,6 +749,12 @@ const App = {
       btn.innerHTML = `<i class="fa ${next === 'dark' ? 'fa-sun' : 'fa-moon'}"></i>`;
       btn.title = next === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode';
     }
+    if (typeof DB !== 'undefined' && DB.flushServerPush) {
+      DB.flushServerPush();
+    }
+    if (typeof Settings !== 'undefined' && Settings.currentSection === 'appearance') {
+      Settings.renderSection();
+    }
   },
 
   openMobileSidebar() {

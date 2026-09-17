@@ -8357,3 +8357,60 @@ html.compact-mode .nav-item {
   padding: 8px 12px !important;
   font-size: 12.5px !important;
 }
+
+
+/* ══════════════════════════════════════════════════════════
+   APPEARANCE SETTINGS & THEME ENGINE ENHANCEMENTS
+══════════════════════════════════════════════════════════ */
+[data-theme="dark"], [data-theme="dark"] * {
+  color-scheme: dark;
+}
+[data-theme="dark"] {
+  --bg:             hsl(222, 47%, 7%);
+  --bg-2:           hsl(222, 40%, 10%);
+  --surface:        hsl(222, 35%, 13%);
+  --surface-2:      hsl(222, 30%, 17%);
+  --card:           hsl(222, 28%, 15%);
+  --card-hover:     hsl(222, 28%, 19%);
+  --border:         hsl(222, 25%, 22%);
+  --border-light:   hsl(222, 20%, 28%);
+  --text:           hsl(210, 40%, 96%);
+  --text-2:         hsl(210, 20%, 72%);
+  --text-3:         hsl(210, 15%, 52%);
+  --text-muted:     hsl(210, 12%, 40%);
+  --sidebar-bg:     hsl(222, 47%, 8%);
+  --sidebar-border: hsl(222, 30%, 16%);
+  --shadow-sm:      0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md:      0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
+}
+
+/* Sidebar Position Styles */
+#app[data-sidebar-pos="right"],
+#app.sidebar-pos-right {
+  flex-direction: row-reverse !important;
+}
+#app[data-sidebar-pos="right"] .sidebar,
+#app.sidebar-pos-right .sidebar,
+body.sidebar-pos-right .sidebar {
+  border-right: none !important;
+  border-left: 1px solid var(--sidebar-border) !important;
+}
+
+/* Appearance Presets & Live Previews */
+.theme-select-card {
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.theme-select-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.color-preset-pill {
+  user-select: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.color-preset-pill:hover {
+  transform: scale(1.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
