@@ -37,6 +37,127 @@ const Dashboard = {
     this.refreshInbox();
   },
 
+  setCompanyFilter(companyId) {
+    if (typeof Company !== 'undefined' && Company.switchCompany) {
+      Company.switchCompany(companyId);
+    } else {
+      DB.setActiveCompanyId(companyId);
+      this.render();
+    }
+  },
+
+  renderMultiCompanyPortfolio(allEmployees, att, salary, companies, activeCompanyId) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) return '';
+
+    const today = Utils.today();
+    const activeEmps = allEmployees.filter(e => (e.status || '').toLowerCase() === 'active');
+    const totalHeadcount = activeEmps.length;
+    const totalPayroll = activeEmps.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
+    const todayAtt = att.filter(a => a.date === today);
+    const totalPresent = todayAtt.filter(a => a.status === 'present' || a.status === 'late').length;
+    const groupAttRate = totalHeadcount > 0 ? Math.round((totalPresent / totalHeadcount) * 100) : 94;
+
+    return `
+      <div class="card mb-20" style="padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);margin-bottom:20px">
+        <!-- Header & Switcher Trigger -->
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:28px;height:28px;border-radius:8px;background:rgba(99,102,241,0.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px">
+                <i class="fa fa-building-shield"></i>
+              </span>
+              <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text)">
+                Multi-Company Holding Portfolio — Corporate Group Telemetry
+              </h3>
+              <span class="badge badge-primary" style="font-size:10px;font-weight:700">3 Subsidiaries Registered</span>
+            </div>
+            <p style="margin:2px 0 0 36px;font-size:11.5px;color:var(--text-3)">
+              Universal oversight across all group corporate entities, FBR NTN portfolios, and local disbursal banks.
+            </p>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-secondary btn-xs" onclick="Company.showWorkspaceSwitchModal()" title="Open Full Workspace Selector Modal">
+              <i class="fa fa-up-right-and-down-left-from-center"></i> Switch Workspace Modal
+            </button>
+            <button class="btn btn-ghost btn-xs" onclick="App.navigate('companies')" title="Manage Legal Entities & Inter-Company Transfers">
+              <i class="fa fa-gear"></i> Manage Entities
+            </button>
+          </div>
+        </div>
+
+        <!-- 1-Click Interactive Company Filter Segment Tabs -->
+        <div style="display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;border-bottom:1px solid var(--border)">
+          <button class="btn btn-xs ${activeCompanyId === 'all' ? 'btn-primary' : 'btn-ghost'}" onclick="Dashboard.setCompanyFilter('all')" style="font-weight:700;display:inline-flex;align-items:center;gap:6px">
+            <span>🏛️ All Companies (Consolidated View)</span>
+            <span class="badge" style="background:rgba(255,255,255,0.25);color:inherit;font-size:9.5px">${totalHeadcount} Staff</span>
+          </button>
+          ${companies.map(c => {
+            const isSelected = String(activeCompanyId) === String(c.id);
+            const cEmps = allEmployees.filter(e => Number(e.companyId) === Number(c.id) && (e.status || '').toLowerCase() === 'active');
+            return `
+              <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-ghost'}" onclick="Dashboard.setCompanyFilter(${c.id})" style="font-weight:700;display:inline-flex;align-items:center;gap:6px">
+                <span style="width:14px;height:14px;border-radius:50%;background:${c.primaryColor || 'var(--primary)'};display:inline-block"></span>
+                <span>${c.tradeName || c.name}</span>
+                <span class="badge" style="background:rgba(255,255,255,0.2);color:inherit;font-size:9.5px">${cEmps.length}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <!-- 4-Column Company Cards Grid -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px">
+          <!-- Card 1: Consolidated Group Overview -->
+          <div onclick="Dashboard.setCompanyFilter('all')" class="card" style="padding:14px;cursor:pointer;border:1.5px solid ${activeCompanyId === 'all' ? 'var(--primary)' : 'var(--border)'};background:${activeCompanyId === 'all' ? 'rgba(99,102,241,0.06)' : 'var(--surface-2)'};border-radius:10px;transition:all 0.15s">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:26px;height:26px;border-radius:6px;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">🏛️</span>
+                <strong style="font-size:13px;color:var(--text)">Apex Group (Consolidated)</strong>
+              </div>
+              ${activeCompanyId === 'all' ? '<span class="badge badge-primary" style="font-size:9px">Active</span>' : ''}
+            </div>
+            <div style="font-size:11.5px;color:var(--text-2);line-height:1.8">
+              <div style="display:flex;justify-content:space-between"><span>Group Workforce:</span> <strong>${totalHeadcount} Staff</strong></div>
+              <div style="display:flex;justify-content:space-between"><span>Monthly Payroll:</span> <strong style="font-family:monospace;color:var(--success)">PKR ${totalPayroll.toLocaleString()}</strong></div>
+              <div style="display:flex;justify-content:space-between"><span>Attendance Rate:</span> <strong style="color:var(--primary)">${groupAttRate}% Present</strong></div>
+              <div style="display:flex;justify-content:space-between"><span>Tax Portfolios:</span> <strong>3 FBR NTNs</strong></div>
+            </div>
+          </div>
+
+          <!-- Cards 2, 3, 4: Individual Subsidiaries -->
+          ${companies.map(c => {
+            const isSelected = String(activeCompanyId) === String(c.id);
+            const cEmps = allEmployees.filter(e => Number(e.companyId) === Number(c.id) && (e.status || '').toLowerCase() === 'active');
+            const cPayroll = cEmps.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
+            const cEmpIds = cEmps.map(e => e.id);
+            const cPresent = todayAtt.filter(a => cEmpIds.includes(a.employeeId) && (a.status === 'present' || a.status === 'late')).length;
+            const cAttRate = cEmps.length > 0 ? Math.round((cPresent / cEmps.length) * 100) : 95;
+
+            return `
+              <div onclick="Dashboard.setCompanyFilter(${c.id})" class="card" style="padding:14px;cursor:pointer;border:1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'};background:${isSelected ? 'rgba(99,102,241,0.06)' : 'var(--surface-2)'};border-radius:10px;transition:all 0.15s">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span style="width:26px;height:26px;border-radius:6px;background:${c.primaryColor || 'var(--primary)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">
+                      ${c.logoText || 'CO'}
+                    </span>
+                    <strong style="font-size:12.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${c.name}">${c.tradeName || c.name}</strong>
+                  </div>
+                  ${isSelected ? '<span class="badge badge-primary" style="font-size:9px">Active</span>' : ''}
+                </div>
+                <div style="font-size:11.5px;color:var(--text-2);line-height:1.8">
+                  <div style="display:flex;justify-content:space-between"><span>Workforce:</span> <strong>${cEmps.length} Employees</strong></div>
+                  <div style="display:flex;justify-content:space-between"><span>Monthly Payroll:</span> <strong style="font-family:monospace;color:var(--success)">PKR ${cPayroll.toLocaleString()}</strong></div>
+                  <div style="display:flex;justify-content:space-between"><span>Attendance:</span> <strong style="color:var(--primary)">${cAttRate}% Present</strong></div>
+                  <div style="display:flex;justify-content:space-between"><span>NTN / Bank:</span> <span style="font-size:10px;color:var(--text-3)">${c.ntn} • ${c.disbursementBank?.split(' ')[0] || 'Bank'}</span></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  },
+
   refreshInbox() {
     const container = document.getElementById('dashboard-action-inbox');
     if (container) {
@@ -195,6 +316,8 @@ const Dashboard = {
     const salary = DB.get('salary');
     const reviews = DB.get('performance_reviews');
     const holidays = DB.get('holidays');
+    const companies = DB.get('companies') || [];
+    const activeCompanyId = DB.getActiveCompanyId ? DB.getActiveCompanyId() : 'all';
     const today = Utils.today();
 
     let scopedEmps = Auth.getScopedEmployees(emps);
@@ -390,6 +513,11 @@ const Dashboard = {
              MOVING HEADLINES TICKER (Birthdays & Events)
         ═══════════════════════════════════════════════ -->
         ${this.renderHeadlinesTicker(tickerItemsHtml)}
+
+        <!-- ═══════════════════════════════════════════════
+             MULTI-COMPANY HOLDING PORTFOLIO COMMAND WIDGET
+        ═══════════════════════════════════════════════ -->
+        ${this.renderMultiCompanyPortfolio(emps, att, salary, companies, activeCompanyId)}
 
         ${Auth.role === 'onboarding' ? `
           <!-- New Joiner Welcome & Induction Checklist Card -->

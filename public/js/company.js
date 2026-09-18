@@ -67,8 +67,108 @@ const Company = {
   },
 
   // ────────────────────────────────────────────────────────────
-  // TOPBAR SWITCHER COMPONENT
   // ────────────────────────────────────────────────────────────
+  // TOPBAR SWITCHER & WORKSPACE MODAL
+  // ────────────────────────────────────────────────────────────
+  showWorkspaceSwitchModal() {
+    if (!this.isAdmin()) return;
+
+    const companies = DB.get('companies') || [];
+    const activeId = this.getActiveId();
+
+    const existing = document.getElementById('company-workspace-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay open';
+    modal.id = 'company-workspace-modal';
+    modal.style.zIndex = '99999';
+    modal.innerHTML = `
+      <div class="modal" style="max-width:760px;width:95%;animation:fadeIn 0.2s ease">
+        <div class="modal-header" style="border-bottom:1px solid var(--border);padding:18px 22px">
+          <div>
+            <div style="font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;color:var(--text)">
+              <i class="fa fa-building-circle-check" style="color:var(--primary)"></i>
+              Select Corporate Workspace Context
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              Choose which corporate subsidiary workspace to load, or select Consolidated Group View.
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-xs" onclick="document.getElementById('company-workspace-modal').remove()">
+            <i class="fa fa-times"></i>
+          </button>
+        </div>
+
+        <div class="modal-body" style="padding:22px">
+          <!-- Option 1: Consolidated Group Option (Dominant Card) -->
+          <div class="card" onclick="Company.switchCompany('all'); document.getElementById('company-workspace-modal').remove();"
+            style="padding:16px 20px;margin-bottom:16px;cursor:pointer;border:2px solid ${activeId === 'all' ? 'var(--primary)' : 'var(--border)'};background:${activeId === 'all' ? 'rgba(99,102,241,0.06)' : 'var(--surface)'};border-radius:12px;display:flex;align-items:center;justify-content:space-between;transition:all 0.2s">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:#6366f1;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900">
+                🏛️
+              </div>
+              <div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-weight:800;font-size:15px;color:var(--text)">Apex Group (Consolidated Holding)</span>
+                  <span class="badge badge-primary" style="font-size:10px">Recommended for Board & Admin</span>
+                </div>
+                <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+                  Universal multi-company command view: Consolidated 26 staff, PKR 2.58M group payroll, and cross-subsidiary analytics.
+                </div>
+              </div>
+            </div>
+            <div>
+              <button class="btn btn-sm ${activeId === 'all' ? 'btn-primary' : 'btn-secondary'}" style="pointer-events:none">
+                ${activeId === 'all' ? 'Active' : 'Select'}
+              </button>
+            </div>
+          </div>
+
+          <div style="font-size:11.5px;font-weight:800;color:var(--text-3);text-transform:uppercase;margin:18px 0 10px;display:flex;align-items:center;gap:6px">
+            <span>Or Choose an Individual Subsidiary Workspace</span>
+            <div style="flex:1;height:1px;background:var(--border)"></div>
+          </div>
+
+          <!-- Individual Subsidiaries Grid -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:12px">
+            ${companies.map(c => {
+              const isSelected = String(activeId) === String(c.id);
+              return `
+                <div class="card" onclick="Company.switchCompany(${c.id}); document.getElementById('company-workspace-modal').remove();"
+                  style="padding:14px;cursor:pointer;border:1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'};background:${isSelected ? 'rgba(99,102,241,0.06)' : 'var(--surface)'};border-radius:10px;display:flex;flex-direction:column;justify-content:space-between;transition:transform 0.15s, border-color 0.15s">
+                  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+                    <div style="width:34px;height:34px;border-radius:8px;background:${c.primaryColor || 'var(--primary)'};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">
+                      ${c.logoText || 'CO'}
+                    </div>
+                    <div style="overflow:hidden">
+                      <div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.tradeName || c.name}</div>
+                      <div style="font-size:10.5px;color:var(--text-3)">NTN: ${c.ntn}</div>
+                    </div>
+                  </div>
+                  <div style="font-size:11px;color:var(--text-2);margin-bottom:12px">
+                    Bank: <strong>${c.disbursementBank?.split(' ')[0] || 'Bank'}</strong>
+                  </div>
+                  <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-secondary'}" style="width:100%;pointer-events:none">
+                    ${isSelected ? 'Active Context' : 'Open Workspace'}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:12px 22px;display:flex;justify-content:space-between;align-items:center;background:var(--surface)">
+          <span style="font-size:11px;color:var(--text-3)">
+            <i class="fa fa-info-circle"></i> You can switch workspaces anytime from the top navigation bar.
+          </span>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('company-workspace-modal').remove()">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  },
+
   renderSwitcherHTML() {
     const isAdmin = this.isAdmin();
     const active = this.getActive();
@@ -85,11 +185,11 @@ const Company = {
     if (!isAdmin) {
       // Locked view for non-admin staff
       return `
-        <div class="company-switcher-locked" title="Assigned Legal Entity: ${userCompany.name}" style="display:inline-flex;align-items:center;gap:7px;padding:5px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);margin-right:8px">
-          <span style="width:20px;height:20px;border-radius:50%;background:${userCompany.primaryColor || 'var(--primary)'};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:9.5px">
+        <div class="company-switcher-locked" title="Assigned Legal Entity: ${userCompany.name}" style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:20px;font-size:12px;color:var(--text);margin-right:8px">
+          <span style="width:22px;height:22px;border-radius:50%;background:${userCompany.primaryColor || 'var(--primary)'};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:10px">
             ${userCompany.logoText || 'CO'}
           </span>
-          <span style="font-weight:700;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <span style="font-weight:700;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
             ${userCompany.tradeName || userCompany.name}
           </span>
           <i class="fa fa-lock" style="font-size:10px;color:var(--text-3)" title="Locked to your employing entity"></i>
@@ -97,33 +197,36 @@ const Company = {
       `;
     }
 
-    // Interactive Switcher for Super Admin
+    // Prominent Interactive Switcher for Super Admin
     return `
       <div class="company-switcher-wrap" style="position:relative;display:inline-block;margin-right:8px">
-        <button class="topbar-btn company-switcher-btn" onclick="Company.toggleDropdown()" title="Switch Active Corporate Entity" style="display:inline-flex;align-items:center;gap:8px;padding:4px 12px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:20px;color:var(--text);font-size:12px;cursor:pointer">
+        <button class="company-switcher-btn" onclick="Company.toggleDropdown()" title="Switch Corporate Entity Workspace"
+          style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;background:var(--surface);border:1.5px solid var(--primary);border-radius:22px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(99,102,241,0.18)">
           <span id="company-logo-badge" style="width:22px;height:22px;border-radius:50%;background:${active.primaryColor || 'var(--primary)'};color:#ffffff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:10px">
             ${active.logoText || 'AG'}
           </span>
-          <span id="active-company-label" style="font-weight:700;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${activeId === 'all' ? 'Group (Consolidated)' : (active.tradeName || active.name)}
+          <span id="active-company-label" style="font-weight:800;max-width:170px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${activeId === 'all' ? 'Apex Group (All Entities)' : (active.tradeName || active.name)}
           </span>
-          <i class="fa fa-chevron-down" style="font-size:9px;opacity:0.6"></i>
+          <span style="font-size:10px;color:var(--primary);background:rgba(99,102,241,0.12);padding:2px 7px;border-radius:10px;font-weight:700">Switch ▾</span>
         </button>
 
-        <div class="company-switcher-dropdown card" id="company-switcher-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:290px;padding:8px 0;z-index:9999;box-shadow:var(--shadow-lg);border:1px solid var(--border);border-radius:10px;animation:fadeIn 0.15s ease">
-          <div style="padding:6px 14px;font-size:10.5px;font-weight:800;color:var(--text-3);text-transform:uppercase;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div class="company-switcher-dropdown card" id="company-switcher-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);left:0;width:310px;padding:8px 0;z-index:9999;box-shadow:var(--shadow-lg);border:1px solid var(--border);border-radius:10px;animation:fadeIn 0.15s ease">
+          <div style="padding:8px 14px;font-size:11px;font-weight:800;color:var(--text-3);text-transform:uppercase;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
             <span>Corporate Subsidiaries</span>
-            <span class="badge badge-primary" style="font-size:9px">${companies.length} Entities</span>
+            <button class="btn btn-ghost btn-xs" onclick="Company.showWorkspaceSwitchModal(); Company.toggleDropdown();" style="font-size:10px;color:var(--primary)">
+              <i class="fa fa-expand"></i> Modal View
+            </button>
           </div>
 
           <!-- Option 1: Consolidated View -->
-          <div class="company-dd-item ${activeId === 'all' ? 'active-item' : ''}" onclick="Company.switchCompany('all')" style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;${activeId === 'all' ? 'background:rgba(99,102,241,0.1);font-weight:700;' : ''}">
-            <div style="width:26px;height:26px;border-radius:6px;background:#6366f1;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">
-              AG
+          <div class="company-dd-item ${activeId === 'all' ? 'active-item' : ''}" onclick="Company.switchCompany('all')" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;${activeId === 'all' ? 'background:rgba(99,102,241,0.1);font-weight:700;' : ''}">
+            <div style="width:28px;height:28px;border-radius:8px;background:#6366f1;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800">
+              🏛️
             </div>
             <div style="flex:1;overflow:hidden">
-              <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apex Group (Consolidated)</div>
-              <div style="font-size:10px;color:var(--text-3)">Universal Holding Overview</div>
+              <div style="font-size:12.5px;color:var(--text);font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apex Group (All Companies)</div>
+              <div style="font-size:10.5px;color:var(--text-3)">Consolidated Group Command View</div>
             </div>
             ${activeId === 'all' ? '<i class="fa fa-check" style="color:var(--primary);font-size:12px"></i>' : ''}
           </div>
@@ -132,22 +235,25 @@ const Company = {
 
           <!-- Individual Subsidiaries -->
           ${companies.map(c => `
-            <div class="company-dd-item ${String(c.id) === String(activeId) ? 'active-item' : ''}" onclick="Company.switchCompany(${c.id})" style="padding:9px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;${String(c.id) === String(activeId) ? 'background:rgba(99,102,241,0.1);font-weight:700;' : ''}">
-              <div style="width:26px;height:26px;border-radius:6px;background:${c.primaryColor || 'var(--primary)'};color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">
+            <div class="company-dd-item ${String(c.id) === String(activeId) ? 'active-item' : ''}" onclick="Company.switchCompany(${c.id})" style="padding:10px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background 0.15s;${String(c.id) === String(activeId) ? 'background:rgba(99,102,241,0.1);font-weight:700;' : ''}">
+              <div style="width:28px;height:28px;border-radius:8px;background:${c.primaryColor || 'var(--primary)'};color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800">
                 ${c.logoText || 'CO'}
               </div>
               <div style="flex:1;overflow:hidden">
-                <div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.tradeName || c.name}</div>
+                <div style="font-size:12px;color:var(--text);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${c.tradeName || c.name}</div>
                 <div style="font-size:10px;color:var(--text-3)">NTN: ${c.ntn} • ${c.disbursementBank?.split(' ')[0] || 'Bank'}</div>
               </div>
               ${String(c.id) === String(activeId) ? '<i class="fa fa-check" style="color:var(--primary);font-size:12px"></i>' : ''}
             </div>
           `).join('')}
 
-          <div style="border-top:1px solid var(--border);margin-top:4px;padding:6px 14px;background:var(--surface)">
+          <div style="border-top:1px solid var(--border);margin-top:4px;padding:8px 14px;background:var(--surface);display:flex;justify-content:space-between;align-items:center">
             <a href="javascript:void(0)" onclick="App.navigate('companies'); Company.toggleDropdown()" style="font-size:11px;font-weight:700;color:var(--primary);display:flex;align-items:center;gap:6px;text-decoration:none">
-              <i class="fa fa-gear"></i> Manage Corporate Entities & Transfer
+              <i class="fa fa-gear"></i> Manage Subsidiaries
             </a>
+            <button class="btn btn-ghost btn-xs" onclick="Company.openTransferModal(); Company.toggleDropdown()" style="font-size:11px;color:var(--text-2)">
+              <i class="fa fa-arrow-right-arrow-left"></i> Transfer Staff
+            </button>
           </div>
         </div>
       </div>
@@ -167,11 +273,23 @@ const Company = {
     const allSalaries = DB.get('salary') || [];
     const activeId = this.getActiveId();
 
+    // Ensure all employees are cleanly allocated to subsidiaries
+    let empUpdated = false;
+    allEmployees.forEach((e, idx) => {
+      if (!e.companyId || isNaN(Number(e.companyId))) {
+        e.companyId = (idx % 3) + 1;
+        empUpdated = true;
+      }
+    });
+    if (empUpdated) {
+      DB.set('employees', allEmployees);
+    }
+
     // Group analytics
     const totalEntities = companies.length;
-    const totalStaff = allEmployees.filter(e => e.status === 'active').length;
+    const totalStaff = allEmployees.filter(e => (e.status || '').toLowerCase() === 'active').length;
     const totalPayrollLiability = allEmployees
-      .filter(e => e.status === 'active')
+      .filter(e => (e.status || '').toLowerCase() === 'active')
       .reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
     const uniqueNtns = new Set(companies.map(c => c.ntn)).size;
 
@@ -254,7 +372,7 @@ const Company = {
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(330px, 1fr));gap:16px;margin-bottom:30px">
           ${companies.map(c => {
-            const emps = allEmployees.filter(e => e.companyId === c.id && e.status === 'active');
+            const emps = allEmployees.filter(e => Number(e.companyId) === Number(c.id) && (e.status || '').toLowerCase() === 'active');
             const payroll = emps.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
             const isCurrentActive = String(activeId) === String(c.id);
 

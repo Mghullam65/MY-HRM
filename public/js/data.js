@@ -1607,10 +1607,8 @@ const DB = {
     const emps = this.get('employees') || [];
     let empUpdated = false;
     emps.forEach((e, idx) => {
-      if (!e.companyId) {
-        if (idx % 3 === 0) e.companyId = 1;
-        else if (idx % 3 === 1) e.companyId = 2;
-        else e.companyId = 3;
+      if (!e.companyId || isNaN(Number(e.companyId))) {
+        e.companyId = (idx % 3) + 1;
         empUpdated = true;
       }
     });
@@ -1621,7 +1619,7 @@ const DB = {
 
   getActiveCompanyId() {
     if (typeof localStorage === 'undefined') return 'all';
-    return localStorage.getItem('hrm_active_company') || '1';
+    return localStorage.getItem('hrm_active_company') || 'all';
   },
 
   setActiveCompanyId(id) {
