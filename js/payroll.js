@@ -51,6 +51,7 @@ const Payroll = {
       { id:'loans', label:'Loans', icon:'fa-hand-holding-dollar' },
       { id:'slips', label:'Payslips', icon:'fa-file-invoice-dollar' },
       { id:'pf', label:'Provident Fund', icon:'fa-piggy-bank' },
+      { id:'settlements', label:'Exit & Settlements', icon:'fa-file-invoice-dollar' },
     ];
 
     content.innerHTML = `
@@ -90,6 +91,10 @@ const Payroll = {
   },
 
   switchView(view) {
+    if (view === 'settlements') {
+      App.navigate('settlement');
+      return;
+    }
     const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
     const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures'];
     if (!isHrOrAdmin && adminOnlyViews.includes(view)) {

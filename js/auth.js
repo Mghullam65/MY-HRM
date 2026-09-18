@@ -209,6 +209,7 @@ const Auth = {
       const prohibitedForEmployee = [
         'employee.create', 'employee.add', 'employees.add', 'employee.edit', 'employee.delete',
         'payroll.process', 'payroll.generate',
+        'settlement.add', 'settlement.edit', 'settlement.delete', 'settlement.recalculate',
         'approvals.view', 'approvals.manage',
         'administration', 'settings', '103_model'
       ];
@@ -219,7 +220,9 @@ const Auth = {
 
     if (this.role === 'dept_manager') {
       const prohibitedForDeptManager = [
-        'payroll.process', 'payroll.generate', 'administration', 'settings', '103_model'
+        'payroll.process', 'payroll.generate',
+        'settlement.add', 'settlement.edit', 'settlement.delete', 'settlement.recalculate',
+        'administration', 'settings', '103_model'
       ];
       if (prohibitedForDeptManager.some(p => permission === p || permission.startsWith(p + '.'))) {
         return false;
@@ -252,12 +255,16 @@ const Auth = {
     return perms.some(p => p === permission || p.startsWith(permission + '.') || permission.startsWith(p));
   },
 
+  isAdmin() {
+    return this.role === 'superadmin' || this.role === 'hr_manager';
+  },
+
   canAccessModule(module) {
     const moduleMap = {
-      superadmin: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
-      hr_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
-      dept_manager: ['dashboard','employees','attendance','leaves','payroll','performance','recruitment','assets','expenses','helpdesk','events','reports'],
-      employee: ['dashboard','attendance','leaves','payroll','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
+      superadmin: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
+      hr_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
+      dept_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports'],
+      employee: ['dashboard','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
       onboarding: ['dashboard','profile','attendance','leaves','events','holidays'],
     };
     return (moduleMap[this.role] || []).includes(module);
@@ -271,6 +278,7 @@ const Auth = {
       { id: 'attendance', label: 'Attendance', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-file-invoice-dollar', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'performance', label: 'Performance', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },

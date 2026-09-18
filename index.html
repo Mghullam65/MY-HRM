@@ -138,21 +138,22 @@
 <script src="js/employees.js?v=2.4.2"></script>
 <script src="js/attendance.js?v=2.4.2"></script>
 <script src="js/leaves.js?v=2.4.2"></script>
-<script src="js/payroll.js?v=2.4.2"></script>
-<script src="js/performance.js?v=2.4.2"></script>
-<script src="js/events.js?v=2.4.2"></script>
-<script src="js/assets.js?v=2.4.2"></script>
-<script src="js/expenses.js?v=2.4.2"></script>
-<script src="js/helpdesk.js?v=2.4.2"></script>
-<script src="js/reports.js?v=2.4.2"></script>
-<script src="js/administration.js?v=2.4.2"></script>
-<script src="js/settings.js?v=2.4.2"></script>
+<script src="js/payroll.js?v=2.4.3"></script>
+<script src="js/settlement.js?v=2.4.3"></script>
+<script src="js/performance.js?v=2.4.3"></script>
+<script src="js/events.js?v=2.4.3"></script>
+<script src="js/assets.js?v=2.4.3"></script>
+<script src="js/expenses.js?v=2.4.3"></script>
+<script src="js/helpdesk.js?v=2.4.3"></script>
+<script src="js/reports.js?v=2.4.3"></script>
+<script src="js/administration.js?v=2.4.3"></script>
+<script src="js/settings.js?v=2.4.3"></script>
 
   <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
   <script>
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
-      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
+      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
         console.error('HRM: Missing modules:', missing);

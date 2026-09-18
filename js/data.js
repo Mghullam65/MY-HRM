@@ -235,6 +235,7 @@ const DB = {
     this.ensureHRLetters();
     this.ensureTaxAndStatutoryData();
     this.ensureSPMSData();
+    this.ensureSettlementsData();
     this.ensureRosterAndGeofenceData();
     this.ensureTalentAndLMSData();
     this.ensureEngagementData();
@@ -1364,6 +1365,169 @@ const DB = {
         { id: 1, employee_id: 3, description: 'PF Advance for Home Renovation', total_amount: 50000, type: 'refundable', loan_date: '2026-05-10' }
       ];
       this.set('pf_loans', pfLoans);
+    }
+  },
+
+  ensureSettlementsData() {
+    let settlements = this.get('settlements');
+    if (!settlements || !Array.isArray(settlements) || settlements.length === 0) {
+      settlements = [
+        {
+          id: 'FNF-2026-001',
+          employeeId: 7,
+          employeeName: 'Hassan Qureshi',
+          employeeCode: 'EMP-007',
+          department: 'Technology & Development',
+          designation: 'Senior Backend Engineer',
+          joinDate: '2020-03-15',
+          resignationDate: '2026-08-25',
+          exitDate: '2026-09-25',
+          exitType: 'resignation',
+          reason: 'Career Advancement / Accepted Senior Engineering Role',
+          noticePeriodRequiredDays: 30,
+          noticePeriodServedDays: 30,
+          noticeShortfallDays: 0,
+          tenure: {
+            totalMonths: 78,
+            fullYears: 6,
+            remMonths: 6,
+            roundedTenureYears: 7
+          },
+          earnings: {
+            lastBasicSalary: 75000,
+            exitMonthWorkedDays: 25,
+            exitMonthCalendarDays: 30,
+            proratedSalary: 62500,
+            gratuityEligible: true,
+            gratuityTenureYears: 7,
+            gratuityAmount: 605769,
+            gratuityOverride: false,
+            unusedLeaves: 8,
+            leaveEncashmentDailyRate: 2500,
+            leaveEncashmentAmount: 20000,
+            pfBalanceRefund: 185000,
+            otherAdditions: 15000,
+            otherAdditionsRemarks: 'Project handover completion ex-gratia bonus',
+            grossPayable: 888269
+          },
+          deductions: {
+            outstandingLoans: 45000,
+            loanDeductionBreakdown: [
+              { loanId: 2, title: 'Personal Appliance Loan', amount: 45000 }
+            ],
+            assetRecoveryDeductions: 0,
+            assetClearanceDetails: [
+              { assetId: 'AST-102', name: 'Dell XPS 15 Laptop', status: 'returned_good', deduction: 0 },
+              { assetId: 'AST-108', name: 'Company Access Badge', status: 'returned_good', deduction: 0 }
+            ],
+            noticeShortfallDeduction: 0,
+            exitTaxWithholding: 8500,
+            exitEOBI: 1300,
+            otherDeductions: 0,
+            otherDeductionsRemarks: '',
+            totalDeductions: 54800
+          },
+          netSettlementAmount: 833469,
+          amountInWords: 'Eight Hundred Thirty-Three Thousand Four Hundred Sixty-Nine Pakistani Rupees Only',
+          clearanceGates: {
+            hr: { status: 'approved', approvedBy: 'Sara Malik (HR Manager)', approvedAt: '2026-09-22', remarks: 'Handover complete, exit interview done' },
+            it: { status: 'approved', approvedBy: 'Usman Baig (Tech Lead)', approvedAt: '2026-09-24', remarks: 'All hardware and accounts secured' },
+            finance: { status: 'approved', approvedBy: 'Bilal Ahmed (Finance Lead)', approvedAt: '2026-09-24', remarks: 'Loan recovery and tax verified' },
+            admin: { status: 'approved', approvedBy: 'Ahmed Khan (Super Admin)', approvedAt: '2026-09-25', remarks: 'Building access card & keys returned' }
+          },
+          settlementStatus: 'approved',
+          paymentDetails: {
+            mode: 'bank_transfer',
+            bankName: 'Habib Bank Limited (HBL)',
+            accountNumber: 'PK36HABB0001234567890123',
+            disbursementDate: '2026-09-26',
+            transactionRef: 'FT-20260926-994821',
+            status: 'paid'
+          },
+          notes: 'Clearance verified across all 4 gates. Full statutory gratuity calculated as per 30/26 formula.',
+          createdAt: '2026-08-26T10:00:00Z',
+          updatedAt: '2026-09-25T14:30:00Z',
+          createdBy: 'Sara Malik'
+        },
+        {
+          id: 'FNF-2026-002',
+          employeeId: 11,
+          employeeName: 'Kamran Ali',
+          employeeCode: 'EMP-011',
+          department: 'Customer Success',
+          designation: 'Support Engineer',
+          joinDate: '2023-01-10',
+          resignationDate: '2026-09-01',
+          exitDate: '2026-09-30',
+          exitType: 'resignation',
+          reason: 'Personal Relocation',
+          noticePeriodRequiredDays: 30,
+          noticePeriodServedDays: 30,
+          noticeShortfallDays: 0,
+          tenure: {
+            totalMonths: 44,
+            fullYears: 3,
+            remMonths: 8,
+            roundedTenureYears: 4
+          },
+          earnings: {
+            lastBasicSalary: 60000,
+            exitMonthWorkedDays: 30,
+            exitMonthCalendarDays: 30,
+            proratedSalary: 60000,
+            gratuityEligible: true,
+            gratuityTenureYears: 4,
+            gratuityAmount: 276923,
+            gratuityOverride: false,
+            unusedLeaves: 5,
+            leaveEncashmentDailyRate: 2000,
+            leaveEncashmentAmount: 10000,
+            pfBalanceRefund: 72000,
+            otherAdditions: 0,
+            otherAdditionsRemarks: '',
+            grossPayable: 418923
+          },
+          deductions: {
+            outstandingLoans: 20000,
+            loanDeductionBreakdown: [
+              { loanId: 5, title: 'Emergency Advance', amount: 20000 }
+            ],
+            assetRecoveryDeductions: 5000,
+            assetClearanceDetails: [
+              { assetId: 'AST-119', name: 'HP Monitor 24"', status: 'returned_good', deduction: 0 },
+              { assetId: 'AST-120', name: 'Jabra Headset', status: 'damaged', deduction: 5000 }
+            ],
+            noticeShortfallDeduction: 0,
+            exitTaxWithholding: 3200,
+            exitEOBI: 1300,
+            otherDeductions: 0,
+            otherDeductionsRemarks: '',
+            totalDeductions: 29500
+          },
+          netSettlementAmount: 389423,
+          amountInWords: 'Three Hundred Eighty-Nine Thousand Four Hundred Twenty-Three Pakistani Rupees Only',
+          clearanceGates: {
+            hr: { status: 'approved', approvedBy: 'Sara Malik (HR Manager)', approvedAt: '2026-09-15', remarks: 'Resignation accepted' },
+            it: { status: 'approved', approvedBy: 'Usman Baig (Tech Lead)', approvedAt: '2026-09-16', remarks: 'Damaged headset assessed at PKR 5,000 deduction' },
+            finance: { status: 'pending', approvedBy: null, approvedAt: null, remarks: 'Awaiting loan reconciliation' },
+            admin: { status: 'pending', approvedBy: null, approvedAt: null, remarks: 'Awaiting building keys' }
+          },
+          settlementStatus: 'under_clearance',
+          paymentDetails: {
+            mode: 'bank_transfer',
+            bankName: 'Meezan Bank Ltd',
+            accountNumber: 'PK44MEZN0009988776655443',
+            disbursementDate: null,
+            transactionRef: '',
+            status: 'pending'
+          },
+          notes: 'IT clearance completed with PKR 5k deduction for damaged headset. Finance and Admin clearances pending.',
+          createdAt: '2026-09-02T09:00:00Z',
+          updatedAt: '2026-09-16T11:20:00Z',
+          createdBy: 'Sara Malik'
+        }
+      ];
+      this.set('settlements', settlements);
     }
   },
 

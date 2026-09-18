@@ -620,6 +620,7 @@ const App = {
       events: ['events', 'announcements'],
       administration: ['users', 'roles', 'permissions', 'audit_logs'],
       settings: ['settings'],
+      settlement: ['settlements', 'employees', 'loans', 'assets', 'departments', 'designations'],
       profile: ['employees', 'documents', 'emergency_contacts', 'users']
     };
 
@@ -686,6 +687,7 @@ const App = {
       expenses: 'Expense Claims', helpdesk: 'Helpdesk & Grievance',
       events: 'Events & Announcements', reports: 'Reports',
       administration: 'Administration', settings: 'Settings', profile: 'My Profile',
+      settlement: 'Exit & Settlements',
     };
 
     if (title) title.textContent = moduleLabels[module] || module;
@@ -704,6 +706,7 @@ const App = {
           case 'attendance':    Attendance.render(); break;
           case 'leaves':        Leaves.render(); break;
           case 'payroll':       Payroll.render(); break;
+          case 'settlement':    Settlement.render(); break;
           case 'performance':   Performance.render(); break;
           case 'recruitment':   Recruitment.render(); break;
           case 'assets':        Assets.render(); break;
