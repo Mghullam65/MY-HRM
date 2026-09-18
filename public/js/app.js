@@ -314,6 +314,7 @@ const App = {
         <div class="search-dropdown" id="search-dropdown"></div>
       </div>
       <div class="topbar-actions">
+        ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
         ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
           <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:6px">
             <i class="fa fa-cubes"></i>
@@ -621,6 +622,7 @@ const App = {
       administration: ['users', 'roles', 'permissions', 'audit_logs'],
       settings: ['settings'],
       settlement: ['settlements', 'employees', 'loans', 'assets', 'departments', 'designations'],
+      companies: ['companies', 'employees', 'departments'],
       profile: ['employees', 'documents', 'emergency_contacts', 'users']
     };
 
@@ -637,6 +639,12 @@ const App = {
     if (module === 'administration' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
       Toast.show('403 Forbidden: Access to Administration is restricted.', 'error');
       if (this.currentModule && this.currentModule !== 'administration') return;
+      module = 'dashboard';
+    }
+
+    if (module === 'companies' && Auth.role !== 'superadmin') {
+      Toast.show('403 Forbidden: Access to Corporate Entities is restricted to Super Admin.', 'error');
+      if (this.currentModule && this.currentModule !== 'companies') return;
       module = 'dashboard';
     }
 
@@ -687,7 +695,7 @@ const App = {
       expenses: 'Expense Claims', helpdesk: 'Helpdesk & Grievance',
       events: 'Events & Announcements', reports: 'Reports',
       administration: 'Administration', settings: 'Settings', profile: 'My Profile',
-      settlement: 'Exit & Settlements',
+      settlement: 'Exit & Settlements', companies: 'Corporate Entities & Holdings',
     };
 
     if (title) title.textContent = moduleLabels[module] || module;
@@ -707,6 +715,7 @@ const App = {
           case 'leaves':        Leaves.render(); break;
           case 'payroll':       Payroll.render(); break;
           case 'settlement':    Settlement.render(); break;
+          case 'companies':     Company.render(); break;
           case 'performance':   Performance.render(); break;
           case 'recruitment':   Recruitment.render(); break;
           case 'assets':        Assets.render(); break;

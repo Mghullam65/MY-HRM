@@ -236,6 +236,7 @@ const DB = {
     this.ensureTaxAndStatutoryData();
     this.ensureSPMSData();
     this.ensureSettlementsData();
+    this.ensureCompaniesData();
     this.ensureRosterAndGeofenceData();
     this.ensureTalentAndLMSData();
     this.ensureEngagementData();
@@ -1529,6 +1530,112 @@ const DB = {
       ];
       this.set('settlements', settlements);
     }
+  },
+
+  ensureCompaniesData() {
+    let companies = this.get('companies');
+    if (!companies || !Array.isArray(companies) || companies.length === 0) {
+      companies = [
+        {
+          id: 1,
+          code: 'APEX-TECH',
+          name: 'Apex Technologies (Pvt) Ltd',
+          tradeName: 'ApexTech Software & AI',
+          legalType: 'Private Limited Company',
+          ntn: '8849201-1',
+          secpRegNo: 'SECP-ISB-0084920',
+          currency: 'PKR',
+          disbursementBank: 'Habib Bank Limited (HBL)',
+          bankAccount: 'PK36HABB0001234567890123',
+          bankBranch: 'Blue Area Corporate Branch, Islamabad',
+          primaryColor: '#6366f1',
+          logoText: 'AT',
+          headOfficeAddress: 'Plot 42, Sector I-9/3, Industrial Area, Islamabad',
+          contactEmail: 'corporate@apextech.com.pk',
+          contactPhone: '+92 51 8849201',
+          isHolding: true,
+          status: 'active',
+          createdDate: '2020-01-15'
+        },
+        {
+          id: 2,
+          code: 'APEX-FIN',
+          name: 'Apex Digital Payments (Pvt) Ltd',
+          tradeName: 'ApexPay Fintech & EMI',
+          legalType: 'Private Limited Company (Fintech / EMI)',
+          ntn: '7392014-2',
+          secpRegNo: 'SECP-KHI-0073920',
+          currency: 'PKR',
+          disbursementBank: 'Meezan Bank Limited',
+          bankAccount: 'PK44MEZN0009988776655443',
+          bankBranch: 'Main Boulevard Gulberg, Lahore',
+          primaryColor: '#10b981',
+          logoText: 'AP',
+          headOfficeAddress: 'Level 8, Tricon Corporate Centre, Gulberg III, Lahore',
+          contactEmail: 'finance@apexpay.com.pk',
+          contactPhone: '+92 42 35789012',
+          isHolding: false,
+          status: 'active',
+          createdDate: '2022-06-01'
+        },
+        {
+          id: 3,
+          code: 'APEX-LOG',
+          name: 'Apex Logistics & Freight (Pvt) Ltd',
+          tradeName: 'Apex Logistics & Supply Chain',
+          legalType: 'Private Limited Company',
+          ntn: '9102845-3',
+          secpRegNo: 'SECP-KHI-0091028',
+          currency: 'PKR',
+          disbursementBank: 'Bank Alfalah Corporate',
+          bankAccount: 'PK12ALFH0008877665544332',
+          bankBranch: 'I.I. Chundrigar Road Branch, Karachi',
+          primaryColor: '#f59e0b',
+          logoText: 'AL',
+          headOfficeAddress: 'Dockside Commercial Complex, West Wharf, Karachi',
+          contactEmail: 'dispatch@apexlogistics.com.pk',
+          contactPhone: '+92 21 32456789',
+          isHolding: false,
+          status: 'active',
+          createdDate: '2023-03-10'
+        }
+      ];
+      this.set('companies', companies);
+    }
+
+    // Distribute employees across the 3 subsidiaries if not already assigned
+    const emps = this.get('employees') || [];
+    let empUpdated = false;
+    emps.forEach((e, idx) => {
+      if (!e.companyId) {
+        if (idx % 3 === 0) e.companyId = 1;
+        else if (idx % 3 === 1) e.companyId = 2;
+        else e.companyId = 3;
+        empUpdated = true;
+      }
+    });
+    if (empUpdated) {
+      this.set('employees', emps);
+    }
+  },
+
+  getActiveCompanyId() {
+    if (typeof localStorage === 'undefined') return 'all';
+    return localStorage.getItem('hrm_active_company') || '1';
+  },
+
+  setActiveCompanyId(id) {
+    if (typeof localStorage === 'undefined') return;
+    localStorage.setItem('hrm_active_company', String(id));
+  },
+
+  getActiveCompany() {
+    const id = this.getActiveCompanyId();
+    if (id === 'all') {
+      return { id: 'all', name: 'Apex Group (Consolidated Holding)', tradeName: 'Apex Group (All Entities)', isHolding: true, ntn: 'Multiple (Group Consolidated)', primaryColor: '#6366f1', logoText: 'AG' };
+    }
+    const companies = this.get('companies') || [];
+    return companies.find(c => String(c.id) === String(id)) || companies[0] || { id: 1, name: 'Apex Technologies (Pvt) Ltd', tradeName: 'ApexTech', primaryColor: '#6366f1', logoText: 'AT' };
   },
 
   ensureRosterAndGeofenceData() {

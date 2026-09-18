@@ -210,6 +210,7 @@ const Auth = {
         'employee.create', 'employee.add', 'employees.add', 'employee.edit', 'employee.delete',
         'payroll.process', 'payroll.generate',
         'settlement.add', 'settlement.edit', 'settlement.delete', 'settlement.recalculate',
+        'company.add', 'company.edit', 'company.delete', 'company.transfer',
         'approvals.view', 'approvals.manage',
         'administration', 'settings', '103_model'
       ];
@@ -222,6 +223,7 @@ const Auth = {
       const prohibitedForDeptManager = [
         'payroll.process', 'payroll.generate',
         'settlement.add', 'settlement.edit', 'settlement.delete', 'settlement.recalculate',
+        'company.add', 'company.edit', 'company.delete', 'company.transfer',
         'administration', 'settings', '103_model'
       ];
       if (prohibitedForDeptManager.some(p => permission === p || permission.startsWith(p + '.'))) {
@@ -261,7 +263,7 @@ const Auth = {
 
   canAccessModule(module) {
     const moduleMap = {
-      superadmin: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
+      superadmin: ['dashboard','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
       hr_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
       dept_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports'],
       employee: ['dashboard','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
@@ -279,6 +281,7 @@ const Auth = {
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-file-invoice-dollar', roles: ['superadmin','hr_manager','dept_manager'] },
+      { id: 'companies', label: 'Corporate Entities', icon: 'fa-building-shield', roles: ['superadmin'] },
       { id: 'performance', label: 'Performance', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
