@@ -68,6 +68,9 @@ const Auth = {
 
     this._user = safeUser;
     this._employee = employee || { id: 0, fullName: matchedUser.username, role: matchedUser.role };
+    if (this.role !== 'superadmin' && this._employee?.companyId && typeof DB !== 'undefined' && DB.setActiveCompanyId) {
+      DB.setActiveCompanyId(this._employee.companyId);
+    }
     DB.update('users', matchedUser.id, { lastLogin: new Date().toISOString() });
     DB.log('LOGIN', 'Auth', `${this._employee.fullName} logged in`, matchedUser.id);
     sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee: this._employee }));
@@ -174,14 +177,33 @@ const Auth = {
   getScopedEmployees(allEmployees) {
     const emps = allEmployees || (typeof DB !== 'undefined' && DB.get ? DB.get('employees') : []) || [];
     const role = this.role;
+    const userCompanyId = this._employee?.companyId;
+    const activeCompanyId = (typeof DB !== 'undefined' && DB.getActiveCompanyId) ? DB.getActiveCompanyId() : 'all';
 
-    if (role === 'superadmin' || role === 'hr_manager') {
-      return emps;
+    if (role === 'superadmin') {
+      if (activeCompanyId === 'all') return emps;
+      return emps.filter(e => String(e.companyId) === String(activeCompanyId));
     }
+
+    if (role === 'hr_manager') {
+      // Subsidiary HR: strictly locked to their assigned employer company
+      if (userCompanyId && userCompanyId !== 'all') {
+        return emps.filter(e => String(e.companyId) === String(userCompanyId));
+      }
+      // Group HR Director: respects active company selector or shows all in consolidated view
+      if (activeCompanyId === 'all') return emps;
+      return emps.filter(e => String(e.companyId) === String(activeCompanyId));
+    }
+
     if (role === 'dept_manager') {
       const teamIds = this.getTeamEmployeeIds(this._employee?.id, emps);
-      return emps.filter(e => teamIds.includes(e.id));
+      let teamEmps = emps.filter(e => teamIds.includes(e.id));
+      if (userCompanyId && userCompanyId !== 'all') {
+        teamEmps = teamEmps.filter(e => String(e.companyId) === String(userCompanyId));
+      }
+      return teamEmps;
     }
+
     if (role === 'employee' || role === 'onboarding') {
       const myId = Number(this._employee?.id);
       return emps.filter(e => e.id === myId);

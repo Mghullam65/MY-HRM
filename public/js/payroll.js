@@ -132,7 +132,9 @@ const Payroll = {
 
   renderSalary(container) {
     const salaries = DB.get('salary').filter(s => s.month === this.currentMonth);
-    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const emps = typeof Auth !== 'undefined' && Auth.getScopedEmployees 
+      ? Auth.getScopedEmployees().filter(e => e.status === 'active')
+      : DB.get('employees').filter(e => e.status === 'active');
     const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
     const monthLabel = new Date(this.currentMonth + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' });
 
