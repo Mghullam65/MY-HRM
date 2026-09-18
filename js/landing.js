@@ -602,7 +602,87 @@ const Landing = {
         { role: 'Employee', access: 'Self-Service Summary', desc: 'Personal timesheet, remaining leave balances, and announcement stream.' }
       ],
       related: ['employees', 'attendance', 'payroll']
-    }
+    },
+    company: {
+      id: 'company',
+      title: 'Multi-Company & Corporate Holding Structure',
+      subtitle: 'Model A corporate holding structure, entity switcher, legal entity scoping, and consolidated group telemetry.',
+      category: 'Governance & Holding Structure',
+      icon: 'fa-building-columns',
+      color: '#0284c7',
+      bgLight: '#f0f9ff',
+      recommendedRole: 'admin',
+      capabilities: [
+        {
+          title: 'Parent & Subsidiary Holding Hierarchy',
+          desc: 'Manage parent holding corporations and individual legal entities with separate NTNs, SECP registration numbers, and disbursement bank accounts.',
+          icon: 'fa-sitemap'
+        },
+        {
+          title: 'Global Multi-Entity Switcher',
+          desc: 'Seamless single login with top-level company switcher. Switch between Apex Technologies, Apex Digital, or view "All Holdings" in 1 click.',
+          icon: 'fa-arrows-rotate'
+        },
+        {
+          title: 'Smart Scoping & Role Isolation',
+          desc: 'Subsidiary HR managers are strictly scoped to their assigned legal entity, while Super Admins command consolidated holding-wide authority.',
+          icon: 'fa-shield-halved'
+        },
+        {
+          title: 'Consolidated Executive Telemetry',
+          desc: 'Executive portfolio cards summarizing cross-subsidiary workforce headcounts, attendance rates, and combined monthly payroll liabilities.',
+          icon: 'fa-chart-pie'
+        }
+      ],
+      roleMatrix: [
+        { role: 'Super Admin', access: 'Complete Holding Authority', desc: 'Manage all companies, legal entities, NTN profiles, entity switcher, and consolidated executive reports.' },
+        { role: 'HR Director', access: 'Assigned Entity Scoped', desc: 'Complete HR management scoped exclusively to their designated legal subsidiary.' },
+        { role: 'Dept Manager', access: 'Departmental Access', desc: 'Departmental staff management within their designated company.' },
+        { role: 'Employee', access: 'Company Mapped Portal', desc: 'Self-service portal automatically mapped to their legal employer entity.' }
+      ],
+      related: ['administration', 'dashboard', 'payroll', 'settlement']
+    },
+
+    settlement: {
+      id: 'settlement',
+      title: 'Statutory Gratuity & Full and Final (F&F) Settlement Engine',
+      subtitle: 'Automated 30/26 Gratuity Engine, Leave Encashment, Multi-Gate Clearances, and Audit-Ready Vouchers.',
+      category: 'Exit & Statutory Compliance',
+      icon: 'fa-handshake-simple',
+      color: '#7c3aed',
+      bgLight: '#faf5ff',
+      recommendedRole: 'hr',
+      capabilities: [
+        {
+          title: 'Statutory Gratuity Calculation (30/26 Rule)',
+          desc: 'Implements official Industrial & Commercial Employment Ordinance: (Basic Salary × Years × 30) / 26 with automated ≥6 months tenure rounding.',
+          icon: 'fa-calculator'
+        },
+        {
+          title: 'Multi-Gate Departmental Clearances',
+          desc: 'Digital clearance workflows across IT (laptops, credentials), Admin (access cards, keys), and Finance (loans, salary advances).',
+          icon: 'fa-list-check'
+        },
+        {
+          title: 'Leave Encashment & Notice Period Pay',
+          desc: 'Automatic computation of unavailed earned leaves and compensation/deduction for notice period buyout.',
+          icon: 'fa-coins'
+        },
+        {
+          title: 'Official F&F Settlement Vouchers',
+          desc: 'Print-ready and PDF exportable exit settlement vouchers with itemized gross earnings, statutory deductions, and dual sign-offs.',
+          icon: 'fa-file-invoice-dollar'
+        }
+      ],
+      roleMatrix: [
+        { role: 'Super Admin', access: 'Master Exit Authority', desc: 'Full configuration of gratuity rules, approval overrides, audit trail, and payout disbursements.' },
+        { role: 'HR Director', access: 'Settlement Processing', desc: 'Initiate exit requests, compute statutory gratuity, review clearances, and generate F&F statements.' },
+        { role: 'Dept Manager', access: 'Clearance Sign-Off', desc: 'Verify handover of departmental assets, project responsibilities, and team transitions.' },
+        { role: 'Employee', access: 'Transparent Statement', desc: 'View itemized breakdown of final dues, gratuity calculation, and clearance progress.' }
+      ],
+      related: ['payroll', 'leaves', 'assets', 'company']
+    },
+
   },
 
   toggleModulesMenu(e) {
@@ -887,7 +967,7 @@ const Landing = {
                 <div class="landing-mega-menu" id="landing-mega-menu">
                   <div class="mega-menu-header">
                     <div>
-                      <strong style="font-size:14px;color:var(--text);font-weight:800">All 15 HRM Pro Modules</strong>
+                      <strong style="font-size:14px;color:var(--text);font-weight:800">All 16 HRM Pro Enterprise Modules</strong>
                       <div style="font-size:12px;color:var(--text-3)">Click any module to inspect comprehensive features and role permissions</div>
                     </div>
                     <button class="btn btn-sm btn-secondary" onclick="Landing.closeAllMenus();App.showLogin()">
@@ -1005,6 +1085,13 @@ const Landing = {
                           <div class="mega-item-desc">Excel exports & audit logs</div>
                         </div>
                       </div>
+                      <div class="mega-item" onclick="Landing.showModule('company')">
+                        <div class="mega-item-icon" style="background:#f0f9ff;color:#0284c7"><i class="fa fa-building-columns"></i></div>
+                        <div>
+                          <div class="mega-item-title">Multi-Company Holdings</div>
+                          <div class="mega-item-desc">Parent, subsidiaries & scoping</div>
+                        </div>
+                      </div>
                       <div class="mega-item" onclick="Landing.showModule('administration')">
                         <div class="mega-item-icon" style="background:#f1f5f9;color:#475569"><i class="fa fa-gear"></i></div>
                         <div>
@@ -1085,7 +1172,7 @@ const Landing = {
               </h1>
 
               <p class="landing-hero-sub">
-                Eliminate end-of-month payroll panic, guarantee statutory FBR tax compliance, auto-sync multi-branch biometric attendance, and empower employees across all devices with enterprise precision.
+                Eliminate end-of-month payroll panic with exact FBR tax calculations, auto-sync multi-branch biometric attendance fleets, govern multi-company corporate holding structures, and automate statutory exit gratuity settlements across all enterprise devices.
               </p>
 
               <div class="landing-cta-group">
@@ -1099,24 +1186,31 @@ const Landing = {
 
               <div class="landing-trust-badges">
                 <div class="landing-trust-item">
-                  <i class="fa fa-shield-halved"></i>
+                  <i class="fa fa-building-shield"></i>
                   <div>
-                    <strong>Role-Based Access</strong>
-                    <span>5 Specialized Portals</span>
+                    <strong>Multi-Company Holdings</strong>
+                    <span>Head Office & Subsidiary Data Scoping</span>
                   </div>
                 </div>
                 <div class="landing-trust-item">
-                  <i class="fa fa-rotate"></i>
+                  <i class="fa fa-file-invoice-dollar"></i>
                   <div>
-                    <strong>Real-Time Sync</strong>
-                    <span>Cross-device cloud database</span>
+                    <strong>Statutory F&F Settlement</strong>
+                    <span>Automated 30/26 Gratuity & Multi-Gate Clearances</span>
+                  </div>
+                </div>
+                <div class="landing-trust-item">
+                  <i class="fa fa-money-bill-transfer"></i>
+                  <div>
+                    <strong>SPMS Payroll & 6 CSVs</strong>
+                    <span>Exact FBR Tax Engine & Bank Splitter</span>
                   </div>
                 </div>
                 <div class="landing-trust-item">
                   <i class="fa fa-fingerprint"></i>
                   <div>
-                    <strong>Biometric Gateway</strong>
-                    <span>Physical scanner + web punch</span>
+                    <strong>Biometric Fleet Hub</strong>
+                    <span>Live Hardware Ingestion & Remote IP Gates</span>
                   </div>
                 </div>
               </div>
@@ -1219,6 +1313,34 @@ const Landing = {
           </div>
 
           <div class="problem-solution-grid">
+            <!-- Card 5: Multi-Company Corporate Holdings -->
+            <div class="ps-card">
+              <div class="ps-card-badges">
+                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Corporate Holding Architecture</span>
+              </div>
+              <h3 class="ps-card-title">Struggling with Multiple Companies & Subsidiaries?</h3>
+              <p class="ps-card-text">
+                Operating a holding company with distinct subsidiaries usually means buying separate HRM subscriptions, duplicating master setups, and losing cross-company visibility.
+              </p>
+              <div class="ps-feature-highlight">
+                <i class="fa fa-building-columns text-primary" style="margin-right:6px"></i> Model A Architecture allows 1-click entity switching, subsidiary HR scoping, separate NTN/SECP profiles, and consolidated group telemetry.
+              </div>
+            </div>
+
+            <!-- Card 6: Statutory Gratuity & Full & Final (F&F) Exit -->
+            <div class="ps-card">
+              <div class="ps-card-badges">
+                <span class="ps-badge-solution"><i class="fa fa-circle-check"></i> Statutory Exit Settlement</span>
+              </div>
+              <h3 class="ps-card-title">Employee Exit Disputes & Gratuity Calculation Bottlenecks?</h3>
+              <p class="ps-card-text">
+                Employee resignations lead to manual disputes over unavailed leave encashment, asset recovery, loan balances, and statutory gratuity formulas under employment laws.
+              </p>
+              <div class="ps-feature-highlight">
+                <i class="fa fa-handshake-simple text-primary" style="margin-right:6px"></i> Automated Statutory 30/26 Gratuity Engine with tenure rounding, multi-gate IT/Admin/Finance sign-offs, and audit-ready F&F vouchers.
+              </div>
+            </div>
+
             <!-- Card 1 -->
             <div class="ps-card">
               <div class="ps-card-badges">
@@ -1298,7 +1420,13 @@ const Landing = {
               <i class="fa fa-clock"></i> Biometric Attendance
             </button>
             <button class="pillar-tab-btn ${Landing.activePillar === 'payroll' ? 'active' : ''}" role="tab" id="tab-pillar-payroll" aria-selected="${Landing.activePillar === 'payroll'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('payroll')">
-              <i class="fa fa-money-bill-wave"></i> Statutory Payroll
+              <i class="fa fa-money-bill-wave"></i> SPMS Payroll & Tax
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'multi_company' ? 'active' : ''}" role="tab" id="tab-pillar-multi_company" aria-selected="${Landing.activePillar === 'multi_company'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('multi_company')">
+              <i class="fa fa-building-shield"></i> Multi-Company Holdings
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'settlement' ? 'active' : ''}" role="tab" id="tab-pillar-settlement" aria-selected="${Landing.activePillar === 'settlement'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('settlement')">
+              <i class="fa fa-file-invoice-dollar"></i> Exit & Gratuity
             </button>
             <button class="pillar-tab-btn ${Landing.activePillar === 'recruitment' ? 'active' : ''}" role="tab" id="tab-pillar-recruitment" aria-selected="${Landing.activePillar === 'recruitment'}" aria-controls="pillar-showcase-panel" onclick="Landing.switchPillar('recruitment')">
               <i class="fa fa-briefcase"></i> Recruitment ATS
