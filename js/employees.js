@@ -4279,6 +4279,7 @@ const Employees = {
       dob: '', maritalStatus: '', address: '',
       bloodGroup: '', nationality: 'Pakistani', religion: '',
       bankName: '', accountNo: '', iban: '',
+      pf_fund: 5, initial_pf: 0, eoib_employee: 370, bonus: 0, bonus_tax: 'yes', splitter: salary, sort_ordering: newId,
       emergencyContact: {}, qualifications: [], experience: [],
     };
     DB.add('employees', newEmp);
@@ -4420,6 +4421,95 @@ const Employees = {
         </div>
         <div class="form-group"><label class="form-label">Address</label><textarea class="form-control" id="ef-address" style="min-height:38px">${emp.address||''}</textarea></div>
       </div>
+
+      <!-- SPMS Payroll & Compensation Configuration (§5) -->
+      <div style="margin-top:14px;margin-bottom:12px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px">
+        <div style="font-size:12.5px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:var(--primary);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+          <span><i class="fa fa-money-check-dollar" style="margin-right:6px"></i> SPMS Payroll &amp; Tax Settings (§5)</span>
+          <span class="badge badge-info" style="font-size:10.5px">FBR &amp; Statutory</span>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">PF Contribution (%)</label>
+            <input type="number" class="form-control" id="ef-pf-fund" value="${emp.pf_fund !== undefined ? emp.pf_fund : 5}" placeholder="e.g. 5">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Provident fund rate</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Opening / Initial PF Balance</label>
+            <input type="number" class="form-control" id="ef-initial-pf" value="${emp.initial_pf || 0}" placeholder="0">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Feeds Total-PF report</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">EOBI Employee (PKR)</label>
+            <input type="number" class="form-control" id="ef-eoib-employee" value="${emp.eoib_employee !== undefined ? emp.eoib_employee : 370}" placeholder="370">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Company matches 1:1</div>
+          </div>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Recurring Bonus (PKR)</label>
+            <input type="number" class="form-control" id="ef-bonus" value="${emp.bonus || 0}" placeholder="0">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Taxable allowance</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Tax Bonus?</label>
+            <select class="form-control" id="ef-bonus-tax">
+              <option value="yes" ${emp.bonus_tax !== 'no' ? 'selected' : ''}>Yes (Annualized &amp; Taxed)</option>
+              <option value="no" ${emp.bonus_tax === 'no' ? 'selected' : ''}>No (Untaxed / One-Off)</option>
+            </select>
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Annualized in tax base</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Salary Splitter Cap (PKR)</label>
+            <input type="number" class="form-control" id="ef-splitter" value="${emp.splitter !== undefined && emp.splitter !== null ? emp.splitter : emp.salary}" placeholder="Cap amount">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Excess is untaxed cash</div>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Report Sort Ordering</label>
+            <input type="number" class="form-control" id="ef-sort-ordering" value="${emp.sort_ordering || emp.id}" placeholder="${emp.id}">
+            <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">Order in Tax &amp; Payroll CSVs</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11.5px">Mid-Month Revision Toggle</label>
+            <button type="button" class="btn btn-ghost btn-sm w-full" onclick="const p = document.getElementById('ef-rev-panel'); p.style.display = p.style.display==='none'?'grid':'none'" style="border:1px dashed var(--border);height:38px">
+              <i class="fa fa-sliders"></i> Toggle Mid-Month Revision Split
+            </button>
+          </div>
+        </div>
+
+        <!-- Collapsible Mid-Month Revision Panel -->
+        <div id="ef-rev-panel" style="display:${emp.salary_before_revision ? 'grid' : 'none'};grid-template-columns:1fr 1fr;gap:12px;background:var(--surface-2);border-radius:8px;padding:12px;margin-top:8px;border:1px solid var(--border)">
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">Salary Before Revision (PKR)</label>
+            <input type="number" class="form-control" id="ef-sal-before" value="${emp.salary_before_revision || ''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">Salary After Revision (PKR)</label>
+            <input type="number" class="form-control" id="ef-sal-after" value="${emp.salary_after_revision || ''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">Working Days Before Revision</label>
+            <input type="number" class="form-control" id="ef-days-before" value="${emp.total_days_before_revision || ''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">Working Days After Revision</label>
+            <input type="number" class="form-control" id="ef-days-after" value="${emp.total_days_after_revision || ''}" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">PF % Allowed Before</label>
+            <input type="number" class="form-control" id="ef-pf-before" value="${emp.pf_allowed_before_revision || ''}" placeholder="5">
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="font-size:11px">PF % Allowed After</label>
+            <input type="number" class="form-control" id="ef-pf-after" value="${emp.pf_allowed_after_revision || ''}" placeholder="5">
+          </div>
+        </div>
+      </div>
     `, {
       size: 'modal-lg',
       footer: `
@@ -4451,6 +4541,21 @@ const Employees = {
       employmentType: document.getElementById('ef-type').value,
       role:           assignedRole,
       address:        document.getElementById('ef-address').value.trim(),
+      // SPMS Payroll Attributes (§5)
+      pf_fund:        parseFloat(document.getElementById('ef-pf-fund')?.value || 5),
+      initial_pf:     parseFloat(document.getElementById('ef-initial-pf')?.value || 0),
+      eoib_employee:  parseFloat(document.getElementById('ef-eoib-employee')?.value || 370),
+      bonus:          parseFloat(document.getElementById('ef-bonus')?.value || 0),
+      bonus_tax:      document.getElementById('ef-bonus-tax')?.value || 'yes',
+      splitter:       parseFloat(document.getElementById('ef-splitter')?.value || document.getElementById('ef-salary').value),
+      sort_ordering:  parseInt(document.getElementById('ef-sort-ordering')?.value || empId),
+      // Mid-month revisions
+      salary_before_revision:      parseFloat(document.getElementById('ef-sal-before')?.value || 0) || null,
+      salary_after_revision:       parseFloat(document.getElementById('ef-sal-after')?.value || 0) || null,
+      total_days_before_revision:  parseInt(document.getElementById('ef-days-before')?.value || 0) || null,
+      total_days_after_revision:   parseInt(document.getElementById('ef-days-after')?.value || 0) || null,
+      pf_allowed_before_revision:  parseFloat(document.getElementById('ef-pf-before')?.value || 0) || null,
+      pf_allowed_after_revision:   parseFloat(document.getElementById('ef-pf-after')?.value || 0) || null,
     };
     if (chosenMgr) {
       updates.managerId = chosenMgr;

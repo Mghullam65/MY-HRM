@@ -1,6 +1,8 @@
 const express = require('express');
 const prisma = require('../db');
 const { authenticate, authorize, getScopedEmployeeIds, assertEmployeeAccess } = require('../middleware/auth');
+const TaxEngine = require('../services/taxEngine');
+const store = require('../services/store');
 
 const router = express.Router();
 
@@ -41,38 +43,119 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-// Generate monthly payroll for all active employees
+// Tax Slabs List
+router.get('/tax-slabs', authenticate, async (req, res) => {
+  try {
+    const slabs = store.get('tax_table') || TaxEngine.DEFAULT_TAX_SLABS;
+    res.json({ success: true, data: slabs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to retrieve tax slabs.' });
+  }
+});
+
+// Add / Update Tax Slab
+router.post('/tax-slabs', authenticate, authorize('superadmin', 'hr_manager'), async (req, res) => {
+  try {
+    const { id, payroll_type, range_from, range_to, fixed_tax, percentage_over, effective_date } = req.body;
+    let slabs = store.get('tax_table') || [...TaxEngine.DEFAULT_TAX_SLABS];
+
+    if (id) {
+      // Update
+      const idx = slabs.findIndex(s => s.id === parseInt(id));
+      if (idx !== -1) {
+        slabs[idx] = {
+          ...slabs[idx],
+          payroll_type: parseInt(payroll_type) || 1,
+          range_from: parseFloat(range_from) || 0,
+          range_to: range_to ? parseFloat(range_to) : null,
+          fixed_tax: parseFloat(fixed_tax) || 0,
+          percentage_over: parseFloat(percentage_over) || 0,
+          effective_date: effective_date || '2025-07-01'
+        };
+      }
+    } else {
+      // Create new
+      const nextId = slabs.length > 0 ? Math.max(...slabs.map(s => s.id || 0)) + 1 : 1;
+      slabs.push({
+        id: nextId,
+        payroll_type: parseInt(payroll_type) || 1,
+        range_from: parseFloat(range_from) || 0,
+        range_to: range_to ? parseFloat(range_to) : null,
+        fixed_tax: parseFloat(fixed_tax) || 0,
+        percentage_over: parseFloat(percentage_over) || 0,
+        effective_date: effective_date || '2025-07-01'
+      });
+    }
+
+    store.set('tax_table', slabs);
+    res.json({ success: true, message: 'Tax slab saved successfully.', data: slabs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to save tax slab.' });
+  }
+});
+
+// Delete Tax Slab
+router.delete('/tax-slabs/:id', authenticate, authorize('superadmin', 'hr_manager'), async (req, res) => {
+  try {
+    const slabId = parseInt(req.params.id);
+    let slabs = store.get('tax_table') || [...TaxEngine.DEFAULT_TAX_SLABS];
+    slabs = slabs.filter(s => s.id !== slabId);
+    store.set('tax_table', slabs);
+    res.json({ success: true, message: 'Tax slab deleted.', data: slabs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to delete tax slab.' });
+  }
+});
+
+// Generate monthly payroll for all active employees using SPMS Tax Engine (§7.1, §8)
 router.post('/generate', authenticate, authorize('superadmin', 'hr_manager'), async (req, res) => {
   try {
     const month = parseInt(req.body.month) || (new Date().getMonth() + 1);
     const year = parseInt(req.body.year) || new Date().getFullYear();
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
     const employees = await prisma.employee.findMany({
       where: { status: 'active' }
     });
 
+    const taxTable = store.get('tax_table') || TaxEngine.DEFAULT_TAX_SLABS;
+    const priorPayrolls = await prisma.payroll.findMany({
+      where: { year }
+    });
+
     const results = [];
     for (const emp of employees) {
       const baseSalary = emp.salary || 50000;
-      // Standard allowances
-      const medical = Math.round(baseSalary * 0.10);
-      const conveyance = Math.round(baseSalary * 0.05);
-      const grossSalary = baseSalary + medical + conveyance;
+      const empPrior = priorPayrolls.filter(p => p.employeeId === emp.id).map(p => ({
+        payroll_month: `${p.year}-${String(p.month).padStart(2, '0')}`,
+        withholding_tax: p.tax || 0
+      }));
 
-      // Income tax estimation (5%)
-      const tax = grossSalary > 50000 ? Math.round(grossSalary * 0.05) : 0;
-      const providentFund = Math.round(baseSalary * 0.05);
-      const totalDeductions = tax + providentFund;
-      const netSalary = grossSalary - totalDeductions;
+      // Calculate exact SPMS tax
+      const taxCalc = TaxEngine.calculate({
+        employee: emp,
+        payrollMonth: monthStr,
+        payrollType: 1,
+        grossIncome: baseSalary,
+        pfFundRate: emp.pf_fund !== undefined ? emp.pf_fund : 5,
+        eobiEmployee: emp.eoib_employee !== undefined ? emp.eoib_employee : 370,
+        splitter: emp.splitter || baseSalary,
+        bonus: emp.bonus || 0,
+        bonusTax: emp.bonus_tax || 'yes',
+        priorPayrollRowsInFY: empPrior,
+        taxTable,
+        alreadyNetOfPF: false
+      });
 
       const allowances = JSON.stringify([
-        { name: 'Medical Allowance', amount: medical },
-        { name: 'Conveyance Allowance', amount: conveyance }
+        { name: 'Medical Allowance', amount: Math.round(baseSalary * 0.10) },
+        { name: 'Conveyance Allowance', amount: Math.round(baseSalary * 0.05) }
       ]);
 
       const deductions = JSON.stringify([
-        { name: 'Income Tax', amount: tax },
-        { name: 'Provident Fund', amount: providentFund }
+        { name: 'Income Tax (FBR Sec 149)', amount: taxCalc.withholdingTax },
+        { name: 'Provident Fund (Employee)', amount: taxCalc.pfDeduction },
+        { name: 'EOBI Contribution', amount: taxCalc.eobiDeduction }
       ]);
 
       const payroll = await prisma.payroll.upsert({
@@ -87,9 +170,9 @@ router.post('/generate', authenticate, authorize('superadmin', 'hr_manager'), as
           baseSalary,
           allowances,
           deductions,
-          grossSalary,
-          netSalary,
-          tax
+          grossSalary: taxCalc.grossIncome,
+          netSalary: taxCalc.netPay,
+          tax: taxCalc.withholdingTax
         },
         create: {
           employeeId: emp.id,
@@ -98,9 +181,9 @@ router.post('/generate', authenticate, authorize('superadmin', 'hr_manager'), as
           baseSalary,
           allowances,
           deductions,
-          grossSalary,
-          netSalary,
-          tax,
+          grossSalary: taxCalc.grossIncome,
+          netSalary: taxCalc.netPay,
+          tax: taxCalc.withholdingTax,
           paymentStatus: 'pending'
         }
       });
@@ -112,7 +195,7 @@ router.post('/generate', authenticate, authorize('superadmin', 'hr_manager'), as
       data: {
         action: 'CREATE',
         module: 'Payroll',
-        description: `Generated payroll for ${month}/${year} (${results.length} employees)`,
+        description: `Generated SPMS payroll for ${month}/${year} (${results.length} active employees)`,
         userId: req.user.id,
         ipAddress: req.ip
       }

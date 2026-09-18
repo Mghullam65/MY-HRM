@@ -5,6 +5,7 @@
 const Leaves = {
   currentView: 'requests',
   calMode: 'employee',
+  calViewMode: 'month', // 'month' | 'year' (12-Month Interactive Annual Leave Planner)
   calDeptFilter: 'all',
   calEmpSearch: '',
   calYear: new Date().getFullYear(),
@@ -227,6 +228,21 @@ const Leaves = {
     this.renderView();
   },
 
+  setCalViewMode(mode) {
+    this.calViewMode = mode;
+    this.renderView();
+  },
+
+  prevYear() {
+    this.calYear--;
+    this.renderView();
+  },
+
+  nextYear() {
+    this.calYear++;
+    this.renderView();
+  },
+
   setCalDeptFilter(deptId) {
     this.calDeptFilter = deptId;
     this.renderView();
@@ -302,6 +318,11 @@ const Leaves = {
 
     const today = new Date();
 
+    if (this.calViewMode === 'year') {
+      this.renderYearMatrix(container, year, displayLeaves, holidays, isMyMode, isManagement, isDeptMgr, myEmp, filteredStaff, depts, myQuotaRemaining);
+      return;
+    }
+
     container.innerHTML = `
       <div class="card" style="padding:20px">
         <!-- Top Controls Bar -->
@@ -324,6 +345,16 @@ const Leaves = {
               <h3 style="font-size:17px;font-weight:700;margin:0;min-width:160px;text-align:center">${monthNames[month]} ${year}</h3>
               <button class="btn btn-ghost btn-sm" onclick="Leaves.nextMonth()"><i class="fa fa-chevron-right"></i></button>
               <button class="btn btn-secondary btn-sm" onclick="Leaves.todayMonth()"><i class="fa fa-calendar-day" style="margin-right:4px"></i> Today</button>
+            </div>
+
+            <!-- View Switcher -->
+            <div style="display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:2px">
+              <button class="btn btn-xs ${this.calViewMode==='month'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('month')" title="Single Month Focus">
+                <i class="fa fa-calendar-days"></i> Month View
+              </button>
+              <button class="btn btn-xs ${this.calViewMode==='year'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('year')" title="12-Month Annual Leave Planner">
+                <i class="fa fa-table-cells"></i> 12-Month Planner
+              </button>
             </div>
           </div>
 
@@ -455,6 +486,207 @@ const Leaves = {
             <i class="fa fa-info-circle" style="margin-right:4px"></i>
             ${isMyMode ? 'Click any date to apply for your personal leave' : 'Click any date to mark leave for an employee'}
           </div>
+        </div>
+      </div>
+    `;
+  },
+
+  renderYearMatrix(container, year, displayLeaves, holidays, isMyMode, isManagement, isDeptMgr, myEmp, filteredStaff, depts, myQuotaRemaining) {
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+    // Compute stats for current year
+    const yearLeaves = displayLeaves.filter(l => (l.from && l.from.startsWith(String(year))) || (l.to && l.to.startsWith(String(year))));
+    const approvedCount = yearLeaves.filter(l => l.status === 'approved').length;
+    const pendingCount = yearLeaves.filter(l => l.status === 'pending' || l.status === 'manager_approved').length;
+    const holidaysCount = holidays.filter(h => h.date && h.date.startsWith(String(year))).length;
+
+    container.innerHTML = `
+      <div class="card" style="padding:22px">
+        <!-- Top Controls Bar -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <!-- Left: Scope Switcher, Year Carousel & View Switcher -->
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            ${isManagement ? `
+              <div class="cal-mode-switcher">
+                <button class="cal-mode-btn ${isMyMode ? 'active' : ''}" onclick="Leaves.setCalMode('my')">
+                  <i class="fa fa-user"></i> My Leave Planner
+                </button>
+                <button class="cal-mode-btn ${!isMyMode ? 'active' : ''}" onclick="Leaves.setCalMode('employee')">
+                  <i class="fa fa-users"></i> Employee Leave Planner
+                </button>
+              </div>
+            ` : ''}
+
+            <!-- Carousel (< 2026 >) -->
+            <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px 8px">
+              <button class="btn btn-ghost btn-sm" onclick="Leaves.prevYear()" title="Previous Year"><i class="fa fa-chevron-left"></i></button>
+              <h3 style="font-size:17px;font-weight:800;margin:0;min-width:85px;text-align:center;color:var(--primary);letter-spacing:0.5px">
+                <i class="fa fa-calendar" style="margin-right:6px"></i>${year}
+              </h3>
+              <button class="btn btn-ghost btn-sm" onclick="Leaves.nextYear()" title="Next Year"><i class="fa fa-chevron-right"></i></button>
+            </div>
+
+            <!-- View Switcher -->
+            <div style="display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:2px">
+              <button class="btn btn-xs ${this.calViewMode==='month'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('month')" title="Single Month Focus">
+                <i class="fa fa-calendar-days"></i> Month View
+              </button>
+              <button class="btn btn-xs ${this.calViewMode==='year'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('year')" title="12-Month Annual Leave Planner">
+                <i class="fa fa-table-cells"></i> 12-Month Planner
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Search & Action -->
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${(!isMyMode && isManagement) ? `
+              ${!isDeptMgr ? `
+                <select class="form-control" style="width:auto;font-size:12px;padding:6px 10px;height:34px" onchange="Leaves.setCalDeptFilter(this.value)">
+                  <option value="all" ${this.calDeptFilter === 'all' ? 'selected' : ''}>All Departments</option>
+                  ${depts.map(d => `<option value="${d.id}" ${this.calDeptFilter == d.id ? 'selected' : ''}>${d.name}</option>`).join('')}
+                </select>
+              ` : ''}
+              <input type="text" class="form-control" placeholder="Search staff..." style="width:140px;font-size:12px;padding:6px 10px;height:34px" value="${this.calEmpSearch || ''}" oninput="Leaves.setCalEmpSearch(this.value)">
+            ` : ''}
+
+            ${isMyMode ? `
+              <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'my')">
+                <i class="fa fa-calendar-plus" style="margin-right:6px"></i> Apply for Leave
+              </button>
+            ` : `
+              <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'employee')">
+                <i class="fa fa-user-plus" style="margin-right:6px"></i> Mark Employee Leave
+              </button>
+            `}
+          </div>
+        </div>
+
+        <!-- Scope Banner -->
+        <div style="background:linear-gradient(135deg, ${isMyMode ? 'rgba(99,102,241,0.08) 0%, rgba(16,185,129,0.08) 100%' : 'rgba(245,158,11,0.08) 0%, rgba(99,102,241,0.08) 100%'});border:1px solid ${isMyMode ? 'rgba(99,102,241,0.22)' : 'rgba(245,158,11,0.25)'};border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:9px;background:${isMyMode ? 'rgba(99,102,241,0.18)' : 'rgba(245,158,11,0.18)'};color:${isMyMode ? 'var(--primary)' : '#f59e0b'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">
+              <i class="fa ${isMyMode ? 'fa-user' : 'fa-users'}"></i>
+            </div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--text)">
+                ${isMyMode ? `My 12-Month Annual Leave Planner — ${myEmp?.fullName} (${myEmp?.empNo})` : `Employee 12-Month Annual Leave Planner — ${isDeptMgr ? `${Utils.getDeptName(myEmp?.departmentId)} Staff` : 'All Company Staff'}`}
+              </div>
+              <div style="font-size:12px;color:var(--text-3)">
+                The days are marked in the calendar as per the color scheme below. Click any desired day to mark or view leave.
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="chip" style="font-size:11px;padding:3px 9px"><i class="fa fa-umbrella-beach" style="color:#ef4444;margin-right:4px"></i>${holidaysCount} Holidays</span>
+            <span class="chip" style="font-size:11px;padding:3px 9px"><i class="fa fa-circle-check" style="color:#10b981;margin-right:4px"></i>${approvedCount} Approved</span>
+            ${pendingCount > 0 ? `<span class="chip" style="font-size:11px;padding:3px 9px;background:rgba(245,158,11,0.15);color:#d97706"><i class="fa fa-clock" style="margin-right:4px"></i>${pendingCount} Pending</span>` : ''}
+            ${isMyMode ? `<span class="chip" style="font-size:11px;padding:3px 9px;background:rgba(16,185,129,0.15);color:#059669"><i class="fa fa-scale-balanced" style="margin-right:4px"></i>${myQuotaRemaining}d Balance</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Exact 8-Color Scheme Legend from Leaves.pdf -->
+        <div style="display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center;background:var(--surface);padding:10px 14px;border-radius:10px;border:1px solid var(--border)">
+          <div style="font-size:11px;font-weight:700;color:var(--text-2);margin-right:4px">Color Scheme:</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#dbeafe;color:#1e40af;font-weight:700;border:1px solid #bfdbfe">Weekend</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#fef3c7;color:#92400e;font-weight:700;border:1px solid #fde68a">Today</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#991b1b;color:#ffffff;font-weight:700">Holiday</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#15803d;color:#ffffff;font-weight:700">Approved</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#ea580c;color:#ffffff;font-weight:700">Pending by HR</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#dc2626;color:#ffffff;font-weight:700">Pending by DM</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#166534;color:#ffffff;font-weight:700">Token Utilized</div>
+          <div style="font-size:10.5px;padding:3px 9px;border-radius:5px;background:#94a3b8;color:#ffffff;font-weight:700;text-decoration:line-through">Rejected / Cancelled</div>
+        </div>
+
+        <!-- 12-Month Matrix Responsive Grid (3 to 4 columns) -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px">
+          ${monthNames.map((mName, mIdx) => {
+            const firstD = new Date(year, mIdx, 1).getDay();
+            const daysInM = new Date(year, mIdx + 1, 0).getDate();
+            const mCells = [];
+            for (let i = 0; i < firstD; i++) mCells.push(null);
+            for (let d = 1; d <= daysInM; d++) mCells.push(d);
+
+            return `
+              <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.03)">
+                <div style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);color:#fff;padding:6px 10px;display:flex;align-items:center;justify-content:space-between">
+                  <span style="font-weight:700;font-size:12px;letter-spacing:0.3px">${mName} ${year}</span>
+                  <button class="btn btn-ghost btn-xs" style="color:#fff;padding:1px 5px;font-size:9.5px" onclick="Leaves.calMonth=${mIdx};Leaves.setCalViewMode('month')" title="Open Single Month Focus">
+                    <i class="fa fa-up-right-from-square"></i>
+                  </button>
+                </div>
+
+                <div style="padding:6px">
+                  <div style="display:grid;grid-template-columns:repeat(7, 1fr);text-align:center;font-size:9.5px;font-weight:700;color:var(--text-3);margin-bottom:3px">
+                    <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7, 1fr);gap:2px;text-align:center">
+                    ${mCells.map(d => {
+                      if (!d) return '<div style="height:25px"></div>';
+                      const dateStr = `${year}-${String(mIdx+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                      const isToday = dateStr === todayStr;
+                      const dayOfWeek = new Date(year, mIdx, d).getDay();
+                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                      const dayHol = holidays.find(h => h.date === dateStr);
+                      const dayLeaves = displayLeaves.filter(l => l.from <= dateStr && l.to >= dateStr);
+                      const hasApproved = dayLeaves.some(l => l.status === 'approved');
+                      const hasPendingDM = dayLeaves.some(l => l.status === 'pending');
+                      const hasPendingHR = dayLeaves.some(l => l.status === 'manager_approved');
+                      const hasToken = dayLeaves.some(l => l.tokensAttached || l.tokenRedeemed);
+                      const hasRejected = dayLeaves.some(l => l.status === 'rejected');
+
+                      let bg = isWeekend ? '#dbeafe' : 'var(--surface)';
+                      let color = isWeekend ? '#1e40af' : 'var(--text)';
+                      let border = isToday ? '2px solid #f59e0b' : '1px solid var(--border)';
+                      let title = `${mName} ${d}, ${year}`;
+
+                      if (dayHol) {
+                        bg = '#991b1b';
+                        color = '#ffffff';
+                        title += ` • Holiday: ${dayHol.name}`;
+                      } else if (hasToken) {
+                        bg = '#166534';
+                        color = '#ffffff';
+                        title += ` • Compensatory Token Utilized`;
+                      } else if (hasApproved) {
+                        bg = '#15803d';
+                        color = '#ffffff';
+                        title += ` • Approved Leave (${dayLeaves.length})`;
+                      } else if (hasPendingHR) {
+                        bg = '#ea580c';
+                        color = '#ffffff';
+                        title += ` • Pending HR Approval`;
+                      } else if (hasPendingDM) {
+                        bg = '#dc2626';
+                        color = '#ffffff';
+                        title += ` • Pending Manager Approval`;
+                      } else if (hasRejected) {
+                        bg = '#94a3b8';
+                        color = '#ffffff';
+                        title += ` • Rejected Leave`;
+                      } else if (isToday) {
+                        bg = '#fef3c7';
+                        color = '#92400e';
+                        title += ` • Today`;
+                      }
+
+                      return `
+                        <div style="height:25px;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:${(isToday||dayHol||hasApproved||hasPendingDM||hasPendingHR)?'700':'500'};background:${bg};color:${color};border:${border};border-radius:4px;cursor:pointer;transition:transform .12s"
+                             title="${title}"
+                             onmouseover="this.style.transform='scale(1.2)';this.style.zIndex='5'"
+                             onmouseout="this.style.transform='none';this.style.zIndex='1'"
+                             onclick="Leaves.onCalendarDateClick('${dateStr}', '${isMyMode ? 'my' : 'employee'}')">
+                          ${d}
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
@@ -1734,6 +1966,18 @@ const Leaves = {
           <div id="lf-deduct-preview" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);font-size:12px"></div>
         </div>
 
+        <!-- Compensatory Off-Day Token Redemption Option (From Reference System) -->
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:12px 14px" id="lf-token-wrap">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label style="display:flex;align-items:center;gap:10px;margin:0;cursor:pointer;font-size:13px;font-weight:700;color:var(--text)">
+              <input type="checkbox" id="lf-redeem-token" onchange="Leaves.onRedeemTokenToggle(this.checked)" style="width:17px;height:17px;cursor:pointer">
+              <span><i class="fa fa-ticket" style="color:#10b981;margin-right:6px"></i> Redeem Compensatory Token (Comp-Off Credit)</span>
+            </label>
+            <span class="badge badge-success" id="lf-token-badge" style="display:none;font-size:11px"><i class="fa fa-circle-check"></i> Token Applied</span>
+          </div>
+          <div id="lf-token-preview" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);font-size:12px"></div>
+        </div>
+
         <!-- Reason for Leave -->
         <div class="form-group" style="margin-bottom:0">
           <label class="form-label required"><i class="fa fa-pen-to-square" style="color:var(--primary);margin-right:4px"></i> Reason for Leave</label>
@@ -1886,6 +2130,32 @@ const Leaves = {
             </div>
           `;
         }
+      }
+    }
+    this.updateLeaveFormQuota();
+  },
+
+  onRedeemTokenToggle(isChecked) {
+    const badge = document.getElementById('lf-token-badge');
+    const preview = document.getElementById('lf-token-preview');
+    if (badge) badge.style.display = isChecked ? 'inline-flex' : 'none';
+    if (preview) preview.style.display = isChecked ? 'block' : 'none';
+
+    if (isChecked) {
+      const deductEl = document.getElementById('lf-salary-deduct');
+      if (deductEl && deductEl.checked) {
+        deductEl.checked = false;
+        this.onSalaryDeductToggle(false);
+      }
+      const empId = parseInt(document.getElementById('lf-emp')?.value || Auth.employee?.id || 1);
+      const tokens = (DB.get('overtime_tokens') || []).filter(t => t.employeeId === empId && t.status === 'active');
+      if (preview) {
+        preview.innerHTML = `
+          <div style="background:var(--surface);padding:10px 12px;border-radius:8px;border:1px solid rgba(16,185,129,0.3);color:var(--text)">
+            <div style="font-weight:700;color:#10b981;margin-bottom:3px"><i class="fa fa-coins"></i> Active Overtime/Comp-Off Tokens: ${tokens.length} Available</div>
+            <div style="font-size:12px;color:var(--text-3)">1 token will be redeemed for this leave. No quota will be consumed and no salary deduction will be applied.</div>
+          </div>
+        `;
       }
     }
     this.updateLeaveFormQuota();
@@ -2075,12 +2345,14 @@ const Leaves = {
       return;
     }
 
+    const isRedeemToken = document.getElementById('lf-redeem-token')?.checked || false;
+
     const newLeave = {
       id: DB.nextId('leave_requests'),
       employeeId: empId,
       typeId,
       quotaTypeId,
-      quotaName: quotaType?.name || leaveType?.name || 'Standard Quota',
+      quotaName: isRedeemToken ? 'Comp-Off Token' : (quotaType?.name || leaveType?.name || 'Standard Quota'),
       from,
       to: (dur !== 'full') ? from : to,
       leaveDuration: dur,
@@ -2090,14 +2362,27 @@ const Leaves = {
       salaryDeduction: isSalaryDeduct,
       deductionDays: isSalaryDeduct ? days : 0,
       deductionAmount: isSalaryDeduct ? deductionAmount : 0,
+      tokensAttached: isRedeemToken ? 'Comp-Off Token' : null,
+      tokenRedeemed: isRedeemToken,
       status: 'pending',
       managerId: targetEmp?.managerId || 3,
       hrId: 2,
       appliedOn: Utils.today(),
       appliedVia: isSelf ? 'my_leave_calendar' : 'employee_leave_calendar',
       approvedOn: null,
-      comments: isSelf ? (isSalaryDeduct ? 'Employee requested Salary Deduction' : '') : `Marked by ${myEmp?.fullName||'Manager'} (${Auth.role})`
+      comments: isSelf ? (isRedeemToken ? 'Redeemed Overtime Comp-Off Token' : (isSalaryDeduct ? 'Employee requested Salary Deduction' : '')) : `Marked by ${myEmp?.fullName||'Manager'} (${Auth.role})`
     };
+
+    if (isRedeemToken) {
+      const allTokens = DB.get('overtime_tokens') || [];
+      const userToken = allTokens.find(t => t.employeeId === empId && t.status === 'active');
+      if (userToken) {
+        userToken.status = 'consumed';
+        userToken.consumedDate = Utils.today();
+        userToken.leaveRequestId = newLeave.id;
+        DB.set('overtime_tokens', allTokens);
+      }
+    }
 
     DB.add('leave_requests', newLeave);
     DB.flushServerPush();

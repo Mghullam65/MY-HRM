@@ -234,6 +234,7 @@ const DB = {
     this.ensureExitClearances();
     this.ensureHRLetters();
     this.ensureTaxAndStatutoryData();
+    this.ensureSPMSData();
     this.ensureRosterAndGeofenceData();
     this.ensureTalentAndLMSData();
     this.ensureEngagementData();
@@ -1098,7 +1099,36 @@ const DB = {
     }
   },
 
-  calculateFBRTax(monthlyIncome) {
+  calculateFBRTax(monthlyIncome, emp = {}, month = '2026-07') {
+    if (typeof TaxEngine !== 'undefined' && TaxEngine.calculate) {
+      const taxTable = this.get('tax_table') || TaxEngine.DEFAULT_TAX_SLABS;
+      const priorSalaries = this.get('salary') || [];
+      const empPrior = emp.id ? priorSalaries.filter(s => s.employeeId === emp.id) : [];
+      const res = TaxEngine.calculate({
+        employee: emp,
+        payrollMonth: month,
+        grossIncome: monthlyIncome,
+        splitter: emp.splitter || monthlyIncome,
+        pfFundRate: emp.pf_fund !== undefined ? emp.pf_fund : 5,
+        eobiEmployee: emp.eoib_employee !== undefined ? emp.eoib_employee : 370,
+        bonus: emp.bonus || 0,
+        bonusTax: emp.bonus_tax || 'yes',
+        priorPayrollRowsInFY: empPrior,
+        taxTable,
+        alreadyNetOfPF: false
+      });
+      return {
+        annualIncome: res.annualSalary,
+        annualTax: res.totalAnnualTax,
+        monthlyTax: res.withholdingTax,
+        slabDesc: `Slab: ${res.matchedSlab.range_from.toLocaleString()} - ${res.matchedSlab.range_to.toLocaleString()} (${(res.matchedSlab.percentage_over * 100).toFixed(1)}%)`,
+        slabId: res.matchedSlab.id,
+        effectiveRate: res.annualSalary > 0 ? ((res.totalAnnualTax / res.annualSalary) * 100).toFixed(2) : 0,
+        sendInBankBeforeTax: res.sendInBankBeforeTax,
+        cashRemittances: res.cashRemittances
+      };
+    }
+
     const annualIncome = Math.max(0, Number(monthlyIncome) || 0) * 12;
     let annualTax = 0;
     let slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
@@ -1117,25 +1147,17 @@ const DB = {
       slabDesc = 'Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)';
       slabId = 3;
     } else if (annualIncome <= 3200000) {
-      annualTax = 116000 + (annualIncome - 2200000) * 0.20;
-      slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 20% of excess over PKR 2.2M)';
+      annualTax = 116000 + (annualIncome - 2200000) * 0.23;
+      slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 23% of excess over PKR 2.2M)';
       slabId = 4;
     } else if (annualIncome <= 4100000) {
-      annualTax = 316000 + (annualIncome - 3200000) * 0.25;
-      slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 316,000 + 25% of excess over PKR 3.2M)';
+      annualTax = 346000 + (annualIncome - 3200000) * 0.30;
+      slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 346,000 + 30% of excess over PKR 3.2M)';
       slabId = 5;
-    } else if (annualIncome <= 5600000) {
-      annualTax = 541000 + (annualIncome - 4100000) * 0.29;
-      slabDesc = 'Slab 6 (PKR 4,100,001 – 5,600,000: PKR 541,000 + 29% of excess over PKR 4.1M)';
-      slabId = 6;
-    } else if (annualIncome <= 7000000) {
-      annualTax = 976000 + (annualIncome - 5600000) * 0.32;
-      slabDesc = 'Slab 7 (PKR 5,600,001 – 7,000,000: PKR 976,000 + 32% of excess over PKR 5.6M)';
-      slabId = 7;
     } else {
-      annualTax = 1424000 + (annualIncome - 7000000) * 0.35;
-      slabDesc = 'Slab 8 (Above PKR 7,000,000: PKR 1,424,000 + 35% of excess over PKR 7.0M)';
-      slabId = 8;
+      annualTax = 616000 + (annualIncome - 4100000) * 0.35;
+      slabDesc = 'Slab 6 (Above PKR 4,100,000: PKR 616,000 + 35% of excess over PKR 4.1M)';
+      slabId = 6;
     }
 
     const monthlyTax = Math.round(annualTax / 12);
@@ -1289,6 +1311,60 @@ const DB = {
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return Math.round(R * c); // Distance in meters
+  },
+
+  ensureSPMSData() {
+    // 1. Tax Table (§6)
+    let taxTable = this.get('tax_table');
+    if (!taxTable || !Array.isArray(taxTable) || taxTable.length === 0) {
+      taxTable = [
+        { id: 1, payroll_type: 1, range_from: 0, range_to: 600000, fixed_tax: 0, percentage_over: 0, effective_date: '2025-07-01' },
+        { id: 2, payroll_type: 1, range_from: 600000, range_to: 1200000, fixed_tax: 0, percentage_over: 0.01, effective_date: '2025-07-01' },
+        { id: 3, payroll_type: 1, range_from: 1200000, range_to: 2200000, fixed_tax: 6000, percentage_over: 0.11, effective_date: '2025-07-01' },
+        { id: 4, payroll_type: 1, range_from: 2200000, range_to: 3200000, fixed_tax: 116000, percentage_over: 0.23, effective_date: '2025-07-01' },
+        { id: 5, payroll_type: 1, range_from: 3200000, range_to: 4100000, fixed_tax: 346000, percentage_over: 0.30, effective_date: '2025-07-01' },
+        { id: 6, payroll_type: 1, range_from: 4100000, range_to: 999999999, fixed_tax: 616000, percentage_over: 0.35, effective_date: '2025-07-01' }
+      ];
+      this.set('tax_table', taxTable);
+    }
+
+    // 2. Employee SPMS attributes (§5)
+    const emps = this.get('employees') || [];
+    let empChanged = false;
+    emps.forEach(e => {
+      if (e.pf_fund === undefined) { e.pf_fund = 5; empChanged = true; }
+      if (e.initial_pf === undefined) { e.initial_pf = 0; empChanged = true; }
+      if (e.eoib_employee === undefined) { e.eoib_employee = 370; empChanged = true; }
+      if (e.bonus === undefined) { e.bonus = 0; empChanged = true; }
+      if (e.bonus_tax === undefined) { e.bonus_tax = 'yes'; empChanged = true; }
+      if (e.splitter === undefined || e.splitter === null) { e.splitter = e.salary || 50000; empChanged = true; }
+      if (e.sort_ordering === undefined) { e.sort_ordering = e.id; empChanged = true; }
+    });
+    if (empChanged) {
+      this.set('employees', emps);
+    }
+
+    // 3. Loans with categories (§9)
+    let loans = this.get('loans') || [];
+    let loansChanged = false;
+    loans.forEach(l => {
+      if (!l.category) {
+        l.category = l.loanType === 'pf_loan' ? 'pf_refundable_loan' : 'post_pf_pre_tax';
+        loansChanged = true;
+      }
+    });
+    if (loansChanged) {
+      this.set('loans', loans);
+    }
+
+    // 4. PF Loan table (§4, §9)
+    let pfLoans = this.get('pf_loans');
+    if (!pfLoans) {
+      pfLoans = [
+        { id: 1, employee_id: 3, description: 'PF Advance for Home Renovation', total_amount: 50000, type: 'refundable', loan_date: '2026-05-10' }
+      ];
+      this.set('pf_loans', pfLoans);
+    }
   },
 
   ensureRosterAndGeofenceData() {
