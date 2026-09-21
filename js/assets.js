@@ -8,6 +8,26 @@ const Assets = {
   filterStatus: 'all',
   searchQuery: '',
 
+  currentStage: 'inventory', // 'inventory' | 'custody' | 'maintenance' | 'returns'
+
+  getActiveStage() {
+    if (['inventory', 'catalog'].includes(this.currentStage)) return 'inventory';
+    if (['custody', 'assigned', 'my_assets'].includes(this.currentStage)) return 'custody';
+    if (['maintenance', 'repairs', 'warranties'].includes(this.currentStage)) return 'maintenance';
+    if (['returns', 'depreciation', 'scrap'].includes(this.currentStage)) return 'returns';
+    return 'inventory';
+  },
+
+  isTabActive(tabId) {
+    return this.getActiveStage() === tabId;
+  },
+
+  switchStage(stage) {
+    this.currentStage = stage;
+    this.render();
+  },
+
+
   render() {
     const container = document.getElementById('page-content');
     if (!container) return;
@@ -25,8 +45,39 @@ const Assets = {
     const totalValuation = allAssets.reduce((sum, a) => sum + (a.purchaseCost || 0), 0);
     const myAssets = isEmp ? allAssets.filter(a => a.assignedTo === Auth.employee?.id) : [];
 
+    const activeStage = this.getActiveStage();
+    const warrantyExpiringCount = allAssets.filter(a => {
+      if (!a.warrantyExpiry || a.warrantyExpiry === 'N/A') return false;
+      const days = Math.ceil((new Date(a.warrantyExpiry) - new Date()) / (1000*60*60*24));
+      return days <= 60 && days >= -30;
+    }).length;
+
+    // Define 4 Clean Lifecycle Stages
+    const tabs = isEmp ? [
+      { id: 'custody',     label: 'My Assigned Equipment', icon: 'fa-laptop-code', badge: myAssets.length || null },
+      { id: 'inventory',   label: 'Company Hardware Catalog', icon: 'fa-boxes-stacked' },
+      { id: 'maintenance', label: 'My Repair & Service Logs', icon: 'fa-wrench', badge: myAssets.filter(a => a.status === 'maintenance').length || null },
+      { id: 'returns',     label: 'Custody Return Clearances', icon: 'fa-door-open' }
+    ] : [
+      { id: 'inventory',   label: 'Hardware Register & Catalog', icon: 'fa-boxes-stacked', badge: totalCount },
+      { id: 'custody',     label: 'Custody & Handover Ledger', icon: 'fa-user-check', badge: assignedAssets.length },
+      { id: 'maintenance', label: 'Maintenance & Warranty Radar', icon: 'fa-screwdriver-wrench', badge: (maintenanceAssets.length + warrantyExpiringCount) || null },
+      { id: 'returns',     label: 'Return Clearance & Depreciation', icon: 'fa-scale-balanced' }
+    ];
+
     container.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+      <div class="animate-fade-in">
+        <!-- 4 Clean Lifecycle Stage Tabs -->
+        <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap;border:1px solid var(--border)">
+          ${tabs.map(t => `
+            <button class="tab-toggle-btn ${this.isTabActive(t.id) ? 'active' : ''}" onclick="Assets.switchStage('${t.id}')">
+              <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
+              ${t.badge !== undefined && t.badge !== null ? `<span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+            </button>
+          `).join('')}
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
         <div>
           <h2 style="font-size:20px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary)">
@@ -129,6 +180,7 @@ const Assets = {
 
       <!-- Assets Table Container -->
       <div id="assets-table-wrap"></div>
+      </div>
     `;
 
     this.renderTable();
@@ -156,6 +208,16 @@ const Assets = {
     // Filter by Category
     if (this.filterCategory !== 'all') {
       assets = assets.filter(a => a.category === this.filterCategory);
+    }
+
+    // Filter by Active Stage
+    const stage = this.getActiveStage();
+    if (stage === 'custody') {
+      assets = isEmp ? assets.filter(a => a.assignedTo === Auth.employee?.id) : assets.filter(a => a.status === 'assigned');
+    } else if (stage === 'maintenance') {
+      assets = assets.filter(a => a.status === 'maintenance' || a.condition === 'damaged' || a.condition === 'fair');
+    } else if (stage === 'returns') {
+      assets = assets.filter(a => a.status === 'retired' || a.status === 'available' || a.condition === 'damaged');
     }
 
     // Filter by Status
