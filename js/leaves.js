@@ -64,17 +64,16 @@ const Leaves = {
           `).join('')}
         </div>
 
-        <!-- Tabs -->
-        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border);flex-wrap:wrap">
+        <!-- View Tabs: 4 Clean Lifecycle Stages -->
+        <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border);flex-wrap:wrap">
           ${[
-            { id:'requests', label:'Leave Requests', icon:'fa-list' },
-            { id:'calendar', label:'Leave Calendar', icon:'fa-calendar' },
-            { id:'quota',    label:'Leave Quota & Balance',  icon:'fa-scale-balanced' },
-            { id:'tokens',   label:'Overtime Tokens', icon:'fa-coins' },
-            { id:'holidays', label:'Holidays',       icon:'fa-calendar-days' },
+            { id:'requests', label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null },
+            { id:'calendar', label:'Leave & Holiday Calendar',   icon:'fa-calendar-days' },
+            { id:'quota',    label:'Leave Quotas & Policies',    icon:'fa-scale-balanced' },
+            { id:'tokens',   label:'Comp-Off & Overtime Tokens', icon:'fa-coins' },
           ].map(t => `
-            <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Leaves.switchView('${t.id}')">
-              <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
+            <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Leaves.switchView('${t.id}')">
+              <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
           `).join('')}
         </div>
@@ -92,6 +91,14 @@ const Leaves = {
     this.renderView();
   },
 
+  isTabActive(tabId) {
+    if (tabId === 'requests') return this.currentView === 'requests';
+    if (tabId === 'calendar') return ['calendar', 'holidays'].includes(this.currentView);
+    if (tabId === 'quota') return ['quota', 'balance', 'types'].includes(this.currentView);
+    if (tabId === 'tokens') return this.currentView === 'tokens';
+    return this.currentView === tabId;
+  },
+
   switchView(view) {
     if (view === 'types') {
       this.currentView = 'quota';
@@ -102,9 +109,9 @@ const Leaves = {
         this.quotaSubView = 'matrix';
       }
     }
-    document.querySelectorAll('[onclick*="Leaves.switchView"]').forEach(b => {
-      const m = b.getAttribute('onclick').match(/'(\w+)'/);
-      if (m) b.classList.toggle('active', m[1] === this.currentView);
+    document.querySelectorAll('.tab-toggle-btn[data-tab]').forEach(b => {
+      const tabId = b.getAttribute('data-tab');
+      if (tabId) b.classList.toggle('active', this.isTabActive(tabId));
     });
     this.renderView();
   },
@@ -324,6 +331,19 @@ const Leaves = {
     }
 
     container.innerHTML = `
+      <!-- Stage 2 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='calendar'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('calendar')">
+            <i class="fa fa-calendar-days"></i> Leave Calendar &amp; Matrix
+          </button>
+          <button class="btn btn-sm ${this.currentView==='holidays'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('holidays')">
+            <i class="fa fa-umbrella-beach"></i> Corporate Holidays (${holidays.length})
+          </button>
+        </div>
+        ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
+      </div>
+
       <div class="card" style="padding:20px">
         <!-- Top Controls Bar -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
@@ -503,6 +523,19 @@ const Leaves = {
     const holidaysCount = holidays.filter(h => h.date && h.date.startsWith(String(year))).length;
 
     container.innerHTML = `
+      <!-- Stage 2 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='calendar'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('calendar')">
+            <i class="fa fa-calendar-days"></i> Leave Calendar &amp; Matrix
+          </button>
+          <button class="btn btn-sm ${this.currentView==='holidays'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('holidays')">
+            <i class="fa fa-umbrella-beach"></i> Corporate Holidays (${holidays.length})
+          </button>
+        </div>
+        ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
+      </div>
+
       <div class="card" style="padding:22px">
         <!-- Top Controls Bar -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
@@ -728,6 +761,7 @@ const Leaves = {
   },
 
   getEmployeeLeaveQuotaMetrics(emp, year = 2026) {
+    if (!emp || !emp.id) return null;
     const balances = DB.get('leave_balances') || [];
     const bal = balances.find(b => b.employeeId === emp.id && (b.year === year || !b.year));
     const allApprovedLeaves = (DB.get('leave_requests') || []).filter(l => 
@@ -1108,7 +1142,11 @@ const Leaves = {
     if (isEmployee) {
       // ── EMPLOYEE VIEW: PERSONAL LEAVE QUOTA BREAKDOWN & HISTORY ──
       const myEmp = Auth.employee || allEmps.find(e => e.id === Auth.user?.employeeId) || allEmps[0];
-      const myRow = this.getEmployeeLeaveQuotaMetrics(myEmp, this.quotaYear || 2026);
+      if (!myEmp) {
+        container.innerHTML = `<div class="card"><div class="empty-state" style="padding:60px"><i class="fa fa-user-slash"></i><h3>No Employee Profile Found</h3><p>Your user account is not linked to an active employee profile.</p></div></div>`;
+        return;
+      }
+      const myRow = this.getEmployeeLeaveQuotaMetrics(myEmp, this.quotaYear || 2026) || {};
       myRow.sr = 1;
       const myLeaves = (DB.get('leave_requests') || []).filter(l => l.employeeId === myEmp.id && l.status === 'approved');
 
@@ -1782,7 +1820,16 @@ const Leaves = {
     const holidays = DB.get('holidays').sort((a,b) => a.date.localeCompare(b.date));
     const today = Utils.today();
     container.innerHTML = `
-      <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
+      <!-- Stage 2 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='calendar'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('calendar')">
+            <i class="fa fa-calendar-days"></i> Leave Calendar &amp; Matrix
+          </button>
+          <button class="btn btn-sm ${this.currentView==='holidays'?'btn-primary':'btn-ghost'}" onclick="Leaves.switchView('holidays')">
+            <i class="fa fa-umbrella-beach"></i> Corporate Holidays (${holidays.length})
+          </button>
+        </div>
         ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showAddHoliday()"><i class="fa fa-plus"></i> Add Holiday</button>` : ''}
       </div>
       <div class="grid-2">
