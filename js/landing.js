@@ -935,13 +935,18 @@ const Landing = {
     const detailEl = document.getElementById('module-detail-page');
     if (landingEl) landingEl.setAttribute('data-theme', theme);
     if (detailEl) detailEl.setAttribute('data-theme', theme);
-    const btn = document.getElementById('landing-theme-toggle-btn');
-    if (btn) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+    const wrappers = document.querySelectorAll('.landing-wrapper, .module-detail-page-wrapper');
+    wrappers.forEach(w => w.setAttribute('data-theme', theme));
+
+    const btns = document.querySelectorAll('.landing-theme-toggle-btn');
+    btns.forEach(btn => {
       btn.innerHTML = theme === 'dark' 
         ? '<i class="fa fa-sun" style="color:#f59e0b;font-size:16px"></i>' 
         : '<i class="fa fa-moon" style="color:#6366f1;font-size:16px"></i>';
       btn.title = theme === 'dark' ? 'Switch to Crisp Light Theme' : 'Switch to Obsidian Dark Theme';
-    }
+    });
   },
 
   render() {
