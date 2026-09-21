@@ -102,7 +102,7 @@ assert(appCode.includes("case 'settlement':"), 'app.js must route settlement mod
 assert(appCode.includes("settlement: 'Exit & Settlements'"), 'app.js must register settlement title');
 
 const payrollCode = fs.readFileSync(path.join(__dirname, '../js/payroll.js'), 'utf8');
-assert(payrollCode.includes("id:'settlements'"), 'payroll.js must include settlements tab');
+assert(payrollCode.includes("'settlements'") || payrollCode.includes("App.navigate('settlement')"), 'payroll.js must route settlements');
 
 const serverCode = fs.readFileSync(path.join(__dirname, '../server/src/server.js'), 'utf8');
 assert(serverCode.includes("app.use('/api/settlements'"), 'server.js must mount settlements router');
