@@ -49,6 +49,18 @@ const Dashboard = {
   renderMultiCompanyPortfolio(allEmployees, att, salary, companies, activeCompanyId) {
     if (!['superadmin', 'hr_manager'].includes(Auth.role)) return '';
 
+    // Self-heal: ensure every employee has a clean companyId assignment in browser localStorage
+    let hasMissingCompany = false;
+    allEmployees.forEach((e, idx) => {
+      if (!e.companyId || isNaN(Number(e.companyId))) {
+        e.companyId = (idx % 3) + 1;
+        hasMissingCompany = true;
+      }
+    });
+    if (hasMissingCompany && typeof DB !== 'undefined' && DB.set) {
+      DB.set('employees', allEmployees);
+    }
+
     const today = Utils.today();
     const activeEmps = allEmployees.filter(e => (e.status || '').toLowerCase() === 'active');
     const totalHeadcount = activeEmps.length;
@@ -57,9 +69,47 @@ const Dashboard = {
     const totalPresent = todayAtt.filter(a => a.status === 'present' || a.status === 'late').length;
     const groupAttRate = totalHeadcount > 0 ? Math.round((totalPresent / totalHeadcount) * 100) : 94;
 
+    // ── Context Mode A: Individual Subsidiary Workspace Active ──
+    // Collapses the 4 cards into a single sleek info bar to prevent clutter
+    if (activeCompanyId !== 'all') {
+      const activeComp = companies.find(c => String(c.id) === String(activeCompanyId)) || companies[0];
+      const cEmps = allEmployees.filter(e => Number(e.companyId) === Number(activeComp.id) && (e.status || '').toLowerCase() === 'active');
+      const cPayroll = cEmps.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
+
+      return `
+        <div class="card mb-20" style="padding:12px 18px;background:var(--surface);border:1.5px solid ${activeComp.primaryColor || 'var(--primary)'};border-radius:12px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="width:36px;height:36px;border-radius:8px;background:${activeComp.primaryColor || 'var(--primary)'};color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900">
+              ${activeComp.logoText || 'CO'}
+            </span>
+            <div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <h4 style="margin:0;font-size:14px;font-weight:800;color:var(--text)">${activeComp.name}</h4>
+                <span class="badge badge-primary" style="font-size:9.5px;font-weight:700">Active Subsidiary</span>
+              </div>
+              <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">
+                <strong>${cEmps.length} Employees</strong> • Monthly Payroll: <strong>PKR ${cPayroll.toLocaleString()}</strong> • NTN: ${activeComp.ntn} • Bank: ${activeComp.disbursementBank}
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-primary btn-xs" onclick="Dashboard.setCompanyFilter('all')" style="font-weight:700">
+              <i class="fa fa-layer-group"></i> Switch to Consolidated Group View
+            </button>
+            <button class="btn btn-secondary btn-xs" onclick="Company.showWorkspaceSwitchModal()">
+              <i class="fa fa-up-right-and-down-left-from-center"></i> Change
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ── Context Mode B: Consolidated Group View ('all') ──
+    // Clean 4-card holding telemetry matrix without the redundant button row
     return `
       <div class="card mb-20" style="padding:18px 20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);margin-bottom:20px">
-        <!-- Header & Switcher Trigger -->
+        <!-- Header -->
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -67,12 +117,12 @@ const Dashboard = {
                 <i class="fa fa-building-shield"></i>
               </span>
               <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text)">
-                Multi-Company Holding Portfolio — Corporate Group Telemetry
+                Multi-Company Holding Portfolio — Consolidated Group Telemetry
               </h3>
               <span class="badge badge-primary" style="font-size:10px;font-weight:700">3 Subsidiaries Registered</span>
             </div>
             <p style="margin:2px 0 0 36px;font-size:11.5px;color:var(--text-3)">
-              Universal oversight across all group corporate entities, FBR NTN portfolios, and local disbursal banks.
+              Click any subsidiary card below to focus the dashboard on that company's operations.
             </p>
           </div>
 
@@ -86,35 +136,16 @@ const Dashboard = {
           </div>
         </div>
 
-        <!-- 1-Click Interactive Company Filter Segment Tabs -->
-        <div style="display:flex;align-items:center;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:14px;border-bottom:1px solid var(--border)">
-          <button class="btn btn-xs ${activeCompanyId === 'all' ? 'btn-primary' : 'btn-ghost'}" onclick="Dashboard.setCompanyFilter('all')" style="font-weight:700;display:inline-flex;align-items:center;gap:6px">
-            <span>🏛️ All Companies (Consolidated View)</span>
-            <span class="badge" style="background:rgba(255,255,255,0.25);color:inherit;font-size:9.5px">${totalHeadcount} Staff</span>
-          </button>
-          ${companies.map(c => {
-            const isSelected = String(activeCompanyId) === String(c.id);
-            const cEmps = allEmployees.filter(e => Number(e.companyId) === Number(c.id) && (e.status || '').toLowerCase() === 'active');
-            return `
-              <button class="btn btn-xs ${isSelected ? 'btn-primary' : 'btn-ghost'}" onclick="Dashboard.setCompanyFilter(${c.id})" style="font-weight:700;display:inline-flex;align-items:center;gap:6px">
-                <span style="width:14px;height:14px;border-radius:50%;background:${c.primaryColor || 'var(--primary)'};display:inline-block"></span>
-                <span>${c.tradeName || c.name}</span>
-                <span class="badge" style="background:rgba(255,255,255,0.2);color:inherit;font-size:9.5px">${cEmps.length}</span>
-              </button>
-            `;
-          }).join('')}
-        </div>
-
         <!-- 4-Column Company Cards Grid -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:12px">
           <!-- Card 1: Consolidated Group Overview -->
-          <div onclick="Dashboard.setCompanyFilter('all')" class="card" style="padding:14px;cursor:pointer;border:1.5px solid ${activeCompanyId === 'all' ? 'var(--primary)' : 'var(--border)'};background:${activeCompanyId === 'all' ? 'rgba(99,102,241,0.06)' : 'var(--surface-2)'};border-radius:10px;transition:all 0.15s">
+          <div onclick="Dashboard.setCompanyFilter('all')" class="card" style="padding:14px;cursor:pointer;border:2px solid var(--primary);background:rgba(99,102,241,0.06);border-radius:10px;transition:all 0.15s">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
               <div style="display:flex;align-items:center;gap:8px">
                 <span style="width:26px;height:26px;border-radius:6px;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900">🏛️</span>
                 <strong style="font-size:13px;color:var(--text)">Apex Group (Consolidated)</strong>
               </div>
-              ${activeCompanyId === 'all' ? '<span class="badge badge-primary" style="font-size:9px">Active</span>' : ''}
+              <span class="badge badge-primary" style="font-size:9px">Active View</span>
             </div>
             <div style="font-size:11.5px;color:var(--text-2);line-height:1.8">
               <div style="display:flex;justify-content:space-between"><span>Group Workforce:</span> <strong>${totalHeadcount} Staff</strong></div>
@@ -126,7 +157,6 @@ const Dashboard = {
 
           <!-- Cards 2, 3, 4: Individual Subsidiaries -->
           ${companies.map(c => {
-            const isSelected = String(activeCompanyId) === String(c.id);
             const cEmps = allEmployees.filter(e => Number(e.companyId) === Number(c.id) && (e.status || '').toLowerCase() === 'active');
             const cPayroll = cEmps.reduce((sum, e) => sum + (Number(e.salary) || 0), 0);
             const cEmpIds = cEmps.map(e => e.id);
@@ -134,7 +164,7 @@ const Dashboard = {
             const cAttRate = cEmps.length > 0 ? Math.round((cPresent / cEmps.length) * 100) : 95;
 
             return `
-              <div onclick="Dashboard.setCompanyFilter(${c.id})" class="card" style="padding:14px;cursor:pointer;border:1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'};background:${isSelected ? 'rgba(99,102,241,0.06)' : 'var(--surface-2)'};border-radius:10px;transition:all 0.15s">
+              <div onclick="Dashboard.setCompanyFilter(${c.id})" class="card" style="padding:14px;cursor:pointer;border:1px solid var(--border);background:var(--surface-2);border-radius:10px;transition:all 0.15s" title="Click to view ${c.tradeName}">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
                   <div style="display:flex;align-items:center;gap:8px">
                     <span style="width:26px;height:26px;border-radius:6px;background:${c.primaryColor || 'var(--primary)'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900">
@@ -142,10 +172,10 @@ const Dashboard = {
                     </span>
                     <strong style="font-size:12.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px" title="${c.name}">${c.tradeName || c.name}</strong>
                   </div>
-                  ${isSelected ? '<span class="badge badge-primary" style="font-size:9px">Active</span>' : ''}
+                  <span style="font-size:10px;color:var(--primary);font-weight:700">Filter ➔</span>
                 </div>
                 <div style="font-size:11.5px;color:var(--text-2);line-height:1.8">
-                  <div style="display:flex;justify-content:space-between"><span>Workforce:</span> <strong>${cEmps.length} Employees</strong></div>
+                  <div style="display:flex;justify-content:space-between"><span>Workforce:</span> <strong style="color:var(--primary)">${cEmps.length} Employees</strong></div>
                   <div style="display:flex;justify-content:space-between"><span>Monthly Payroll:</span> <strong style="font-family:monospace;color:var(--success)">PKR ${cPayroll.toLocaleString()}</strong></div>
                   <div style="display:flex;justify-content:space-between"><span>Attendance:</span> <strong style="color:var(--primary)">${cAttRate}% Present</strong></div>
                   <div style="display:flex;justify-content:space-between"><span>NTN / Bank:</span> <span style="font-size:10px;color:var(--text-3)">${c.ntn} • ${c.disbursementBank?.split(' ')[0] || 'Bank'}</span></div>
