@@ -96,35 +96,28 @@ const Attendance = {
       return s.status === 'pending_peer' || s.status === 'peer_accepted';
     }).length;
 
-    // Role-specific Tab Navigation (Strictly scoping attendance views)
+    // Role-specific Tab Navigation: 4 Clean Lifecycle Stages
     let tabs = [];
     if (isEmployee) {
       tabs = [
-        { id:'my_attendance', label:'My Attendance' },
-        { id:'machine',       label:'My Machine Punch Logs', icon:'fa-fingerprint' },
-        { id:'corrections',   label:'Corrections & WFH', badge: pendingCorrections },
-        { id:'timesheets',    label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>t.employeeId===myEmpId && t.status==='submitted').length },
+        { id:'my_attendance', label:'My Attendance & Punch', icon:'fa-user-clock' },
+        { id:'machine',       label:'My Machine Logs', icon:'fa-fingerprint' },
+        { id:'corrections',   label:'Regularization & Timesheets', icon:'fa-clipboard-check', badge: pendingCorrections },
       ];
     } else if (isManager) {
       tabs = [
-        { id:'my_attendance',  label:'My Attendance' },
-        { id:'my_employees',   label:'My Employees Attendance', icon: 'fa-users-line' },
-        { id:'machine',        label:'Team Machine Punch Logs', icon: 'fa-fingerprint' },
-        { id:'roster',         label:'Shift Roster & Swaps', badge: pendingSwaps },
-        { id:'timesheets',     label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>scopedIds.includes(t.employeeId) && t.status==='submitted').length },
-        { id:'corrections',    label:'Corrections & WFH', badge: pendingCorrections },
+        { id:'my_attendance',  label:'My Attendance & Punch', icon:'fa-user-clock' },
+        { id:'my_employees',   label:'Team Attendance & Biometrics', icon:'fa-users-line' },
+        { id:'roster',         label:'Shift Rosters & Swaps', icon:'fa-calendar-days', badge: pendingSwaps },
+        { id:'corrections',    label:'Regularization & Timesheets', icon:'fa-clipboard-check', badge: pendingCorrections },
       ];
     } else {
       // Super Admin and HR Manager
       tabs = [
-        { id:'my_attendance', label:'My Attendance' },
-        { id:'my_employees',  label:'My Employees Attendance', icon: 'fa-users-line' },
-        { id:'machine',       label:'Biometric Machine Punch Hub', icon:'fa-fingerprint' },
-        { id:'roster',        label:'Shift Roster & Swaps', badge: pendingSwaps },
-        { id:'geofence',      label:'Geo-Fence & IP Check' },
-        { id:'timesheets',    label:'Project Timesheets & Billing', badge: (DB.get('timesheets')||[]).filter(t=>t.status==='submitted').length },
-        { id:'manual',        label:'Manual Entry' },
-        { id:'corrections',   label:'Corrections & WFH', badge: pendingCorrections },
+        { id:'my_attendance', label:'My Attendance & Punch', icon:'fa-user-clock' },
+        { id:'my_employees',  label:'Attendance Register & Biometrics', icon:'fa-users-line' },
+        { id:'roster',        label:'Shift Rosters & Work Rules', icon:'fa-calendar-days', badge: pendingSwaps },
+        { id:'corrections',   label:'Regularization & Timesheets', icon:'fa-clipboard-check', badge: pendingCorrections },
       ];
     }
 
@@ -193,12 +186,12 @@ const Attendance = {
           </div>
         `}
 
-        <!-- View Tabs + Actions -->
+        <!-- View Tabs: 4 Clean Lifecycle Stages -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-          <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;flex-wrap:wrap">
+          <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;flex-wrap:wrap">
             ${tabs.map(t => `
-              <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Attendance.switchView('${t.id}')">
-                ${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
+              <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Attendance.switchView('${t.id}')">
+                <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
               </button>
             `).join('')}
           </div>
@@ -230,6 +223,14 @@ const Attendance = {
     this.renderView();
   },
 
+  isTabActive(tabId) {
+    if (tabId === 'my_attendance') return this.currentView === 'my_attendance';
+    if (tabId === 'my_employees') return ['my_employees', 'machine', 'manual', 'daily', 'monthly', 'employee', 'dept'].includes(this.currentView);
+    if (tabId === 'roster') return ['roster', 'geofence'].includes(this.currentView);
+    if (tabId === 'corrections') return ['corrections', 'timesheets'].includes(this.currentView);
+    return this.currentView === tabId;
+  },
+
   switchView(view) {
     const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
     const employeeAllowed = ['my_attendance', 'machine', 'corrections', 'timesheets'];
@@ -256,10 +257,10 @@ const Attendance = {
 
     this.currentView = view;
     this.renderView();
-    // Re-identify buttons by their onclick
-    document.querySelectorAll('[onclick*="Attendance.switchView"]').forEach(b => {
-      const m = b.getAttribute('onclick').match(/'([^']+)'/);
-      if (m) b.classList.toggle('active', m[1] === view);
+    // Update active state on tab toggle buttons
+    document.querySelectorAll('.tab-toggle-btn[data-tab]').forEach(b => {
+      const tabId = b.getAttribute('data-tab');
+      if (tabId) b.classList.toggle('active', this.isTabActive(tabId));
     });
   },
 
@@ -780,6 +781,23 @@ const Attendance = {
 
     container.innerHTML = `
       <div class="animate-fade-in">
+        <!-- Stage 2 Sub-Navigation -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+            <button class="btn btn-sm ${this.currentView==='my_employees'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('my_employees')">
+              <i class="fa fa-users-line"></i> 4-in-1 Attendance Register
+            </button>
+            <button class="btn btn-sm ${this.currentView==='machine'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('machine')">
+              <i class="fa fa-fingerprint"></i> Biometric Machine Hub
+            </button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBulkAttendance()"><i class="fa fa-users-line"></i> Bulk Mark</button>` : ''}
+            ${isAdmin ? `<button class="btn btn-primary btn-sm" onclick="Attendance.showMarkAttendance()"><i class="fa fa-plus"></i> Mark Attendance</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
+          </div>
+        </div>
+
         <!-- Header & Dropdown Filter Control Bar -->
         <div class="card" style="padding:16px 20px;margin-bottom:18px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.03)">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
@@ -1647,6 +1665,21 @@ const Attendance = {
     const att = DB.get('attendance').filter(a => a.date === this.currentDate && scopedIds.includes(a.employeeId));
 
     container.innerHTML = `
+      <!-- Stage 4 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='corrections'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('corrections')">
+            <i class="fa fa-clipboard-check"></i> Attendance Regularization &amp; WFH
+          </button>
+          <button class="btn btn-sm ${this.currentView==='timesheets'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('timesheets')">
+            <i class="fa fa-business-time"></i> Project Timesheets &amp; Billing
+          </button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="Attendance.showApplyCorrectionModal()">
+          <i class="fa fa-plus"></i> Apply Correction / WFH
+        </button>
+      </div>
+
       <div class="card" style="padding:0">
         <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div style="display:flex;align-items:center;gap:10px">
@@ -2080,6 +2113,24 @@ const Attendance = {
     };
 
     container.innerHTML = `
+      <!-- Stage 2 Sub-Navigation -->
+      ${!isEmployee ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+            <button class="btn btn-sm ${this.currentView==='my_employees'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('my_employees')">
+              <i class="fa fa-users-line"></i> 4-in-1 Attendance Register
+            </button>
+            <button class="btn btn-sm ${this.currentView==='machine'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('machine')">
+              <i class="fa fa-fingerprint"></i> Biometric Machine Hub
+            </button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showZKTecoUploadModal()"><i class="fa fa-file-import"></i> Import ZKTeco Log</button>` : ''}
+            <button class="btn btn-ghost btn-sm" onclick="Attendance.exportMachineLogs()"><i class="fa fa-file-export"></i> Export Logs</button>
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Header Banner & Scoping Notice -->
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap;gap:12px">
         <div>
@@ -3926,6 +3977,27 @@ const Attendance = {
     const weekLabel = `${new Date(days[0]).toLocaleDateString('en', { month:'short', day:'numeric' })} &ndash; ${new Date(days[6]).toLocaleDateString('en', { month:'short', day:'numeric', year:'numeric' })}`;
 
     container.innerHTML = `
+      <!-- Stage 3 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='roster'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('roster')">
+            <i class="fa fa-calendar-days"></i> Shift Rosters &amp; Swaps
+          </button>
+          ${!isEmployee && !isManager ? `
+            <button class="btn btn-sm ${this.currentView==='geofence'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('geofence')">
+              <i class="fa fa-location-dot"></i> Geo-Fence &amp; IP Rules
+            </button>
+            <button class="btn btn-sm btn-ghost" onclick="Attendance.showTimeInWindowConfig()">
+              <i class="fa fa-clock"></i> Time-In Windows
+            </button>
+          ` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${!isEmployee ? `<button class="btn btn-primary btn-sm" onclick="Attendance.showAssignShiftModal()"><i class="fa fa-plus"></i> Assign Shift</button>` : ''}
+          <button class="btn btn-secondary btn-sm" onclick="Attendance.showRequestSwapModal()"><i class="fa fa-right-left"></i> Request Shift Swap</button>
+        </div>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
         <div>
           <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
@@ -4376,6 +4448,25 @@ const Attendance = {
     const geofences = DB.get('branch_geofences') || [];
 
     container.innerHTML = `
+      <!-- Stage 3 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='roster'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('roster')">
+            <i class="fa fa-calendar-days"></i> Shift Rosters &amp; Swaps
+          </button>
+          <button class="btn btn-sm ${this.currentView==='geofence'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('geofence')">
+            <i class="fa fa-location-dot"></i> Geo-Fence &amp; IP Rules
+          </button>
+          <button class="btn btn-sm btn-ghost" onclick="Attendance.showTimeInWindowConfig()">
+            <i class="fa fa-clock"></i> Time-In Windows
+          </button>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="Attendance.testIPWhitelist()"><i class="fa fa-network-wired"></i> Test IP Whitelist</button>
+          <button class="btn btn-primary btn-sm" onclick="Attendance.testCurrentGPSLocation()"><i class="fa fa-crosshairs"></i> Test GPS Perimeter</button>
+        </div>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
         <div>
           <h2 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
@@ -4840,6 +4931,29 @@ const Attendance = {
     const isManagerOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager' || Auth.role === 'dept_manager';
 
     container.innerHTML = `
+      <!-- Stage 4 Sub-Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.currentView==='corrections'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('corrections')">
+            <i class="fa fa-clipboard-check"></i> Attendance Regularization &amp; WFH
+          </button>
+          <button class="btn btn-sm ${this.currentView==='timesheets'?'btn-primary':'btn-ghost'}" onclick="Attendance.switchView('timesheets')">
+            <i class="fa fa-business-time"></i> Project Timesheets &amp; Billing
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="Attendance.syncTimesheetsToPayroll()" title="Bridge approved weekly hours > 40 into payroll overtime">
+            <i class="fa fa-money-bill-transfer"></i> Sync Overtime to Payroll
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="Attendance.exportTimesheetsCSV()">
+            <i class="fa fa-file-export"></i> Export CSV
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="Attendance.showLogTimesheetModal()">
+            <i class="fa fa-plus"></i> Log Project Hours
+          </button>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
