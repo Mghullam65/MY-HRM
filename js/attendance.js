@@ -3968,6 +3968,9 @@ const Attendance = {
   },
 
   renderShiftRoster(container) {
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isManager = Auth.role === 'dept_manager';
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     const emps = this.getScopedEmployees();
     const days = this.getRosterDays();
     const shifts = DB.get('shifts') || [];
