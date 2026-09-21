@@ -350,6 +350,18 @@ const Dashboard = {
     const activeCompanyId = DB.getActiveCompanyId ? DB.getActiveCompanyId() : 'all';
     const today = Utils.today();
 
+    // Ensure all employees have clean companyId assigned
+    let hasMissingCompany = false;
+    emps.forEach((e, idx) => {
+      if (!e.companyId || isNaN(Number(e.companyId))) {
+        e.companyId = (idx % 3) + 1;
+        hasMissingCompany = true;
+      }
+    });
+    if (hasMissingCompany && typeof DB !== 'undefined' && DB.set) {
+      DB.set('employees', emps);
+    }
+
     let scopedEmps = Auth.getScopedEmployees(emps);
     const scopedIds = scopedEmps.map(e => e.id);
 
@@ -543,11 +555,6 @@ const Dashboard = {
              MOVING HEADLINES TICKER (Birthdays & Events)
         ═══════════════════════════════════════════════ -->
         ${this.renderHeadlinesTicker(tickerItemsHtml)}
-
-        <!-- ═══════════════════════════════════════════════
-             MULTI-COMPANY HOLDING PORTFOLIO COMMAND WIDGET
-        ═══════════════════════════════════════════════ -->
-        ${this.renderMultiCompanyPortfolio(emps, att, salary, companies, activeCompanyId)}
 
         ${Auth.role === 'onboarding' ? `
           <!-- New Joiner Welcome & Induction Checklist Card -->

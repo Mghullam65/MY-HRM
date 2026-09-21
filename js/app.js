@@ -1741,9 +1741,6 @@ const Login = {
         Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}!`);
         App.showApp();
         App.navigate('dashboard', null, true);
-        if (Auth.role === 'superadmin' && typeof Company !== 'undefined') {
-          setTimeout(() => Company.showWorkspaceSwitchModal(), 350);
-        }
       } else {
         errEl.classList.remove('hidden');
         errMsg.textContent = result.message;
