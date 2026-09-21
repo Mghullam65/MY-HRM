@@ -12,7 +12,7 @@ const Employees = {
     if (['current', 'ex', 'all', 'directory', 'orgchart'].includes(this.currentView)) return 'directory';
     if (['edms', 'doc_expiry'].includes(this.currentView)) return 'edms';
     if (['hr_letters', 'discipline'].includes(this.currentView)) return 'hr_letters';
-    if (['dependents_events', 'exit_clearance'].includes(this.currentView)) return 'dependents_events';
+    if (['dependents_events', 'exit_clearance', 'settlement'].includes(this.currentView)) return 'dependents_events';
     return 'directory';
   },
 
@@ -29,13 +29,13 @@ const Employees = {
     const myEmpId = Auth.employee?.id;
 
     // Staff role subtab access guard: includes exit_clearance
-    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance'];
+    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance', 'settlement'];
     if (isStaff && !staffAllowedViews.includes(this.currentView)) {
       this.currentView = 'directory';
     }
 
     // Deputy Manager access guard: access to team views across the 4 stages
-    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance'];
+    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance', 'settlement'];
     if (isDeptMgr && !deptMgrAllowedViews.includes(this.currentView)) {
       this.currentView = 'current';
     }
@@ -56,6 +56,12 @@ const Employees = {
       ? (DB.get('warning_letters')||[]).filter(w=>w.employeeId===myEmpId && !w.acknowledged).length 
       : (DB.get('disciplinary_actions')||[]).filter(a=>a.status==='under_investigation').length;
 
+
+    const allSettlements = DB.get('settlements') || [];
+    const pendingSettlements = isStaff
+      ? allSettlements.filter(s => s.employeeId === myEmpId && s.settlementStatus !== 'disbursed').length
+      : allSettlements.filter(s => s.settlementStatus === 'under_clearance' || s.settlementStatus === 'draft').length;
+    const stage4Badge = (pendingExits + pendingSettlements) || null;
     const scopedAllEmps = Auth.getScopedEmployees(DB.get('employees') || []);
     const activeCount = scopedAllEmps.filter(e => e.status === 'active').length;
     const exCount = scopedAllEmps.filter(e => e.status === 'inactive').length;
@@ -68,14 +74,14 @@ const Employees = {
         { id:'directory',         label:'Directory & Org Chart', icon:'fa-users' },
         { id:'edms',              label:'My Document Vault & Expiries', icon:'fa-folder-open', badge: urgentDocs || null },
         { id:'hr_letters',        label:'My Letters & Disciplinary Notices', icon:'fa-file-signature', badge: pendingDiscipline || null },
-        { id:'dependents_events', label:'Dependents & Exit Clearance (F&F)', icon:'fa-people-roof', badge: pendingExits || null },
+        { id:'dependents_events', label:'Life Events, Exit & Settlements (F&F)', icon:'fa-people-roof', badge: stage4Badge },
       ];
     } else if (isDeptMgr) {
       tabs = [
         { id:'directory',         label:'Team Directory & Hierarchy', icon:'fa-users', badge: totalCount },
         { id:'edms',              label:'Team Documents & Expiries', icon:'fa-folder-open', badge: urgentDocs || null },
         { id:'hr_letters',        label:'Official Letters & Compliance', icon:'fa-file-signature', badge: pendingDiscipline || null },
-        { id:'dependents_events', label:'Life Events & Team Exits', icon:'fa-people-roof', badge: pendingExits || null },
+        { id:'dependents_events', label:'Life Events, Exit & Settlements (F&F)', icon:'fa-people-roof', badge: stage4Badge },
       ];
     } else {
       // Super Admin & HR Manager: 4 Clean Lifecycle Stages
@@ -83,7 +89,7 @@ const Employees = {
         { id:'directory',         label:'Directory & Hierarchy', icon:'fa-users', badge: totalCount },
         { id:'edms',              label:'Document Vault & Compliance', icon:'fa-folder-open', badge: urgentDocs || null },
         { id:'hr_letters',        label:'Official Letters & Disciplinary Hub', icon:'fa-file-signature', badge: pendingDiscipline || null },
-        { id:'dependents_events', label:'Life Events & Exit Clearance (F&F)', icon:'fa-people-roof', badge: pendingExits || null },
+        { id:'dependents_events', label:'Life Events, Exit & Settlements (F&F)', icon:'fa-people-roof', badge: stage4Badge },
       ];
     }
 
@@ -148,18 +154,21 @@ const Employees = {
           </div>
         ` : this.getActiveStage() === 'dependents_events' ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
-            <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+            <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px;flex-wrap:wrap">
               <button class="btn btn-sm ${this.currentView==='dependents_events'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('dependents_events')">
                 <i class="fa fa-people-roof"></i> Dependents &amp; Life Events
               </button>
               <button class="btn btn-sm ${this.currentView==='exit_clearance'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('exit_clearance')">
-                <i class="fa fa-user-minus"></i> Exit Clearance &amp; Handover (F&amp;F) ${pendingExits > 0 ? `<span class="badge badge-warning" style="margin-left:4px;font-size:10px">${pendingExits} Pending</span>` : ''}
+                <i class="fa fa-user-minus"></i> Exit Clearance &amp; Handover ${pendingExits > 0 ? `<span class="badge badge-warning" style="margin-left:4px;font-size:10px">${pendingExits} Pending</span>` : ''}
+              </button>
+              <button class="btn btn-sm ${this.currentView==='settlement'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('settlement')">
+                <i class="fa fa-file-invoice-dollar"></i> Full &amp; Final (F&amp;F) Settlements ${pendingSettlements > 0 ? `<span class="badge badge-primary" style="margin-left:4px;font-size:10px">${pendingSettlements}</span>` : ''}
               </button>
             </div>
           </div>
         ` : ''}
 
-        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms','discipline'].includes(this.currentView) ? `
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms','discipline','settlement'].includes(this.currentView) ? `
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="search-box">
@@ -241,6 +250,14 @@ const Employees = {
     }
     if (this.currentView === 'doc_expiry') {
       this.renderDocExpiry(container);
+      return;
+    }
+    if (this.currentView === 'settlement') {
+      if (typeof Settlement !== 'undefined' && Settlement.render) {
+        Settlement.render(container);
+      } else {
+        container.innerHTML = '<div class="empty-state"><i class="fa fa-file-invoice-dollar"></i><h3>Settlement Module</h3><p>Loading...</p></div>';
+      }
       return;
     }
     if (this.currentView === 'exit_clearance') {

@@ -673,8 +673,9 @@ const App = {
       }
     }
     // Update active nav item
+    const activeSidebarMod = (module === 'settlement') ? 'employees' : module;
     document.querySelectorAll('.nav-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.module === module);
+      el.classList.toggle('active', el.dataset.module === activeSidebarMod);
     });
 
     this.currentModule = module;
@@ -714,7 +715,15 @@ const App = {
           case 'attendance':    Attendance.render(); break;
           case 'leaves':        Leaves.render(); break;
           case 'payroll':       Payroll.render(); break;
-          case 'settlement':    Settlement.render(); break;
+          case 'settlement':
+            this.currentModule = 'employees';
+            if (typeof Employees !== 'undefined') {
+              Employees.currentView = 'settlement';
+              Employees.render();
+            } else if (typeof Settlement !== 'undefined') {
+              Settlement.render();
+            }
+            break;
           case 'companies':     Company.render(); break;
           case 'performance':   Performance.render(); break;
           case 'recruitment':   Recruitment.render(); break;

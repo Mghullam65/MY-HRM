@@ -18,8 +18,15 @@ const Settlement = {
     return typeof Auth !== 'undefined' && Auth.role === 'dept_manager';
   },
 
-  render() {
-    const content = document.getElementById('page-content');
+  render(targetContainer) {
+    let content = targetContainer;
+    if (!content) {
+      if (document.getElementById('emp-content') && (window.location.hash.includes('employees') || (typeof Employees !== 'undefined' && Employees.currentView === 'settlement'))) {
+        content = document.getElementById('emp-content');
+      } else {
+        content = document.getElementById('page-content');
+      }
+    }
     if (!content) return;
 
     const isAdmin = this.isAdmin();
@@ -158,7 +165,7 @@ const Settlement = {
                   <th style="padding:12px 16px;text-align:right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="settlement-tbody">
                 ${this.renderTableRows(settlements)}
               </tbody>
             </table>
@@ -272,7 +279,7 @@ const Settlement = {
 
   handleSearch(val) {
     this.searchTerm = val;
-    const tbody = document.querySelector('tbody');
+    const tbody = document.getElementById('settlement-tbody') || document.querySelector('tbody');
     if (tbody) {
       const settlements = DB.get('settlements') || [];
       tbody.innerHTML = this.renderTableRows(settlements);
@@ -281,7 +288,7 @@ const Settlement = {
 
   handleStatusFilter(val) {
     this.filterStatus = val;
-    const tbody = document.querySelector('tbody');
+    const tbody = document.getElementById('settlement-tbody') || document.querySelector('tbody');
     if (tbody) {
       const settlements = DB.get('settlements') || [];
       tbody.innerHTML = this.renderTableRows(settlements);

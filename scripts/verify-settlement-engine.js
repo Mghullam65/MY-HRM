@@ -83,12 +83,13 @@ console.log(`  ✔ Net Equation: Gross PKR ${gross.toLocaleString()} - Deduction
 // 3. Admin Permissions & Role Prohibitions
 console.log('\n▶ Test 3: Verifying Admin Rights & Non-Admin Prohibitions...');
 const authCode = fs.readFileSync(path.join(__dirname, '../js/auth.js'), 'utf8');
+  const empCode = fs.readFileSync(path.join(__dirname, '../js/employees.js'), 'utf8');
 
 assert(authCode.includes('isAdmin()'), 'auth.js must include isAdmin() helper');
 assert(authCode.includes("'settlement.add'"), 'auth.js must restrict settlement.add');
 assert(authCode.includes("'settlement.edit'"), 'auth.js must restrict settlement.edit');
 assert(authCode.includes("'settlement.delete'"), 'auth.js must restrict settlement.delete');
-assert(authCode.includes("'settlement'"), 'auth.js must register settlement in sidebar');
+assert(empCode.includes("'settlement'"), 'employees.js must integrate settlement in Stage 4');
 console.log('  ✔ Auth: Strict Admin CRUD protection enforced for Add, Edit, Delete, and Recalculate.');
 
 // 4. Source Files & Script Inclusions
@@ -116,6 +117,8 @@ const syncedFiles = [
   'js/auth.js',
   'js/app.js',
   'js/payroll.js',
+  'js/employees.js',
+  'js/performance.js',
   'index.html'
 ];
 
