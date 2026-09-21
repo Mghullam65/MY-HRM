@@ -41,17 +41,10 @@ const Payroll = {
       { id:'tax', label:'Tax & Slabs', icon:'fa-scale-balanced' },
       { id:'loans', label:'My Loans', icon:'fa-hand-holding-dollar' },
     ] : [
-      { id:'salary', label:'Salary Processing', icon:'fa-money-check' },
-      { id:'tax', label:'FBR Tax Engine', icon:'fa-scale-balanced' },
-      { id:'bank_advice', label:'Bank Advice', icon:'fa-building-columns' },
-      { id:'statutory', label:'Statutory Ledgers', icon:'fa-landmark-dome' },
-      { id:'allowances', label:'Allowances', icon:'fa-circle-plus' },
-      { id:'deductions', label:'Deductions', icon:'fa-circle-minus' },
-      { id:'structures', label:'Salary Structures', icon:'fa-layer-group' },
-      { id:'loans', label:'Loans', icon:'fa-hand-holding-dollar' },
-      { id:'slips', label:'Payslips', icon:'fa-file-invoice-dollar' },
-      { id:'pf', label:'Provident Fund', icon:'fa-piggy-bank' },
-      { id:'settlements', label:'Exit & Settlements', icon:'fa-file-invoice-dollar' },
+      { id:'salary', label:'Salary Processing & Slips', icon:'fa-money-check-dollar' },
+      { id:'bank_advice', label:'Disbursal & Bank Advice', icon:'fa-building-columns' },
+      { id:'tax', label:'FBR Tax & Statutory Ledgers', icon:'fa-scale-balanced' },
+      { id:'loans', label:'Loans & Advances', icon:'fa-hand-holding-dollar' },
     ];
 
     content.innerHTML = `
@@ -118,15 +111,12 @@ const Payroll = {
     if (!container) return;
     switch(this.currentView) {
       case 'salary':      this.renderSalary(container); break;
-      case 'tax':         this.renderTaxEngine(container); break;
       case 'bank_advice': this.renderBankAdvice(container); break;
-      case 'statutory':   this.renderStatutoryLedgers(container); break;
-      case 'allowances':  this.renderAllowances(container); break;
-      case 'deductions':  this.renderDeductions(container); break;
-      case 'structures':  this.renderSalaryStructures(container); break;
+      case 'tax':         this.renderTaxEngine(container); break;
       case 'loans':       this.renderLoans(container); break;
       case 'slips':       this.renderSlips(container); break;
       case 'pf':          this.renderProvidentFund(container); break;
+      default:            this.renderSalary(container); break;
     }
   },
 
@@ -4503,6 +4493,93 @@ const Payroll = {
           </table>
         </div>
       </div>
+
+      <!-- ════════════════════════════════════════════════════════════
+           CHANNEL B: CASH REMITTANCE & PHYSICAL DISBURSEMENT SCHEDULE
+      ════════════════════════════════════════════════════════════ -->
+      <div class="card" style="margin-top:24px;padding:0;border:1.5px solid rgba(245,158,11,0.35)">
+        <div style="padding:16px 20px;background:rgba(245,158,11,0.06);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="width:28px;height:28px;border-radius:8px;background:#f59e0b;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px">
+                <i class="fa fa-money-bill-wave"></i>
+              </span>
+              <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text)">
+                Channel B: Cash Remittance &amp; Physical Disbursement Schedule
+              </h3>
+              <span class="badge badge-warning" style="font-size:10px;font-weight:700">Untaxed Salary Splitter Allocation</span>
+            </div>
+            <p style="margin:4px 0 0 36px;font-size:11.5px;color:var(--text-3)">
+              Personnel whose monthly gross exceeds their legal Splitter cap. Disbursed physically via company cash packets with signed recipient vouchers.
+            </p>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportCashRemittanceCSV('${this.currentMonth}')">
+              <i class="fa fa-file-csv"></i> Download Cash Remittances (CSV)
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Payroll.printCashRemittanceSheet('${this.currentMonth}')" style="background:#f59e0b;border-color:#f59e0b;font-weight:700">
+              <i class="fa fa-print"></i> Print Cash Sign-off Sheet
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr#</th>
+                <th>Employee / Recipient</th>
+                <th>Department</th>
+                <th>Designation</th>
+                <th>Splitter Cap</th>
+                <th>Gross Salary</th>
+                <th>Cash Remittance Amount</th>
+                <th>Disbursement Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(() => {
+                const cashEmps = emps.filter(e => {
+                  const s = salaries.find(x => x.employeeId === e.id);
+                  return (Number(s?.cash_remittances || s?.cashRemittances || 0) > 0) || (Number(e.salary || 0) > Number(e.splitter || e.salary || 0));
+                });
+
+                if (cashEmps.length === 0) {
+                  return `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-3)">No cash remittances queued for ${this.currentMonth}. All personnel gross salaries are within their Splitter limits.</td></tr>`;
+                }
+
+                return cashEmps.map((emp, idx) => {
+                  const s = salaries.find(x => x.employeeId === emp.id);
+                  const gross = Number(s?.grossSalary || emp.salary || 0);
+                  const splitter = Number(emp.splitter || gross);
+                  const cashAmt = Number(s?.cash_remittances || s?.cashRemittances || (gross > splitter ? gross - splitter : 0));
+
+                  return `
+                    <tr>
+                      <td>${idx + 1}</td>
+                      <td>
+                        <div style="font-weight:700;font-size:13px">${emp.fullName}</div>
+                        <div style="font-size:11px;color:var(--text-3)">${emp.empNo} &bull; CNIC: ${emp.cnic || 'N/A'}</div>
+                      </td>
+                      <td>${emp.department || 'Operations'}</td>
+                      <td>${emp.designation || 'Staff'}</td>
+                      <td style="font-family:monospace;font-weight:600">PKR ${splitter.toLocaleString()}</td>
+                      <td style="font-family:monospace;font-weight:600">PKR ${gross.toLocaleString()}</td>
+                      <td style="font-weight:900;color:#d97706;font-size:14px;font-family:monospace">
+                        PKR ${cashAmt.toLocaleString()}
+                      </td>
+                      <td>
+                        <span class="badge badge-warning" style="font-weight:700">Envelope Ready</span>
+                      </td>
+                    </tr>
+                  `;
+                }).join('');
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
     `;
   },
 
@@ -4792,6 +4869,114 @@ const Payroll = {
       </html>
     `);
     w.document.close();
+  },
+
+  printCashRemittanceSheet(targetMonth = this.currentMonth) {
+    const salaries = (DB.get('salary') || []).filter(s => s.month === targetMonth);
+    const emps = typeof Auth !== 'undefined' && Auth.getScopedEmployees 
+      ? Auth.getScopedEmployees().filter(e => e.status === 'active')
+      : DB.get('employees').filter(e => e.status === 'active');
+
+    const activeComp = (typeof Company !== 'undefined' && Company.getActive) 
+      ? Company.getActive() 
+      : { name: 'Apex Technologies (Pvt) Ltd', ntn: '8849201-1' };
+
+    const cashRows = [];
+    let grandTotalCash = 0;
+
+    emps.forEach(emp => {
+      const s = salaries.find(x => x.employeeId === emp.id);
+      const gross = Number(s?.grossSalary || emp.salary || 0);
+      const splitter = Number(emp.splitter || gross);
+      const cashAmt = Number(s?.cash_remittances || s?.cashRemittances || (gross > splitter ? gross - splitter : 0));
+      if (cashAmt > 0) {
+        grandTotalCash += cashAmt;
+        cashRows.push({
+          sr: cashRows.length + 1,
+          empNo: emp.empNo,
+          name: emp.fullName,
+          cnic: emp.cnic || '42101-xxxxxxx-x',
+          dept: emp.department || 'Operations',
+          amount: cashAmt
+        });
+      }
+    });
+
+    const monthLabel = new Date(targetMonth + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' });
+    const cashInWords = (typeof this.numberToWords === 'function') ? this.numberToWords(grandTotalCash) : `${grandTotalCash.toLocaleString()} Rupees Only`;
+
+    Modal.show('Cash Remittance Disbursement Voucher', `
+      <div id="cash-sheet-print-area" style="background:#fff;color:#0f172a;padding:32px 36px;border-radius:8px;font-family:'Segoe UI',Roboto,Helvetica,sans-serif;max-width:850px;margin:0 auto">
+        <!-- Letterhead -->
+        <div style="border-bottom:2px solid #d97706;padding-bottom:14px;margin-bottom:18px;display:flex;justify-content:space-between;align-items:flex-end">
+          <div>
+            <h2 style="margin:0;font-size:18px;font-weight:900;color:#0f172a;letter-spacing:0.5px">${activeComp.name.toUpperCase()}</h2>
+            <div style="font-size:11.5px;color:#475569;margin-top:2px">TREASURY &amp; CASH DISBURSEMENT DIVISION &bull; NTN: ${activeComp.ntn}</div>
+            <div style="font-size:13px;font-weight:800;color:#d97706;margin-top:4px">PHYSICAL CASH REMITTANCE VOUCHER &amp; RECIPIENT SIGN-OFF SHEET</div>
+          </div>
+          <div style="text-align:right;font-size:11.5px;color:#475569">
+            <div><strong>Month:</strong> ${monthLabel}</div>
+            <div><strong>Date:</strong> ${Utils.today()}</div>
+          </div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;font-size:11.5px">
+          <thead>
+            <tr style="background:#f8fafc;border-bottom:1.5px solid #cbd5e1">
+              <th style="padding:8px;text-align:left;border:1px solid #cbd5e1">Sr#</th>
+              <th style="padding:8px;text-align:left;border:1px solid #cbd5e1">Code</th>
+              <th style="padding:8px;text-align:left;border:1px solid #cbd5e1">Recipient Full Name</th>
+              <th style="padding:8px;text-align:left;border:1px solid #cbd5e1">CNIC</th>
+              <th style="padding:8px;text-align:left;border:1px solid #cbd5e1">Department</th>
+              <th style="padding:8px;text-align:right;border:1px solid #cbd5e1">Cash Remittance (PKR)</th>
+              <th style="padding:8px;text-align:center;border:1px solid #cbd5e1;width:160px">Recipient Signature / Thumbprint</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cashRows.length === 0 ? `
+              <tr><td colspan="7" style="text-align:center;padding:20px;color:#64748b">No cash remittances recorded for this payroll cycle. All salaries fall within legal splitter thresholds.</td></tr>
+            ` : cashRows.map(r => `
+              <tr>
+                <td style="padding:8px;border:1px solid #cbd5e1">${r.sr}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1;font-weight:600">${r.empNo}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1;font-weight:700">${r.name}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1">${r.cnic}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1">${r.dept}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1;text-align:right;font-weight:800;font-family:monospace">PKR ${r.amount.toLocaleString()}</td>
+                <td style="padding:8px;border:1px solid #cbd5e1;height:36px"></td>
+              </tr>
+            `).join('')}
+            <tr style="background:#fef3c7;font-weight:900">
+              <td colspan="5" style="padding:10px;border:1px solid #cbd5e1;text-align:right">TOTAL PHYSICAL CASH REQUIRED:</td>
+              <td style="padding:10px;border:1px solid #cbd5e1;text-align:right;font-family:monospace;font-size:13px;color:#b45309">PKR ${grandTotalCash.toLocaleString()}</td>
+              <td style="padding:10px;border:1px solid #cbd5e1;text-align:center;font-size:10px">${cashRows.length} Payees</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="font-size:11px;color:#475569;margin-bottom:28px">
+          <strong>Amount in Words:</strong> <span style="font-style:italic">${cashInWords}</span>
+        </div>
+
+        <!-- Signature blocks -->
+        <div style="display:flex;justify-content:space-between;margin-top:40px;padding-top:12px;border-top:1px solid #cbd5e1;font-size:11px">
+          <div style="text-align:center;width:180px">
+            <div style="border-top:1px solid #94a3b8;padding-top:4px">Disbursing Cashier</div>
+          </div>
+          <div style="text-align:center;width:180px">
+            <div style="border-top:1px solid #94a3b8;padding-top:4px">HR Manager</div>
+          </div>
+          <div style="text-align:center;width:180px">
+            <div style="border-top:1px solid #94a3b8;padding-top:4px">Finance Director / CFO</div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:24px" class="no-print">
+          <button class="btn btn-primary btn-sm" onclick="window.print()" style="background:#d97706;border-color:#d97706"><i class="fa fa-print"></i> Print Sign-Off Sheet</button>
+          <button class="btn btn-ghost btn-sm" onclick="Modal.close()">Close</button>
+        </div>
+      </div>
+    `);
   },
 
   // ============================================================
