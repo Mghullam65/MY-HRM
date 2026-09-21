@@ -68,7 +68,7 @@ const Assets = {
     container.innerHTML = `
       <div class="animate-fade-in">
         <!-- 4 Clean Lifecycle Stage Tabs -->
-        <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap;border:1px solid var(--border)">
+        <div class="module-stage-tabs">
           ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.isTabActive(t.id) ? 'active' : ''}" onclick="Assets.switchStage('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}

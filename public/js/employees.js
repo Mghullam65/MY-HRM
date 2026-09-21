@@ -96,7 +96,7 @@ const Employees = {
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
-        <div style="display:flex;gap:6px;margin-bottom:20px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap">
+        <div class="module-stage-tabs">
           ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.isTabActive(t.id) ? 'active' : ''}" data-tab="${t.id}" onclick="Employees.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}

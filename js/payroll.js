@@ -63,7 +63,7 @@ const Payroll = {
           `).join('')}
         </div>
 
-        <div style="display:flex;gap:4px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;flex-wrap:wrap">
+        <div class="module-stage-tabs">
           ${tabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Payroll.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
@@ -1263,7 +1263,8 @@ const Payroll = {
     const deductions = existingRec ? Math.max(0, (existingRec.deductions || 0) - pfEmployee - (existingRec.unpaidLeaveDeduction || 0) - (existingRec.loanDeduction || 0)) : 2000;
     const overtime = existingRec ? (existingRec.overtime || 0) : 0;
     const bonus = existingRec ? (existingRec.bonus || 0) : 0;
-    const autoTax = DB.calculateFBRTax(basic + allowances).monthlyTax;
+    const taxableGross = Math.max(0, (basic + allowances) - pfEmployee - (existingRec?.eobiEmployee || 370) - (existingRec?.taxExemptBenefits || 0));
+    const autoTax = DB.calculateFBRTax(taxableGross, selectedEmp).monthlyTax;
     const tax = existingRec ? existingRec.tax : autoTax;
     const net = Math.max(0, basic + allowances + overtime + bonus - (deductions + pfEmployee + unpaidLeaveDeduction + loanDeduction) - tax);
 

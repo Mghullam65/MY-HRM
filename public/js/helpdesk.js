@@ -113,7 +113,7 @@ const Helpdesk = {
       </div>
 
       <!-- 4 Clean Service Stage Tabs -->
-      <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;flex-wrap:wrap;border:1px solid var(--border)">
+      <div class="module-stage-tabs">
         <button class="tab-toggle-btn ${this.isTabActive('tickets')?'active':''}" onclick="Helpdesk.switchStage('tickets')">
           <i class="fa fa-ticket" style="margin-right:6px"></i>Active Support Tickets
           <span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px">${openCount}</span>

@@ -63,7 +63,7 @@ const Performance = {
         </div>
 
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
-        <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border);flex-wrap:wrap">
+        <div class="module-stage-tabs">
           ${[
             { id:'cycles',     label:'Goals, KPIs & Appraisal Cycles', icon:'fa-bullseye' },
             { id:'reviews',    label:'Reviews & 360° Feedback', icon:'fa-clipboard-list' },

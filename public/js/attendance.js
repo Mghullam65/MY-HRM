@@ -188,7 +188,7 @@ const Attendance = {
 
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-          <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;flex-wrap:wrap">
+          <div class="module-stage-tabs">
             ${tabs.map(t => `
               <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Attendance.switchView('${t.id}')">
                 <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}

@@ -65,7 +65,7 @@ const Leaves = {
         </div>
 
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
-        <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;border:1px solid var(--border);flex-wrap:wrap">
+        <div class="module-stage-tabs">
           ${[
             { id:'requests', label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null },
             { id:'calendar', label:'Leave & Holiday Calendar',   icon:'fa-calendar-days' },
