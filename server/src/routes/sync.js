@@ -15,8 +15,8 @@ router.get('/all', (req, res) => {
   }
 });
 
-// GET current version (ultra-lightweight polling check)
-router.get('/version', (req, res) => {
+// GET current version & status (ultra-lightweight polling check)
+router.get(['/version', '/status'], (req, res) => {
   try {
     res.json({ success: true, ...store.getVersion() });
   } catch (err) {

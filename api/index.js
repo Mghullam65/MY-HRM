@@ -18,10 +18,13 @@ const employeeRoutes = require('../server/src/routes/employees');
 const attendanceRoutes = require('../server/src/routes/attendance');
 const leaveRoutes = require('../server/src/routes/leaves');
 const payrollRoutes = require('../server/src/routes/payroll');
+const settlementRoutes = require('../server/src/routes/settlements');
+const companyRoutes = require('../server/src/routes/companies');
 const adminRoutes = require('../server/src/routes/admin');
 const notificationRoutes = require('../server/src/routes/notifications');
 const syncRoutes = require('../server/src/routes/sync');
 const jobsRoutes = require('../server/src/routes/jobs');
+const emailRoutes = require('../server/src/routes/email');
 
 const app = express();
 
@@ -87,10 +90,13 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leaves', leaveRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/settlements', settlementRoutes);
+app.use('/api/companies', companyRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/jobs', jobsRoutes);
+app.use('/api/email', emailRoutes);
 app.use('/api', jobsRoutes);
 
 module.exports = app;
