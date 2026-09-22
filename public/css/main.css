@@ -411,7 +411,7 @@ input, select, textarea { font-family: inherit; }
 .col-12 { grid-column: span 12; }
 
 /* ── TABLES ── */
-.table-wrapper, .table-responsive {
+.table-wrapper, .table-responsive, .table-container {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   width: 100%;
@@ -420,21 +420,21 @@ input, select, textarea { font-family: inherit; }
   border-radius: var(--radius);
   scrollbar-width: thin;
 }
-.table-wrapper {
+.table-wrapper, .table-container {
   border: 1px solid var(--border);
 }
-.table-wrapper::-webkit-scrollbar, .table-responsive::-webkit-scrollbar {
+.table-wrapper::-webkit-scrollbar, .table-responsive::-webkit-scrollbar, .table-container::-webkit-scrollbar {
   height: 6px;
   width: 6px;
 }
-.table-wrapper::-webkit-scrollbar-track, .table-responsive::-webkit-scrollbar-track {
+.table-wrapper::-webkit-scrollbar-track, .table-responsive::-webkit-scrollbar-track, .table-container::-webkit-scrollbar-track {
   background: var(--surface);
 }
-.table-wrapper::-webkit-scrollbar-thumb, .table-responsive::-webkit-scrollbar-thumb {
+.table-wrapper::-webkit-scrollbar-thumb, .table-responsive::-webkit-scrollbar-thumb, .table-container::-webkit-scrollbar-thumb {
   background: var(--border-light);
   border-radius: 4px;
 }
-.table-wrapper::-webkit-scrollbar-thumb:hover, .table-responsive::-webkit-scrollbar-thumb:hover {
+.table-wrapper::-webkit-scrollbar-thumb:hover, .table-responsive::-webkit-scrollbar-thumb:hover, .table-container::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
 table, .table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -458,17 +458,17 @@ tbody tr:hover { background: var(--surface); }
 .tbl-actions { display: flex; gap: 5px; align-items: center; }
 
 /* Table specific button and badge compactness */
-.table-wrapper .btn, .table-responsive .btn {
+.table-wrapper .btn, .table-responsive .btn, .table-container .btn {
   padding: 4px 8px;
   font-size: 11px;
   gap: 4px;
 }
-.table-wrapper .btn.btn-icon, .table-responsive .btn.btn-icon {
+.table-wrapper .btn.btn-icon, .table-responsive .btn.btn-icon, .table-container .btn.btn-icon {
   padding: 4px;
   width: 28px;
   height: 28px;
 }
-.table-wrapper .badge, .table-responsive .badge {
+.table-wrapper .badge, .table-responsive .badge, .table-container .badge {
   padding: 2px 7px;
   font-size: 10.5px;
 }
@@ -556,16 +556,18 @@ textarea.form-control { resize: vertical; min-height: 90px; }
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  width: 100%; max-width: 560px;
+  width: 100%; max-width: min(560px, calc(100vw - 32px));
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   transform: scale(0.95) translateY(10px);
   transition: transform var(--transition);
+  min-width: 0;
+  box-sizing: border-box;
 }
 .modal-overlay.open .modal { transform: scale(1) translateY(0); }
-.modal-lg { max-width: 820px; }
-.modal-xl { max-width: 1100px; }
+.modal-lg { max-width: min(820px, calc(100vw - 32px)); }
+.modal-xl { max-width: min(1100px, calc(100vw - 32px)); }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px 16px;

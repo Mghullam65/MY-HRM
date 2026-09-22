@@ -456,7 +456,7 @@ const Company = {
             <span class="badge" style="font-size:11px">${allEmployees.length} Total Workforce Records</span>
           </div>
 
-          <div class="table-container" style="margin:0">
+          <div class="table-wrapper table-container" style="margin:0">
             <table class="table" style="width:100%;font-size:12px;margin:0">
               <thead>
                 <tr style="background:var(--surface-2);border-bottom:1px solid var(--border)">
