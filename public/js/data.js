@@ -261,6 +261,7 @@ const DB = {
     this.ensureProfileMastersData();
     this.ensureGovernanceMastersData();
     this.ensureLoansData();
+    this.ensureNineModulesData();
     this.ensureReportsSeedData();
   },
 
@@ -4760,6 +4761,342 @@ const DB = {
 
     if (updated) {
       this.set('loans', loans);
+    }
+  },
+
+  ensureNineModulesData() {
+    // 1. Employment Contracts
+    let contracts = this.get('contracts');
+    if (!contracts || !contracts.length) {
+      contracts = [
+        {
+          id: 1,
+          employeeId: 1,
+          contractType: 'Permanent',
+          title: 'Full-Time Permanent Employment Agreement',
+          startDate: '2022-01-10',
+          endDate: null,
+          probationEndDate: '2022-04-10',
+          probationPassed: true,
+          noticePeriodDays: 60,
+          status: 'active',
+          remuneration: 210000,
+          documentUrl: 'documents/contracts/Ahmed_Khan_Contract.pdf',
+          terms: 'Standard permanent terms with full healthcare, gratuity, and provident fund.',
+          renewalHistory: []
+        },
+        {
+          id: 2,
+          employeeId: 2,
+          contractType: 'Fixed-Term',
+          title: 'Fixed-Term Executive Management Contract',
+          startDate: '2025-10-15',
+          endDate: '2026-10-15', // Expiring in ~23 days! Triggers urgent alert
+          probationEndDate: '2025-12-15',
+          probationPassed: true,
+          noticePeriodDays: 30,
+          status: 'expiring_soon',
+          remuneration: 135000,
+          documentUrl: 'documents/contracts/Sara_Malik_Contract.pdf',
+          terms: 'One-year renewable contract subject to board review.',
+          renewalHistory: [
+            { renewedOn: '2025-10-10', previousEnd: '2025-10-14', newEnd: '2026-10-15', renewedBy: 'Super Admin' }
+          ]
+        },
+        {
+          id: 3,
+          employeeId: 3,
+          contractType: 'Probationary',
+          title: 'Initial Probationary Agreement',
+          startDate: '2026-07-01',
+          endDate: '2026-09-30', // Probation ending in 8 days! Triggers probation alert
+          probationEndDate: '2026-09-30',
+          probationPassed: false,
+          noticePeriodDays: 14,
+          status: 'probation',
+          remuneration: 95000,
+          documentUrl: 'documents/contracts/Bilal_Tariq_Probation.pdf',
+          terms: '90-day evaluation period for permanent absorption.',
+          renewalHistory: []
+        },
+        {
+          id: 4,
+          employeeId: 4,
+          contractType: 'Permanent',
+          title: 'Software Engineering Permanent Agreement',
+          startDate: '2023-03-15',
+          endDate: null,
+          probationEndDate: '2023-06-15',
+          probationPassed: true,
+          noticePeriodDays: 30,
+          status: 'active',
+          remuneration: 90000,
+          documentUrl: 'documents/contracts/Fatima_Raza_Contract.pdf',
+          terms: 'Permanent tech cadre with intellectual property and non-compete clauses.',
+          renewalHistory: []
+        },
+        {
+          id: 5,
+          employeeId: 5,
+          contractType: 'Fixed-Term',
+          title: 'Fixed-Term IT Operations Contract',
+          startDate: '2025-08-01',
+          endDate: '2026-08-31', // Expired! Triggers overdue warning
+          probationEndDate: '2025-10-31',
+          probationPassed: true,
+          noticePeriodDays: 30,
+          status: 'expired',
+          remuneration: 75000,
+          documentUrl: 'documents/contracts/Hamza_Siddiqui_Contract.pdf',
+          terms: 'Renewable upon project performance review.',
+          renewalHistory: []
+        },
+        {
+          id: 6,
+          employeeId: 6,
+          contractType: 'Permanent',
+          title: 'Finance Executive Permanent Contract',
+          startDate: '2024-02-01',
+          endDate: null,
+          probationEndDate: '2024-05-01',
+          probationPassed: true,
+          noticePeriodDays: 30,
+          status: 'active',
+          remuneration: 85000,
+          documentUrl: 'documents/contracts/Zainab_Abbas_Contract.pdf',
+          terms: 'Full-time employment agreement with annual bonus structure.',
+          renewalHistory: []
+        }
+      ];
+      this.set('contracts', contracts);
+    }
+
+    // 2. Salary Revisions & History
+    let salaryRevisions = this.get('salary_revisions');
+    if (!salaryRevisions || !salaryRevisions.length) {
+      salaryRevisions = [
+        {
+          id: 1,
+          employeeId: 1,
+          revisionType: 'annual_increment',
+          oldSalary: 180000,
+          newSalary: 210000,
+          incrementAmount: 30000,
+          incrementPct: 16.67,
+          effectiveDate: '2025-07-01',
+          scheduledReviewDate: '2026-07-01', // Due for increment review!
+          reason: 'Annual Performance Appraisal 2025 & Strategic Portfolio Leadership',
+          approvedBy: 'Board of Directors',
+          status: 'applied',
+          createdAt: '2025-06-25'
+        },
+        {
+          id: 2,
+          employeeId: 2,
+          revisionType: 'merit',
+          oldSalary: 120000,
+          newSalary: 135000,
+          incrementAmount: 15000,
+          incrementPct: 12.5,
+          effectiveDate: '2025-01-01',
+          scheduledReviewDate: '2026-01-01', // >11 months ago, overdue reminder!
+          reason: 'Exceptional HR Automation & Compliance Overhaul',
+          approvedBy: 'Ahmed Khan (CEO)',
+          status: 'applied',
+          createdAt: '2024-12-28'
+        },
+        {
+          id: 3,
+          employeeId: 4,
+          revisionType: 'market_correction',
+          oldSalary: 80000,
+          newSalary: 90000,
+          incrementAmount: 10000,
+          incrementPct: 12.5,
+          effectiveDate: '2025-03-01',
+          scheduledReviewDate: '2026-03-01', // Overdue reminder!
+          reason: 'Industry Market Salary Benchmarking Adjustment',
+          approvedBy: 'Sara Malik (HR Manager)',
+          status: 'applied',
+          createdAt: '2025-02-25'
+        },
+        {
+          id: 4,
+          employeeId: 7,
+          revisionType: 'annual_increment',
+          oldSalary: 150000,
+          newSalary: 165000,
+          incrementAmount: 15000,
+          incrementPct: 10.0,
+          effectiveDate: '2025-08-01',
+          scheduledReviewDate: '2026-08-01', // Due for increment review!
+          reason: 'Tech Lead Infrastructure Scalability Delivery',
+          approvedBy: 'Ahmed Khan',
+          status: 'applied',
+          createdAt: '2025-07-28'
+        }
+      ];
+      this.set('salary_revisions', salaryRevisions);
+    }
+
+    // 3. Promotions Workflow
+    let promotions = this.get('promotions');
+    if (!promotions || !promotions.length) {
+      promotions = [
+        {
+          id: 1,
+          employeeId: 4,
+          currentDesignationId: 4, // Junior Software Engineer
+          proposedDesignationId: 3, // Software Engineer
+          currentDepartmentId: 1,
+          proposedDepartmentId: 1,
+          currentGrade: 'L1',
+          proposedGrade: 'L2',
+          currentSalary: 90000,
+          proposedSalary: 110000,
+          incrementAmount: 20000,
+          incrementPct: 22.2,
+          reason: 'Consistently achieved 4.8/5 rating in SPMS appraisal and delivered front-end architectural revamp.',
+          requestedBy: 7, // Usman Baig (Dept Manager)
+          requestDate: '2026-09-18',
+          status: 'pending_hr', // Stages: pending_mgr -> pending_hr -> pending_admin -> approved / rejected
+          approvals: {
+            manager: { status: 'approved', by: 'Usman Baig', date: '2026-09-18', comment: 'Strong technical ownership.' },
+            hr: { status: 'pending', by: null, date: null, comment: null },
+            admin: { status: 'pending', by: null, date: null, comment: null }
+          }
+        },
+        {
+          id: 2,
+          employeeId: 6,
+          currentDesignationId: 6, // Junior Accountant
+          proposedDesignationId: 5, // Accountant
+          currentDepartmentId: 3,
+          proposedDepartmentId: 3,
+          currentGrade: 'A1',
+          proposedGrade: 'A2',
+          currentSalary: 72000,
+          proposedSalary: 85000,
+          incrementAmount: 13000,
+          incrementPct: 18.05,
+          reason: 'Cleared statutory tax audit with zero non-conformances.',
+          requestedBy: 2, // Sara Malik
+          requestDate: '2026-05-15',
+          status: 'approved',
+          completedDate: '2026-06-01',
+          approvals: {
+            manager: { status: 'approved', by: 'Finance Lead', date: '2026-05-16', comment: 'Highly deserving.' },
+            hr: { status: 'approved', by: 'Sara Malik', date: '2026-05-20', comment: 'Approved under merit guidelines.' },
+            admin: { status: 'approved', by: 'Ahmed Khan', date: '2026-05-25', comment: 'Promoted.' }
+          }
+        }
+      ];
+      this.set('promotions', promotions);
+    }
+
+    // 4. Employee Transfers
+    let transfers = this.get('transfers');
+    if (!transfers || !transfers.length) {
+      transfers = [
+        {
+          id: 1,
+          employeeId: 3, // Bilal Tariq
+          transferType: 'branch', // 'branch' | 'department' | 'company' | 'shift'
+          fromBranchId: 1, // Karachi HQ
+          toBranchId: 2,   // Lahore Regional
+          fromDepartmentId: 2,
+          toDepartmentId: 2,
+          fromCompanyId: 1,
+          toCompanyId: 1,
+          effectiveDate: '2026-10-01',
+          reason: 'Strategic expansion to support Lahore operations and client acquisition.',
+          handoverChecklist: [
+            { task: 'Pass HR assets and badges to Karachi security', completed: true },
+            { task: 'Re-assign active support tickets to team', completed: true },
+            { task: 'Setup desk and biometric ID at Lahore office', completed: false }
+          ],
+          status: 'pending_approval',
+          requestedBy: 'Sara Malik',
+          requestDate: '2026-09-15'
+        },
+        {
+          id: 2,
+          employeeId: 5, // Hamza Siddiqui
+          transferType: 'department',
+          fromBranchId: 1,
+          toBranchId: 1,
+          fromDepartmentId: 5, // Operations
+          toDepartmentId: 1,   // Technology
+          fromCompanyId: 1,
+          toCompanyId: 1,
+          effectiveDate: '2026-07-01',
+          reason: 'Internal skill development transfer to Cloud Infrastructure & DevOps team.',
+          handoverChecklist: [
+            { task: 'Complete handover of operations documentation', completed: true },
+            { task: 'Grant AWS & GitHub organization access', completed: true }
+          ],
+          status: 'completed',
+          requestedBy: 'Ahmed Khan',
+          requestDate: '2026-06-15',
+          completedDate: '2026-07-01'
+        }
+      ];
+      this.set('transfers', transfers);
+    }
+
+    // 5. Leave Encashments
+    let encashments = this.get('leave_encashments');
+    if (!encashments || !encashments.length) {
+      encashments = [
+        {
+          id: 1,
+          employeeId: 1,
+          year: 2026,
+          leaveTypeId: 1, // Annual
+          availableBalance: 18,
+          retainedBalance: 10, // Mandatory minimum reserve
+          encashedDays: 8,
+          perDayRate: 7000,
+          totalPayout: 56000,
+          requestDate: '2026-09-10',
+          status: 'approved',
+          approvedBy: 'Sara Malik',
+          payoutStatus: 'scheduled_in_payroll',
+          payrollMonth: '2026-09',
+          notes: 'Annual surplus leave balance encashment approved under HR Policy 4.2.'
+        },
+        {
+          id: 2,
+          employeeId: 4,
+          year: 2026,
+          leaveTypeId: 1,
+          availableBalance: 16,
+          retainedBalance: 10,
+          encashedDays: 6,
+          perDayRate: 3000,
+          totalPayout: 18000,
+          requestDate: '2026-09-20',
+          status: 'pending',
+          approvedBy: null,
+          payoutStatus: 'pending_approval',
+          payrollMonth: null,
+          notes: 'Employee request for encashment of 6 earned leave days.'
+        }
+      ];
+      this.set('leave_encashments', encashments);
+    }
+
+    // 6. Departmental Payroll Budgets (Budget vs Actual)
+    let budgets = this.get('payroll_budgets');
+    if (!budgets || !budgets.length) {
+      budgets = [
+        { id: 1, departmentId: 1, fiscalYear: 2026, monthlyBudget: 850000, annualBudget: 10200000, allocatedBy: 'Super Admin', notes: 'Core Engineering and Product payroll' },
+        { id: 2, departmentId: 2, fiscalYear: 2026, monthlyBudget: 420000, annualBudget: 5040000, allocatedBy: 'Super Admin', notes: 'HR and Talent Acquisition' },
+        { id: 3, departmentId: 3, fiscalYear: 2026, monthlyBudget: 350000, annualBudget: 4200000, allocatedBy: 'Super Admin', notes: 'Finance and Statutory Accounts' },
+        { id: 4, departmentId: 4, fiscalYear: 2026, monthlyBudget: 520000, annualBudget: 6240000, allocatedBy: 'Super Admin', notes: 'Sales and Business Development' },
+        { id: 5, departmentId: 5, fiscalYear: 2026, monthlyBudget: 380000, annualBudget: 4560000, allocatedBy: 'Super Admin', notes: 'Operations and Customer Support' }
+      ];
+      this.set('payroll_budgets', budgets);
     }
   },
 

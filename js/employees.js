@@ -9,8 +9,8 @@ const Employees = {
   filterStatus: '',
 
   getActiveStage() {
-    if (['current', 'ex', 'all', 'directory', 'orgchart'].includes(this.currentView)) return 'directory';
-    if (['edms', 'doc_expiry'].includes(this.currentView)) return 'edms';
+    if (['current', 'ex', 'all', 'directory', 'orgchart', 'career_moves'].includes(this.currentView)) return 'directory';
+    if (['edms', 'doc_expiry', 'contracts'].includes(this.currentView)) return 'edms';
     if (['hr_letters', 'discipline'].includes(this.currentView)) return 'hr_letters';
     if (['dependents_events', 'exit_clearance', 'settlement'].includes(this.currentView)) return 'dependents_events';
     return 'directory';
@@ -28,14 +28,14 @@ const Employees = {
     const isDeptMgr = Auth.role === 'dept_manager';
     const myEmpId = Auth.employee?.id;
 
-    // Staff role subtab access guard: includes exit_clearance
-    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance', 'settlement'];
+    // Staff role subtab access guard: includes exit_clearance, contracts, career_moves
+    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance', 'settlement', 'contracts', 'career_moves'];
     if (isStaff && !staffAllowedViews.includes(this.currentView)) {
       this.currentView = 'directory';
     }
 
-    // Deputy Manager access guard: access to team views across the 4 stages
-    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance', 'settlement'];
+    // Deputy Manager access guard: access to team views across the stages
+    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance', 'settlement', 'contracts', 'career_moves'];
     if (isDeptMgr && !deptMgrAllowedViews.includes(this.currentView)) {
       this.currentView = 'current';
     }
@@ -118,6 +118,9 @@ const Employees = {
               <button class="btn btn-sm ${this.currentView==='orgchart'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('orgchart')">
                 <i class="fa fa-sitemap"></i> Organization Chart
               </button>
+              <button class="btn btn-sm ${this.currentView==='career_moves'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('career_moves')">
+                <i class="fa fa-route"></i> Career Moves (Promotions &amp; Transfers)
+              </button>
             </div>
             ${['current','ex','all'].includes(this.currentView) ? `
               <div style="display:flex;gap:6px;align-items:center">
@@ -138,6 +141,9 @@ const Employees = {
               </button>
               <button class="btn btn-sm ${this.currentView==='doc_expiry'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('doc_expiry')">
                 <i class="fa fa-id-card-clip"></i> Document Expiries &amp; Alerts ${urgentDocs > 0 ? `<span class="badge badge-warning" style="margin-left:4px;font-size:10px">${urgentDocs} Urgent</span>` : ''}
+              </button>
+              <button class="btn btn-sm ${this.currentView==='contracts'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('contracts')">
+                <i class="fa fa-file-contract"></i> Contracts &amp; Renewals
               </button>
             </div>
           </div>
@@ -168,7 +174,7 @@ const Employees = {
           </div>
         ` : ''}
 
-        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms','discipline','settlement'].includes(this.currentView) ? `
+        ${!['orgchart','doc_expiry','exit_clearance','hr_letters','dependents_events','edms','discipline','settlement','contracts','career_moves'].includes(this.currentView) ? `
           <!-- Filter Bar -->
           <div class="filter-bar">
             <div class="search-box">
@@ -278,6 +284,14 @@ const Employees = {
     }
     if (this.currentView === 'discipline') {
       this.renderDiscipline(container);
+      return;
+    }
+    if (this.currentView === 'contracts') {
+      this.renderContracts(container);
+      return;
+    }
+    if (this.currentView === 'career_moves') {
+      this.renderCareerMoves(container);
       return;
     }
 
@@ -1815,17 +1829,17 @@ const Employees = {
                         <div style="display:flex;gap:4px">
                           ${canManagerApprove ? `
                             <button class="btn btn-success btn-xs" onclick="Employees.approveCorrection(${c.id}, 'manager', ${emp.id})" title="Manager 1st Level Approval">
-                              <i class="fa fa-check"></i> Approve
+                              <i class="fa fa-user-check"></i> Mgr
                             </button>
-                            <button class="btn btn-danger btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
+                            <button class="btn btn-danger btn-icon btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
                               <i class="fa fa-times"></i>
                             </button>
                           ` : ''}
                           ${canHRApprove ? `
                             <button class="btn btn-success btn-xs" onclick="Employees.approveCorrection(${c.id}, 'final', ${emp.id})" title="HR/Admin Final Approval">
-                              <i class="fa fa-check-double"></i> Final Approve
+                              <i class="fa fa-check-double"></i> Final
                             </button>
-                            <button class="btn btn-danger btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
+                            <button class="btn btn-danger btn-icon btn-xs" onclick="Employees.rejectCorrection(${c.id}, ${emp.id})" title="Reject Request">
                               <i class="fa fa-times"></i>
                             </button>
                           ` : ''}
@@ -10671,7 +10685,1179 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     `);
     printWin.document.close();
     printWin.focus();
-    setTimeout(() => { printWin.print(); }, 400);
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // CONTRACT MANAGEMENT MODULE
+  // ══════════════════════════════════════════════════════════
+
+  contractFilterType: 'all',
+  contractFilterStatus: 'all',
+
+  renderContracts(container) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const contracts = DB.get('contracts') || [];
+    const myEmpId = Auth.employee?.id;
+    const scopedEmps = Auth.getScopedEmployees(DB.get('employees') || []);
+    const scopedIds = scopedEmps.map(e => e.id);
+
+    let displayContracts = contracts.filter(c => {
+      if (Auth.role === 'employee' || Auth.role === 'onboarding') return c.employeeId === myEmpId;
+      if (Auth.role === 'dept_manager') return scopedIds.includes(c.employeeId) || c.employeeId === myEmpId;
+      return true;
+    });
+
+    const today = new Date();
+
+    // Compute live days left & status update
+    displayContracts.forEach(c => {
+      if (c.endDate) {
+        const days = Math.ceil((new Date(c.endDate) - today) / (1000 * 60 * 60 * 24));
+        c._daysRemaining = days;
+        if (days < 0) c.status = 'expired';
+        else if (days <= 30) c.status = 'expiring_soon';
+        else if (c.contractType === 'Probationary') c.status = 'probation';
+        else c.status = 'active';
+      } else {
+        c._daysRemaining = 99999;
+        c.status = 'active';
+      }
+    });
+
+    if (this.contractFilterType && this.contractFilterType !== 'all') {
+      displayContracts = displayContracts.filter(c => c.contractType === this.contractFilterType);
+    }
+    if (this.contractFilterStatus && this.contractFilterStatus !== 'all') {
+      displayContracts = displayContracts.filter(c => c.status === this.contractFilterStatus);
+    }
+
+    const urgentList = contracts.filter(c => c._daysRemaining !== undefined && c._daysRemaining >= 0 && c._daysRemaining <= 30);
+    const expiredList = contracts.filter(c => c._daysRemaining !== undefined && c._daysRemaining < 0);
+
+    container.innerHTML = `
+      <!-- Urgent Expiry Alert Banner -->
+      ${(isHrOrAdmin && (urgentList.length > 0 || expiredList.length > 0)) ? `
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(245,158,11,0.08));border:1.5px solid rgba(239,68,68,0.35);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:12px;background:#ef444422;display:flex;align-items:center;justify-content:center;color:var(--danger);font-size:22px;flex-shrink:0">
+              <i class="fa fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;color:var(--danger);font-size:14.5px;display:flex;align-items:center;gap:8px">
+                <span>EMPLOYMENT CONTRACT EXPIRY NOTICES</span>
+                <span class="badge badge-danger">${expiredList.length} EXPIRED</span>
+                <span class="badge badge-warning">${urgentList.length} EXPIRING IN &le;30 DAYS</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:3px">
+                Critical contracts requiring immediate HR action: <strong>${[...expiredList, ...urgentList].map(c => `${Utils.getEmpName(c.employeeId)} (${c.contractType})`).slice(0, 4).join(', ')}</strong>.
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm" onclick="Employees.showContractRenewalModal(${([...expiredList, ...urgentList][0]?.id || 1)})">
+            <i class="fa fa-file-signature"></i> Process Renewal / Conversion
+          </button>
+        </div>
+      ` : ''}
+
+      <!-- KPI Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total Monitored Contracts</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${displayContracts.length} agreements</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Staff legal agreements</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Expiring in &le; 30 Days</div>
+          <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:6px">${urgentList.length} urgent</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Renewals due immediately</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Expired Agreements</div>
+          <div style="font-size:22px;font-weight:800;color:var(--danger);margin-top:6px">${expiredList.length} lapsed</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Overdue renewal action</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Permanent / Active Tenure</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${contracts.filter(c => c.contractType === 'Permanent').length} regular</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Confirms continuous tenure</div>
+        </div>
+      </div>
+
+      <!-- Filter & Action Bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <select class="filter-select" onchange="Employees.contractFilterType=this.value;Employees.renderTable()" style="width:170px">
+            <option value="all" ${this.contractFilterType==='all'?'selected':''}>All Contract Types</option>
+            <option value="Permanent" ${this.contractFilterType==='Permanent'?'selected':''}>Permanent</option>
+            <option value="Fixed-Term" ${this.contractFilterType==='Fixed-Term'?'selected':''}>Fixed-Term</option>
+            <option value="Probationary" ${this.contractFilterType==='Probationary'?'selected':''}>Probationary</option>
+            <option value="Consultant" ${this.contractFilterType==='Consultant'?'selected':''}>Consultant / Service</option>
+          </select>
+          <select class="filter-select" onchange="Employees.contractFilterStatus=this.value;Employees.renderTable()" style="width:170px">
+            <option value="all" ${this.contractFilterStatus==='all'?'selected':''}>All Statuses</option>
+            <option value="active" ${this.contractFilterStatus==='active'?'selected':''}>Active</option>
+            <option value="expiring_soon" ${this.contractFilterStatus==='expiring_soon'?'selected':''}>Expiring Soon</option>
+            <option value="expired" ${this.contractFilterStatus==='expired'?'selected':''}>Expired</option>
+            <option value="probation" ${this.contractFilterStatus==='probation'?'selected':''}>Under Probation</option>
+          </select>
+        </div>
+
+        ${isHrOrAdmin ? `
+          <button class="btn btn-primary btn-sm" onclick="Employees.showAddContractModal()">
+            <i class="fa fa-plus-circle"></i> Record New Contract Agreement
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- Contracts Master Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrapper" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Contract Type</th>
+                <th>Start Date</th>
+                <th>End / Expiry Date</th>
+                <th>Probation End</th>
+                <th>Notice Period</th>
+                <th>Remuneration</th>
+                <th>Expiry Alert / Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${displayContracts.length === 0 ? `
+                <tr><td colspan="9" style="text-align:center;padding:36px;color:var(--text-muted)">No employment contract records found matching current filters.</td></tr>
+              ` : displayContracts.map(c => {
+                const emp = DB.find('employees', c.employeeId);
+                const isPermanent = c.contractType === 'Permanent' || !c.endDate;
+                const days = c._daysRemaining;
+                const typeBadges = {
+                  'Permanent': 'badge-success',
+                  'Fixed-Term': 'badge-primary',
+                  'Probationary': 'badge-warning',
+                  'Consultant': 'badge-purple'
+                };
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(c.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'E')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${emp?.fullName || Utils.getEmpName(c.employeeId)}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || '—'} &bull; ${Utils.getDeptName(emp?.departmentId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge ${typeBadges[c.contractType] || 'badge-primary'}">${c.contractType}</span>
+                      <div style="font-size:10.5px;color:var(--text-3);margin-top:2px">${c.title || 'Standard Agreement'}</div>
+                    </td>
+                    <td><strong>${Utils.formatDate(c.startDate)}</strong></td>
+                    <td>${c.endDate ? `<strong>${Utils.formatDate(c.endDate)}</strong>` : '<span style="color:var(--success)"><i class="fa fa-infinity"></i> Indefinite</span>'}</td>
+                    <td>${c.probationEndDate ? Utils.formatDate(c.probationEndDate) : '—'}</td>
+                    <td><span class="chip" style="font-weight:600">${c.noticePeriodDays || 30} days</span></td>
+                    <td style="font-weight:700">${Utils.formatCurrency(c.remuneration || emp?.salary || 0)}</td>
+                    <td>
+                      ${isPermanent ? `
+                        <span class="badge badge-success"><i class="fa fa-circle-check"></i> Permanent Active</span>
+                      ` : days < 0 ? `
+                        <span class="badge badge-danger"><i class="fa fa-clock"></i> Expired ${Math.abs(days)}d ago</span>
+                      ` : days <= 30 ? `
+                        <span class="badge badge-warning"><i class="fa fa-bell"></i> Expires in ${days}d</span>
+                      ` : (c.contractType === 'Probationary' ? `
+                        <span class="badge badge-info"><i class="fa fa-hourglass-half"></i> Probation (${days}d left)</span>
+                      ` : `
+                        <span class="badge badge-primary"><i class="fa fa-calendar-check"></i> Active (${days}d)</span>
+                      `)}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
+                        ${isHrOrAdmin ? `
+                          <button class="btn btn-primary btn-xs" onclick="Employees.showContractRenewalModal(${c.id})" title="Renew Contract or Convert to Permanent">
+                            <i class="fa fa-pen-nib"></i> Renew
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Employees.showContractHistoryModal(${c.id})" title="View Contract Terms & History">
+                          <i class="fa fa-file-lines"></i> Details
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showContractRenewalModal(id) {
+    const contract = DB.find('contracts', id);
+    if (!contract) return;
+    const emp = DB.find('employees', contract.employeeId);
+
+    Modal.show(`Renew Contract / Convert Status — ${emp?.fullName}`, `
+      <div style="background:var(--surface);border-radius:10px;padding:14px 16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;color:var(--text-3);font-weight:700">Current Agreement</div>
+            <div style="font-size:15px;font-weight:800;color:var(--text);margin-top:2px">${contract.title} (${contract.contractType})</div>
+          </div>
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;color:var(--text-3);font-weight:700">Current Expiry</div>
+            <div style="font-size:14px;font-weight:800;color:var(--danger)">${contract.endDate ? Utils.formatDate(contract.endDate) : 'Permanent'}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Renewal / Action Type</label>
+        <select class="form-control" id="renew-action" onchange="Employees._onContractActionChange(this.value, ${contract.id})">
+          <option value="extend_1yr">Renew &amp; Extend for 1 Year</option>
+          <option value="extend_6mo">Renew &amp; Extend for 6 Months</option>
+          <option value="convert_permanent">Convert to Full-Time Permanent Status</option>
+          <option value="extend_probation">Extend Probationary Evaluation Period</option>
+        </select>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">New Contract End Date</label>
+          <input class="form-control" id="renew-end-date" type="date" value="${new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Updated Monthly Remuneration (PKR)</label>
+          <input class="form-control" id="renew-salary" type="number" value="${contract.remuneration || emp?.salary || 50000}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Renewal Terms / Notes</label>
+        <textarea class="form-control" id="renew-notes" rows="2" placeholder="e.g. Contract renewed based on satisfactory performance appraisal and department recommendation."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.submitContractRenewal(${contract.id})"><i class="fa fa-save"></i> Confirm Contract Renewal</button>
+      `
+    });
+  },
+
+  _onContractActionChange(action, contractId) {
+    const endInput = document.getElementById('renew-end-date');
+    if (!endInput) return;
+    const now = new Date();
+    if (action === 'extend_1yr') {
+      endInput.disabled = false;
+      endInput.value = new Date(now.setFullYear(now.getFullYear() + 1)).toISOString().split('T')[0];
+    } else if (action === 'extend_6mo') {
+      endInput.disabled = false;
+      endInput.value = new Date(now.setMonth(now.getMonth() + 6)).toISOString().split('T')[0];
+    } else if (action === 'convert_permanent') {
+      endInput.value = '';
+      endInput.disabled = true;
+    } else if (action === 'extend_probation') {
+      endInput.disabled = false;
+      endInput.value = new Date(now.setMonth(now.getMonth() + 3)).toISOString().split('T')[0];
+    }
+  },
+
+  submitContractRenewal(id) {
+    const contract = DB.find('contracts', id);
+    if (!contract) return;
+    const action = document.getElementById('renew-action')?.value;
+    const newEnd = document.getElementById('renew-end-date')?.value;
+    const newSalary = parseFloat(document.getElementById('renew-salary')?.value) || contract.remuneration;
+    const notes = document.getElementById('renew-notes')?.value || 'Contract renewed';
+
+    contract.renewalHistory = contract.renewalHistory || [];
+    contract.renewalHistory.push({
+      renewedOn: Utils.today(),
+      previousEnd: contract.endDate,
+      newEnd: action === 'convert_permanent' ? 'Permanent' : newEnd,
+      actionTaken: action,
+      notes,
+      renewedBy: Auth.user?.fullName || Auth.role
+    });
+
+    if (action === 'convert_permanent') {
+      contract.contractType = 'Permanent';
+      contract.endDate = null;
+      contract.probationPassed = true;
+      contract.status = 'active';
+      const emp = DB.find('employees', contract.employeeId);
+      if (emp) {
+        emp.employmentType = 'Permanent';
+        if (newSalary) emp.salary = newSalary;
+        DB.update('employees', emp.id, emp);
+      }
+    } else {
+      contract.endDate = newEnd;
+      contract.status = 'active';
+      if (action === 'extend_probation') {
+        contract.contractType = 'Probationary';
+        contract.probationEndDate = newEnd;
+      }
+    }
+
+    if (newSalary) contract.remuneration = newSalary;
+
+    DB.update('contracts', id, contract);
+    DB.log('RENEW', 'Employees', `Contract renewed for ${Utils.getEmpName(contract.employeeId)} (${action})`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Contract successfully updated & renewed!', 'success');
+    this.renderTable();
+  },
+
+  showContractHistoryModal(id) {
+    const contract = DB.find('contracts', id);
+    if (!contract) return;
+    const emp = DB.find('employees', contract.employeeId);
+
+    Modal.show(`Contract Details & Renewal History — ${emp?.fullName}`, `
+      <div style="margin-bottom:14px;font-size:13px;color:var(--text-2)">
+        <strong>Terms &amp; Special Conditions:</strong>
+        <p style="background:var(--surface);padding:10px 14px;border-radius:8px;border:1px solid var(--border);margin-top:6px">${contract.terms || 'Standard company employment terms apply.'}</p>
+      </div>
+
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Renewal &amp; Extension History Log</div>
+      <div class="table-wrapper" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+        <table>
+          <thead>
+            <tr><th>Date</th><th>Action Taken</th><th>Previous Expiry</th><th>New Expiry</th><th>Processed By</th></tr>
+          </thead>
+          <tbody>
+            ${(!contract.renewalHistory || contract.renewalHistory.length === 0) ? `
+              <tr><td colspan="5" style="text-align:center;padding:16px;color:var(--text-muted)">Initial contract period. No previous extensions logged.</td></tr>
+            ` : contract.renewalHistory.map(r => `
+              <tr>
+                <td><strong>${Utils.formatDate(r.renewedOn)}</strong></td>
+                <td><span class="badge badge-primary">${r.actionTaken || 'Renewal'}</span></td>
+                <td>${r.previousEnd ? Utils.formatDate(r.previousEnd) : 'Initial'}</td>
+                <td><strong style="color:var(--success)">${r.newEnd ? (r.newEnd === 'Permanent' ? 'Permanent' : Utils.formatDate(r.newEnd)) : 'Permanent'}</strong></td>
+                <td>${r.renewedBy || 'HR Management'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>`
+    });
+  },
+
+  showAddContractModal(targetEmpId = null) {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    if (!emps.length) return;
+    const selectedEmp = targetEmpId ? (DB.find('employees', targetEmpId) || emps[0]) : emps[0];
+
+    Modal.show('Record New Employment Contract', `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        <select class="form-control" id="new-c-emp">
+          ${emps.map(e => `<option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Contract Type</label>
+          <select class="form-control" id="new-c-type">
+            <option value="Permanent">Permanent</option>
+            <option value="Fixed-Term">Fixed-Term Agreement</option>
+            <option value="Probationary">Probationary Period</option>
+            <option value="Consultant">Consultant / Retainer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Agreement Title</label>
+          <input class="form-control" id="new-c-title" placeholder="Employment Agreement">
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Start Date</label>
+          <input class="form-control" id="new-c-start" type="date" value="${Utils.today()}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">End / Renewal Date (Leave blank for Permanent)</label>
+          <input class="form-control" id="new-c-end" type="date">
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Notice Period (Days)</label>
+          <input class="form-control" id="new-c-notice" type="number" value="30">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Remuneration (PKR)</label>
+          <input class="form-control" id="new-c-remun" type="number" value="${selectedEmp.salary || 60000}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Contract Terms &amp; Scope</label>
+        <textarea class="form-control" id="new-c-terms" rows="2" placeholder="Summary of contractual obligations, working hours, and benefits..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.submitNewContract()"><i class="fa fa-save"></i> Save Contract</button>
+      `
+    });
+  },
+
+  submitNewContract() {
+    const empId = Number(document.getElementById('new-c-emp')?.value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const contractType = document.getElementById('new-c-type')?.value || 'Permanent';
+    const title = document.getElementById('new-c-title')?.value || `${contractType} Agreement`;
+    const startDate = document.getElementById('new-c-start')?.value || Utils.today();
+    const endDate = document.getElementById('new-c-end')?.value || null;
+    const notice = parseInt(document.getElementById('new-c-notice')?.value) || 30;
+    const remun = parseFloat(document.getElementById('new-c-remun')?.value) || (emp.salary || 0);
+    const terms = document.getElementById('new-c-terms')?.value || '';
+
+    const contracts = DB.get('contracts') || [];
+    const newC = {
+      id: DB.generateId(),
+      employeeId: empId,
+      contractType,
+      title,
+      startDate,
+      endDate,
+      probationEndDate: contractType === 'Probationary' ? endDate : null,
+      probationPassed: contractType === 'Permanent',
+      noticePeriodDays: notice,
+      status: 'active',
+      remuneration: remun,
+      documentUrl: `documents/contracts/${emp.fullName.replace(/\s+/g,'_')}_Agreement.pdf`,
+      terms,
+      renewalHistory: []
+    };
+
+    contracts.unshift(newC);
+    DB.set('contracts', contracts);
+    DB.log('ADD', 'Employees', `Contract logged for ${emp.fullName} (${contractType})`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Contract successfully created!', 'success');
+    this.renderTable();
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // CAREER MOVES: PROMOTIONS & TRANSFERS MODULE
+  // ══════════════════════════════════════════════════════════
+
+  careerMovesTab: 'promotions', // 'promotions' | 'transfers'
+
+  switchCareerMovesTab(tab) {
+    this.careerMovesTab = tab;
+    this.renderTable();
+  },
+
+  renderCareerMoves(container) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isDeptMgr = Auth.role === 'dept_manager';
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const promotions = DB.get('promotions') || [];
+    const transfers = DB.get('transfers') || [];
+
+    // Promotion Candidates Engine: Tenure in current role > 2 years
+    const promotionCandidates = emps.filter(e => {
+      const join = new Date(e.joinDate || '2023-01-01');
+      const tenureYrs = (new Date() - join) / (1000 * 60 * 60 * 24 * 365.25);
+      const isAlreadyPromoting = promotions.some(p => p.employeeId === e.id && p.status !== 'approved' && p.status !== 'rejected');
+      return tenureYrs >= 2.0 && !isAlreadyPromoting;
+    });
+
+    container.innerHTML = `
+      <!-- Sub-Tab Toggle Navigation -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:8px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
+          <button class="btn btn-sm ${this.careerMovesTab==='promotions'?'btn-primary':'btn-ghost'}" onclick="Employees.switchCareerMovesTab('promotions')">
+            <i class="fa fa-arrow-trend-up"></i> Promotions &amp; Progression Workflow
+            ${promotions.filter(p=>p.status!=='approved'&&p.status!=='rejected').length > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px">${promotions.filter(p=>p.status!=='approved'&&p.status!=='rejected').length}</span>` : ''}
+          </button>
+          <button class="btn btn-sm ${this.careerMovesTab==='transfers'?'btn-primary':'btn-ghost'}" onclick="Employees.switchCareerMovesTab('transfers')">
+            <i class="fa fa-shuffle"></i> Employee Transfers &amp; Mobility
+            ${transfers.filter(t=>t.status==='pending_approval').length > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px">${transfers.filter(t=>t.status==='pending_approval').length}</span>` : ''}
+          </button>
+        </div>
+
+        <div>
+          ${this.careerMovesTab === 'promotions' ? `
+            <button class="btn btn-primary btn-sm" onclick="Employees.showInitiatePromotionModal()">
+              <i class="fa fa-plus-circle"></i> Initiate Promotion Request
+            </button>
+          ` : `
+            <button class="btn btn-primary btn-sm" onclick="Employees.showInitiateTransferModal()">
+              <i class="fa fa-plus-circle"></i> Initiate Employee Transfer
+            </button>
+          `}
+        </div>
+      </div>
+
+      ${this.careerMovesTab === 'promotions' ? this._renderPromotionsView(promotions, promotionCandidates, isHrOrAdmin, isDeptMgr) : this._renderTransfersView(transfers, isHrOrAdmin, isDeptMgr)}
+    `;
+  },
+
+  _renderPromotionsView(promotions, candidates, isHrOrAdmin, isDeptMgr) {
+    const pendingCount = promotions.filter(p => p.status !== 'approved' && p.status !== 'rejected').length;
+    const completedCount = promotions.filter(p => p.status === 'approved').length;
+
+    return `
+      <!-- Promotion Eligibility Candidate Banner -->
+      ${candidates.length > 0 ? `
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.09),rgba(168,85,247,0.08));border:1.5px solid rgba(99,102,241,0.3);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:12px;background:#6366f122;display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:22px;flex-shrink:0">
+              <i class="fa fa-star"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;color:var(--text);font-size:14.5px;display:flex;align-items:center;gap:8px">
+                <span>PROMOTION ELIGIBILITY RECOMMENDATIONS</span>
+                <span class="badge badge-primary">${candidates.length} CANDIDATES</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:3px">
+                The following personnel have reached tenure threshold (&ge;2 years in role) with high performance:
+                <strong>${candidates.slice(0, 3).map(e => `${e.fullName} (${Utils.getDesigName(e.designationId)})`).join(', ')}</strong>.
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="Employees.showInitiatePromotionModal(${candidates[0]?.id})">
+            <i class="fa fa-arrow-trend-up"></i> Nominate for Promotion
+          </button>
+        </div>
+      ` : ''}
+
+      <!-- KPI Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total Promotions Processed</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${completedCount} promotions</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Upgraded positions</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Pending Approval Workflow</div>
+          <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:6px">${pendingCount} in review</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Manager &bull; HR &bull; Executive</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Tenured Candidates Ready</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${candidates.length} candidates</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">&ge; 2 years high rating</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Workflow Governance</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:6px">3-Tier</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Audit-locked approval</div>
+        </div>
+      </div>
+
+      <!-- Promotions Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrapper" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Current Position &amp; Grade</th>
+                <th>Proposed Designation &amp; Grade</th>
+                <th>Current &rarr; Proposed Salary</th>
+                <th>Multi-Stage Approvals</th>
+                <th>Workflow Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${promotions.length === 0 ? `
+                <tr><td colspan="7" style="text-align:center;padding:36px;color:var(--text-muted)">No promotion requests logged yet.</td></tr>
+              ` : promotions.map(p => {
+                const emp = DB.find('employees', p.employeeId);
+                const curDesig = Utils.getDesigName(p.currentDesignationId);
+                const propDesig = Utils.getDesigName(p.proposedDesignationId);
+                const isApproved = p.status === 'approved';
+                const isRejected = p.status === 'rejected';
+
+                const app = p.approvals || {};
+                const mgrStatus = app.manager?.status || 'pending';
+                const hrStatus = app.hr?.status || 'pending';
+                const adminStatus = app.admin?.status || 'pending';
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(p.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'E')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${emp?.fullName || Utils.getEmpName(p.employeeId)}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || '—'} &bull; ${Utils.getDeptName(p.currentDepartmentId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="font-weight:700;color:var(--text)">${curDesig}</div>
+                      <div style="font-size:11px;color:var(--text-3)">Grade: <strong>${p.currentGrade || 'Standard'}</strong></div>
+                    </td>
+                    <td>
+                      <div style="font-weight:800;color:var(--primary);display:flex;align-items:center;gap:6px">
+                        <i class="fa fa-arrow-up" style="font-size:11px"></i> ${propDesig}
+                      </div>
+                      <div style="font-size:11px;color:var(--text-3)">New Grade: <strong>${p.proposedGrade || 'Senior'}</strong></div>
+                    </td>
+                    <td>
+                      <div style="font-size:12px;color:var(--text-3)">${Utils.formatCurrency(p.currentSalary)} &rarr;</div>
+                      <div style="font-weight:800;color:var(--success);font-size:13.5px">${Utils.formatCurrency(p.proposedSalary)}</div>
+                      <div style="font-size:10.5px;color:var(--success)">+${Utils.formatCurrency(p.incrementAmount)} (+${p.incrementPct}%)</div>
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:4px;flex-direction:column;font-size:11px">
+                        <div>
+                          Manager: ${mgrStatus === 'approved' ? '<span class="badge badge-success" style="padding:1px 6px;font-size:10px">Signed</span>' : '<span class="badge badge-warning" style="padding:1px 6px;font-size:10px">Pending</span>'}
+                        </div>
+                        <div>
+                          HR: ${hrStatus === 'approved' ? '<span class="badge badge-success" style="padding:1px 6px;font-size:10px">Signed</span>' : '<span class="badge badge-warning" style="padding:1px 6px;font-size:10px">Pending</span>'}
+                        </div>
+                        <div>
+                          Executive: ${adminStatus === 'approved' ? '<span class="badge badge-success" style="padding:1px 6px;font-size:10px">Signed</span>' : '<span class="badge badge-warning" style="padding:1px 6px;font-size:10px">Pending</span>'}
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      ${isApproved ? '<span class="badge badge-success"><i class="fa fa-check-double"></i> Promoted</span>' :
+                        isRejected ? '<span class="badge badge-danger"><i class="fa fa-times"></i> Rejected</span>' :
+                        '<span class="badge badge-warning"><i class="fa fa-spinner fa-spin-pulse"></i> In Progress</span>'}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:5px;flex-direction:column">
+                        ${(!isApproved && !isRejected) ? `
+                          ${(isDeptMgr || isHrOrAdmin) && mgrStatus === 'pending' ? `
+                            <button class="btn btn-success btn-xs" onclick="Employees.approvePromotionStage(${p.id}, 'manager')">
+                              <i class="fa fa-check"></i> Sign as Manager
+                            </button>
+                          ` : ''}
+                          ${isHrOrAdmin && mgrStatus === 'approved' && hrStatus === 'pending' ? `
+                            <button class="btn btn-primary btn-xs" onclick="Employees.approvePromotionStage(${p.id}, 'hr')">
+                              <i class="fa fa-check"></i> Sign as HR
+                            </button>
+                          ` : ''}
+                          ${Auth.role === 'superadmin' && hrStatus === 'approved' && adminStatus === 'pending' ? `
+                            <button class="btn btn-warning btn-xs" onclick="Employees.approvePromotionStage(${p.id}, 'admin')">
+                              <i class="fa fa-crown"></i> Final Executive Approval
+                            </button>
+                          ` : ''}
+                        ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Employees.showPromotionDetailsModal(${p.id})">
+                          <i class="fa fa-file-lines"></i> Justification
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  _renderTransfersView(transfers, isHrOrAdmin, isDeptMgr) {
+    const pendingTrans = transfers.filter(t => t.status === 'pending_approval').length;
+    const completedTrans = transfers.filter(t => t.status === 'completed').length;
+
+    return `
+      <!-- KPI Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total Transfers Executed</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${completedTrans} completed</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Relocations &amp; transitions</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Pending Transfer Approvals</div>
+          <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:6px">${pendingTrans} pending</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Awaiting handover clearance</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Inter-Branch Mobility</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${transfers.filter(t=>t.transferType==='branch').length} branch moves</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Multi-city coverage</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Inter-Departmental Moves</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:6px">${transfers.filter(t=>t.transferType==='department').length} internal</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Cross-functional deployment</div>
+        </div>
+      </div>
+
+      <!-- Transfers Master Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrapper" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Transfer Type</th>
+                <th>Source Assignment</th>
+                <th>Destination Assignment</th>
+                <th>Effective Date</th>
+                <th>Handover Tasks</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transfers.length === 0 ? `
+                <tr><td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted)">No employee transfer records found.</td></tr>
+              ` : transfers.map(t => {
+                const emp = DB.find('employees', t.employeeId);
+                const isCompleted = t.status === 'completed';
+                const checklist = t.handoverChecklist || [];
+                const doneCount = checklist.filter(c => c.completed).length;
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'E')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${emp?.fullName || Utils.getEmpName(t.employeeId)}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || '—'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge ${t.transferType==='branch'?'badge-primary':(t.transferType==='company'?'badge-purple':'badge-info')}">
+                        ${t.transferType.toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600">${Utils.getBranchName(t.fromBranchId)}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDeptName(t.fromDepartmentId)}</div>
+                    </td>
+                    <td>
+                      <div style="font-size:12px;font-weight:800;color:var(--primary)">${Utils.getBranchName(t.toBranchId)}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${Utils.getDeptName(t.toDepartmentId)}</div>
+                    </td>
+                    <td><strong>${Utils.formatDate(t.effectiveDate)}</strong></td>
+                    <td>
+                      <div style="font-size:11.5px;font-weight:600">${doneCount} of ${checklist.length} tasks</div>
+                      <button class="btn btn-ghost btn-xs" onclick="Employees.showTransferHandoverModal(${t.id})" style="margin-top:2px">
+                        <i class="fa fa-list-check"></i> Checklist
+                      </button>
+                    </td>
+                    <td>
+                      ${isCompleted ? '<span class="badge badge-success"><i class="fa fa-check-double"></i> Completed</span>' :
+                        '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Handover</span>'}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:5px;align-items:center">
+                        ${(!isCompleted && isHrOrAdmin) ? `
+                          <button class="btn btn-success btn-xs" onclick="Employees.approveTransfer(${t.id})" title="Finalize Transfer & Reassign Employee">
+                            <i class="fa fa-check"></i> Complete Transfer
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showInitiatePromotionModal(targetEmpId = null) {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    if (!emps.length) return;
+    const selectedEmp = targetEmpId ? (DB.find('employees', targetEmpId) || emps[0]) : emps[0];
+    const desigs = DB.get('designations') || [];
+    const depts = DB.get('departments') || [];
+
+    Modal.show('Initiate Employee Promotion Workflow', `
+      <div class="form-group">
+        <label class="form-label required">Employee Candidate</label>
+        <select class="form-control" id="promo-emp" onchange="Employees._onPromoEmpChange(this.value)">
+          ${emps.map(e => `<option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo}) — Current: ${Utils.getDesigName(e.designationId)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Current Designation &amp; Department</label>
+          <input class="form-control" id="promo-cur-pos" value="${Utils.getDesigName(selectedEmp.designationId)} (${Utils.getDeptName(selectedEmp.departmentId)})" disabled style="background:var(--surface)">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Proposed New Designation</label>
+          <select class="form-control" id="promo-desig">
+            ${desigs.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Target Department</label>
+          <select class="form-control" id="promo-dept">
+            ${depts.map(d => `<option value="${d.id}" ${d.id === selectedEmp.departmentId ? 'selected' : ''}>${d.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Proposed Grade / Cadre</label>
+          <input class="form-control" id="promo-grade" placeholder="e.g. L2 / Senior">
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Current Salary (PKR)</label>
+          <input class="form-control" id="promo-cur-sal" value="${selectedEmp.salary || 60000}" disabled style="background:var(--surface)">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Proposed New Salary (PKR)</label>
+          <input class="form-control" id="promo-new-sal" type="number" value="${Math.round((selectedEmp.salary || 60000) * 1.20)}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Promotion Justification &amp; Appraisal Merits</label>
+        <textarea class="form-control" id="promo-reason" rows="3" placeholder="Detail the business justification, technical excellence, leadership delivery, or appraisal rating..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.submitPromotionRequest()"><i class="fa fa-paper-plane"></i> Submit Promotion Proposal</button>
+      `
+    });
+  },
+
+  _onPromoEmpChange(empId) {
+    const emp = DB.find('employees', Number(empId));
+    if (!emp) return;
+    document.getElementById('promo-cur-pos').value = `${Utils.getDesigName(emp.designationId)} (${Utils.getDeptName(emp.departmentId)})`;
+    document.getElementById('promo-cur-sal').value = emp.salary || 60000;
+    document.getElementById('promo-new-sal').value = Math.round((emp.salary || 60000) * 1.20);
+  },
+
+  submitPromotionRequest() {
+    const empId = Number(document.getElementById('promo-emp')?.value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const propDesigId = Number(document.getElementById('promo-desig')?.value);
+    const propDeptId = Number(document.getElementById('promo-dept')?.value);
+    const propGrade = document.getElementById('promo-grade')?.value || 'Senior';
+    const curSalary = emp.salary || 0;
+    const propSalary = parseFloat(document.getElementById('promo-new-sal')?.value) || curSalary;
+    const reason = document.getElementById('promo-reason')?.value || 'Promoted based on performance';
+
+    const incAmt = propSalary - curSalary;
+    const incPct = curSalary > 0 ? parseFloat(((incAmt / curSalary) * 100).toFixed(1)) : 0;
+
+    const promotions = DB.get('promotions') || [];
+    const newPromo = {
+      id: DB.generateId(),
+      employeeId: empId,
+      currentDesignationId: emp.designationId,
+      proposedDesignationId: propDesigId,
+      currentDepartmentId: emp.departmentId,
+      proposedDepartmentId: propDeptId,
+      currentGrade: emp.grade || 'Junior',
+      proposedGrade: propGrade,
+      currentSalary: curSalary,
+      proposedSalary: propSalary,
+      incrementAmount: incAmt,
+      incrementPct: incPct,
+      reason,
+      requestedBy: Auth.user?.fullName || Auth.role,
+      requestDate: Utils.today(),
+      status: Auth.role === 'dept_manager' ? 'pending_hr' : (Auth.role === 'superadmin' ? 'approved' : 'pending_admin'),
+      approvals: {
+        manager: { status: 'approved', by: Auth.user?.fullName || 'Manager', date: Utils.today() },
+        hr: { status: Auth.role === 'hr_manager' || Auth.role === 'superadmin' ? 'approved' : 'pending', by: Auth.user?.fullName, date: Utils.today() },
+        admin: { status: Auth.role === 'superadmin' ? 'approved' : 'pending', by: Auth.role === 'superadmin' ? Auth.user?.fullName : null, date: Utils.today() }
+      }
+    };
+
+    if (newPromo.status === 'approved') {
+      emp.designationId = propDesigId;
+      emp.departmentId = propDeptId;
+      emp.salary = propSalary;
+      DB.update('employees', emp.id, emp);
+    }
+
+    promotions.unshift(newPromo);
+    DB.set('promotions', promotions);
+    DB.log('ADD', 'Employees', `Promotion initiated for ${emp.fullName} to ${Utils.getDesigName(propDesigId)}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Promotion proposal submitted successfully!', 'success');
+    this.renderTable();
+  },
+
+  approvePromotionStage(promoId, stage) {
+    const promotions = DB.get('promotions') || [];
+    const p = promotions.find(x => x.id === promoId);
+    if (!p) return;
+
+    p.approvals = p.approvals || {};
+    p.approvals[stage] = {
+      status: 'approved',
+      by: Auth.user?.fullName || Auth.role,
+      date: Utils.today()
+    };
+
+    if (stage === 'manager') {
+      p.status = 'pending_hr';
+    } else if (stage === 'hr') {
+      p.status = 'pending_admin';
+    } else if (stage === 'admin') {
+      p.status = 'approved';
+      p.completedDate = Utils.today();
+
+      const emp = DB.find('employees', p.employeeId);
+      if (emp) {
+        emp.designationId = p.proposedDesignationId;
+        emp.departmentId = p.proposedDepartmentId;
+        emp.grade = p.proposedGrade;
+        emp.salary = p.proposedSalary;
+        DB.update('employees', emp.id, emp);
+
+        const revisions = DB.get('salary_revisions') || [];
+        revisions.unshift({
+          id: DB.generateId(),
+          employeeId: emp.id,
+          revisionType: 'promotion',
+          oldSalary: p.currentSalary,
+          newSalary: p.proposedSalary,
+          incrementAmount: p.incrementAmount,
+          incrementPct: p.incrementPct,
+          effectiveDate: Utils.today(),
+          reason: `Promotion to ${Utils.getDesigName(p.proposedDesignationId)}: ${p.reason}`,
+          approvedBy: Auth.user?.fullName || 'Super Admin',
+          status: 'applied',
+          createdAt: new Date().toISOString()
+        });
+        DB.set('salary_revisions', revisions);
+      }
+    }
+
+    DB.set('promotions', promotions);
+    DB.log('APPROVE', 'Employees', `Promotion stage "${stage}" approved for ${Utils.getEmpName(p.employeeId)}`, Auth.user?.id);
+    Toast.show(`Promotion approved (${stage})!`, 'success');
+    this.renderTable();
+  },
+
+  showPromotionDetailsModal(promoId) {
+    const p = DB.find('promotions', promoId);
+    if (!p) return;
+    const emp = DB.find('employees', p.employeeId);
+
+    Modal.show(`Promotion Justification & Merits — ${emp?.fullName}`, `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;color:var(--text-3);font-weight:700">Promotion Recommendation</div>
+            <div style="font-size:16px;font-weight:800;color:var(--primary);margin-top:2px">
+              ${Utils.getDesigName(p.currentDesignationId)} &rarr; ${Utils.getDesigName(p.proposedDesignationId)}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge ${p.status==='approved'?'badge-success':'badge-warning'}">${p.status.toUpperCase()}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Justification &amp; Appraisal Merits</label>
+        <div style="background:var(--surface);padding:12px;border-radius:8px;border:1px solid var(--border);font-size:13px;color:var(--text-2)">
+          ${p.reason}
+        </div>
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>`
+    });
+  },
+
+  showInitiateTransferModal(targetEmpId = null) {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    if (!emps.length) return;
+    const selectedEmp = targetEmpId ? (DB.find('employees', targetEmpId) || emps[0]) : emps[0];
+    const branches = DB.get('branches') || [];
+    const depts = DB.get('departments') || [];
+    const companies = DB.get('companies') || [];
+
+    Modal.show('Initiate Employee Transfer & Mobility', `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        <select class="form-control" id="trans-emp">
+          ${emps.map(e => `<option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Transfer Mobility Type</label>
+        <select class="form-control" id="trans-type">
+          <option value="branch">Branch / City Relocation Transfer</option>
+          <option value="department">Departmental Internal Transfer</option>
+          <option value="company">Inter-Company Corporate Entity Transfer</option>
+          <option value="shift">Shift Mobility Transfer</option>
+        </select>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Destination Branch</label>
+          <select class="form-control" id="trans-branch">
+            ${branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Destination Department</label>
+          <select class="form-control" id="trans-dept">
+            ${depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Corporate Entity (Multi-Company)</label>
+          <select class="form-control" id="trans-company">
+            ${companies.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Effective Transfer Date</label>
+          <input class="form-control" id="trans-date" type="date" value="${Utils.today()}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Transfer Reason / Business Need</label>
+        <textarea class="form-control" id="trans-reason" rows="2" placeholder="e.g. Relocating to Lahore regional office to support key accounts..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.submitTransferRequest()"><i class="fa fa-paper-plane"></i> Submit Transfer</button>
+      `
+    });
+  },
+
+  submitTransferRequest() {
+    const empId = Number(document.getElementById('trans-emp')?.value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const transferType = document.getElementById('trans-type')?.value || 'branch';
+    const toBranchId = Number(document.getElementById('trans-branch')?.value);
+    const toDeptId = Number(document.getElementById('trans-dept')?.value);
+    const toCompId = Number(document.getElementById('trans-company')?.value) || (emp.companyId || 1);
+    const effectiveDate = document.getElementById('trans-date')?.value || Utils.today();
+    const reason = document.getElementById('trans-reason')?.value || 'Internal company transfer';
+
+    const transfers = DB.get('transfers') || [];
+    const newTrans = {
+      id: DB.generateId(),
+      employeeId: empId,
+      transferType,
+      fromBranchId: emp.branchId || 1,
+      toBranchId,
+      fromDepartmentId: emp.departmentId || 1,
+      toDepartmentId: toDeptId,
+      fromCompanyId: emp.companyId || 1,
+      toCompanyId: toCompId,
+      effectiveDate,
+      reason,
+      status: 'pending_approval',
+      handoverChecklist: [
+        { task: 'Return department assets and badges to source office', completed: false },
+        { task: 'Complete knowledge handover with reporting team', completed: false },
+        { task: 'Configure workstation, biometric, and security at destination office', completed: false }
+      ],
+      requestedBy: Auth.user?.fullName || Auth.role,
+      requestDate: Utils.today()
+    };
+
+    transfers.unshift(newTrans);
+    DB.set('transfers', transfers);
+    DB.log('ADD', 'Employees', `Transfer initiated for ${emp.fullName} to branch ${Utils.getBranchName(toBranchId)}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show('Transfer request submitted!', 'success');
+    this.renderTable();
+  },
+
+  approveTransfer(transferId) {
+    const transfers = DB.get('transfers') || [];
+    const t = transfers.find(x => x.id === transferId);
+    if (!t) return;
+    const emp = DB.find('employees', t.employeeId);
+
+    Modal.confirm('Authorize Employee Transfer', `Confirm finalization of transfer for <strong>${emp?.fullName}</strong>? Employee will be immediately reassigned to <strong>${Utils.getBranchName(t.toBranchId)} &bull; ${Utils.getDeptName(t.toDepartmentId)}</strong>.`, () => {
+      t.status = 'completed';
+      t.completedDate = Utils.today();
+
+      if (emp) {
+        emp.branchId = t.toBranchId;
+        emp.departmentId = t.toDepartmentId;
+        emp.companyId = t.toCompanyId;
+        DB.update('employees', emp.id, emp);
+      }
+
+      DB.set('transfers', transfers);
+      DB.log('TRANSFER', 'Employees', `Completed transfer of ${emp?.fullName} to ${Utils.getBranchName(t.toBranchId)}`, Auth.user?.id);
+      Toast.show('Employee Transfer Completed!', 'success', `${emp?.fullName} reassigned to destination unit.`);
+      this.renderTable();
+    });
+  },
+
+  showTransferHandoverModal(transferId) {
+    const t = DB.find('transfers', transferId);
+    if (!t) return;
+    const emp = DB.find('employees', t.employeeId);
+    const checklist = t.handoverChecklist || [];
+
+    Modal.show(`Transfer Handover Tasks — ${emp?.fullName}`, `
+      <div style="font-size:12.5px;color:var(--text-3);margin-bottom:14px">
+        Track operational clearances required before branch or department transfer finalization:
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${checklist.map((item, idx) => `
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface);padding:10px 14px;border-radius:8px;border:1px solid var(--border)">
+            <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer">
+              <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="Employees.toggleTransferHandoverTask(${t.id}, ${idx})">
+              <span style="${item.completed ? 'text-decoration:line-through;color:var(--text-muted)' : 'font-weight:600'}">${item.task}</span>
+            </label>
+            <span class="badge ${item.completed ? 'badge-success' : 'badge-warning'}">${item.completed ? 'Done' : 'Pending'}</span>
+          </div>
+        `).join('')}
+      </div>
+    `, {
+      footer: `<button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>`
+    });
+  },
+
+  toggleTransferHandoverTask(transferId, idx) {
+    const transfers = DB.get('transfers') || [];
+    const t = transfers.find(x => x.id === transferId);
+    if (!t || !t.handoverChecklist || !t.handoverChecklist[idx]) return;
+
+    t.handoverChecklist[idx].completed = !t.handoverChecklist[idx].completed;
+    DB.set('transfers', transfers);
+    this.showTransferHandoverModal(transferId);
+    this.renderTable();
   }
 
 };

@@ -38,13 +38,16 @@ const Payroll = {
     const tabs = isEmp ? [
       { id:'slips', label:'My Payslips', icon:'fa-file-invoice-dollar' },
       { id:'pf', label:'My Provident Fund', icon:'fa-piggy-bank' },
-      { id:'tax', label:'Tax & Slabs', icon:'fa-scale-balanced' },
+      { id:'tax', label:'Tax Slabs & Form 16', icon:'fa-scale-balanced' },
       { id:'loans', label:'My Loans', icon:'fa-hand-holding-dollar' },
+      { id:'revisions', label:'My Salary History', icon:'fa-clock-rotate-left' },
     ] : [
       { id:'salary', label:'Salary Processing & Slips', icon:'fa-money-check-dollar' },
       { id:'bank_advice', label:'Disbursal & Bank Advice', icon:'fa-building-columns' },
-      { id:'tax', label:'FBR Tax & Statutory Ledgers', icon:'fa-scale-balanced' },
+      { id:'tax', label:'FBR Tax & Form 16', icon:'fa-scale-balanced' },
       { id:'loans', label:'Loans & Advances', icon:'fa-hand-holding-dollar' },
+      { id:'revisions', label:'Salary Revisions & Increments', icon:'fa-arrow-trend-up' },
+      { id:'budget', label:'Budget vs Actual', icon:'fa-chart-pie' },
     ];
 
     content.innerHTML = `
@@ -89,9 +92,9 @@ const Payroll = {
       return;
     }
     const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
-    const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures'];
+    const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures', 'budget'];
     if (!isHrOrAdmin && adminOnlyViews.includes(view)) {
-      Toast.show('Access Denied: Company salary registers and processing are restricted to HR & Admin.', 'error');
+      Toast.show('Access Denied: This payroll section is restricted to HR & Admin.', 'error');
       view = 'slips';
     }
     this.currentView = view;
@@ -114,6 +117,8 @@ const Payroll = {
       case 'bank_advice': this.renderBankAdvice(container); break;
       case 'tax':         this.renderTaxEngine(container); break;
       case 'loans':       this.renderLoans(container); break;
+      case 'revisions':   this.renderSalaryRevisions(container); break;
+      case 'budget':      this.renderBudgetVsActual(container); break;
       case 'slips':       this.renderSlips(container); break;
       case 'pf':          this.renderProvidentFund(container); break;
       default:            this.renderSalary(container); break;
@@ -631,17 +636,23 @@ const Payroll = {
                         '<span class="badge badge-primary"><i class="fa fa-spinner fa-spin-pulse"></i> Active</span>'}
                     </td>
                     <td>
-                      <div style="display:flex;gap:5px;align-items:center">
+                      <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
                         ${l.status === 'pending_approval' && isHrOrAdmin ? `
                           <button class="btn btn-success btn-xs" onclick="Payroll.approveLoan(${l.id})" title="Authorize Loan"><i class="fa fa-check"></i> Approve</button>
                           <button class="btn btn-danger btn-xs" onclick="Payroll.rejectLoan(${l.id})" title="Reject Request"><i class="fa fa-times"></i> Reject</button>
                         ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Payroll.showLoanScheduleModal(${l.id})" title="View Amortization Schedule">
+                          <i class="fa fa-calendar-days"></i> Schedule
+                        </button>
                         <button class="btn btn-ghost btn-xs" onclick="Payroll.showLoanRepaymentModal(${l.id})" title="View Repayment Ledger & Installments">
                           <i class="fa fa-receipt"></i> Ledger
                         </button>
                         ${l.status === 'active' && l.remaining > 0 ? `
                           <button class="btn btn-secondary btn-xs" onclick="Payroll.showPayInstallmentModal(${l.id})" title="Pay / Return Installment Outside Salary">
                             <i class="fa fa-credit-card"></i> Pay
+                          </button>
+                          <button class="btn btn-warning btn-xs" onclick="Payroll.earlySettleLoan(${l.id})" title="Early Lump-Sum Payoff">
+                            <i class="fa fa-bolt"></i> Settle
                           </button>
                         ` : ''}
                       </div>
@@ -995,6 +1006,678 @@ const Payroll = {
     Utils.exportToCSV([headers, ...rows], `Loans_Report_${Utils.today()}.csv`);
   },
 
+  showLoanScheduleModal(id) {
+    const loan = DB.find('loans', id);
+    if (!loan) return;
+    const emp = DB.find('employees', loan.employeeId);
+    const totalInst = loan.installments;
+    const monthlyAmt = loan.monthlyDeduction;
+    const paidCount = totalInst - (loan.remaining || 0);
+
+    const schedule = [];
+    const startD = new Date(loan.startDate || Utils.today());
+    let currentBal = loan.amount;
+
+    for (let i = 1; i <= totalInst; i++) {
+      const d = new Date(startD);
+      d.setMonth(d.getMonth() + (i - 1));
+      const monthStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const isPaid = i <= paidCount;
+      const principalPortion = Math.min(currentBal, monthlyAmt);
+      currentBal = Math.max(0, currentBal - principalPortion);
+
+      schedule.push({
+        num: i,
+        month: monthStr,
+        dueDate: d.toISOString().split('T')[0],
+        emi: monthlyAmt,
+        balanceAfter: currentBal,
+        isPaid
+      });
+    }
+
+    Modal.show(`Loan Amortization & Repayment Schedule — ${emp?.fullName || 'Employee'}`, `
+      <div style="background:var(--surface);border-radius:10px;padding:16px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Principal Amount</div>
+            <div style="font-size:20px;font-weight:800;color:var(--primary)">${Utils.formatCurrency(loan.amount)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Monthly EMI</div>
+            <div style="font-size:20px;font-weight:800;color:var(--danger)">${Utils.formatCurrency(loan.monthlyDeduction)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Progress</div>
+            <div style="font-size:18px;font-weight:800;color:var(--success)">${paidCount} / ${totalInst} Paid</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Outstanding</div>
+            <div style="font-size:18px;font-weight:800;color:var(--warning)">${Utils.formatCurrency((loan.remaining || 0) * loan.monthlyDeduction)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrapper" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+        <table>
+          <thead>
+            <tr>
+              <th>Inst #</th>
+              <th>Due Month</th>
+              <th>EMI Amount</th>
+              <th>Remaining Balance</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${schedule.map(s => `
+              <tr style="${s.isPaid ? 'background:rgba(16,185,129,0.04)' : ''}">
+                <td><strong>#${s.num}</strong></td>
+                <td>${s.month}</td>
+                <td style="font-weight:700">${Utils.formatCurrency(s.emi)}</td>
+                <td style="color:var(--text-2)">${Utils.formatCurrency(s.balanceAfter)}</td>
+                <td>
+                  ${s.isPaid 
+                    ? '<span class="badge badge-success"><i class="fa fa-check-circle"></i> Paid</span>'
+                    : (s.num === paidCount + 1 
+                        ? '<span class="badge badge-warning"><i class="fa fa-clock"></i> Current Due</span>'
+                        : '<span class="badge badge-secondary">Scheduled</span>')}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        ${loan.status === 'active' && loan.remaining > 0 ? `
+          <button class="btn btn-warning" onclick="Modal.close('dynamic-modal'); Payroll.earlySettleLoan(${loan.id})">
+            <i class="fa fa-bolt"></i> Settle Early (Lump-Sum)
+          </button>
+        ` : ''}
+      `
+    });
+  },
+
+  earlySettleLoan(id) {
+    const loan = DB.find('loans', id);
+    if (!loan || loan.remaining <= 0) return;
+    const emp = DB.find('employees', loan.employeeId);
+    const outstanding = loan.remaining * loan.monthlyDeduction;
+
+    Modal.confirm('Early Loan Settlement', `Settle and close loan of <strong>${Utils.formatCurrency(outstanding)}</strong> for <strong>${emp?.fullName}</strong> as a complete early payoff?`, () => {
+      loan.repayments = loan.repayments || [];
+      loan.repayments.push({
+        month: Utils.thisMonth(),
+        amount: outstanding,
+        paidOn: Utils.today(),
+        method: 'lump_sum_early_settlement',
+        notes: 'Complete early loan payoff'
+      });
+      loan.remaining = 0;
+      loan.status = 'completed';
+      DB.update('loans', id, loan);
+      DB.log('SETTLE', 'Payroll', `Early settled loan #${loan.id} for ${emp?.fullName} with PKR ${outstanding}`, Auth.user?.id);
+      Toast.show('Loan Settled & Closed!', 'success', 'All remaining installments marked as paid in full.');
+      this.renderView();
+    });
+  },
+
+  renderSalaryRevisions(container) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const revisions = DB.get('salary_revisions') || [];
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    const myEmpId = Auth.employee?.id;
+    const displayRevisions = isHrOrAdmin ? revisions : revisions.filter(r => r.employeeId === myEmpId);
+
+    // Increment Reminders Engine
+    const today = new Date();
+    const overdueEmployees = emps.filter(e => {
+      const empRevs = revisions.filter(r => r.employeeId === e.id);
+      if (empRevs.length === 0) {
+        const join = new Date(e.joinDate || '2023-01-01');
+        const months = (today.getFullYear() - join.getFullYear()) * 12 + (today.getMonth() - join.getMonth());
+        return months >= 11;
+      }
+      empRevs.sort((a,b) => new Date(b.effectiveDate) - new Date(a.effectiveDate));
+      const latest = empRevs[0];
+      if (latest.scheduledReviewDate) {
+        const sched = new Date(latest.scheduledReviewDate);
+        const daysDiff = (sched - today) / (1000 * 60 * 60 * 24);
+        return daysDiff <= 30;
+      }
+      const eff = new Date(latest.effectiveDate);
+      const months = (today.getFullYear() - eff.getFullYear()) * 12 + (today.getMonth() - eff.getMonth());
+      return months >= 11;
+    });
+
+    const totalIncrementSum = displayRevisions.reduce((sum, r) => sum + (r.incrementAmount || 0), 0);
+    const avgIncrementPct = displayRevisions.length ? Math.round(displayRevisions.reduce((sum, r) => sum + (r.incrementPct || 0), 0) / displayRevisions.length) : 0;
+
+    container.innerHTML = `
+      <!-- Reminder Notification Banner for Overdue / Upcoming Increments -->
+      ${(isHrOrAdmin && overdueEmployees.length > 0) ? `
+        <div style="background:linear-gradient(135deg,rgba(245,158,11,0.12),rgba(234,88,12,0.08));border:1.5px solid rgba(245,158,11,0.4);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:12px;background:#f59e0b22;display:flex;align-items:center;justify-content:center;color:#d97706;font-size:22px;flex-shrink:0">
+              <i class="fa fa-bell"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;color:#b45309;font-size:14.5px;display:flex;align-items:center;gap:8px">
+                <span>ANNUAL SALARY INCREMENT REMINDERS</span>
+                <span class="badge badge-warning">${overdueEmployees.length} EMPLOYEES DUE</span>
+              </div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:3px">
+                The following personnel have reached their annual increment review cycle (>11 months since last revision or scheduled review date reached):
+                <strong>${overdueEmployees.slice(0, 3).map(e => e.fullName).join(', ')}${overdueEmployees.length > 3 ? ` + ${overdueEmployees.length - 3} more` : ''}</strong>.
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-warning btn-sm" onclick="Payroll.showAddSalaryRevisionModal(${overdueEmployees[0].id})">
+            <i class="fa fa-arrow-trend-up"></i> Review &amp; Apply Increment
+          </button>
+        </div>
+      ` : ''}
+
+      <!-- KPI Overview Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total Revisions Logged</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${displayRevisions.length} records</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Historical pay adjustments</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Average Increment %</div>
+          <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:6px">${avgIncrementPct}%</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Mean annual adjustment</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Cumulative Increment Value</div>
+          <div style="font-size:22px;font-weight:800;color:var(--accent);margin-top:6px">${Utils.formatCurrency(totalIncrementSum)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Net base increase per month</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Increment Review Status</div>
+          <div style="font-size:22px;font-weight:800;color:${overdueEmployees.length > 0 ? 'var(--warning)' : 'var(--success)'};margin-top:6px">
+            ${isHrOrAdmin ? `${overdueEmployees.length} Due / Overdue` : 'Up-to-date'}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${isHrOrAdmin ? 'Annual review threshold' : 'Checked against company policy'}</div>
+        </div>
+      </div>
+
+      <!-- Action & Header Bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div>
+          <h3 style="font-size:16px;font-weight:800;margin:0;color:var(--text)">
+            <i class="fa fa-arrow-trend-up" style="color:var(--primary);margin-right:8px"></i>Salary Revisions &amp; Increment History
+          </h3>
+          <div style="font-size:12px;color:var(--text-3)">Audit-tracked progression of base pay, increments, market corrections, and promotion increases</div>
+        </div>
+
+        ${isHrOrAdmin ? `
+          <button class="btn btn-primary btn-sm" onclick="Payroll.showAddSalaryRevisionModal()">
+            <i class="fa fa-plus-circle"></i> Process Salary Increment / Revision
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- Revisions Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrapper" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Revision Type</th>
+                <th>Old Base Salary</th>
+                <th>Increment</th>
+                <th>New Base Salary</th>
+                <th>Effective Date</th>
+                <th>Next Review</th>
+                <th>Approved By / Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${displayRevisions.length === 0 ? `
+                <tr><td colspan="8" style="text-align:center;padding:36px;color:var(--text-muted)">No salary revision records found.</td></tr>
+              ` : displayRevisions.map(r => {
+                const emp = DB.find('employees', r.employeeId);
+                const typeLabels = {
+                  annual_increment: 'Annual Increment',
+                  merit: 'Merit / Performance',
+                  market_correction: 'Market Correction',
+                  promotion: 'Promotion Adjustment'
+                };
+                const typeBadges = {
+                  annual_increment: 'badge-primary',
+                  merit: 'badge-success',
+                  market_correction: 'badge-warning',
+                  promotion: 'badge-purple'
+                };
+
+                return `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div class="avatar avatar-sm" style="background:${Utils.avatarColor(r.employeeId)}">${Utils.avatarInitials(emp?.fullName || 'E')}</div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px">${emp?.fullName || Utils.getEmpName(r.employeeId)}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp?.empNo || '—'} &bull; ${Utils.getDeptName(emp?.departmentId)}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge ${typeBadges[r.revisionType] || 'badge-primary'}">
+                        ${typeLabels[r.revisionType] || r.revisionType}
+                      </span>
+                    </td>
+                    <td style="color:var(--text-2);font-weight:600">${Utils.formatCurrency(r.oldSalary)}</td>
+                    <td>
+                      <span style="font-weight:800;color:var(--success)">+${Utils.formatCurrency(r.incrementAmount)}</span>
+                      <span class="chip" style="font-size:10.5px;margin-left:4px;color:var(--success);background:rgba(16,185,129,0.1)">+${r.incrementPct}%</span>
+                    </td>
+                    <td style="font-weight:800;color:var(--primary);font-size:13.5px">${Utils.formatCurrency(r.newSalary)}</td>
+                    <td><strong>${Utils.formatDate(r.effectiveDate)}</strong></td>
+                    <td>${r.scheduledReviewDate ? Utils.formatDate(r.scheduledReviewDate) : '—'}</td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600">${r.approvedBy || 'HR Management'}</div>
+                      <div style="font-size:11px;color:var(--text-3)">${r.reason || 'Annual increment policy'}</div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showAddSalaryRevisionModal(targetEmpId = null) {
+    const emps = DB.get('employees').filter(e => e.status === 'active');
+    if (!emps.length) return;
+    const selectedEmp = targetEmpId ? (DB.find('employees', targetEmpId) || emps[0]) : emps[0];
+    const currentSal = selectedEmp.salary || 50000;
+
+    Modal.show('Process Salary Revision & Increment', `
+      <div class="form-group">
+        <label class="form-label required">Employee</label>
+        <select class="form-control" id="rev-emp" onchange="Payroll._onRevisionEmpChange(this.value)">
+          ${emps.map(e => `<option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo}) — Current: ${Utils.formatCurrency(e.salary)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Current Base Salary</label>
+          <input class="form-control" id="rev-current-sal" value="${currentSal}" disabled style="background:var(--surface)">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Revision / Increment Type</label>
+          <select class="form-control" id="rev-type">
+            <option value="annual_increment">Annual Performance Increment</option>
+            <option value="merit">Merit &amp; Extraordinary Delivery</option>
+            <option value="market_correction">Market Salary Correction</option>
+            <option value="promotion">Promotion Adjustment</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Increment Percentage (%)</label>
+          <input class="form-control" id="rev-pct" type="number" step="0.1" value="10" placeholder="10" oninput="Payroll._onRevisionPctChange(this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label required">New Base Salary (PKR)</label>
+          <input class="form-control" id="rev-new-sal" type="number" value="${Math.round(currentSal * 1.10)}" oninput="Payroll._onRevisionAmountChange(this.value)">
+        </div>
+      </div>
+
+      <!-- Difference Preview Card -->
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Net Monthly Increase</div>
+          <div id="rev-diff-val" style="font-size:18px;font-weight:800;color:var(--success)">+${Utils.formatCurrency(Math.round(currentSal * 0.10))}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--text-3);text-transform:uppercase">Annual Employer Impact</div>
+          <div id="rev-annual-val" style="font-size:18px;font-weight:800;color:var(--primary)">+${Utils.formatCurrency(Math.round(currentSal * 0.10 * 12))}</div>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label required">Effective Date</label>
+          <input class="form-control" id="rev-date" type="date" value="${Utils.today()}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Next Scheduled Review (Annual Cycle)</label>
+          <input class="form-control" id="rev-next-date" type="date" value="${new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label required">Reason &amp; Justification</label>
+        <textarea class="form-control" id="rev-reason" rows="2" placeholder="e.g. Completed annual appraisal cycle with rating 4.5/5.0..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Payroll.submitSalaryRevision()"><i class="fa fa-save"></i> Apply Salary Revision</button>
+      `
+    });
+  },
+
+  _onRevisionEmpChange(empId) {
+    const emp = DB.find('employees', Number(empId));
+    if (!emp) return;
+    const curSal = emp.salary || 50000;
+    document.getElementById('rev-current-sal').value = curSal;
+    const pct = parseFloat(document.getElementById('rev-pct')?.value) || 10;
+    this._onRevisionPctChange(pct);
+  },
+
+  _onRevisionPctChange(pct) {
+    const curSal = parseFloat(document.getElementById('rev-current-sal')?.value) || 0;
+    const p = parseFloat(pct) || 0;
+    const inc = Math.round(curSal * (p / 100));
+    const newSal = curSal + inc;
+    const newEl = document.getElementById('rev-new-sal');
+    if (newEl) newEl.value = newSal;
+    const diffEl = document.getElementById('rev-diff-val');
+    if (diffEl) diffEl.textContent = `+${Utils.formatCurrency(inc)}`;
+    const annEl = document.getElementById('rev-annual-val');
+    if (annEl) annEl.textContent = `+${Utils.formatCurrency(inc * 12)}`;
+  },
+
+  _onRevisionAmountChange(newSal) {
+    const curSal = parseFloat(document.getElementById('rev-current-sal')?.value) || 0;
+    const n = parseFloat(newSal) || curSal;
+    const inc = n - curSal;
+    const pct = curSal > 0 ? ((inc / curSal) * 100).toFixed(1) : 0;
+    const pctEl = document.getElementById('rev-pct');
+    if (pctEl) pctEl.value = pct;
+    const diffEl = document.getElementById('rev-diff-val');
+    if (diffEl) diffEl.textContent = `${inc >= 0 ? '+' : ''}${Utils.formatCurrency(inc)}`;
+    const annEl = document.getElementById('rev-annual-val');
+    if (annEl) annEl.textContent = `${inc >= 0 ? '+' : ''}${Utils.formatCurrency(inc * 12)}`;
+  },
+
+  submitSalaryRevision() {
+    const empId = Number(document.getElementById('rev-emp')?.value);
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const oldSalary = emp.salary || 0;
+    const newSalary = parseFloat(document.getElementById('rev-new-sal')?.value);
+    const revisionType = document.getElementById('rev-type')?.value || 'annual_increment';
+    const effectiveDate = document.getElementById('rev-date')?.value || Utils.today();
+    const scheduledReviewDate = document.getElementById('rev-next-date')?.value;
+    const reason = document.getElementById('rev-reason')?.value || 'Scheduled revision';
+
+    if (isNaN(newSalary) || newSalary <= 0) {
+      Toast.show('Please enter a valid new base salary', 'warning');
+      return;
+    }
+
+    const incrementAmount = newSalary - oldSalary;
+    const incrementPct = oldSalary > 0 ? parseFloat(((incrementAmount / oldSalary) * 100).toFixed(2)) : 0;
+
+    emp.salary = newSalary;
+    DB.update('employees', empId, emp);
+
+    const revisions = DB.get('salary_revisions') || [];
+    const newRev = {
+      id: DB.generateId(),
+      employeeId: empId,
+      revisionType,
+      oldSalary,
+      newSalary,
+      incrementAmount,
+      incrementPct,
+      effectiveDate,
+      scheduledReviewDate,
+      reason,
+      approvedBy: Auth.user?.fullName || Auth.role,
+      status: 'applied',
+      createdAt: new Date().toISOString()
+    };
+    revisions.unshift(newRev);
+    DB.set('salary_revisions', revisions);
+
+    DB.log('UPDATE', 'Payroll', `Salary revision for ${emp.fullName}: PKR ${oldSalary.toLocaleString()} -> PKR ${newSalary.toLocaleString()} (+${incrementPct}%)`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show('Salary Revision Applied!', 'success', `${emp.fullName} base salary updated to ${Utils.formatCurrency(newSalary)}`);
+    this.renderView();
+  },
+
+  renderBudgetVsActual(container) {
+    const depts = DB.get('departments') || [];
+    const budgets = DB.get('payroll_budgets') || [];
+    const salaries = DB.get('salary').filter(s => s.month === this.currentMonth && s.status === 'processed');
+    const allEmps = DB.get('employees').filter(e => e.status === 'active');
+
+    const deptRows = depts.map(d => {
+      const budgetObj = budgets.find(b => b.departmentId === d.id) || { monthlyBudget: 400000, annualBudget: 4800000 };
+      const deptEmps = allEmps.filter(e => e.departmentId === d.id);
+      const deptSalaries = salaries.filter(s => {
+        const emp = allEmps.find(e => e.id === s.employeeId);
+        return emp && emp.departmentId === d.id;
+      });
+
+      const actualSpend = deptSalaries.length > 0 
+        ? deptSalaries.reduce((sum, s) => sum + (s.netSalary || 0) + (s.tax || 0) + (s.allowances || 0), 0)
+        : Math.round(deptEmps.reduce((sum, e) => sum + (e.salary || 0) * 1.25, 0));
+
+      const monthlyBudget = budgetObj.monthlyBudget || 400000;
+      const variance = monthlyBudget - actualSpend;
+      const utilPct = monthlyBudget > 0 ? Math.round((actualSpend / monthlyBudget) * 100) : 0;
+
+      return {
+        id: d.id,
+        name: d.name,
+        headcount: deptEmps.length,
+        budgetObj,
+        monthlyBudget,
+        actualSpend,
+        variance,
+        utilPct,
+        isOver: utilPct > 100,
+        isWarning: utilPct >= 90 && utilPct <= 100
+      };
+    });
+
+    const totalBudget = deptRows.reduce((sum, r) => sum + r.monthlyBudget, 0);
+    const totalActual = deptRows.reduce((sum, r) => sum + r.actualSpend, 0);
+    const netVariance = totalBudget - totalActual;
+    const overallUtilPct = totalBudget > 0 ? Math.round((totalActual / totalBudget) * 100) : 0;
+    const overBudgetDepts = deptRows.filter(r => r.isOver);
+    const warningDepts = deptRows.filter(r => r.isWarning);
+
+    const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+
+    container.innerHTML = `
+      <!-- Over-budget warnings banner -->
+      ${overBudgetDepts.length > 0 ? `
+        <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(245,158,11,0.08));border:1.5px solid rgba(239,68,68,0.35);border-radius:12px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:12px;background:#ef444422;display:flex;align-items:center;justify-content:center;color:var(--danger);font-size:22px">
+              <i class="fa fa-triangle-exclamation"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;color:var(--danger);font-size:14.5px">PAYROLL BUDGET EXCEEDED IN ${overBudgetDepts.length} DEPARTMENTS</div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:3px">
+                Departments exceeding authorized budget limit: <strong>${overBudgetDepts.map(d => `${d.name} (${d.utilPct}%)`).join(', ')}</strong>. Finance management intervention required.
+              </div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- Top KPI Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Total Monthly Budget</div>
+          <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:6px">${Utils.formatCurrency(totalBudget)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">Authorized departmental cap</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Actual Payroll Cost</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:6px">${Utils.formatCurrency(totalActual)}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${this.currentMonth} disbursements</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Net Budget Variance</div>
+          <div style="font-size:22px;font-weight:800;color:${netVariance >= 0 ? 'var(--success)' : 'var(--danger)'};margin-top:6px">
+            ${netVariance >= 0 ? `+${Utils.formatCurrency(netVariance)}` : `-${Utils.formatCurrency(Math.abs(netVariance))}`}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${netVariance >= 0 ? 'Surplus buffer available' : 'Overall deficit'}</div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Overall Utilization</div>
+          <div style="font-size:22px;font-weight:800;color:${overallUtilPct > 100 ? 'var(--danger)' : (overallUtilPct >= 90 ? 'var(--warning)' : 'var(--success)')};margin-top:6px">
+            ${overallUtilPct}%
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${overBudgetDepts.length} over / ${warningDepts.length} warning</div>
+        </div>
+      </div>
+
+      <!-- Filter and Action Bar -->
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;gap:10px;align-items:center">
+          <select class="filter-select" onchange="Payroll.currentMonth=this.value;Payroll.renderView()" style="width:190px">
+            ${allMonths.map(m => `<option value="${m}" ${m===this.currentMonth?'selected':''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
+          </select>
+          <span style="font-size:12px;color:var(--text-3)">Comparing against authorized departmental cost center allocations</span>
+        </div>
+      </div>
+
+      <!-- Department Comparison Table -->
+      <div class="card" style="padding:0">
+        <div class="table-wrapper" style="border:none">
+          <table>
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Headcount</th>
+                <th>Monthly Budget</th>
+                <th>Actual Payroll Cost</th>
+                <th>Variance (PKR)</th>
+                <th>Budget Utilization</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${deptRows.map(r => {
+                const color = r.isOver ? 'var(--danger)' : (r.isWarning ? 'var(--warning)' : 'var(--success)');
+                return `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;font-size:13.5px;color:var(--text)">${r.name}</div>
+                      <div style="font-size:11px;color:var(--text-3)">Annual: ${Utils.formatCurrency(r.budgetObj.annualBudget || r.monthlyBudget * 12)}</div>
+                    </td>
+                    <td><span class="chip" style="font-weight:700">${r.headcount} emps</span></td>
+                    <td style="font-weight:700">${Utils.formatCurrency(r.monthlyBudget)}</td>
+                    <td style="font-weight:800;color:var(--text);font-size:13px">${Utils.formatCurrency(r.actualSpend)}</td>
+                    <td style="font-weight:800;color:${r.variance >= 0 ? 'var(--success)' : 'var(--danger)'}">
+                      ${r.variance >= 0 ? `+${Utils.formatCurrency(r.variance)}` : `-${Utils.formatCurrency(Math.abs(r.variance))}`}
+                    </td>
+                    <td style="min-width:180px">
+                      <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700;color:${color};margin-bottom:3px">
+                        <span>${r.utilPct}% used</span>
+                        <span>${r.isOver ? 'Exceeded' : `${100 - r.utilPct}% buffer`}</span>
+                      </div>
+                      <div style="height:7px;background:var(--border);border-radius:4px;overflow:hidden">
+                        <div style="height:100%;background:${color};width:${Math.min(100, r.utilPct)}%"></div>
+                      </div>
+                    </td>
+                    <td>
+                      ${r.isOver 
+                        ? '<span class="badge badge-danger"><i class="fa fa-triangle-exclamation"></i> Over Budget</span>'
+                        : (r.isWarning 
+                            ? '<span class="badge badge-warning"><i class="fa fa-exclamation-circle"></i> Near Limit</span>'
+                            : '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Within Budget</span>')}
+                    </td>
+                    <td>
+                      <button class="btn btn-ghost btn-xs" onclick="Payroll.showEditDepartmentBudgetModal(${r.id})" title="Edit Monthly & Annual Budget Allocation">
+                        <i class="fa fa-pen-to-square"></i> Adjust
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  showEditDepartmentBudgetModal(deptId) {
+    const dept = DB.find('departments', deptId);
+    if (!dept) return;
+    const budgets = DB.get('payroll_budgets') || [];
+    const b = budgets.find(x => x.departmentId === deptId) || { monthlyBudget: 400000, annualBudget: 4800000, notes: '' };
+
+    Modal.show(`Adjust Payroll Budget — ${dept.name}`, `
+      <div class="form-group">
+        <label class="form-label required">Monthly Budget Limit (PKR)</label>
+        <input type="number" class="form-control" id="bgt-monthly" value="${b.monthlyBudget || 400000}" oninput="document.getElementById('bgt-annual').value = (parseFloat(this.value)||0)*12">
+      </div>
+      <div class="form-group">
+        <label class="form-label required">Annual Budget Allocation (PKR)</label>
+        <input type="number" class="form-control" id="bgt-annual" value="${b.annualBudget || (b.monthlyBudget || 400000) * 12}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Allocation Justification / Notes</label>
+        <textarea class="form-control" id="bgt-notes" rows="2" placeholder="e.g. Approved board budget allocation for 2026 fiscal year">${b.notes || ''}</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Payroll.saveDepartmentBudget(${deptId})"><i class="fa fa-save"></i> Save Budget Allocation</button>
+      `
+    });
+  },
+
+  saveDepartmentBudget(deptId) {
+    const monthly = parseFloat(document.getElementById('bgt-monthly')?.value) || 0;
+    const annual = parseFloat(document.getElementById('bgt-annual')?.value) || (monthly * 12);
+    const notes = document.getElementById('bgt-notes')?.value || '';
+
+    let budgets = DB.get('payroll_budgets') || [];
+    const existingIdx = budgets.findIndex(b => b.departmentId === deptId);
+    if (existingIdx >= 0) {
+      budgets[existingIdx].monthlyBudget = monthly;
+      budgets[existingIdx].annualBudget = annual;
+      budgets[existingIdx].notes = notes;
+      budgets[existingIdx].updatedAt = new Date().toISOString();
+    } else {
+      budgets.push({
+        id: DB.generateId(),
+        departmentId: deptId,
+        fiscalYear: 2026,
+        monthlyBudget: monthly,
+        annualBudget: annual,
+        notes,
+        allocatedBy: Auth.user?.fullName || 'Admin'
+      });
+    }
+
+    DB.set('payroll_budgets', budgets);
+    Modal.close('dynamic-modal');
+    Toast.show('Budget allocation saved!', 'success');
+    this.renderView();
+  },
+
+  showForm16Modal(employeeId, taxYear = '2026-2027') {
+    this.showSection149Cert(employeeId, taxYear);
+  },
+
 
   renderSlips(container) {
     const canManage = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
@@ -1011,202 +1694,6 @@ const Payroll = {
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <select class="filter-select" onchange="Payroll.currentMonth=this.value;Payroll.renderView()" style="width:190px">
             ${allMonths.map(m => `<option value="${m}" ${m===this.currentMonth?'selected':''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
-          </select>
-          ${canManage ? `
-            <select class="filter-select" id="slip-dept-filter" onchange="Payroll.filterSlips(this.value)" style="width:180px">
-              <option value="">All Departments</option>
-              ${depts.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
-            </select>
-          ` : ''}
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${canManage ? `
-            <button class="btn btn-ghost btn-sm" onclick="Payroll.printAllSlips()"><i class="fa fa-print"></i> Print All (PDF)</button>
-            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportSlipsCSV()"><i class="fa fa-file-csv"></i> Export Payslips (CSV)</button>
-            <button class="btn btn-secondary btn-sm" onclick="Payroll.processAll()"><i class="fa fa-cogs"></i> Process All for Month</button>
-            <button class="btn btn-sm" onclick="Payroll.emailPayslips()" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);color:#fff;border:none;"><i class="fa fa-envelope"></i> Email Payslips</button>
-            <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(null, Payroll.currentMonth)"><i class="fa fa-plus"></i> Generate Payslip</button>
-          ` : `
-            <div style="background:var(--surface);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
-              <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Self-Service &bull; Official Payslips Issued by HR &amp; Finance
-            </div>
-          `}
-        </div>
-      </div>
-      <div class="grid-3" id="slips-grid">
-        ${emps.map(emp => {
-          const rec = salaries.find(s => s.employeeId === emp.id && s.month === this.currentMonth);
-          return `
-            <div class="card slip-card" data-dept="${emp.departmentId}" style="text-align:center;border-top:3px solid ${rec ? 'var(--success)' : 'var(--border)'}">
-              <div class="avatar avatar-lg" style="background:${Utils.avatarColor(emp.id)};margin:0 auto 12px">${Utils.avatarInitials(emp.fullName)}</div>
-              <div style="font-weight:700;font-size:15px">${emp.fullName}</div>
-              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${Utils.getDesigName(emp.designationId)} • ${emp.empNo}</div>
-              <div style="margin:12px 0;font-size:22px;font-weight:800;color:${rec?'var(--success)':'var(--text-muted)'}">${rec ? Utils.formatCurrency(rec.netSalary) : '—'}</div>
-              ${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Generated</span>'}
-              <div style="margin-top:14px;display:flex;gap:6px">
-                ${rec ? `
-                  ${canManage ? `
-                    <button class="btn btn-primary btn-sm" style="flex:1" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
-                    <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Print / PDF"><i class="fa fa-print"></i></button>
-                    <button class="btn btn-ghost btn-icon btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')" title="Edit Slip"><i class="fa fa-pen"></i></button>
-                  ` : `
-                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
-                  `}
-                ` : `
-                  ${canManage ? `
-                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')"><i class="fa fa-cogs"></i> Generate Payslip</button>
-                  ` : `
-                    <button class="btn btn-ghost btn-sm w-full" disabled style="opacity:0.6">Not Generated</button>
-                  `}
-                `}
-              </div>
-            </div>
-          `;
-        }).join('')}
-      </div>
-    `;
-  },
-
-  filterSlips(deptId) {
-    document.querySelectorAll('.slip-card').forEach(card => {
-      if (!deptId || card.getAttribute('data-dept') === String(deptId)) {
-        card.style.display = 'block';
-      } else {
-        card.style.display = 'none';
-      }
-    });
-  },
-
-  viewSlip(empId, month) {
-    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
-    if (!isHrOrAdmin && Number(empId) !== Auth.employee?.id) {
-      Toast.show('403 Forbidden: Financial and salary details are strictly confidential between HR/Admin and the employee.', 'error');
-      return;
-    }
-    const emp = DB.find('employees', Number(empId));
-    const rec = DB.get('salary').find(s => s.employeeId === Number(empId) && s.month === month);
-    if (!emp || !rec) { Toast.show('Salary record not found', 'error'); return; }
-    const monthLabel = new Date(month+'-01').toLocaleDateString('en',{month:'long',year:'numeric'});
-    const pfSettings = this.getPFSettings();
-    const settings = DB.getObj('settings') || {};
-    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
-    const companyLogo = safeSrc(settings.companyLogo || '');
-
-    const pfEmployee = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
-    const pfEmployer = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
-    const loanDeduction = rec.loanDeduction || 0;
-    const unpaidDeduction = rec.unpaidLeaveDeduction || 0;
-    const otherDeductions = Math.max(0, (rec.deductions || 0) - pfEmployee - unpaidDeduction - loanDeduction);
-
-    Modal.show(`Payslip — ${emp.fullName} — ${monthLabel}`, `
-      <div style="background:white;color:#1a1a1a;border-radius:12px;overflow:hidden">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,hsl(221,83%,25%),hsl(262,83%,30%));color:white;padding:20px 22px;display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:12px">
-            ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain;filter:brightness(0) invert(1)">` : ''}
-            <div>
-              <div style="font-size:22px;font-weight:800">${settings.companyName || 'HRM Pro'}</div>
-              <div style="font-size:12px;opacity:0.85">${settings.companyTagline || 'Human Resource Management & Payroll'}</div>
-            </div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:18px;font-weight:700">PAYSLIP</div>
-            <div style="font-size:12px;opacity:0.85">${monthLabel}</div>
-          </div>
-        </div>
-
-        <!-- Employee Info -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:18px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
-          <div>
-            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">EMPLOYEE DETAILS</div>
-            <div style="font-size:16px;font-weight:700;color:#0f172a">${emp.fullName}</div>
-            <div style="font-size:13px;color:#475569">${Utils.getDesigName(emp.designationId)}</div>
-            <div style="font-size:12px;color:#64748b">${Utils.getDeptName(emp.departmentId)}</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">PAYMENT INFORMATION</div>
-            <div style="font-size:13px;color:#334155"><strong>Emp #:</strong> ${emp.empNo}</div>
-            <div style="font-size:13px;color:#334155"><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate)}</div>
-            <div style="font-size:13px;color:#334155"><strong>Bank:</strong> ${emp.bankName || 'HBL'} | ${emp.accountNo || '—'}</div>
-          </div>
-        </div>
-
-        <!-- Earnings & Deductions -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e2e8f0">
-          <div style="background:white;padding:18px 20px">
-            <div style="font-size:12px;font-weight:700;color:#10b981;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.8px">Earnings</div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Basic Salary</span><strong>PKR ${rec.basic.toLocaleString()}</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Allowances</span><span style="color:#10b981">PKR ${rec.allowances.toLocaleString()}</span></div>
-            ${rec.overtime ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Overtime</span><span style="color:#10b981">PKR ${rec.overtime.toLocaleString()}</span></div>` : ''}
-            ${rec.bonus ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Bonus / Incentive</span><span style="color:#10b981">PKR ${rec.bonus.toLocaleString()}</span></div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700"><span>Gross Earnings</span><span style="color:#10b981">PKR ${(rec.basic + rec.allowances + (rec.overtime||0) + (rec.bonus||0)).toLocaleString()}</span></div>
-          </div>
-
-          <div style="background:white;padding:18px 20px">
-            <div style="font-size:12px;font-weight:700;color:#ef4444;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.8px">Deductions</div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Provident Fund (Employee ${pfSettings.employeeRate}%)</span><span style="color:#ef4444;font-weight:600">PKR ${pfEmployee.toLocaleString()}</span></div>
-            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Income Tax (FBR)</span><span style="color:#ef4444">PKR ${rec.tax.toLocaleString()}</span></div>
-            ${loanDeduction > 0 ? `
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
-                <span style="color:#d97706;font-weight:600"><i class="fa fa-hand-holding-dollar" style="margin-right:4px"></i>Loan / PF Loan Recovery</span>
-                <span style="color:#d97706;font-weight:700">PKR ${loanDeduction.toLocaleString()}</span>
-              </div>
-            ` : ''}
-            ${unpaidDeduction > 0 ? `
-              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
-                <span style="color:#dc2626;font-weight:600">Unpaid Leave / Loss of Pay (${rec.unpaidLeaveDays || 1}d)</span>
-                <span style="color:#dc2626;font-weight:700">PKR ${unpaidDeduction.toLocaleString()}</span>
-              </div>
-            ` : ''}
-            ${otherDeductions > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Other Deductions (EOBI / SESSI)</span><span style="color:#ef4444">PKR ${otherDeductions.toLocaleString()}</span></div>` : ''}
-            <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700"><span>Total Deductions</span><span style="color:#ef4444">PKR ${(rec.deductions + rec.tax).toLocaleString()}</span></div>
-          </div>
-        </div>
-
-        <!-- Provident Fund & Retirement Benefits Strip -->
-        <div style="background:#f0fdf4;border-top:1px solid #bbf7d0;border-bottom:1px solid #bbf7d0;padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase">Employer PF Contribution (Matching ${pfSettings.employerRate}%)</div>
-            <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:2px">PKR ${pfEmployer.toLocaleString()} <span style="font-size:11px;font-weight:normal;color:#166534">(Credited directly to PF Trust)</span></div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase">Accumulated PF Balance To Date</div>
-            <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:2px">PKR ${pfSummary.totalBalance.toLocaleString()}</div>
-          </div>
-        </div>
-
-        <!-- SPMS Splitter & Bank / Cash Remittance Breakdown (§8, §10) -->
-        <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
-          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">TAXABLE BASE</div>
-            <div style="font-weight:700;color:#0f172a;font-size:13px">PKR ${(rec.send_in_bank_before_tax || rec.taxable_income || (rec.basic + (rec.allowances||0))).toLocaleString()}</div>
-          </div>
-          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">WITHHOLDING TAX</div>
-            <div style="font-weight:700;color:#ef4444;font-size:13px">PKR ${(rec.withholding_tax !== undefined ? rec.withholding_tax : rec.tax).toLocaleString()}</div>
-          </div>
-          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">SEND IN BANK</div>
-            <div style="font-weight:700;color:#2563eb;font-size:13px">PKR ${(rec.send_in_bank !== undefined ? rec.send_in_bank : rec.netSalary).toLocaleString()}</div>
-          </div>
-          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
-            <div style="font-size:10.5px;color:#64748b;font-weight:600">CASH REMITTANCE</div>
-            <div style="font-weight:700;color:#d97706;font-size:13px">PKR ${(rec.cash_remittances || 0).toLocaleString()}</div>
-          </div>
-        </div>
-
-        <!-- Net Pay & Amount in Words -->
-        <div style="background:linear-gradient(135deg,#1e3a5f,#2d1b69);padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <span style="color:rgba(255,255,255,0.8);font-size:13px;font-weight:600">NET SALARY PAYABLE</span>
-            <div style="font-size:12px;color:#93c5fd;font-style:italic;margin-top:2px">${Payroll.numberToWords(rec.netSalary)}</div>
-          </div>
-          <span style="color:white;font-size:26px;font-weight:800">PKR ${rec.netSalary.toLocaleString()}</span>
-        </div>
-
-        <div style="padding:12px 24px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">
-          System generated payslip • Status: ${rec.status.toUpperCase()} • Generated on ${Utils.formatDate(rec.paidOn || Utils.today())} • No signature required
-        </div>
           </select>
           ${canManage ? `
             <select class="filter-select" id="slip-dept-filter" onchange="Payroll.filterSlips(this.value)" style="width:180px">
@@ -3546,8 +4033,8 @@ const Payroll = {
               <i class="fa fa-file-export"></i> Export FBR Statement (CSV)
             </button>
           ` : ''}
-          <button class="btn btn-primary btn-sm" onclick="Payroll.showSection149Cert(${isEmp ? (Auth.employee?.id || 1) : targetEmps[0]?.id})">
-            <i class="fa fa-file-invoice"></i> Section 149 Certificate
+          <button class="btn btn-primary btn-sm" onclick="Payroll.showForm16Modal(${isEmp ? (Auth.employee?.id || 1) : targetEmps[0]?.id})">
+            <i class="fa fa-file-invoice"></i> Form 16 / Tax Certificate
           </button>
         </div>
       </div>
@@ -3677,8 +4164,8 @@ const Payroll = {
                     <td style="font-weight:800;color:var(--danger);font-size:13.5px">${Utils.formatCurrency(tax.monthlyTax)}</td>
                     <td><span class="chip" style="font-weight:700">${tax.effectiveRate}%</span></td>
                     <td>
-                      <button class="btn btn-ghost btn-sm" onclick="Payroll.showSection149Cert(${emp.id})" title="Generate Official FBR Section 149 Certificate">
-                        <i class="fa fa-file-contract" style="color:var(--primary)"></i> Sec 149
+                      <button class="btn btn-primary btn-xs" onclick="Payroll.showForm16Modal(${emp.id})" title="Generate Official Form 16 / Annual Tax Certificate">
+                        <i class="fa fa-file-invoice"></i> Form 16
                       </button>
                     </td>
                   </tr>
@@ -3731,7 +4218,7 @@ const Payroll = {
     `;
   },
 
-  showSection149Cert(employeeId) {
+  showSection149Cert(employeeId, taxYear = '2026-2027') {
     const emp = DB.find('employees', Number(employeeId)) || DB.get('employees')[0];
     if (!emp) return;
 
@@ -3742,17 +4229,27 @@ const Payroll = {
     const taxableIncome = Math.max(0, tax.annualIncome - exemptMedical);
     const ntn = emp.taxInfo?.ntn || `${4000000 + emp.id * 137}-7`;
     const cnic = emp.cnic || '42201-1234567-1';
+    const periodStr = taxYear === '2024-2025' ? 'July 1, 2023 to June 30, 2024' : (taxYear === '2025-2026' ? 'July 1, 2024 to June 30, 2025' : 'July 1, 2025 to June 30, 2026');
 
-    Modal.show('Official FBR Section 149 Withholding Tax Certificate', `
+    Modal.show('Form 16 / Annual Salary Tax Deduction Certificate (Section 149)', `
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin-bottom:12px;gap:8px">
+        <label style="font-size:12px;font-weight:700;color:var(--text)">Select Tax Assessment Year:</label>
+        <select class="filter-select" onchange="Payroll.showSection149Cert(${emp.id}, this.value)" style="width:160px;font-weight:700">
+          <option value="2026-2027" ${taxYear==='2026-2027'?'selected':''}>Tax Year 2026–2027</option>
+          <option value="2025-2026" ${taxYear==='2025-2026'?'selected':''}>Tax Year 2025–2026</option>
+          <option value="2024-2025" ${taxYear==='2024-2025'?'selected':''}>Tax Year 2024–2025</option>
+        </select>
+      </div>
+
       <div id="fbr-cert-print-area" style="background:white;color:#111827;padding:36px 44px;border-radius:10px;border:2px solid #e2e8f0;font-family:'Segoe UI',Roboto,Helvetica,sans-serif;max-width:760px;margin:0 auto;box-shadow:0 10px 25px rgba(0,0,0,0.05)">
         <!-- Official Government Header -->
         <div style="text-align:center;border-bottom:2.5px solid #0f172a;padding-bottom:16px;margin-bottom:20px">
           <div style="font-size:13px;font-weight:800;letter-spacing:1.5px;color:#1e3a8a;text-transform:uppercase">Government of Pakistan &bull; Federal Board of Revenue</div>
-          <div style="font-size:17px;font-weight:900;color:#0f172a;margin-top:4px;letter-spacing:0.5px">CERTIFICATE OF COLLECTION OR DEDUCTION OF INCOME TAX</div>
+          <div style="font-size:18px;font-weight:900;color:#0f172a;margin-top:4px;letter-spacing:0.5px">FORM 16 &bull; CERTIFICATE OF DEDUCTION OF INCOME TAX</div>
           <div style="font-size:12px;font-weight:600;color:#475569;margin-top:3px">[ Under Section 149 of the Income Tax Ordinance, 2001 &amp; Rule 42 ]</div>
           <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#64748b;margin-top:14px;border-top:1px solid #cbd5e1;padding-top:8px">
-            <span>Certificate Ref: <strong>FBR/SEC149/2026/${String(emp.id).padStart(4, '0')}</strong></span>
-            <span>Tax Year: <strong>2026 (Period: July 1, 2025 to June 30, 2026)</strong></span>
+            <span>Certificate Ref: <strong>FBR/FORM16/${taxYear.split('-')[0]}/${String(emp.id).padStart(4, '0')}</strong></span>
+            <span>Tax Assessment Year: <strong>${taxYear} (Period: ${periodStr})</strong></span>
           </div>
         </div>
 

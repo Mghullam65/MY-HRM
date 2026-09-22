@@ -67,10 +67,11 @@ const Leaves = {
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
         <div class="module-stage-tabs">
           ${[
-            { id:'requests', label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null },
-            { id:'calendar', label:'Leave & Holiday Calendar',   icon:'fa-calendar-days' },
-            { id:'quota',    label:'Leave Quotas & Policies',    icon:'fa-scale-balanced' },
-            { id:'tokens',   label:'Comp-Off & Overtime Tokens', icon:'fa-coins' },
+            { id:'requests',   label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null },
+            { id:'calendar',   label:'Leave & Holiday Calendar',   icon:'fa-calendar-days' },
+            { id:'quota',      label:'Leave Quotas & Policies',    icon:'fa-scale-balanced' },
+            { id:'tokens',     label:'Comp-Off & TOIL Bank',       icon:'fa-coins' },
+            { id:'encashment', label:'Leave Encashment',           icon:'fa-hand-holding-dollar' },
           ].map(t => `
             <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Leaves.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
@@ -96,6 +97,7 @@ const Leaves = {
     if (tabId === 'calendar') return ['calendar', 'holidays'].includes(this.currentView);
     if (tabId === 'quota') return ['quota', 'balance', 'types'].includes(this.currentView);
     if (tabId === 'tokens') return this.currentView === 'tokens';
+    if (tabId === 'encashment') return this.currentView === 'encashment';
     return this.currentView === tabId;
   },
 
@@ -125,17 +127,18 @@ const Leaves = {
     const container = document.getElementById('leaves-content');
     if (!container) return;
     switch(this.currentView) {
-      case 'requests': this.renderRequests(container); break;
-      case 'calendar': this.renderCalendar(container); break;
+      case 'requests':   this.renderRequests(container); break;
+      case 'calendar':   this.renderCalendar(container); break;
       case 'quota':
-      case 'balance':  this.renderQuota(container); break;
-      case 'tokens':   this.renderTokens(container); break;
+      case 'balance':    this.renderQuota(container); break;
+      case 'tokens':     this.renderTokens(container); break;
+      case 'encashment': this.renderLeaveEncashment(container); break;
       case 'types':    
         this.currentView = 'quota';
         this.quotaSubView = 'types';
         this.renderQuota(container);
         break;
-      case 'holidays': this.renderHolidays(container); break;
+      case 'holidays':   this.renderHolidays(container); break;
     }
   },
 
@@ -198,26 +201,26 @@ const Leaves = {
                   <td style="font-size:12px">${Utils.formatDate(leave.appliedOn)}</td>
                   <td>${Utils.statusBadge(leave.status)}</td>
                   <td>
-                    <div class="tbl-actions">
-                      <button class="btn btn-ghost btn-icon btn-sm" onclick="Leaves.viewDetail(${leave.id})" title="View"><i class="fa fa-eye"></i></button>
+                    <div class="tbl-actions" style="flex-wrap:nowrap;gap:4px">
+                      <button class="btn btn-ghost btn-icon btn-xs" onclick="Leaves.viewDetail(${leave.id})" title="View Details"><i class="fa fa-eye"></i></button>
                       ${(isDeptMgr && leave.status === 'pending') ? `
-                        <button class="btn btn-primary btn-sm" onclick="Leaves.approve(${leave.id})" title="Manager Endorse / Approve">
-                          <i class="fa fa-check"></i> Manager Approve
+                        <button class="btn btn-primary btn-xs" onclick="Leaves.approve(${leave.id})" title="Manager Endorse / Approve">
+                          <i class="fa fa-user-check"></i> Mgr
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${leave.id})" title="Reject">
+                        <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.reject(${leave.id})" title="Reject">
                           <i class="fa fa-times"></i>
                         </button>
                       ` : ''}
                       ${(isHRorAdmin && (leave.status === 'pending' || leave.status === 'manager_approved')) ? `
-                        <button class="btn btn-success btn-sm" onclick="Leaves.approve(${leave.id})" title="Final Corporate Approval">
-                          <i class="fa fa-check-double"></i> Final Approve
+                        <button class="btn btn-success btn-xs" onclick="Leaves.approve(${leave.id})" title="Final Corporate Approval">
+                          <i class="fa fa-check-double"></i> Final
                         </button>
-                        <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${leave.id})" title="Reject">
+                        <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.reject(${leave.id})" title="Reject">
                           <i class="fa fa-times"></i>
                         </button>
                       ` : ''}
                       ${isEmployee && leave.status === 'pending' ? `
-                        <button class="btn btn-danger btn-icon btn-sm" onclick="Leaves.cancelLeave(${leave.id})" title="Cancel"><i class="fa fa-ban"></i></button>
+                        <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.cancelLeave(${leave.id})" title="Cancel"><i class="fa fa-ban"></i></button>
                       ` : ''}
                     </div>
                   </td>
@@ -2737,9 +2740,19 @@ const Leaves = {
       return true;
     });
 
+    // Calculate 90-day validity and expiry alerts for approved claims
+    const nowTime = new Date().getTime();
+    const expiringSoonTokens = displayTokens.filter(t => {
+      if (t.status !== 'approved') return false;
+      const tTime = new Date(t.date).getTime();
+      const expiryTime = t.expiryDate ? new Date(t.expiryDate).getTime() : (tTime + 90 * 86400000);
+      const daysLeft = Math.ceil((expiryTime - nowTime) / 86400000);
+      return daysLeft <= 15 && daysLeft >= 0;
+    });
+
     container.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Top Banner: Overtime Token System Info & Actions -->
+        <!-- Top Banner: Comp-Off & TOIL Info & Actions -->
         <div class="card" style="padding:18px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(99,102,241,0.07) 0%,rgba(168,85,247,0.06) 100%);border:1.5px solid rgba(99,102,241,0.25);border-radius:14px">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
             <div style="display:flex;align-items:center;gap:14px">
@@ -2748,23 +2761,36 @@ const Leaves = {
               </div>
               <div>
                 <h3 style="font-size:17px;font-weight:800;color:var(--text);margin:0;letter-spacing:-0.3px">
-                  Overtime Tokens &amp; Compensatory Leave Bank
+                  Comp-Off &amp; Time-Off-In-Lieu (TOIL) Token Bank
                 </h3>
                 <p style="font-size:12px;color:var(--text-3);margin:3px 0 0">
-                  Non-Cash Policy: Overtime is <strong>not paid as cash in salary</strong>. Extra hours are converted into verified tokens with reporting manager approval, avail as <strong>Short Leave (min 45 min)</strong>, <strong>Half Day (4h)</strong>, or <strong>Full Day (8h)</strong>.
+                  Comp-off credits earned for approved overtime, weekend duty, and gazetted holiday work. <strong>Validity: 90 Days</strong>. Tokens can be availed as <strong>Short Leave (min 45 min)</strong>, <strong>Half Day (4h)</strong>, or <strong>Full Day (8h)</strong>.
                 </p>
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-primary" onclick="Leaves.showClaimOvertimeTokenModal()">
-                <i class="fa fa-plus-circle"></i> Apply Overtime Token Claim
+                <i class="fa fa-plus-circle"></i> Claim Comp-Off / TOIL
               </button>
               <button class="btn btn-success" onclick="Leaves.showAvailTokenModal()">
-                <i class="fa fa-calendar-check"></i> Avail Token as Leave
+                <i class="fa fa-calendar-check"></i> Avail Comp-Off as Leave
               </button>
             </div>
           </div>
         </div>
+
+        ${expiringSoonTokens.length > 0 ? `
+          <div style="background:rgba(245,158,11,0.1);border:1.5px solid rgba(245,158,11,0.35);border-radius:12px;padding:12px 18px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+            <i class="fa fa-triangle-exclamation" style="font-size:22px;color:var(--warning)"></i>
+            <div style="flex:1">
+              <div style="font-weight:700;color:var(--warning);font-size:13.5px">Comp-Off &amp; TOIL Expiry Warning (90-Day Policy Rule)</div>
+              <div style="font-size:12px;color:var(--text-2);margin-top:2px">
+                <strong>${expiringSoonTokens.length} approved token claim(s)</strong> are expiring within 15 days. Unavailed compensatory credits lapse automatically after 90 days from credit date.
+              </div>
+            </div>
+            <button class="btn btn-warning btn-sm" onclick="Leaves.showAvailTokenModal()"><i class="fa fa-calendar-check"></i> Avail Now</button>
+          </div>
+        ` : ''}
 
         <!-- 4 KPI Metrics Hero Grid -->
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
@@ -2870,14 +2896,14 @@ const Leaves = {
             <div>
               <div style="font-weight:700;font-size:14px;color:var(--text)">
                 <i class="fa fa-list-check" style="color:var(--primary);margin-right:6px"></i>
-                Overtime Token Claims &amp; Verification Ledger
+                Comp-Off &amp; Overtime Token Claims &amp; Verification Ledger
               </div>
               <div style="font-size:11.5px;color:var(--text-3)">
-                ${isEmployee ? 'History of your submitted overtime claims and manager verification notes' : 'Corporate overtime claims ledger and reporting manager approvals'}
+                ${isEmployee ? 'History of your submitted claims, 90-day validity countdown, and manager verification notes' : 'Corporate overtime & comp-off claims ledger and reporting manager approvals'}
               </div>
             </div>
             <button class="btn btn-primary btn-sm" onclick="Leaves.showClaimOvertimeTokenModal()">
-              <i class="fa fa-plus"></i> Claim Overtime
+              <i class="fa fa-plus"></i> Claim Comp-Off / OT
             </button>
           </div>
 
@@ -2887,22 +2913,43 @@ const Leaves = {
                 <tr>
                   <th>Date Worked</th>
                   <th>Employee</th>
+                  <th>Category</th>
                   <th>Extra Hours</th>
                   <th>Task Description / Assigned Work</th>
                   <th>Reporting Manager</th>
+                  <th>Validity (90 Days)</th>
                   <th>Status</th>
                   <th>Manager Remarks / Approval</th>
                 </tr>
               </thead>
               <tbody>
                 ${displayTokens.length === 0 ? `
-                  <tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No overtime token claims recorded yet.</td></tr>
+                  <tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-muted)">No overtime token claims recorded yet.</td></tr>
                 ` : displayTokens.map(t => {
                   const emp = DB.find('employees', t.employeeId);
                   const mgr = DB.find('employees', t.managerId || emp?.managerId || emp?.reportingTo || 3);
                   let statusBadge = '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending Review</span>';
-                  if (t.status === 'approved') statusBadge = '<span class="badge badge-success"><i class="fa fa-check-circle"></i> Approved &amp; Banked</span>';
+                  if (t.status === 'approved') statusBadge = '<span class="badge badge-success"><i class="fa fa-check-circle"></i> Approved</span>';
                   else if (t.status === 'rejected') statusBadge = '<span class="badge badge-danger"><i class="fa fa-circle-xmark"></i> Rejected</span>';
+
+                  const categoryLabel = t.claimType === 'weekend' ? 'Weekend Comp-Off' : (t.claimType === 'holiday' ? 'Holiday TOIL' : 'Shift Overtime');
+                  const categoryIcon = t.claimType === 'weekend' ? 'fa-calendar-week' : (t.claimType === 'holiday' ? 'fa-star' : 'fa-clock');
+                  const categoryBadgeColor = t.claimType === 'weekend' ? '#8b5cf6' : (t.claimType === 'holiday' ? '#ec4899' : '#6366f1');
+
+                  // Expiry
+                  const tTime = new Date(t.date).getTime();
+                  const expiryTime = t.expiryDate ? new Date(t.expiryDate).getTime() : (tTime + 90 * 86400000);
+                  const daysLeft = Math.ceil((expiryTime - nowTime) / 86400000);
+                  let validityBadge = '<span class="badge badge-neutral">—</span>';
+                  if (t.status === 'approved') {
+                    if (daysLeft < 0) {
+                      validityBadge = '<span class="badge badge-danger" title="90-day validity expired"><i class="fa fa-clock-rotate-left"></i> Expired</span>';
+                    } else if (daysLeft <= 15) {
+                      validityBadge = `<span class="badge badge-warning" title="Expiring in ${daysLeft} days"><i class="fa fa-triangle-exclamation"></i> ${daysLeft}d Left</span>`;
+                    } else {
+                      validityBadge = `<span class="badge badge-neutral" style="font-size:11px"><i class="fa fa-shield"></i> ${daysLeft}d left</span>`;
+                    }
+                  }
 
                   return `
                     <tr>
@@ -2911,13 +2958,19 @@ const Leaves = {
                         <div style="font-weight:600;font-size:12.5px">${emp?.fullName || 'Self'}</div>
                         <div style="font-size:10.5px;color:var(--text-3)">${emp?.empNo}</div>
                       </td>
+                      <td>
+                        <span class="badge" style="background:${categoryBadgeColor}15;color:${categoryBadgeColor};border:1px solid ${categoryBadgeColor}35;font-size:11px">
+                          <i class="fa ${categoryIcon}" style="margin-right:3px"></i> ${categoryLabel}
+                        </span>
+                      </td>
                       <td><span class="badge badge-primary" style="font-weight:700">${t.minutes ? `${Math.floor(t.minutes / 60) > 0 ? Math.floor(t.minutes / 60) + 'h ' : ''}${t.minutes % 60}m (${t.hours}h)` : `${t.hours} hrs`}</span></td>
-                      <td style="max-width:280px;font-size:12px;color:var(--text-2);line-height:1.4">${t.taskDescription}</td>
+                      <td style="max-width:240px;font-size:12px;color:var(--text-2);line-height:1.4">${t.taskDescription}</td>
                       <td style="font-size:12px;color:var(--text-2)">
                         <strong>${mgr?.fullName || 'Usman Baig'}</strong>
                       </td>
+                      <td>${validityBadge}</td>
                       <td>${statusBadge}</td>
-                      <td style="font-size:11.5px;color:var(--text-3);max-width:220px">
+                      <td style="font-size:11.5px;color:var(--text-3);max-width:200px">
                         ${t.managerRemarks || (t.status === 'approved' ? '✓ Verified work assignment' : (t.status === 'rejected' ? '✗ Rejected' : 'Awaiting review'))}
                         ${t.managerApprovedAt ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${new Date(t.managerApprovedAt).toLocaleDateString()}</div>` : ''}
                       </td>
@@ -3109,7 +3162,16 @@ const Leaves = {
         `}
 
         <div class="form-group" style="margin-bottom:0">
-          <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date Overtime Worked</label>
+          <label class="form-label required"><i class="fa fa-tag" style="color:var(--primary);margin-right:4px"></i> Comp-Off / Token Category</label>
+          <select class="form-control" id="ot-claim-category" onchange="Leaves.onClaimCategoryChange(this.value)">
+            <option value="overtime">Shift Overtime (Extra Hours Worked)</option>
+            <option value="weekend">Weekend Duty Comp-Off (Saturday/Sunday Shift — 8h)</option>
+            <option value="holiday">Gazetted Public Holiday Comp-Off (Holiday Duty — 8h)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label required"><i class="fa fa-calendar-day" style="color:var(--primary);margin-right:4px"></i> Date Overtime / Duty Worked</label>
           <input type="date" class="form-control" id="ot-claim-date" value="${defaultDate}" onchange="Leaves.onClaimDateOrEmpChange()">
         </div>
 
@@ -3183,6 +3245,26 @@ const Leaves = {
     if (disp) disp.value = mgr.fullName;
     if (hidden) hidden.value = mgrId;
     this.onClaimDateOrEmpChange();
+  },
+
+  onClaimCategoryChange(category) {
+    const hoursInput = document.getElementById('ot-claim-hours');
+    const minsInput = document.getElementById('ot-claim-mins');
+    const valMsg = document.getElementById('ot-claim-val-msg');
+    const desc = document.getElementById('ot-claim-desc');
+
+    if (category === 'weekend' || category === 'holiday') {
+      if (hoursInput) hoursInput.value = 8;
+      if (minsInput) minsInput.value = 0;
+      if (desc && !desc.value) {
+        desc.value = category === 'weekend' ? 'Assigned weekend roster duty' : 'Assigned gazetted public holiday emergency duty';
+      }
+      if (valMsg) {
+        valMsg.innerHTML = `<div style="font-size:12px;color:var(--success);font-weight:600"><i class="fa fa-circle-check"></i> ${category === 'weekend' ? 'Weekend Duty Comp-Off' : 'Gazetted Holiday TOIL'} credit: 8.0 hours (1 Full Day). Valid for 90 days.</div>`;
+      }
+    } else {
+      this.onClaimDateOrEmpChange();
+    }
   },
 
   onClaimDateOrEmpChange(prefillHours) {
@@ -3442,22 +3524,31 @@ const Leaves = {
       return;
     }
 
-    // Verify against actual attendance overtime
+    const category = document.getElementById('ot-claim-category')?.value || 'overtime';
     const otInfo = this.getAttendanceOvertimeForDate(empId, date);
-    if (!otInfo.found) {
-      Toast.show(`No attendance record found for ${Utils.formatDate(date)}. Cannot claim overtime tokens.`, 'error');
-      return;
+
+    // Verify against actual attendance overtime only for standard shift overtime
+    if (category === 'overtime') {
+      if (!otInfo.found) {
+        Toast.show(`No attendance record found for ${Utils.formatDate(date)}. Cannot claim overtime tokens.`, 'error');
+        return;
+      }
+
+      if (otInfo.recordedOtMins <= 0) {
+        Toast.show(`No overtime was recorded on ${Utils.formatDate(date)}. Shift did not exceed 8.0 hours.`, 'error');
+        return;
+      }
+
+      if (claimedMins > otInfo.remainingClaimableMins) {
+        Toast.show(`Cannot apply for ${claimedMins} mins. You only have ${otInfo.remainingClaimableMins} mins of overtime recorded on this date.`, 'error');
+        return;
+      }
     }
 
-    if (otInfo.recordedOtMins <= 0) {
-      Toast.show(`No overtime was recorded on ${Utils.formatDate(date)}. Shift did not exceed 8.0 hours.`, 'error');
-      return;
-    }
-
-    if (claimedMins > otInfo.remainingClaimableMins) {
-      Toast.show(`Cannot apply for ${claimedMins} mins. You only have ${otInfo.remainingClaimableMins} mins of overtime recorded on this date.`, 'error');
-      return;
-    }
+    // 90-day expiry calculation
+    const expiry = new Date(date);
+    expiry.setDate(expiry.getDate() + 90);
+    const expiryDate = expiry.toISOString().split('T')[0];
 
     const claimedHours = Math.round((claimedMins / 60) * 100) / 100;
     const tokens = DB.get('overtime_tokens') || [];
@@ -3465,9 +3556,11 @@ const Leaves = {
       id: DB.nextId('overtime_tokens'),
       employeeId: empId,
       date,
+      claimType: category,
       hours: claimedHours,
       minutes: claimedMins,
-      recordedOvertimeMinutes: otInfo.recordedOtMins,
+      expiryDate,
+      recordedOvertimeMinutes: otInfo.recordedOtMins || claimedMins,
       taskDescription,
       status: 'pending',
       appliedOn: Utils.today(),
@@ -3478,10 +3571,11 @@ const Leaves = {
 
     tokens.push(newClaim);
     DB.set('overtime_tokens', tokens);
-    DB.log('APPLY', 'Leaves', `Submitted overtime token claim (${claimedMins}m / ${claimedHours}h) for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
+    const catTitle = category === 'weekend' ? 'Weekend Comp-Off' : (category === 'holiday' ? 'Gazetted Holiday TOIL' : 'Overtime Token');
+    DB.log('APPLY', 'Leaves', `Submitted ${catTitle} claim (${claimedHours}h, valid until ${expiryDate}) for ${Utils.getEmpName(empId)} on ${date}`, Auth.user?.id);
 
     Modal.close('dynamic-modal');
-    Toast.show('Overtime token claim submitted successfully!', 'success', `Sent to ${Utils.getEmpName(managerId)} for verification.`);
+    Toast.show(`${catTitle} claim submitted successfully!`, 'success', `Sent to ${Utils.getEmpName(managerId)} for verification (90-day validity).`);
     this.render();
   },
 
@@ -4097,5 +4191,671 @@ const Leaves = {
       Toast.show('Overtime token claim rejected.', 'info');
       this.render();
     });
+  },
+
+  // ============================================================
+  // LEAVE ENCASHMENT MODULE — Statutory Annual Leave Liquidation
+  // Formula: (Base Salary / 30) * Encashed Days
+  // Retention Rule: Minimum 10 Days Annual Leave preserved
+  // Scheduled directly in payroll run upon approval
+  // ============================================================
+  renderLeaveEncashment(container) {
+    if (!container) return;
+    const encashments = DB.get('leave_encashments') || [];
+    const isHRorAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const myEmpId = Auth.employee?.id;
+
+    const displayList = encashments.filter(e => {
+      if (Auth.role === 'employee') return e.employeeId === myEmpId;
+      if (Auth.role === 'dept_manager') {
+        const teamIds = this.getScopedEmployees().map(emp => emp.id);
+        return teamIds.includes(e.employeeId) || e.employeeId === myEmpId;
+      }
+      return true;
+    });
+
+    const pendingCount = encashments.filter(e => e.status === 'pending').length;
+    const approvedCount = encashments.filter(e => e.status === 'approved').length;
+    const totalPayoutAmount = encashments
+      .filter(e => e.status === 'approved')
+      .reduce((s, e) => s + (Number(e.totalPayout) || 0), 0);
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Statutory Policy Banner Card -->
+        <div class="card" style="padding:18px 22px;margin-bottom:20px;background:linear-gradient(135deg,rgba(16,185,129,0.08) 0%,rgba(99,102,241,0.06) 100%);border:1.5px solid rgba(16,185,129,0.3);border-radius:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 14px rgba(16,185,129,0.3)">
+                <i class="fa fa-hand-holding-dollar"></i>
+              </div>
+              <div>
+                <h3 style="font-size:17px;font-weight:800;color:var(--text);margin:0;letter-spacing:-0.3px">
+                  Statutory Leave Encashment &amp; Liquidation Module
+                </h3>
+                <p style="font-size:12px;color:var(--text-3);margin:3px 0 0">
+                  Encashes surplus earned <strong>Annual Leaves</strong>. Formula: <code>(Base Salary / 30) × Encashed Days</code>. Mandatory reserve: <strong>10 days</strong> must remain retained. Approved payouts are scheduled directly into monthly payroll.
+                </p>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="Leaves.showApplyLeaveEncashmentModal()">
+                <i class="fa fa-plus-circle"></i> Apply Leave Encashment
+              </button>
+              ${isHRorAdmin ? `
+                <button class="btn btn-outline" onclick="Leaves.showBulkEncashmentModal()">
+                  <i class="fa fa-users-gear"></i> Annual Bulk Encashment Run
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #10b981">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase">Total Encashed Payout</span>
+              <i class="fa fa-money-bill-wave" style="font-size:18px;color:#10b981"></i>
+            </div>
+            <div style="font-size:24px;font-weight:800;color:#10b981;margin:8px 0 2px">${Utils.formatCurrency(totalPayoutAmount)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Approved corporate encashment disbursed</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #f59e0b">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase">Pending Approvals</span>
+              <i class="fa fa-clock" style="font-size:18px;color:#f59e0b"></i>
+            </div>
+            <div style="font-size:24px;font-weight:800;color:#f59e0b;margin:8px 0 2px">${pendingCount}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Awaiting HR &amp; management review</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #6366f1">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase">Approved &amp; Scheduled</span>
+              <i class="fa fa-circle-check" style="font-size:18px;color:#6366f1"></i>
+            </div>
+            <div style="font-size:24px;font-weight:800;color:#6366f1;margin:8px 0 2px">${approvedCount}</div>
+            <div style="font-size:11px;color:var(--text-muted)">Ready for inclusion in monthly payroll</div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-left:4px solid #8b5cf6">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase">Statutory Reserve Rule</span>
+              <i class="fa fa-shield-halved" style="font-size:18px;color:#8b5cf6"></i>
+            </div>
+            <div style="font-size:24px;font-weight:800;color:#8b5cf6;margin:8px 0 2px">10 <span style="font-size:14px;font-weight:600">Days</span></div>
+            <div style="font-size:11px;color:var(--text-muted)">Mandatory retained Annual leave buffer</div>
+          </div>
+        </div>
+
+        <!-- Encashment Applications Ledger -->
+        <div class="card" style="padding:0">
+          <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-weight:800;font-size:15px;color:var(--text)">
+                <i class="fa fa-list-ol" style="color:var(--primary);margin-right:6px"></i>
+                Leave Encashment Claims &amp; Payroll Schedule Ledger
+              </div>
+              <div style="font-size:12px;color:var(--text-3)">
+                Detailed breakdown of leave encashments, per-day rates, retained balances, and settlement statuses
+              </div>
+            </div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyLeaveEncashmentModal()">
+                <i class="fa fa-plus"></i> New Application
+              </button>
+            </div>
+          </div>
+
+          <div class="table-wrapper" style="border:none">
+            <table>
+              <thead>
+                <tr>
+                  <th>Encashment ID</th>
+                  <th>Employee</th>
+                  <th>Year</th>
+                  <th>Total Balance</th>
+                  <th>Retained</th>
+                  <th>Encashed Days</th>
+                  <th>Daily Rate</th>
+                  <th>Total Payout</th>
+                  <th>Status</th>
+                  <th>Payroll Month</th>
+                  <th style="text-align:center">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${displayList.length === 0 ? `
+                  <tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted)">No leave encashment applications recorded yet.</td></tr>
+                ` : displayList.map(e => {
+                  const emp = DB.find('employees', e.employeeId);
+                  const dept = DB.find('departments', emp?.departmentId);
+                  const isPending = e.status === 'pending';
+                  const isApproved = e.status === 'approved';
+
+                  let statusBadge = '<span class="badge badge-warning"><i class="fa fa-clock"></i> Pending HR</span>';
+                  if (isApproved) statusBadge = '<span class="badge badge-success"><i class="fa fa-check-circle"></i> Approved</span>';
+                  else if (e.status === 'rejected') statusBadge = '<span class="badge badge-danger"><i class="fa fa-times-circle"></i> Rejected</span>';
+
+                  let payrollBadge = '<span class="badge badge-neutral">Not Scheduled</span>';
+                  if (e.payoutStatus === 'scheduled_in_payroll') payrollBadge = `<span class="badge badge-primary"><i class="fa fa-calendar-check"></i> ${e.payrollMonth || 'Next Cycle'}</span>`;
+                  else if (e.payoutStatus === 'paid') payrollBadge = '<span class="badge badge-success"><i class="fa fa-check-double"></i> Paid</span>';
+
+                  return `
+                    <tr>
+                      <td style="font-weight:700;font-family:monospace;color:var(--primary)">#ENC-${e.id.toString().padStart(4, '0')}</td>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:10px">
+                          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
+                          <div>
+                            <div style="font-weight:700;font-size:13px">${emp?.fullName || 'Employee #' + e.employeeId}</div>
+                            <div style="font-size:11px;color:var(--text-3)">${emp?.empNo} • ${dept?.name || 'Department'}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style="font-weight:600">${e.year || 2026}</td>
+                      <td><span style="font-weight:600">${e.availableBalance}d</span></td>
+                      <td><span class="badge badge-neutral" style="font-size:11px">${e.retainedBalance || 10}d Retained</span></td>
+                      <td><span class="badge badge-primary" style="font-weight:800;font-size:12px">${e.encashedDays} Days</span></td>
+                      <td style="font-size:12px">${Utils.formatCurrency(e.perDayRate)}/d</td>
+                      <td style="font-weight:800;font-size:13px;color:var(--success)">${Utils.formatCurrency(e.totalPayout)}</td>
+                      <td>${statusBadge}</td>
+                      <td>${payrollBadge}</td>
+                      <td style="text-align:center;white-space:nowrap">
+                        <button class="btn btn-outline btn-xs" style="margin-right:4px" onclick="Leaves.showEncashmentSlipModal(${e.id})" title="View / Print Encashment Certificate">
+                          <i class="fa fa-file-invoice-dollar"></i> Slip
+                        </button>
+                        ${isHRorAdmin && isPending ? `
+                          <button class="btn btn-success btn-xs" style="margin-right:4px" onclick="Leaves.approveLeaveEncashment(${e.id})" title="Approve & Schedule for Payroll">
+                            <i class="fa fa-check"></i>
+                          </button>
+                          <button class="btn btn-danger btn-xs" onclick="Leaves.rejectLeaveEncashment(${e.id})" title="Reject Encashment">
+                            <i class="fa fa-times"></i>
+                          </button>
+                        ` : ''}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showApplyLeaveEncashmentModal(prefillEmpId) {
+    const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const myEmpId = Auth.employee?.id || 1;
+    const isHRorAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const selectedEmpId = prefillEmpId ? Number(prefillEmpId) : (isHRorAdmin ? allEmps[0]?.id : myEmpId);
+
+    Modal.show('Apply for Leave Encashment', `
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:linear-gradient(135deg,rgba(16,185,129,0.1),rgba(99,102,241,0.08));border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:12px 14px">
+          <div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px">
+            <i class="fa fa-hand-holding-dollar" style="color:var(--success)"></i> Statutory Leave Encashment Policy
+          </div>
+          <div style="font-size:11.5px;color:var(--text-2);margin-top:4px;line-height:1.4">
+            Employees can encash surplus <strong>Annual Leaves</strong> in excess of the mandatory <strong>10-day retention reserve</strong>. Rate: <code>(Base Monthly Salary / 30) × Days</code>.
+          </div>
+        </div>
+
+        ${isHRorAdmin ? `
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label required">Select Employee</label>
+            <select class="form-control" id="enc-emp-id" onchange="Leaves.updateEncashmentCalculationModal()">
+              ${allEmps.map(e => `<option value="${e.id}" ${e.id === selectedEmpId ? 'selected' : ''}>${e.fullName} (${e.empNo}) — Salary: ${Utils.formatCurrency(e.salary || e.basicSalary || 50000)}</option>`).join('')}
+            </select>
+          </div>
+        ` : `
+          <input type="hidden" id="enc-emp-id" value="${myEmpId}">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:12px">
+            <div class="avatar avatar-sm" style="background:${Utils.avatarColor(myEmpId)}">${Utils.avatarInitials(Auth.employee?.fullName||'Me')}</div>
+            <div>
+              <div style="font-weight:700;font-size:13px">${Auth.employee?.fullName} (${Auth.employee?.empNo})</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Base Salary: <strong>${Utils.formatCurrency(Auth.employee?.salary || 50000)}</strong></div>
+            </div>
+          </div>
+        `}
+
+        <!-- Dynamic Calculation Box -->
+        <div id="enc-calc-box" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px"></div>
+
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Notes / Reason for Encashment</label>
+          <textarea class="form-control" id="enc-notes" rows="2" placeholder="Optional notes (e.g. Annual balance clearance, emergency funding request)...">Annual surplus earned leave balance liquidation</textarea>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" id="btn-submit-encashment" onclick="Leaves.submitLeaveEncashment()"><i class="fa fa-check"></i> Submit Encashment Claim</button>
+      `
+    });
+
+    setTimeout(() => this.updateEncashmentCalculationModal(), 40);
+  },
+
+  updateEncashmentCalculationModal() {
+    const empId = Number(document.getElementById('enc-emp-id')?.value);
+    const box = document.getElementById('enc-calc-box');
+    const submitBtn = document.getElementById('btn-submit-encashment');
+    if (!box || !empId) return;
+
+    const emp = DB.find('employees', empId);
+    const balances = DB.get('leave_balances') || [];
+    const bal = balances.find(b => b.employeeId === empId && b.leaveTypeId === 1) || { allocated: 20, used: 2, balance: 18 };
+    const currentBalance = bal.balance !== undefined ? bal.balance : 15;
+    const baseSalary = Number(emp?.salary || emp?.basicSalary || 60000);
+    const perDayRate = Math.round(baseSalary / 30);
+    const mandatoryReserve = 10;
+    const maxEncashable = Math.max(0, currentBalance - mandatoryReserve);
+
+    let daysInputVal = Number(document.getElementById('enc-days-input')?.value);
+    if (!daysInputVal || daysInputVal > maxEncashable) daysInputVal = maxEncashable;
+    if (daysInputVal < 1 && maxEncashable > 0) daysInputVal = 1;
+
+    const retainedRemaining = currentBalance - (maxEncashable > 0 ? daysInputVal : 0);
+    const totalPayout = daysInputVal * perDayRate;
+
+    if (maxEncashable <= 0) {
+      if (submitBtn) submitBtn.disabled = true;
+      box.innerHTML = `
+        <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;padding:12px;color:var(--danger);font-size:12.5px;line-height:1.5">
+          <i class="fa fa-circle-exclamation" style="margin-right:6px"></i>
+          <strong>Ineligible for Leave Encashment:</strong>
+          Current Annual Leave balance is <strong>${currentBalance} days</strong>. Under corporate policy, a minimum of <strong>${mandatoryReserve} days</strong> must be retained. No surplus leave days are available for encashment.
+        </div>
+      `;
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = false;
+
+    box.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        <div style="background:var(--surface);padding:10px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--text-3)">Current Annual Balance</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:2px">${currentBalance} Days</div>
+        </div>
+        <div style="background:var(--surface);padding:10px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--text-3)">Statutory Reserve</div>
+          <div style="font-size:18px;font-weight:800;color:var(--primary);margin-top:2px">${mandatoryReserve} Days</div>
+        </div>
+        <div style="background:var(--surface);padding:10px;border-radius:8px;text-align:center">
+          <div style="font-size:11px;color:var(--text-3)">Max Encashable</div>
+          <div style="font-size:18px;font-weight:800;color:var(--success);margin-top:2px">${maxEncashable} Days</div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label required" style="display:flex;justify-content:space-between">
+          <span>Number of Days to Encash</span>
+          <span style="font-size:11.5px;color:var(--text-3)">Max: <strong>${maxEncashable} days</strong></span>
+        </label>
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="number" class="form-control" id="enc-days-input" min="1" max="${maxEncashable}" value="${daysInputVal}" oninput="Leaves.onEncashDaysChange(${currentBalance}, ${perDayRate}, ${maxEncashable})" style="font-size:15px;font-weight:700">
+          <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('enc-days-input').value = ${maxEncashable}; Leaves.onEncashDaysChange(${currentBalance}, ${perDayRate}, ${maxEncashable});">Max (${maxEncashable}d)</button>
+        </div>
+      </div>
+
+      <div style="background:var(--surface-2);border-radius:8px;padding:12px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:11px;color:var(--text-3)">Formula: (${Utils.formatCurrency(baseSalary)} ÷ 30) × <span id="enc-calc-days-label">${daysInputVal}</span> days</div>
+          <div style="font-size:11.5px;margin-top:2px">Retained balance after encashment: <strong id="enc-calc-retained-label">${retainedRemaining}</strong> days</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:var(--text-3)">Total Payout Amount</div>
+          <div id="enc-calc-payout-label" style="font-size:20px;font-weight:800;color:var(--success)">${Utils.formatCurrency(totalPayout)}</div>
+        </div>
+      </div>
+    `;
+  },
+
+  onEncashDaysChange(currentBalance, perDayRate, maxEncashable) {
+    const input = document.getElementById('enc-days-input');
+    let val = Number(input?.value) || 0;
+    if (val > maxEncashable) val = maxEncashable;
+    if (val < 1) val = 1;
+    input.value = val;
+
+    const payout = val * perDayRate;
+    const retained = currentBalance - val;
+
+    const daysLabel = document.getElementById('enc-calc-days-label');
+    const retainedLabel = document.getElementById('enc-calc-retained-label');
+    const payoutLabel = document.getElementById('enc-calc-payout-label');
+
+    if (daysLabel) daysLabel.textContent = val;
+    if (retainedLabel) retainedLabel.textContent = retained;
+    if (payoutLabel) payoutLabel.textContent = Utils.formatCurrency(payout);
+  },
+
+  submitLeaveEncashment() {
+    const empId = Number(document.getElementById('enc-emp-id')?.value);
+    const days = Number(document.getElementById('enc-days-input')?.value);
+    const notes = document.getElementById('enc-notes')?.value.trim();
+
+    if (!empId || !days || days <= 0) {
+      Toast.show('Please enter a valid number of days to encash', 'error');
+      return;
+    }
+
+    const emp = DB.find('employees', empId);
+    const balances = DB.get('leave_balances') || [];
+    const bal = balances.find(b => b.employeeId === empId && b.leaveTypeId === 1) || { balance: 18 };
+    const currentBalance = bal.balance !== undefined ? bal.balance : 15;
+    const baseSalary = Number(emp?.salary || emp?.basicSalary || 60000);
+    const perDayRate = Math.round(baseSalary / 30);
+    const totalPayout = days * perDayRate;
+
+    const encashments = DB.get('leave_encashments') || [];
+    const isHRorAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+
+    const newEnc = {
+      id: DB.nextId('leave_encashments'),
+      employeeId: empId,
+      year: new Date().getFullYear(),
+      leaveTypeId: 1, // Annual
+      availableBalance: currentBalance,
+      retainedBalance: currentBalance - days,
+      encashedDays: days,
+      perDayRate: perDayRate,
+      totalPayout: totalPayout,
+      requestDate: Utils.today(),
+      status: isHRorAdmin ? 'approved' : 'pending',
+      approvedBy: isHRorAdmin ? (Auth.user?.name || 'HR Admin') : null,
+      approvedAt: isHRorAdmin ? new Date().toISOString() : null,
+      payoutStatus: isHRorAdmin ? 'scheduled_in_payroll' : 'pending_approval',
+      payrollMonth: isHRorAdmin ? new Date().toISOString().slice(0, 7) : null,
+      notes: notes || 'Surplus annual leave liquidation'
+    };
+
+    encashments.unshift(newEnc);
+    DB.set('leave_encashments', encashments);
+
+    if (isHRorAdmin) {
+      if (bal) {
+        bal.used = (bal.used || 0) + days;
+        bal.balance = Math.max(0, (bal.allocated || 0) - bal.used);
+        DB.set('leave_balances', balances);
+      }
+    }
+
+    DB.log('APPLY', 'Leaves', `Leave encashment request for ${days} days (${Utils.formatCurrency(totalPayout)}) by ${emp?.fullName}`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(isHRorAdmin ? 'Leave encashment approved and scheduled in payroll!' : 'Leave encashment request submitted to HR!', 'success');
+    this.render();
+  },
+
+  approveLeaveEncashment(id) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Permission denied', 'error');
+      return;
+    }
+    const encashments = DB.get('leave_encashments') || [];
+    const enc = encashments.find(e => e.id === Number(id));
+    if (!enc) {
+      Toast.show('Encashment record not found', 'error');
+      return;
+    }
+    const emp = DB.find('employees', enc.employeeId);
+
+    Modal.confirm('Approve Leave Encashment & Schedule for Payroll', `
+      <div style="font-size:13px;line-height:1.6">
+        Are you sure you want to approve leave encashment for <strong>${emp?.fullName}</strong>?
+        <div style="background:var(--surface);border-radius:8px;padding:12px;margin:12px 0;font-size:12px">
+          <div>Encashed Days: <strong>${enc.encashedDays} Days</strong></div>
+          <div>Per-Day Rate: <strong>${Utils.formatCurrency(enc.perDayRate)}</strong></div>
+          <div>Total Payout Amount: <strong style="color:var(--success);font-size:14px">${Utils.formatCurrency(enc.totalPayout)}</strong></div>
+          <div>Retained Balance: <strong>${enc.retainedBalance || 10} Days preserved</strong></div>
+        </div>
+        <p style="color:var(--text-3);font-size:11.5px;margin:0">
+          This will deduct <strong>${enc.encashedDays} days</strong> from employee's Annual Leave balance and schedule the payout in the upcoming payroll run.
+        </p>
+      </div>
+    `, () => {
+      enc.status = 'approved';
+      enc.payoutStatus = 'scheduled_in_payroll';
+      enc.payrollMonth = new Date().toISOString().slice(0, 7);
+      enc.approvedBy = Auth.user?.name || 'HR Admin';
+      enc.approvedAt = new Date().toISOString();
+      DB.set('leave_encashments', encashments);
+
+      const balances = DB.get('leave_balances') || [];
+      const bal = balances.find(b => b.employeeId === enc.employeeId && (b.leaveTypeId === 1 || b.leaveTypeId === enc.leaveTypeId));
+      if (bal) {
+        bal.used = (bal.used || 0) + enc.encashedDays;
+        bal.balance = Math.max(0, (bal.allocated || 0) - bal.used);
+        DB.set('leave_balances', balances);
+      }
+
+      DB.log('APPROVE', 'Leaves', `Approved leave encashment of ${enc.encashedDays} days (${Utils.formatCurrency(enc.totalPayout)}) for ${emp?.fullName}`, Auth.user?.id);
+      Toast.show('Leave encashment approved and scheduled in payroll!', 'success');
+      this.render();
+    });
+  },
+
+  rejectLeaveEncashment(id) {
+    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Permission denied', 'error');
+      return;
+    }
+    const encashments = DB.get('leave_encashments') || [];
+    const enc = encashments.find(e => e.id === Number(id));
+    if (!enc) return;
+    const emp = DB.find('employees', enc.employeeId);
+
+    Modal.confirm('Reject Leave Encashment', `
+      Are you sure you want to reject the leave encashment request for <strong>${emp?.fullName}</strong>?
+      <div class="form-group" style="margin-top:12px">
+        <label class="form-label required">Reason for Rejection</label>
+        <textarea id="enc-reject-reason" class="form-control" rows="2" placeholder="Explain reason for rejection..."></textarea>
+      </div>
+    `, () => {
+      const reason = document.getElementById('enc-reject-reason')?.value.trim() || 'Rejected by HR Management';
+      enc.status = 'rejected';
+      enc.payoutStatus = 'rejected';
+      enc.notes = (enc.notes ? enc.notes + ' | ' : '') + `Rejected: ${reason}`;
+      DB.set('leave_encashments', encashments);
+      DB.log('REJECT', 'Leaves', `Rejected leave encashment for ${emp?.fullName}: ${reason}`, Auth.user?.id);
+      Toast.show('Leave encashment rejected', 'info');
+      this.render();
+    });
+  },
+
+  showEncashmentSlipModal(id) {
+    const encashments = DB.get('leave_encashments') || [];
+    const enc = encashments.find(e => e.id === Number(id));
+    if (!enc) { Toast.show('Record not found', 'error'); return; }
+    const emp = DB.find('employees', enc.employeeId);
+    const dept = DB.find('departments', emp?.departmentId);
+
+    Modal.show(`Leave Encashment Certificate — ${emp?.fullName}`, `
+      <div id="printable-encashment-slip" style="padding:12px;font-family:inherit;color:var(--text)">
+        <div style="text-align:center;border-bottom:2px solid var(--border);padding-bottom:14px;margin-bottom:16px">
+          <h2 style="margin:0;font-size:18px;font-weight:800;color:var(--primary)">ENTERPRISE LEAVE ENCASHMENT CERTIFICATE</h2>
+          <div style="font-size:12px;color:var(--text-3);margin-top:4px">Statutory Annual Leave Liquidation &amp; Payout Advice</div>
+          <div style="font-size:11px;color:var(--text-muted)">Certificate Ref: #ENC-${enc.id.toString().padStart(5, '0')} | Assessment Year: ${enc.year || 2026}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:12px;background:var(--surface);padding:12px;border-radius:8px;border:1px solid var(--border)">
+          <div><strong>Employee Name:</strong> ${emp?.fullName || '—'}</div>
+          <div><strong>Employee ID / Code:</strong> ${emp?.empNo || '—'}</div>
+          <div><strong>Department:</strong> ${dept?.name || '—'}</div>
+          <div><strong>Designation:</strong> ${emp?.designation || '—'}</div>
+          <div><strong>Base Monthly Salary:</strong> ${Utils.formatCurrency(emp?.salary || emp?.basicSalary || (enc.perDayRate * 30))}</div>
+          <div><strong>Daily Pro-Rata Rate:</strong> ${Utils.formatCurrency(enc.perDayRate)} (Base / 30)</div>
+        </div>
+
+        <table style="width:100%;border-collapse:collapse;margin-bottom:16px;font-size:12px">
+          <thead>
+            <tr style="background:var(--card);border-bottom:2px solid var(--border)">
+              <th style="padding:8px;text-align:left">Entitlement Parameter</th>
+              <th style="padding:8px;text-align:right">Days / Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px">Total Accrued Annual Leaves</td>
+              <td style="padding:8px;text-align:right;font-weight:600">${enc.availableBalance} Days</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px">Mandatory Retention Reserve (HR Policy Min. 10d)</td>
+              <td style="padding:8px;text-align:right;font-weight:600">${enc.retainedBalance || 10} Days</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border);background:rgba(99,102,241,0.05)">
+              <td style="padding:8px;font-weight:700">Encashed Surplus Leaves</td>
+              <td style="padding:8px;text-align:right;font-weight:700;color:var(--primary)">${enc.encashedDays} Days</td>
+            </tr>
+            <tr style="border-bottom:1px solid var(--border)">
+              <td style="padding:8px">Per-Day Remuneration Rate</td>
+              <td style="padding:8px;text-align:right;font-weight:600">${Utils.formatCurrency(enc.perDayRate)}</td>
+            </tr>
+            <tr style="background:rgba(16,185,129,0.08);border-bottom:2px solid #10b981">
+              <td style="padding:10px;font-weight:800;font-size:13px">Net Liquidation Payout</td>
+              <td style="padding:10px;text-align:right;font-weight:800;font-size:15px;color:#10b981">${Utils.formatCurrency(enc.totalPayout)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div style="font-size:11.5px;color:var(--text-3);line-height:1.5;margin-bottom:16px;background:var(--card);padding:10px;border-radius:6px;border:1px solid var(--border)">
+          <strong>Approval &amp; Payroll Schedule:</strong><br>
+          Status: <strong>${(enc.status || 'Pending').toUpperCase()}</strong> | Payout: <strong>${(enc.payoutStatus || '').toUpperCase()}</strong><br>
+          Approved by: <strong>${enc.approvedBy || 'Pending HR Review'}</strong> | Applied: <strong>${enc.requestDate}</strong><br>
+          <em>Note: This amount is disbursed via the scheduled payroll processing run and subjected to statutory tax laws as per Ordinance Section 149.</em>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-primary" onclick="Utils.printDiv('printable-encashment-slip')"><i class="fa fa-print"></i> Print Encashment Slip</button>
+      `
+    });
+  },
+
+  showBulkEncashmentModal() {
+    const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const balances = DB.get('leave_balances') || [];
+
+    const eligibleList = employees.map(emp => {
+      const bal = balances.find(b => b.employeeId === emp.id && b.leaveTypeId === 1) || { balance: 14 };
+      const currentBalance = bal.balance !== undefined ? bal.balance : 12;
+      const baseSalary = Number(emp.salary || emp.basicSalary || 50000);
+      const perDayRate = Math.round(baseSalary / 30);
+      const maxEncashable = Math.max(0, currentBalance - 10);
+      return {
+        emp,
+        currentBalance,
+        baseSalary,
+        perDayRate,
+        maxEncashable,
+        estPayout: maxEncashable * perDayRate
+      };
+    }).filter(item => item.maxEncashable > 0);
+
+    const totalLiability = eligibleList.reduce((s, i) => s + i.estPayout, 0);
+
+    Modal.show('Corporate Annual Leave Encashment Batch Run', `
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
+        <div style="background:var(--surface);border-radius:10px;padding:12px 16px;border:1px solid var(--border)">
+          <div style="font-weight:700;font-size:13px;color:var(--text);margin-bottom:4px">
+            <i class="fa fa-calculator" style="color:var(--primary);margin-right:6px"></i>
+            Annual Balance Clearance Run (Year 2026)
+          </div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.4">
+            Found <strong>${eligibleList.length} employees</strong> holding surplus Annual Leaves exceeding the 10-day retention threshold. Total estimated payroll liability: <strong style="color:var(--success)">${Utils.formatCurrency(totalLiability)}</strong>.
+          </div>
+        </div>
+
+        <div class="table-wrapper" style="max-height:280px;overflow-y:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Annual Bal</th>
+                <th>Retain</th>
+                <th>Encashable</th>
+                <th>Daily Rate</th>
+                <th>Estimated Payout</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${eligibleList.length === 0 ? `
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No active employees have surplus annual leave >10 days.</td></tr>
+              ` : eligibleList.map(item => `
+                <tr>
+                  <td><strong>${item.emp.fullName}</strong> <span style="font-size:11px;color:var(--text-3)">(${item.emp.empNo})</span></td>
+                  <td>${item.currentBalance}d</td>
+                  <td><span class="badge badge-neutral">10d</span></td>
+                  <td><span class="badge badge-primary">${item.maxEncashable}d</span></td>
+                  <td>${Utils.formatCurrency(item.perDayRate)}</td>
+                  <td style="font-weight:700;color:var(--success)">${Utils.formatCurrency(item.estPayout)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        ${eligibleList.length > 0 ? `
+          <button class="btn btn-primary" onclick="Leaves.processBulkEncashmentBatch()"><i class="fa fa-play"></i> Process All ${eligibleList.length} Encashments</button>
+        ` : ''}
+      `
+    });
+  },
+
+  processBulkEncashmentBatch() {
+    const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const balances = DB.get('leave_balances') || [];
+    const encashments = DB.get('leave_encashments') || [];
+    let processed = 0;
+
+    employees.forEach(emp => {
+      const bal = balances.find(b => b.employeeId === emp.id && b.leaveTypeId === 1);
+      const currentBalance = bal ? (bal.balance || 0) : 0;
+      const maxEncashable = Math.max(0, currentBalance - 10);
+      if (maxEncashable > 0) {
+        const baseSalary = Number(emp.salary || emp.basicSalary || 50000);
+        const perDayRate = Math.round(baseSalary / 30);
+        const totalPayout = maxEncashable * perDayRate;
+
+        encashments.unshift({
+          id: DB.nextId('leave_encashments'),
+          employeeId: emp.id,
+          year: new Date().getFullYear(),
+          leaveTypeId: 1,
+          availableBalance: currentBalance,
+          retainedBalance: 10,
+          encashedDays: maxEncashable,
+          perDayRate,
+          totalPayout,
+          requestDate: Utils.today(),
+          status: 'approved',
+          approvedBy: Auth.user?.name || 'HR Admin (Batch Run)',
+          approvedAt: new Date().toISOString(),
+          payoutStatus: 'scheduled_in_payroll',
+          payrollMonth: new Date().toISOString().slice(0, 7),
+          notes: 'Annual batch encashment of surplus leaves exceeding 10-day reserve.'
+        });
+
+        bal.used = (bal.used || 0) + maxEncashable;
+        bal.balance = Math.max(0, (bal.allocated || 0) - bal.used);
+        processed++;
+      }
+    });
+
+    DB.set('leave_encashments', encashments);
+    DB.set('leave_balances', balances);
+    DB.log('BATCH', 'Leaves', `Executed annual bulk leave encashment for ${processed} employees`, Auth.user?.id);
+    Modal.close('dynamic-modal');
+    Toast.show(`Successfully executed bulk encashment for ${processed} employees! Scheduled in payroll.`, 'success');
+    this.render();
   },
 };

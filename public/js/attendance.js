@@ -3279,44 +3279,44 @@ const Attendance = {
                         ${this.calcOvertime(c.timeIn, c.timeOut, c.breakOut, c.breakIn, 8.0, c.breaks) > 0 ? `<span class="badge badge-success" style="font-size:9.5px;padding:1px 4px;margin-left:4px">+${this.calcOvertime(c.timeIn, c.timeOut, c.breakOut, c.breakIn, 8.0, c.breaks)}h OT</span>` : ''}
                       </div>
                     </td>
-                    <td style="max-width:240px;font-size:12px">
+                    <td style="max-width:170px;word-break:break-word;font-size:11.5px;line-height:1.35">
                       <div style="font-weight:500;color:var(--text)">${c.reason || '—'}</div>
-                      ${c.managerRemarks ? `<div style="font-size:10.5px;color:var(--primary);margin-top:2px"><i class="fa fa-comment"></i> Mgr: ${c.managerRemarks}</div>` : ''}
-                      ${c.hrRemarks ? `<div style="font-size:10.5px;color:var(--success);margin-top:2px"><i class="fa fa-comment-check"></i> HR: ${c.hrRemarks}</div>` : ''}
+                      ${c.managerRemarks ? `<div style="font-size:10px;color:var(--primary);margin-top:2px"><i class="fa fa-comment"></i> Mgr: ${c.managerRemarks}</div>` : ''}
+                      ${c.hrRemarks ? `<div style="font-size:10px;color:var(--success);margin-top:2px"><i class="fa fa-comment-check"></i> HR: ${c.hrRemarks}</div>` : ''}
                     </td>
                     <td>
                       <div style="display:flex;flex-direction:column;gap:3px">
                         ${c.status === 'pending' ? `
-                          <span class="badge badge-warning" style="font-size:11px"><i class="fa fa-clock"></i> Pending Direct Manager</span>
+                          <span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-clock"></i> Pending Manager</span>
                         ` : c.status === 'manager_approved' ? `
-                          <span class="badge badge-info" style="font-size:11px"><i class="fa fa-user-check"></i> Mgr Approved (Awaiting HR/Admin)</span>
+                          <span class="badge badge-info" style="font-size:10.5px"><i class="fa fa-user-check"></i> Mgr Approved</span>
                         ` : c.status === 'approved' ? `
-                          <span class="badge badge-success" style="font-size:11px"><i class="fa fa-check-double"></i> Approved &amp; Synced</span>
+                          <span class="badge badge-success" style="font-size:10.5px"><i class="fa fa-check-double"></i> Approved &amp; Synced</span>
                         ` : `
-                          <span class="badge badge-danger" style="font-size:11px"><i class="fa fa-ban"></i> Rejected</span>
+                          <span class="badge badge-danger" style="font-size:10.5px"><i class="fa fa-ban"></i> Rejected</span>
                         `}
-                        <span style="font-size:10px;color:var(--text-muted)">Chain: Manager ➔ HR ➔ Admin</span>
+                        <span style="font-size:9.5px;color:var(--text-muted)">Chain: Manager ➔ HR ➔ Admin</span>
                       </div>
                     </td>
                     <td style="text-align:center">
                       ${isEmployee ? `
-                        <span class="badge ${c.status==='approved'?'badge-success':c.status==='rejected'?'badge-danger':'badge-warning'}" style="font-size:11px">
+                        <span class="badge ${c.status==='approved'?'badge-success':c.status==='rejected'?'badge-danger':'badge-warning'}" style="font-size:10.5px">
                           ${c.status==='approved'?'<i class="fa fa-check-double"></i> Approved':(c.status==='rejected'?'<i class="fa fa-ban"></i> Rejected':'<i class="fa fa-clock"></i> In Review')}
                         </span>
                       ` : `
-                        <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
+                        <div style="display:flex;gap:4px;justify-content:center;align-items:center;flex-wrap:nowrap">
                           ${(c.status === 'pending' && canManagerApprove) ? `
-                            <button class="btn btn-sm btn-primary" onclick="Attendance.approveCorrection(${c.id}, 'manager')" title="Approve as Reporting Manager">
-                              <i class="fa fa-check"></i> Manager Approve
+                            <button class="btn btn-xs btn-primary" onclick="Attendance.approveCorrection(${c.id}, 'manager')" title="Approve as Reporting Manager" style="white-space:nowrap">
+                              <i class="fa fa-user-check"></i> Mgr
                             </button>
                           ` : ''}
                           ${(canFinalApprove && (c.status === 'pending' || c.status === 'manager_approved')) ? `
-                            <button class="btn btn-sm btn-success" onclick="Attendance.approveCorrection(${c.id}, 'final')" title="Final Approval &amp; Sync to Attendance">
-                              <i class="fa fa-check-double"></i> Final Approve
+                            <button class="btn btn-xs btn-success" onclick="Attendance.approveCorrection(${c.id}, 'final')" title="Final Approval &amp; Sync to Attendance" style="white-space:nowrap">
+                              <i class="fa fa-check-double"></i> Final
                             </button>
                           ` : ''}
                           ${((canManagerApprove || canFinalApprove) && (c.status === 'pending' || c.status === 'manager_approved')) ? `
-                            <button class="btn btn-sm btn-danger" onclick="Attendance.rejectCorrection(${c.id})" title="Reject Request">
+                            <button class="btn btn-xs btn-danger btn-icon" onclick="Attendance.rejectCorrection(${c.id})" title="Reject Request">
                               <i class="fa fa-times"></i>
                             </button>
                           ` : ''}

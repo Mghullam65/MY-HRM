@@ -799,44 +799,46 @@ const Settings = {
 
     this._sectionCard("Sent Email Archive & Logs", "View all emails dispatched by the system (delivered or archived to disk)", `
       <div id="email-logs-container">
-        <div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-spinner fa-spin"></i> Loading email logs...</div>
+        <div style="text-align:center;color:var(--text-3);padding:16px">
+          <button class="btn btn-secondary btn-sm" onclick="Settings.loadEmailLogs()"><i class="fa fa-envelope-open-text"></i> Load Sent Email Archive</button>
+        </div>
       </div>
-      <script>
-        setTimeout(async () => {
-          const c = document.getElementById("email-logs-container");
-          if (!c) return;
-          try {
-            const r = await fetch("http://localhost:5000/api/email/logs?limit=30");
-            const data = await r.json();
-            if (!data.success || !data.data.length) {
-              c.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-inbox"></i><br><br>No emails archived yet. Send an email to get started.</div>`;
-              return;
-            }
-            const typeColors = { leave_request:"#f59e0b",leave_decision:"#10b981",payslip:"#2563eb",hr_letter:"#6366f1",attendance_correction:"#0891b2",welcome:"#8b5cf6",daily_summary:"#64748b",general:"#94a3b8" };
-            const typeLabels = { leave_request:"Leave Request",leave_decision:"Leave Decision",payslip:"Payslip",hr_letter:"HR Letter",attendance_correction:"Attendance Correction",welcome:"Welcome",daily_summary:"Daily Summary",general:"General" };
-            c.innerHTML = `
-              <div class="table-wrapper" style="max-height:320px;overflow-y:auto;border:none;">
-                <table><thead><tr><th>#</th><th>Type</th><th>File</th><th>Size</th><th>Created At</th></tr></thead>
-                <tbody>
-                  ${data.data.map((log,i) => `
-                    <tr>
-                      <td style="font-size:11px;color:var(--text-3)">${i+1}</td>
-                      <td><span style="background:${typeColors[log.type]||"#94a3b8"}22;color:${typeColors[log.type]||"#94a3b8"};padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700">${typeLabels[log.type]||log.type}</span></td>
-                      <td style="font-size:11px;color:var(--text-2);font-family:monospace">${log.filename}</td>
-                      <td style="font-size:11px;color:var(--text-3)">${Math.round(log.size/1024)}KB</td>
-                      <td style="font-size:11px;color:var(--text-3)">${new Date(log.createdAt).toLocaleString("en-PK",{timeZone:"Asia/Karachi"})}</td>
-                    </tr>
-                  `).join("")}
-                </tbody></table>
-              </div>
-            `;
-          } catch(e) {
-            c.innerHTML = `<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-server"></i><br><br>Backend server not running. Email logs unavailable in offline mode.</div>`;
-          }
-        }, 200);
-      </scr` + `ipt>
     `);
   },
+
+  loadEmailLogs() {
+    const c = document.getElementById("email-logs-container");
+    if (!c) return;
+    c.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-spinner fa-spin"></i> Loading email logs...</div>';
+    fetch("/api/email/logs?limit=30")
+      .then(r => r.json())
+      .then(data => {
+        if (!data.success || !data.data.length) {
+          c.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-inbox"></i><br><br>No emails archived yet. Send an email to get started.</div>';
+          return;
+        }
+        const typeColors = { leave_request:"#f59e0b",leave_decision:"#10b981",payslip:"#2563eb",hr_letter:"#6366f1",attendance_correction:"#0891b2",welcome:"#8b5cf6",daily_summary:"#64748b",general:"#94a3b8" };
+        const typeLabels = { leave_request:"Leave Request",leave_decision:"Leave Decision",payslip:"Payslip",hr_letter:"HR Letter",attendance_correction:"Attendance Correction",welcome:"Welcome",daily_summary:"Daily Summary",general:"General" };
+        c.innerHTML = `
+          <div class="table-wrapper" style="max-height:320px;overflow-y:auto;border:none;">
+            <table><thead><tr><th>#</th><th>Type</th><th>File</th><th>Size</th><th>Created At</th></tr></thead>
+            <tbody>
+              ${data.data.map((log,i) => `
+                <tr>
+                  <td style="font-size:11px;color:var(--text-3)">${i+1}</td>
+                  <td><span style="background:${typeColors[log.type]||"#94a3b8"}22;color:${typeColors[log.type]||"#94a3b8"};padding:3px 8px;border-radius:5px;font-size:11px;font-weight:700">${typeLabels[log.type]||log.type}</span></td>
+                  <td style="font-size:11px;color:var(--text-2);font-family:monospace">${log.filename}</td>
+                  <td style="font-size:11px;color:var(--text-3)">${Math.round(log.size/1024)}KB</td>
+                  <td style="font-size:11px;color:var(--text-3)">${new Date(log.createdAt).toLocaleString("en-PK",{timeZone:"Asia/Karachi"})}</td>
+                </tr>
+              `).join("")}
+            </tbody></table>
+          </div>
+        `;
+      })
+      .catch(e => {
+        c.innerHTML = '<div style="text-align:center;color:var(--text-3);padding:20px"><i class="fa fa-server"></i><br><br>Backend server not running. Email logs unavailable in offline mode.</div>';
+      });
   },
 
   saveAttendanceRules() {
