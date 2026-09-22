@@ -4400,10 +4400,25 @@ const Employees = {
     DB.log('ADD', 'Employees', `New employee ${newEmp.fullName} (${newEmp.empNo}) registered with role "${role}" and login "${finalUsername}"`, Auth.user?.id);
     Modal.close('dynamic-modal');
 
+    // ── Email Notification: Welcome email → new employee ─
+    if (typeof EmailNotifier !== 'undefined' && email) {
+      const managerEmp = DB.find('employees', chosenManagerId);
+      EmailNotifier.sendWelcomeEmail({
+        employeeEmail: email,
+        employee: { name: newEmp.fullName, empId: newEmp.empNo, designation: Utils.getDesigName(desigId), department: Utils.getDeptName(deptId) },
+        loginUrl: window.location.origin + '/index.html',
+        tempPassword: passwordInput,
+        joiningDate: Utils.formatDate(joinDate),
+        reportingManager: managerEmp?.fullName || 'HR Department',
+        company: (DB.getObj('settings') || {}).companyName || 'HRM Pro'
+      });
+    }
+
     // Show celebratory credentials creation modal
     Employees.showCredentialsCreatedModal(newEmp, newUser, passwordInput);
     this.render();
   },
+
 
   showEditForm(empId) {
     if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
@@ -8063,9 +8078,26 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     }
 
     Toast.show('Official letter generated and notified to employee!', 'success');
+
+    // ── Email Notification: HR Letter issued → employee ─
+    if (typeof EmailNotifier !== 'undefined') {
+      const empEmail = emp?.email || emp?.workEmail;
+      if (empEmail) {
+        EmailNotifier.sendHRLetterEmail({
+          employeeEmail: empEmail,
+          employee: { name: emp?.fullName, empId: emp?.empNo },
+          letterType: title,
+          referenceNo: refNo,
+          issuedBy: issuedBy || 'HR Department',
+          remarks: purpose
+        });
+      }
+    }
+
     this.renderHRLetters(document.getElementById('emp-content'));
     this.previewLetterModal(newLetter.id);
   },
+
 
   previewLetterModal(letterId) {
     const letters = DB.get('hr_letters') || [];

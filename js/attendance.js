@@ -3397,10 +3397,29 @@ const Attendance = {
       DB.set('attendance', allAtt);
       DB.log('APPROVE', 'Attendance', `Final approval granted for attendance correction #${corrId} (Synced to attendance)`, Auth.user?.id);
       Toast.show('Final Approval Granted!', 'success', 'Attendance record synchronized for this date.');
+
+      // ── Email Notification: Correction approved → employee ─
+      if (typeof EmailNotifier !== 'undefined') {
+        const corrEmp = DB.find('employees', item.employeeId);
+        const corrEmpEmail = corrEmp?.email || corrEmp?.workEmail;
+        if (corrEmpEmail) {
+          EmailNotifier.sendAttendanceCorrectionEmail({
+            employeeEmail: corrEmpEmail,
+            employee: { name: corrEmp?.fullName, empId: corrEmp?.empNo },
+            date: item.date,
+            status: 'approved',
+            correctedIn: item.timeIn,
+            correctedOut: item.timeOut,
+            actionBy: Auth.user?.username || 'HR Manager',
+            remarks: item.hrRemarks
+          });
+        }
+      }
     }
 
     this.render();
   },
+
 
   rejectCorrection(corrId) {
     Modal.confirm('Reject Attendance Correction', 'Are you sure you want to reject this request?', () => {
@@ -3412,10 +3431,28 @@ const Attendance = {
         DB.set('attendance_corrections', corrections);
         DB.log('REJECT', 'Attendance', `Rejected attendance correction #${corrId}`, Auth.user?.id);
         Toast.show('Request rejected.', 'warning');
+
+        // ── Email Notification: Correction rejected → employee ─
+        if (typeof EmailNotifier !== 'undefined') {
+          const corrEmp = DB.find('employees', item.employeeId);
+          const corrEmpEmail = corrEmp?.email || corrEmp?.workEmail;
+          if (corrEmpEmail) {
+            EmailNotifier.sendAttendanceCorrectionEmail({
+              employeeEmail: corrEmpEmail,
+              employee: { name: corrEmp?.fullName, empId: corrEmp?.empNo },
+              date: item.date,
+              status: 'rejected',
+              actionBy: Auth.user?.username || 'Management',
+              remarks: 'Your correction request was not approved. Please contact your manager for details.'
+            });
+          }
+        }
+
         this.render();
       }
     });
   },
+
 
   showApplyCorrectionModal(prefillDate) {
     const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';

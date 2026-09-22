@@ -2457,8 +2457,28 @@ const Leaves = {
       Toast.show(`Leave marked for ${targetEmp?.fullName}!`, 'success', `Request for ${days} day(s) registered under ${newLeave.quotaName}.`);
     }
 
+    // ── Email Notification: Leave Request submitted → manager ─
+    if (typeof EmailNotifier !== 'undefined') {
+      const manager = targetEmp?.managerId ? DB.find('employees', targetEmp.managerId) : null;
+      const managerEmail = manager?.email || manager?.workEmail;
+      if (managerEmail) {
+        EmailNotifier.sendLeaveRequestEmail({
+          managerEmail,
+          employee: { name: targetEmp?.fullName || 'Employee', empId: targetEmp?.empNo, designation: targetEmp?.designation, department: DB.find('departments', targetEmp?.departmentId)?.name },
+          manager: { name: manager?.fullName || 'Manager' },
+          leaveType: leaveType?.name || 'Leave',
+          fromDate: Utils.formatDate(from),
+          toDate: Utils.formatDate(newLeave.to),
+          days,
+          reason,
+          requestId: 'LR-' + newLeave.id
+        });
+      }
+    }
+
     this.render();
   },
+
 
   approve(leaveId) {
     const leave = DB.find('leave_requests', leaveId);
@@ -2506,18 +2526,64 @@ const Leaves = {
       } else {
         Toast.show('Final leave approval granted! Quota deducted.', 'success');
       }
+
+      // ── Email Notification: Final leave approved → employee ─
+      if (typeof EmailNotifier !== 'undefined') {
+        const emp = DB.find('employees', leave.employeeId);
+        const empEmail = emp?.email || emp?.workEmail;
+        const leaveTypeName = DB.find('leave_types', leave.typeId)?.name || 'Leave';
+        if (empEmail) {
+          EmailNotifier.sendLeaveDecisionEmail({
+            employeeEmail: empEmail,
+            employee: { name: emp?.fullName, empId: emp?.empNo },
+            decisionBy: Auth.user?.username || Auth.user?.name || 'HR Manager',
+            status: 'approved',
+            leaveType: leaveTypeName,
+            fromDate: Utils.formatDate(leave.from),
+            toDate: Utils.formatDate(leave.to),
+            days: leave.days,
+            reason: leave.reason,
+            remarks: `Final approval granted by ${Auth.user?.username || 'Admin/HR'}`
+          });
+        }
+      }
     }
 
     this.render();
   },
 
+
   reject(leaveId) {
+    const _rejectLeave = DB.find('leave_requests', leaveId);
     DB.update('leave_requests', leaveId, { status: 'rejected', approvedOn: Utils.today(), comments: 'Rejected' });
     DB.flushServerPush();
     DB.log('REJECT', 'Leaves', `Leave #${leaveId} rejected`, Auth.user?.id);
     Toast.show('Leave rejected.', 'warning');
+
+    // ── Email Notification: Leave rejected → employee ─
+    if (typeof EmailNotifier !== 'undefined' && _rejectLeave) {
+      const emp = DB.find('employees', _rejectLeave.employeeId);
+      const empEmail = emp?.email || emp?.workEmail;
+      const leaveTypeName = DB.find('leave_types', _rejectLeave.typeId)?.name || 'Leave';
+      if (empEmail) {
+        EmailNotifier.sendLeaveDecisionEmail({
+          employeeEmail: empEmail,
+          employee: { name: emp?.fullName, empId: emp?.empNo },
+          decisionBy: Auth.user?.username || 'Manager',
+          status: 'rejected',
+          leaveType: leaveTypeName,
+          fromDate: Utils.formatDate(_rejectLeave.from),
+          toDate: Utils.formatDate(_rejectLeave.to),
+          days: _rejectLeave.days,
+          reason: _rejectLeave.reason,
+          remarks: 'Your leave request was not approved at this time. Please contact your manager for details.'
+        });
+      }
+    }
+
     this.renderView();
   },
+
 
   cancelLeave(leaveId) {
     Modal.confirm('Cancel Leave', 'Are you sure you want to cancel this leave request?', () => {

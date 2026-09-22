@@ -1024,6 +1024,203 @@ const Payroll = {
             <button class="btn btn-ghost btn-sm" onclick="Payroll.printAllSlips()"><i class="fa fa-print"></i> Print All (PDF)</button>
             <button class="btn btn-secondary btn-sm" onclick="Payroll.exportSlipsCSV()"><i class="fa fa-file-csv"></i> Export Payslips (CSV)</button>
             <button class="btn btn-secondary btn-sm" onclick="Payroll.processAll()"><i class="fa fa-cogs"></i> Process All for Month</button>
+            <button class="btn btn-sm" onclick="Payroll.emailPayslips()" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);color:#fff;border:none;"><i class="fa fa-envelope"></i> Email Payslips</button>
+            <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(null, Payroll.currentMonth)"><i class="fa fa-plus"></i> Generate Payslip</button>
+          ` : `
+            <div style="background:var(--surface);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+              <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Self-Service &bull; Official Payslips Issued by HR &amp; Finance
+            </div>
+          `}
+        </div>
+      </div>
+      <div class="grid-3" id="slips-grid">
+        ${emps.map(emp => {
+          const rec = salaries.find(s => s.employeeId === emp.id && s.month === this.currentMonth);
+          return `
+            <div class="card slip-card" data-dept="${emp.departmentId}" style="text-align:center;border-top:3px solid ${rec ? 'var(--success)' : 'var(--border)'}">
+              <div class="avatar avatar-lg" style="background:${Utils.avatarColor(emp.id)};margin:0 auto 12px">${Utils.avatarInitials(emp.fullName)}</div>
+              <div style="font-weight:700;font-size:15px">${emp.fullName}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${Utils.getDesigName(emp.designationId)} • ${emp.empNo}</div>
+              <div style="margin:12px 0;font-size:22px;font-weight:800;color:${rec?'var(--success)':'var(--text-muted)'}">${rec ? Utils.formatCurrency(rec.netSalary) : '—'}</div>
+              ${rec ? Utils.statusBadge(rec.status) : '<span class="badge badge-secondary">Not Generated</span>'}
+              <div style="margin-top:14px;display:flex;gap:6px">
+                ${rec ? `
+                  ${canManage ? `
+                    <button class="btn btn-primary btn-sm" style="flex:1" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
+                    <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Print / PDF"><i class="fa fa-print"></i></button>
+                    <button class="btn btn-ghost btn-icon btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')" title="Edit Slip"><i class="fa fa-pen"></i></button>
+                  ` : `
+                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
+                  `}
+                ` : `
+                  ${canManage ? `
+                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')"><i class="fa fa-cogs"></i> Generate Payslip</button>
+                  ` : `
+                    <button class="btn btn-ghost btn-sm w-full" disabled style="opacity:0.6">Not Generated</button>
+                  `}
+                `}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  },
+
+  filterSlips(deptId) {
+    document.querySelectorAll('.slip-card').forEach(card => {
+      if (!deptId || card.getAttribute('data-dept') === String(deptId)) {
+        card.style.display = 'block';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  },
+
+  viewSlip(empId, month) {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!isHrOrAdmin && Number(empId) !== Auth.employee?.id) {
+      Toast.show('403 Forbidden: Financial and salary details are strictly confidential between HR/Admin and the employee.', 'error');
+      return;
+    }
+    const emp = DB.find('employees', Number(empId));
+    const rec = DB.get('salary').find(s => s.employeeId === Number(empId) && s.month === month);
+    if (!emp || !rec) { Toast.show('Salary record not found', 'error'); return; }
+    const monthLabel = new Date(month+'-01').toLocaleDateString('en',{month:'long',year:'numeric'});
+    const pfSettings = this.getPFSettings();
+    const settings = DB.getObj('settings') || {};
+    const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
+    const companyLogo = safeSrc(settings.companyLogo || '');
+
+    const pfEmployee = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
+    const pfEmployer = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
+    const loanDeduction = rec.loanDeduction || 0;
+    const unpaidDeduction = rec.unpaidLeaveDeduction || 0;
+    const otherDeductions = Math.max(0, (rec.deductions || 0) - pfEmployee - unpaidDeduction - loanDeduction);
+
+    Modal.show(`Payslip — ${emp.fullName} — ${monthLabel}`, `
+      <div style="background:white;color:#1a1a1a;border-radius:12px;overflow:hidden">
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,hsl(221,83%,25%),hsl(262,83%,30%));color:white;padding:20px 22px;display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:12px">
+            ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain;filter:brightness(0) invert(1)">` : ''}
+            <div>
+              <div style="font-size:22px;font-weight:800">${settings.companyName || 'HRM Pro'}</div>
+              <div style="font-size:12px;opacity:0.85">${settings.companyTagline || 'Human Resource Management & Payroll'}</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:18px;font-weight:700">PAYSLIP</div>
+            <div style="font-size:12px;opacity:0.85">${monthLabel}</div>
+          </div>
+        </div>
+
+        <!-- Employee Info -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;padding:18px 20px;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+          <div>
+            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">EMPLOYEE DETAILS</div>
+            <div style="font-size:16px;font-weight:700;color:#0f172a">${emp.fullName}</div>
+            <div style="font-size:13px;color:#475569">${Utils.getDesigName(emp.designationId)}</div>
+            <div style="font-size:12px;color:#64748b">${Utils.getDeptName(emp.departmentId)}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">PAYMENT INFORMATION</div>
+            <div style="font-size:13px;color:#334155"><strong>Emp #:</strong> ${emp.empNo}</div>
+            <div style="font-size:13px;color:#334155"><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate)}</div>
+            <div style="font-size:13px;color:#334155"><strong>Bank:</strong> ${emp.bankName || 'HBL'} | ${emp.accountNo || '—'}</div>
+          </div>
+        </div>
+
+        <!-- Earnings & Deductions -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#e2e8f0">
+          <div style="background:white;padding:18px 20px">
+            <div style="font-size:12px;font-weight:700;color:#10b981;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.8px">Earnings</div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Basic Salary</span><strong>PKR ${rec.basic.toLocaleString()}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Allowances</span><span style="color:#10b981">PKR ${rec.allowances.toLocaleString()}</span></div>
+            ${rec.overtime ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Overtime</span><span style="color:#10b981">PKR ${rec.overtime.toLocaleString()}</span></div>` : ''}
+            ${rec.bonus ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Bonus / Incentive</span><span style="color:#10b981">PKR ${rec.bonus.toLocaleString()}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700"><span>Gross Earnings</span><span style="color:#10b981">PKR ${(rec.basic + rec.allowances + (rec.overtime||0) + (rec.bonus||0)).toLocaleString()}</span></div>
+          </div>
+
+          <div style="background:white;padding:18px 20px">
+            <div style="font-size:12px;font-weight:700;color:#ef4444;text-transform:uppercase;margin-bottom:10px;letter-spacing:0.8px">Deductions</div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Provident Fund (Employee ${pfSettings.employeeRate}%)</span><span style="color:#ef4444;font-weight:600">PKR ${pfEmployee.toLocaleString()}</span></div>
+            <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Income Tax (FBR)</span><span style="color:#ef4444">PKR ${rec.tax.toLocaleString()}</span></div>
+            ${loanDeduction > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
+                <span style="color:#d97706;font-weight:600"><i class="fa fa-hand-holding-dollar" style="margin-right:4px"></i>Loan / PF Loan Recovery</span>
+                <span style="color:#d97706;font-weight:700">PKR ${loanDeduction.toLocaleString()}</span>
+              </div>
+            ` : ''}
+            ${unpaidDeduction > 0 ? `
+              <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9">
+                <span style="color:#dc2626;font-weight:600">Unpaid Leave / Loss of Pay (${rec.unpaidLeaveDays || 1}d)</span>
+                <span style="color:#dc2626;font-weight:700">PKR ${unpaidDeduction.toLocaleString()}</span>
+              </div>
+            ` : ''}
+            ${otherDeductions > 0 ? `<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f1f5f9"><span>Other Deductions (EOBI / SESSI)</span><span style="color:#ef4444">PKR ${otherDeductions.toLocaleString()}</span></div>` : ''}
+            <div style="display:flex;justify-content:space-between;padding:10px 0;font-weight:700"><span>Total Deductions</span><span style="color:#ef4444">PKR ${(rec.deductions + rec.tax).toLocaleString()}</span></div>
+          </div>
+        </div>
+
+        <!-- Provident Fund & Retirement Benefits Strip -->
+        <div style="background:#f0fdf4;border-top:1px solid #bbf7d0;border-bottom:1px solid #bbf7d0;padding:12px 20px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase">Employer PF Contribution (Matching ${pfSettings.employerRate}%)</div>
+            <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:2px">PKR ${pfEmployer.toLocaleString()} <span style="font-size:11px;font-weight:normal;color:#166534">(Credited directly to PF Trust)</span></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase">Accumulated PF Balance To Date</div>
+            <div style="font-size:15px;font-weight:800;color:#15803d;margin-top:2px">PKR ${pfSummary.totalBalance.toLocaleString()}</div>
+          </div>
+        </div>
+
+        <!-- SPMS Splitter & Bank / Cash Remittance Breakdown (§8, §10) -->
+        <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:12px 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:center">
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+            <div style="font-size:10.5px;color:#64748b;font-weight:600">TAXABLE BASE</div>
+            <div style="font-weight:700;color:#0f172a;font-size:13px">PKR ${(rec.send_in_bank_before_tax || rec.taxable_income || (rec.basic + (rec.allowances||0))).toLocaleString()}</div>
+          </div>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+            <div style="font-size:10.5px;color:#64748b;font-weight:600">WITHHOLDING TAX</div>
+            <div style="font-weight:700;color:#ef4444;font-size:13px">PKR ${(rec.withholding_tax !== undefined ? rec.withholding_tax : rec.tax).toLocaleString()}</div>
+          </div>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+            <div style="font-size:10.5px;color:#64748b;font-weight:600">SEND IN BANK</div>
+            <div style="font-weight:700;color:#2563eb;font-size:13px">PKR ${(rec.send_in_bank !== undefined ? rec.send_in_bank : rec.netSalary).toLocaleString()}</div>
+          </div>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:8px;padding:8px">
+            <div style="font-size:10.5px;color:#64748b;font-weight:600">CASH REMITTANCE</div>
+            <div style="font-weight:700;color:#d97706;font-size:13px">PKR ${(rec.cash_remittances || 0).toLocaleString()}</div>
+          </div>
+        </div>
+
+        <!-- Net Pay & Amount in Words -->
+        <div style="background:linear-gradient(135deg,#1e3a5f,#2d1b69);padding:18px 24px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <span style="color:rgba(255,255,255,0.8);font-size:13px;font-weight:600">NET SALARY PAYABLE</span>
+            <div style="font-size:12px;color:#93c5fd;font-style:italic;margin-top:2px">${Payroll.numberToWords(rec.netSalary)}</div>
+          </div>
+          <span style="color:white;font-size:26px;font-weight:800">PKR ${rec.netSalary.toLocaleString()}</span>
+        </div>
+
+        <div style="padding:12px 24px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">
+          System generated payslip • Status: ${rec.status.toUpperCase()} • Generated on ${Utils.formatDate(rec.paidOn || Utils.today())} • No signature required
+        </div>
+          </select>
+          ${canManage ? `
+            <select class="filter-select" id="slip-dept-filter" onchange="Payroll.filterSlips(this.value)" style="width:180px">
+              <option value="">All Departments</option>
+              ${depts.map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
+            </select>
+          ` : ''}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${canManage ? `
+            <button class="btn btn-ghost btn-sm" onclick="Payroll.printAllSlips()"><i class="fa fa-print"></i> Print All (PDF)</button>
+            <button class="btn btn-secondary btn-sm" onclick="Payroll.exportSlipsCSV()"><i class="fa fa-file-csv"></i> Export Payslips (CSV)</button>
+            <button class="btn btn-secondary btn-sm" onclick="Payroll.processAll()"><i class="fa fa-cogs"></i> Process All for Month</button>
+            <button class="btn btn-sm" onclick="Payroll.emailPayslips()" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);color:#fff;border:none;"><i class="fa fa-envelope"></i> Email Payslips</button>
             <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(null, Payroll.currentMonth)"><i class="fa fa-plus"></i> Generate Payslip</button>
           ` : `
             <div style="background:var(--surface);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
@@ -1213,7 +1410,7 @@ const Payroll = {
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
         ${(['superadmin', 'hr_manager'].includes(Auth.role) || Number(emp.id) === Auth.employee?.id) ? `
           <button class="btn btn-secondary" onclick="Payroll.exportSingleSlipCSV(${emp.id}, '${month}')"><i class="fa fa-file-csv"></i> Download CSV</button>
-          <button class="btn btn-secondary" onclick="Toast.show('Payslip emailed to ${emp.email}', 'success', 'Notification sent')"><i class="fa fa-envelope"></i> Email Slip</button>
+          <button class="btn btn-info" onclick="Payroll.emailSinglePayslip(${emp.id}, '${month}')" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);border:none;color:#fff;"><i class="fa fa-envelope"></i> Email Slip</button>
           <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-print"></i> Print / Save as PDF</button>
         ` : `
           <div style="font-size:11.5px;color:var(--text-3);display:inline-flex;align-items:center;gap:6px;margin-right:auto">
@@ -1264,635 +1461,64 @@ const Payroll = {
     const overtime = existingRec ? (existingRec.overtime || 0) : 0;
     const bonus = existingRec ? (existingRec.bonus || 0) : 0;
     const taxableGross = Math.max(0, (basic + allowances) - pfEmployee - (existingRec?.eobiEmployee || 370) - (existingRec?.taxExemptBenefits || 0));
-    const autoTax = DB.calculateFBRTax(taxableGross, selectedEmp).monthlyTax;
-    const tax = existingRec ? existingRec.tax : autoTax;
-    const net = Math.max(0, basic + allowances + overtime + bonus - (deductions + pfEmployee + unpaidLeaveDeduction + loanDeduction) - tax);
+  },
 
-    const allMonths = ['2026-01','2026-02','2026-03','2026-04','2026-05','2026-06','2026-07','2026-08','2026-09','2026-10','2026-11','2026-12'];
+  // ============================================================
+  // EMAIL PAYSLIP METHODS
+  // ============================================================
 
-    Modal.show(`${existingRec ? 'Edit' : 'Generate'} Salary Slip — ${selectedEmp.fullName}`, `
-      <div style="background:var(--surface);padding:12px 16px;border-radius:10px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="avatar avatar-md" style="background:${Utils.avatarColor(selectedEmp.id)}">${Utils.avatarInitials(selectedEmp.fullName)}</div>
-          <div>
-            <div style="font-weight:700;font-size:14px">${selectedEmp.fullName} (${selectedEmp.empNo})</div>
-            <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(selectedEmp.designationId)} • ${Utils.getDeptName(selectedEmp.departmentId)}</div>
-          </div>
-        </div>
-        <div style="text-align:right">
-          <div style="font-size:11px;color:var(--text-muted)">Base Salary</div>
-          <div style="font-weight:700;color:var(--primary)">${Utils.formatCurrency(selectedEmp.salary)}</div>
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label required">Employee</label>
-          <select class="form-control" id="slp-emp" onchange="Payroll.onGenerateSlipEmpChange(this.value, document.getElementById('slp-month').value)">
-            ${emps.map(e => `<option value="${e.id}" ${e.id === selectedEmp.id ? 'selected' : ''}>${e.fullName} (${e.empNo})</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label required">Salary Month</label>
-          <select class="form-control" id="slp-month" onchange="Payroll.onGenerateSlipEmpChange(document.getElementById('slp-emp').value, this.value)">
-            ${allMonths.map(m => `<option value="${m}" ${m === targetMonth ? 'selected' : ''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label required">Basic Salary (PKR)</label>
-          <input type="number" class="form-control" id="slp-basic" value="${basic}" oninput="Payroll.calcSlipNet()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Total Allowances (PKR)</label>
-          <input type="number" class="form-control" id="slp-allowances" value="${allowances}" oninput="Payroll.calcSlipNet()">
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Provident Fund — Employee Share (${pfSettings.employeeRate}%)</label>
-          <input type="number" class="form-control" id="slp-pf-emp" value="${pfEmployee}" oninput="Payroll.calcSlipNet()">
-          <span style="font-size:11px;color:var(--text-3)">Deducted from net pay into PF trust</span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Employer PF Match (${pfSettings.employerRate}%)</label>
-          <input type="number" class="form-control" id="slp-pf-empr" value="${pfEmployer}">
-          <span style="font-size:11px;color:var(--text-3)">Company matching contribution</span>
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Loan &amp; PF Installment Recovery (PKR)</label>
-          <input type="number" class="form-control" id="slp-loan-ded" value="${loanDeduction}" oninput="Payroll.calcSlipNet()">
-          <span style="font-size:11px;color:${loanDeduction > 0 ? 'var(--warning)' : 'var(--text-3)'}">
-            ${activeEmpLoans.length > 0 ? `${activeEmpLoans.length} active loan(s): ${activeEmpLoans.map(l => (l.loanType==='pf_loan'?'PF Loan':'Loan')+` (PKR ${l.monthlyDeduction.toLocaleString()})`).join(', ')}` : 'No active loans for this employee'}
-          </span>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Unpaid Leave / Loss of Pay (PKR)</label>
-          <input type="number" class="form-control" id="slp-unpaid-ded" value="${unpaidLeaveDeduction}" oninput="Payroll.calcSlipNet()">
-          <span style="font-size:11px;color:${unpaidLeaveDeduction > 0 ? 'var(--danger)' : 'var(--text-3)'}">
-            ${unpaidLeaveDays > 0 ? `Auto-detected: ${unpaidLeaveDays} day(s) approved unpaid leave` : 'Deducted for unpaid leaves/absences'}
-          </span>
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Other Deductions (EOBI / SESSI / Incidental)</label>
-          <input type="number" class="form-control" id="slp-deductions" value="${deductions}" oninput="Payroll.calcSlipNet()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Income Tax (2026–27 Slab Schedule)</label>
-          <input type="number" class="form-control" id="slp-tax" value="${tax}" oninput="Payroll.calcSlipNet()">
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Overtime Pay (PKR)</label>
-          <input type="number" class="form-control" id="slp-ot" value="${overtime}" oninput="Payroll.calcSlipNet()">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Bonus / Incentive (PKR)</label>
-          <input type="number" class="form-control" id="slp-bonus" value="${bonus}" oninput="Payroll.calcSlipNet()">
-        </div>
-      </div>
-
-      <div class="form-row form-row-2">
-        <div class="form-group">
-          <label class="form-label">Payment Status</label>
-          <select class="form-control" id="slp-status">
-            <option value="processed" ${existingRec?.status === 'processed' || !existingRec ? 'selected' : ''}>Processed (Paid &amp; Ledger Settled)</option>
-            <option value="pending" ${existingRec?.status === 'pending' ? 'selected' : ''}>Pending Approval</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Payment Method / Notes</label>
-          <input class="form-control" id="slp-notes" placeholder="e.g. Bank Transfer (HBL)" value="${existingRec?.notes || (selectedEmp.bankName ? selectedEmp.bankName + ' Transfer' : 'Direct Deposit')}">
-        </div>
-      </div>
-
-      <!-- Live Calculation Card -->
-      <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-top:10px;display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-size:12px;color:var(--text-3)">Calculated Net Take-Home Salary</div>
-          <div style="font-size:11px;color:var(--text-muted)">Basic + Allowances + OT + Bonus - (PF + Loan Recovery + LOP + Other) - Tax</div>
-        </div>
-        <div style="font-size:24px;font-weight:800;color:var(--success)" id="slp-net-display">
-          ${Utils.formatCurrency(net)}
-        </div>
-      </div>
-    `, {
-      size: 'modal-lg',
-      footer: `
-        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-        <button class="btn btn-primary" onclick="Payroll.saveAndGenerateSlip()"><i class="fa fa-file-invoice-dollar"></i> Generate &amp; View Payslip</button>
-      `
+  emailSinglePayslip(empId, month) {
+    if (typeof EmailNotifier === 'undefined') { Toast.show('EmailNotifier not loaded.', 'error'); return; }
+    const emp = DB.find('employees', Number(empId));
+    const rec = (DB.get('salary') || []).find(s => s.employeeId === Number(empId) && s.month === month);
+    if (!emp || !rec) { Toast.show('Payslip record not found.', 'error'); return; }
+    if (!emp.email) { Toast.show('Employee has no email address on record.', 'warning'); return; }
+    const [yr] = (month || '').split('-');
+    const monthName = new Date(month + '-01').toLocaleString('en', { month: 'long' });
+    const deductions = [];
+    if (rec.loanDeduction > 0) deductions.push({ label: 'Loan Repayment', amount: rec.loanDeduction });
+    EmailNotifier.sendPayslipEmail({
+      employeeEmail: emp.email,
+      employee: { name: emp.fullName, empId: emp.empNo, designation: Utils.getDesigName(emp.designationId), department: Utils.getDeptName(emp.departmentId) },
+      month: monthName, year: yr,
+      basicSalary: rec.basic, grossSalary: rec.grossSalary || rec.basic,
+      netSalary: rec.netSalary || rec.net_pay,
+      allowances: rec.allowances > 0 ? [{ label: 'Allowances', amount: rec.allowances }] : [],
+      deductions, taxDeducted: rec.tax || rec.withholding_tax, pfDeducted: rec.pf_fund,
+      generatedBy: Auth.user?.username || 'HR/Finance'
     });
+    Toast.show('Email dispatched to ' + emp.email + '!', 'success');
   },
 
-  onGenerateSlipEmpChange(empId, month) {
-    Payroll.showGenerateSlipModal(parseInt(empId), month);
-  },
-
-  calcSlipNet() {
-    const empId = parseInt(document.getElementById('slp-emp')?.value || 1);
-    const emp = (typeof DB !== 'undefined' ? DB.find('employees', empId) : null) || {};
-    const month = document.getElementById('slp-month')?.value || this.currentMonth;
-    const basic = parseFloat(document.getElementById('slp-basic')?.value) || 0;
-    const allowances = parseFloat(document.getElementById('slp-allowances')?.value) || 0;
-    const pfEmp = parseFloat(document.getElementById('slp-pf-emp')?.value) || 0;
-    const loanDed = parseFloat(document.getElementById('slp-loan-ded')?.value) || 0;
-    const unpaidDeduct = parseFloat(document.getElementById('slp-unpaid-ded')?.value) || 0;
-    const other = parseFloat(document.getElementById('slp-deductions')?.value) || 0;
-    const ot = parseFloat(document.getElementById('slp-ot')?.value) || 0;
-    const bonus = parseFloat(document.getElementById('slp-bonus')?.value) || 0;
-
-    let tax = parseFloat(document.getElementById('slp-tax')?.value) || 0;
-    let sendInBank = 0;
-    let cashRemit = 0;
-
-    if (typeof TaxEngine !== 'undefined') {
-      const allSalaries = DB.get('salary') || [];
-      const priorFYRows = allSalaries.filter(s => s.employeeId === empId && s.month !== month);
-      const taxTable = DB.get('tax_table') || TaxEngine.DEFAULT_TAX_SLABS;
-      const calc = TaxEngine.calculate({
-        employee: emp,
-        payrollMonth: month,
-        payrollType: 1,
-        grossIncome: basic + allowances + ot,
-        pfAmount: pfEmp,
-        pfFundRate: emp.pf_fund !== undefined ? emp.pf_fund : 5,
-        eobiEmployee: emp.eoib_employee !== undefined ? emp.eoib_employee : 370,
-        preTaxLoans: loanDed,
-        otherDeductions: other + unpaidDeduct,
-        splitter: emp.splitter,
-        bonus: bonus,
-        bonusTax: emp.bonus_tax || 'yes',
-        priorPayrollRowsInFY: priorFYRows,
-        taxTable
+  emailPayslips() {
+    if (typeof EmailNotifier === 'undefined') { Toast.show('EmailNotifier not loaded.', 'error'); return; }
+    const month = this.currentMonth;
+    const salaries = (DB.get('salary') || []).filter(s => s.month === month);
+    if (!salaries.length) { Toast.show('No payslips for this month. Run payroll first.', 'warning'); return; }
+    const [yr] = (month || '').split('-');
+    const monthName = new Date(month + '-01').toLocaleString('en', { month: 'long' });
+    let sent = 0, skipped = 0;
+    const payslips = [];
+    salaries.forEach(rec => {
+      const emp = DB.find('employees', rec.employeeId);
+      if (!emp || !emp.email) { skipped++; return; }
+      const deductions = [];
+      if (rec.loanDeduction > 0) deductions.push({ label: 'Loan Repayment', amount: rec.loanDeduction });
+      payslips.push({
+        employeeEmail: emp.email,
+        employee: { name: emp.fullName, empId: emp.empNo, designation: Utils.getDesigName(emp.designationId), department: Utils.getDeptName(emp.departmentId) },
+        month: monthName, year: yr,
+        basicSalary: rec.basic, grossSalary: rec.grossSalary || rec.basic,
+        netSalary: rec.netSalary || rec.net_pay,
+        allowances: rec.allowances > 0 ? [{ label: 'Allowances', amount: rec.allowances }] : [],
+        deductions, taxDeducted: rec.tax || rec.withholding_tax, pfDeducted: rec.pf_fund,
+        generatedBy: Auth.user?.username || 'HR/Finance'
       });
-      tax = calc.withholdingTax;
-      sendInBank = calc.sendInBank;
-      cashRemit = calc.cashRemittances;
-      const taxInput = document.getElementById('slp-tax');
-      if (taxInput && !taxInput.dataset.manual) {
-        taxInput.value = tax;
-      }
-    }
-
-    const totalDeductions = other + pfEmp + unpaidDeduct + loanDed;
-    const net = Math.max(0, basic + allowances + ot + bonus - totalDeductions - tax);
-    const display = document.getElementById('slp-net-display');
-    if (display) {
-      display.innerHTML = `
-        <div>
-          <div>${Utils.formatCurrency(net)}</div>
-          <div style="font-size:11.5px;font-weight:normal;color:var(--text-3);margin-top:2px">
-            Bank: <strong style="color:var(--primary)">${Utils.formatCurrency(sendInBank || net)}</strong>
-            ${cashRemit > 0 ? ` &bull; Cash: <strong style="color:var(--warning)">${Utils.formatCurrency(cashRemit)}</strong>` : ''}
-          </div>
-        </div>
-      `;
-    }
-    return net;
-  },
-
-  saveAndGenerateSlip() {
-    const empId = parseInt(document.getElementById('slp-emp').value);
-    const month = document.getElementById('slp-month').value;
-    const basic = parseFloat(document.getElementById('slp-basic').value) || 0;
-    const allowances = parseFloat(document.getElementById('slp-allowances').value) || 0;
-    const pfEmployee = parseFloat(document.getElementById('slp-pf-emp').value) || 0;
-    const pfEmployer = parseFloat(document.getElementById('slp-pf-empr').value) || 0;
-    const loanDeduction = parseFloat(document.getElementById('slp-loan-ded')?.value) || 0;
-    const unpaidLeaveDeduction = parseFloat(document.getElementById('slp-unpaid-ded')?.value) || 0;
-    const otherDeductions = parseFloat(document.getElementById('slp-deductions').value) || 0;
-    const totalDeductions = otherDeductions + pfEmployee + unpaidLeaveDeduction + loanDeduction;
-    const tax = parseFloat(document.getElementById('slp-tax').value) || 0;
-    const overtime = parseFloat(document.getElementById('slp-ot').value) || 0;
-    const bonus = parseFloat(document.getElementById('slp-bonus').value) || 0;
-    const status = document.getElementById('slp-status').value;
-    const notes = document.getElementById('slp-notes')?.value.trim() || '';
-
-    const emp = DB.find('employees', empId);
-    if (!emp) return;
-
-    const workingDays = this.getWorkingDaysInMonth(month);
-    const rates = typeof TaxEngine !== 'undefined' 
-      ? TaxEngine.deriveRates(basic, workingDays) 
-      : { dailyRate: Math.round(basic / workingDays), hourly: Math.round(basic / workingDays / 8), perMinute: Math.round((basic / workingDays / 8 / 60) * 10000) / 10000 };
-
-    const allSalaries = DB.get('salary') || [];
-    const priorFYRows = allSalaries.filter(s => s.employeeId === empId && s.month !== month);
-    const taxTable = DB.get('tax_table') || (typeof TaxEngine !== 'undefined' ? TaxEngine.DEFAULT_TAX_SLABS : []);
-
-    const taxCalc = typeof TaxEngine !== 'undefined' ? TaxEngine.calculate({
-      employee: emp,
-      payrollMonth: month,
-      payrollType: 1,
-      grossIncome: basic + allowances + overtime,
-      pfAmount: pfEmployee,
-      pfFundRate: emp.pf_fund !== undefined ? emp.pf_fund : 5,
-      eobiEmployee: emp.eoib_employee !== undefined ? emp.eoib_employee : 370,
-      preTaxLoans: loanDeduction,
-      otherDeductions: otherDeductions + unpaidLeaveDeduction,
-      splitter: emp.splitter,
-      bonus: bonus,
-      bonusTax: emp.bonus_tax || 'yes',
-      priorPayrollRowsInFY: priorFYRows,
-      taxTable
-    }) : { withholdingTax: tax, sendInBank: basic, cashRemittances: 0, sendInBankBeforeTax: basic + allowances, netPay: basic };
-
-    const netSalary = Math.max(0, basic + allowances + overtime + bonus - totalDeductions - (taxCalc.withholdingTax || tax));
-
-    const existing = DB.get('salary').find(s => s.employeeId === empId && s.month === month);
-    let slipId;
-
-    const slipRecordData = {
-      basic, allowances, deductions: totalDeductions, pfEmployee, pfEmployer,
-      loanDeduction, unpaidLeaveDeduction, overtime, bonus,
-      tax: taxCalc.withholdingTax !== undefined ? taxCalc.withholdingTax : tax,
-      withholding_tax: taxCalc.withholdingTax !== undefined ? taxCalc.withholdingTax : tax,
-      netSalary,
-      net_pay: netSalary,
-      status, notes,
-      monthly_rate: rates.monthlyRate,
-      daily_rate: rates.dailyRate,
-      hourly: rates.hourly,
-      per_minute: rates.perMinute,
-      gross_income: taxCalc.grossIncome,
-      taxable_income: taxCalc.sendInBankBeforeTax,
-      send_in_bank_before_tax: taxCalc.sendInBankBeforeTax,
-      send_in_bank: taxCalc.sendInBank,
-      cash_remittances: taxCalc.cashRemittances,
-      pf_fund: pfEmployee,
-      eoib_employee: taxCalc.eobiDeduction || 370,
-      eoib_employer: (taxCalc.eobiDeduction || 370) * 5,
-      total_eoib: (taxCalc.eobiDeduction || 370) * 6,
-      loan_amount: loanDeduction,
-      paidOn: status === 'processed' ? (existing?.paidOn || Utils.today()) : null
-    };
-
-    if (existing) {
-      slipId = existing.id;
-      DB.update('salary', existing.id, slipRecordData);
-      DB.log('PROCESS', 'Payroll', `Updated SPMS salary slip for ${emp.fullName} (${month}) [Take-home: PKR ${netSalary}]`, Auth.user?.id);
-    } else {
-      slipId = DB.nextId('salary');
-      DB.add('salary', {
-        id: slipId,
-        employeeId: empId,
-        employee_id: empId,
-        month,
-        payroll_month: month,
-        payroll_type: 1,
-        ...slipRecordData,
-        created_at: new Date().toISOString()
-      });
-      DB.log('PROCESS', 'Payroll', `Generated SPMS salary slip for ${emp.fullName} (${month}) [Net: PKR ${netSalary}]`, Auth.user?.id);
-    }
-
-    // Auto-record installment payment and decrement remaining on active loans
-    if (status === 'processed' && loanDeduction > 0) {
-      const allLoans = DB.get('loans') || [];
-      const empActiveLoans = allLoans.filter(l => l.employeeId === empId && l.status === 'active' && (l.remaining || 0) > 0);
-      empActiveLoans.forEach(l => {
-        l.repayments = l.repayments || [];
-        if (!l.repayments.some(r => r.month === month)) {
-          l.repayments.push({
-            month,
-            amount: l.monthlyDeduction,
-            paidOn: Utils.today(),
-            method: 'salary_deduction',
-            slipId
-          });
-          l.remaining = Math.max(0, l.remaining - 1);
-          if (l.remaining === 0) {
-            l.status = 'completed';
-          }
-          DB.update('loans', l.id, l);
-          DB.log('PROCESS', 'Payroll', `Recovered loan installment PKR ${l.monthlyDeduction} from salary for ${emp.fullName} (${l.remaining} left)`, Auth.user?.id);
-        }
-      });
-    }
-
-    // Synchronize with Provident Fund ledger
-    const pfRecords = DB.get('provident_fund');
-    const existingPF = pfRecords.find(r => r.employeeId === empId && r.month === month);
-    if (existingPF) {
-      DB.update('provident_fund', existingPF.id, {
-        basicSalary: basic,
-        employeeShare: pfEmployee,
-        employerShare: pfEmployer,
-        totalMonthly: pfEmployee + pfEmployer,
-        date: `${month}-28`
-      });
-    } else {
-      DB.add('provident_fund', {
-        id: pfRecords.length > 0 ? Math.max(...pfRecords.map(r=>r.id||0))+1 : 1,
-        employeeId: empId,
-        month,
-        basicSalary: basic,
-        employeeRate: 5,
-        employeeShare: pfEmployee,
-        employerRate: 5,
-        employerShare: pfEmployer,
-        interest: 0,
-        totalMonthly: pfEmployee + pfEmployer,
-        type: 'contribution',
-        notes: `Payroll contribution (${month})`,
-        date: `${month}-28`,
-        createdAt: new Date().toISOString()
-      });
-    }
-
-    Modal.close('dynamic-modal');
-    Toast.show('Salary slip generated successfully!', 'success', `${emp.fullName} — ${new Date(month+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}`);
-    this.currentMonth = month;
-    this.renderView();
-
-    setTimeout(() => {
-      this.viewSlip(empId, month);
-    }, 250);
-  },
-
-  generateSlip(empId, month) {
-    this.showGenerateSlipModal(empId, month);
-  },
-
-  getWorkingDaysInMonth(yearMonth) {
-    const parts = (yearMonth || Utils.thisMonth()).split('-');
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    let workingDays = 0;
-    const holidays = (typeof DB !== 'undefined' ? DB.get('holidays') : []) || [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month - 1, d);
-      const dayOfWeek = date.getDay();
-      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-      const isHoliday = holidays.some(h => h.date === dateStr);
-      if (!isWeekend && !isHoliday) {
-        workingDays++;
-      }
-    }
-    return Math.max(1, workingDays);
-  },
-
-  recalculateMonth(targetMonth = this.currentMonth) {
-    const monthLabel = new Date(targetMonth + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' });
-    Modal.confirm('Deterministic Recalculate Month', `Recalculate payroll for <strong>ALL active employees</strong> for <strong>${monthLabel}</strong>? This will recompute withholding tax with the latest effective tax slabs, recalculate attendance late/overtime rates, and update bank/cash remittances.`, () => {
-      const salaries = (DB.get('salary') || []).filter(s => s.month !== targetMonth);
-      DB.set('salary', salaries);
-      this.generateMonthPayroll(targetMonth, true);
+      sent++;
     });
-  },
-
-  processAll() {
-    this.generateMonthPayroll(this.currentMonth, false);
-  },
-
-  generateMonthPayroll(targetMonth = this.currentMonth, isRecalc = false) {
-    const emps = DB.get('employees').filter(e => e.status === 'active');
-    const existing = (DB.get('salary') || []).filter(s => s.month === targetMonth).map(s => s.employeeId);
-    const targetEmps = isRecalc ? emps : emps.filter(e => !existing.includes(e.id));
-    const monthLabel = new Date(targetMonth + '-01').toLocaleDateString('en', { month: 'long', year: 'numeric' });
-
-    // Governance check
-    const problems = typeof Administration !== 'undefined' && Administration.getAttendanceLeaveProblems 
-      ? Administration.getAttendanceLeaveProblems(targetMonth) 
-      : [];
-    const unresolved = problems.filter(p => !p.isResolved);
-
-    if (unresolved.length > 0 && !isRecalc) {
-      Modal.show(`⚠️ Payroll Finalization Blocked — ${unresolved.length} Issues Found`, `
-        <div style="display:flex;flex-direction:column;gap:14px">
-          <div style="background:linear-gradient(135deg,rgba(239,68,68,0.12),rgba(245,158,11,0.08));border:1.5px solid rgba(239,68,68,0.35);border-radius:10px;padding:14px 18px">
-            <div style="font-weight:800;color:var(--danger);font-size:14.5px;display:flex;align-items:center;gap:8px">
-              <i class="fa fa-lock"></i> Mandatory Audit Clearance Required
-            </div>
-            <div style="font-size:12.5px;color:var(--text-2);margin-top:4px;line-height:1.4">
-              Payroll generation for <strong>${monthLabel}</strong> is strictly locked because there are <strong>${unresolved.length} unresolved attendance or leave discrepancies</strong>. Company policy prohibits payroll finalization until all discrepancies are approved, converted to salary deductions, or regularized.
-            </div>
-          </div>
-          <div style="font-weight:700;font-size:12.5px;color:var(--text)">Blocking Issues to Resolve (${unresolved.length}):</div>
-          <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;padding:8px;background:var(--surface)">
-            ${unresolved.map(u => `
-              <div style="padding:8px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-size:12px">
-                <div>
-                  <div style="font-weight:700;color:var(--text)">${u.empName} <span style="font-size:11px;font-weight:normal;color:var(--text-3)">(${u.empNo})</span></div>
-                  <div style="font-size:11px;color:var(--text-3)">${u.categoryLabel} • ${u.dateOrPeriod}</div>
-                </div>
-                <span class="badge badge-danger" style="font-size:10.5px">${u.financialImpact}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `, {
-        footer: `
-          <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-          <button class="btn btn-primary" onclick="Modal.close('dynamic-modal'); App.navigate('administration'); setTimeout(() => Administration.switchSection('discrepancies'), 100);"><i class="fa fa-arrow-right"></i> Open Audit Center</button>
-        `
-      });
-      return;
-    }
-
-    if (targetEmps.length === 0) {
-      Toast.show(`All active employees already have salary slips for ${monthLabel}!`, 'info');
-      return;
-    }
-
-    const workingDays = this.getWorkingDaysInMonth(targetMonth);
-    const taxTable = DB.get('tax_table') || (typeof TaxEngine !== 'undefined' ? TaxEngine.DEFAULT_TAX_SLABS : []);
-    const allSalaries = DB.get('salary') || [];
-    const allLoans = DB.get('loans') || [];
-    const allLeaves = DB.get('leave_requests') || [];
-    const allAttendance = DB.get('attendance') || [];
-    const pfSettings = this.getPFSettings();
-
-    let count = 0;
-    targetEmps.forEach(emp => {
-      const basic = Number(emp.salary) || 50000;
-      const rates = typeof TaxEngine !== 'undefined' 
-        ? TaxEngine.deriveRates(basic, workingDays) 
-        : { dailyRate: Math.round(basic/workingDays), hourly: Math.round(basic/workingDays/8), perMinute: Math.round((basic/workingDays/8/60)*10000)/10000 };
-
-      // Attendance Metrics
-      const empAtt = allAttendance.filter(a => a.employeeId === emp.id && a.date && a.date.slice(0, 7) === targetMonth);
-      const noPresent = empAtt.filter(a => a.status === 'present' || a.status === 'late' || a.status === 'half_day').length;
-      const noAbsences = empAtt.filter(a => a.status === 'absent').length;
-      const lateMins = empAtt.reduce((sum, a) => sum + (Number(a.lateMinutes) || 0), 0);
-      const otMins = empAtt.reduce((sum, a) => sum + (Number(a.overtimeMinutes) || 0), 0);
-      const latePenalty = Math.round(lateMins * rates.perMinute);
-      const otPay = Math.round(otMins * rates.perMinute);
-
-      // Unpaid leaves
-      const salaryLeaves = allLeaves.filter(l => 
-        l.employeeId === emp.id && 
-        l.salaryDeduction === true && 
-        l.status === 'approved' && 
-        ((l.from && l.from.slice(0,7) === targetMonth) || (l.to && l.to.slice(0,7) === targetMonth))
-      );
-      const unpaidLeaveDays = salaryLeaves.reduce((sum, l) => sum + (l.deductionDays || l.days || 1), 0);
-      const unpaidLeaveDeduction = salaryLeaves.reduce((sum, l) => sum + (l.deductionAmount || (rates.dailyRate * (l.days || 1))), 0);
-
-      // Loans
-      const empActiveLoans = allLoans.filter(l => l.employeeId === emp.id && l.status === 'active' && (l.remaining || 0) > 0);
-      let prePfPreTax = 0;
-      let postPfPreTax = 0;
-      let otherLoans = 0;
-      empActiveLoans.forEach(l => {
-        const inst = Number(l.monthlyDeduction || l.per_month_installment || 0);
-        if (l.category === 'pre_pf_pre_tax') prePfPreTax += inst;
-        else if (l.category === 'post_pf_pre_tax' || l.category === 'pf_refundable_loan') postPfPreTax += inst;
-        else otherLoans += inst;
-      });
-      const loanDeduction = prePfPreTax + postPfPreTax + otherLoans;
-
-      // Mid-month revision
-      let grossIncome = basic;
-      let pfExplicit = null;
-      if (emp.salary_before_revision && emp.salary_after_revision && emp.total_days_before_revision && emp.total_days_after_revision) {
-        const portionBefore = (emp.salary_before_revision / workingDays) * emp.total_days_before_revision;
-        const portionAfter = (emp.salary_after_revision / workingDays) * emp.total_days_after_revision;
-        grossIncome = Math.round(portionBefore + portionAfter);
-        const pfBefore = portionBefore * ((emp.pf_allowed_before_revision || 5) / 100);
-        const pfAfter = portionAfter * ((emp.pf_allowed_after_revision || 5) / 100);
-        pfExplicit = Math.round(pfBefore + pfAfter);
-      }
-
-      // Prior salaries in FY
-      const priorFYRows = allSalaries.filter(s => s.employeeId === emp.id && s.month !== targetMonth);
-
-      // Pure Tax Engine Execution
-      const taxCalc = typeof TaxEngine !== 'undefined' ? TaxEngine.calculate({
-        employee: emp,
-        payrollMonth: targetMonth,
-        payrollType: 1,
-        grossIncome: grossIncome - latePenalty + otPay,
-        pfAmount: pfExplicit,
-        pfFundRate: emp.pf_fund !== undefined ? emp.pf_fund : 5,
-        eobiEmployee: emp.eoib_employee !== undefined ? emp.eoib_employee : 370,
-        preTaxLoans: prePfPreTax + postPfPreTax,
-        otherDeductions: otherLoans + unpaidLeaveDeduction,
-        splitter: emp.splitter,
-        bonus: emp.bonus || 0,
-        bonusTax: emp.bonus_tax || 'yes',
-        priorPayrollRowsInFY: priorFYRows,
-        taxTable
-      }) : { withholdingTax: 0, sendInBank: grossIncome, cashRemittances: 0, netPay: grossIncome, sendInBankBeforeTax: grossIncome, pfDeduction: Math.round(basic*0.05), eobiDeduction: 370 };
-
-      const allowances = (emp.bonus || 0) + otPay;
-      const totalDeductions = taxCalc.pfDeduction + taxCalc.eobiDeduction + loanDeduction + unpaidLeaveDeduction + latePenalty;
-
-      const newSlip = {
-        id: DB.nextId('salary'),
-        employeeId: emp.id,
-        employee_id: emp.id,
-        month: targetMonth,
-        payroll_month: targetMonth,
-        payroll_type: 1,
-        // Derived Rates
-        monthly_rate: rates.monthlyRate,
-        daily_rate: rates.dailyRate,
-        hourly: rates.hourly,
-        per_minute: rates.perMinute,
-        // Attendance
-        no_present: noPresent,
-        no_absences: noAbsences,
-        late_undertime: lateMins,
-        ot_min: otMins,
-        // Standard legacy fields
-        basic,
-        allowances,
-        deductions: totalDeductions,
-        pfEmployee: taxCalc.pfDeduction,
-        pfEmployer: taxCalc.pfDeduction,
-        unpaidLeaveDeduction,
-        unpaidLeaveDays,
-        loanDeduction,
-        overtime: otPay,
-        bonus: emp.bonus || 0,
-        tax: taxCalc.withholdingTax,
-        withholding_tax: taxCalc.withholdingTax,
-        netSalary: taxCalc.netPay,
-        net_pay: taxCalc.netPay,
-        // SPMS fields (§4)
-        gross_income: taxCalc.grossIncome,
-        taxable_income: taxCalc.sendInBankBeforeTax,
-        send_in_bank_before_tax: taxCalc.sendInBankBeforeTax,
-        send_in_bank: taxCalc.sendInBank,
-        cash_remittances: taxCalc.cashRemittances,
-        pf_fund: taxCalc.pfDeduction,
-        eoib_employee: taxCalc.eobiDeduction,
-        eoib_employer: taxCalc.eobiDeduction * 5,
-        total_eoib: taxCalc.eobiDeduction * 6,
-        loan_amount: loanDeduction,
-        status: 'processed',
-        paidOn: Utils.today(),
-        created_at: new Date().toISOString()
-      };
-
-      DB.add('salary', newSlip);
-
-      // Settle active loan installments
-      if (loanDeduction > 0) {
-        empActiveLoans.forEach(l => {
-          l.repayments = l.repayments || [];
-          if (!l.repayments.some(r => r.month === targetMonth)) {
-            l.repayments.push({
-              month: targetMonth,
-              amount: l.monthlyDeduction || l.per_month_installment || 0,
-              paidOn: Utils.today(),
-              method: 'salary_deduction',
-              slipId: newSlip.id
-            });
-            l.remaining = Math.max(0, (l.remaining || 0) - 1);
-            if (l.remaining === 0) l.status = 'completed';
-            DB.update('loans', l.id, l);
-          }
-        });
-      }
-
-      // Sync PF ledger
-      const pfRecords = DB.get('provident_fund') || [];
-      const existingPF = pfRecords.find(r => r.employeeId === emp.id && r.month === targetMonth);
-      if (!existingPF) {
-        DB.add('provident_fund', {
-          id: DB.nextId('provident_fund'),
-          employeeId: emp.id,
-          month: targetMonth,
-          basicSalary: basic,
-          employeeRate: emp.pf_fund || pfSettings.employeeRate || 5,
-          employeeShare: taxCalc.pfDeduction,
-          employerRate: emp.pf_fund || pfSettings.employerRate || 5,
-          employerShare: taxCalc.pfDeduction,
-          interest: 0,
-          totalMonthly: taxCalc.pfDeduction * 2,
-          type: 'contribution',
-          notes: `SPMS batch run (${targetMonth})`,
-          date: `${targetMonth}-28`,
-          createdAt: new Date().toISOString()
-        });
-      }
-
-      count++;
-    });
-
-    DB.log('PROCESS', 'Payroll', `Bulk processed SPMS payroll for ${count} employees (${targetMonth})`, Auth.user?.id);
-    Toast.show(`SPMS Payroll processed for ${count} employees!`, 'success', `Withholding tax, Splitter bank/cash, and PF settled.`);
-    this.renderView();
-  },
-
-  exportPayroll() {
-    this.exportSlipsCSV();
+    EmailNotifier.sendPayslipBulkEmail({ payslips, month: monthName, year: yr, generatedBy: Auth.user?.username || 'HR/Finance' });
+    Toast.show('Payslips dispatched to ' + sent + ' employees! (' + skipped + ' skipped, no email)', 'success');
+    DB.log('EMAIL', 'Payroll', 'Bulk payslip emails sent for ' + monthName + ' ' + yr + ' — ' + sent + ' sent, ' + skipped + ' skipped', Auth.user?.id);
   },
 
   // ════════════════════════════════════════════════════════════
