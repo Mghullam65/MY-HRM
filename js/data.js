@@ -6993,6 +6993,42 @@ const Utils = {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   },
+  printDiv(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) {
+      window.print();
+      return;
+    }
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      window.print();
+      return;
+    }
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Print Document</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 20px; color: #1e293b; }
+            table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; font-size: 13px; }
+            th { background: #f8fafc; font-weight: 600; }
+          </style>
+        </head>
+        <body>${el.innerHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      try {
+        printWindow.print();
+        printWindow.close();
+      } catch (e) {
+        window.print();
+      }
+    }, 250);
+  },
 };
 
 window.DB = DB;

@@ -1798,6 +1798,8 @@ const Login = {
 
 window.App = App;
 window.Login = Login;
+window.Toast = Toast;
+window.Modal = Modal;
 
 // Bootstrap on DOM ready
 document.addEventListener('DOMContentLoaded', () => App.init());
