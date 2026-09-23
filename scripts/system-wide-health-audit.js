@@ -60,7 +60,8 @@ const coreFiles = [
   'js/landing.js',
   'js/trial.js',
   'js/events.js',
-  'js/reports.js'
+  'js/reports.js',
+  'js/chat.js'
 ];
 
 coreFiles.forEach(f => {
@@ -84,6 +85,7 @@ const moduleFilesMap = {
   'Utils': 'js/data.js',
   'Modal': 'js/app.js',
   'Toast': 'js/app.js',
+  'Chat': 'js/chat.js',
   'Dashboard': 'js/dashboard.js',
   'Employees': 'js/employees.js',
   'Attendance': 'js/attendance.js',

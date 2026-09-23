@@ -120,6 +120,12 @@
 <div id="history-drawer-overlay" class="history-drawer-overlay" onclick="App.closeHistoryDrawer()"></div>
 <aside id="history-drawer" class="history-drawer"></aside>
 
+<!-- ══════════════════════════════════════
+     TEAM COLLABORATION & CHAT DRAWER
+══════════════════════════════════════ -->
+<div id="chat-drawer-overlay" class="chat-drawer-overlay" onclick="Chat.closeDrawer()"></div>
+<aside id="chat-drawer" class="chat-drawer"></aside>
+
 <!-- Supabase Cloud Database SDK (Local bundle with CDN fallback) -->
 <script src="js/vendor/supabase.js"></script>
 <script>if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>'); }</script>
@@ -132,6 +138,7 @@
 <script src="js/bankFormats.js?v=2.5.0"></script>
 <script src="js/notifications.js?v=2.5.0"></script>
 <script src="js/auth.js?v=2.5.0"></script>
+<script src="js/chat.js?v=2.5.0"></script>
 <script src="js/landing.js?v=2.5.2"></script>
 <script src="js/trial.js?v=2.5.0"></script>
 <script src="js/app.js?v=2.5.0"></script>
@@ -157,7 +164,7 @@
   <script>
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
-      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils'];
+      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils','Chat'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
         console.error('HRM: Missing modules:', missing);

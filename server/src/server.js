@@ -20,7 +20,11 @@ const jobEngine = require('./jobs/dailyAttendanceSummary');
 const emailRoutes = require('./routes/email');
 const chatRoutes = require('./routes/chat');
 
+const http = require('http');
+const wsService = require('./websocket');
+
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 
 // Security Middlewares
@@ -92,8 +96,15 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(clientDir, 'index.html'));
 });
 
+// Attach Real-Time WebSocket Server
+try {
+  wsService.init(server);
+} catch (err) {
+  console.error('[Server] Failed to initialize WebSocket server:', err.message);
+}
+
 // Start Server
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 ===============================================`);
   console.log(`   HRM Pro Server is running on http://0.0.0.0:${PORT}`);
   console.log(`   Local Machine:     http://localhost:${PORT}`);
@@ -108,5 +119,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.error('[Server] Failed to initialize background job scheduler:', err.message);
   }
 });
+
+app.server = server;
+app.wsService = wsService;
 
 module.exports = app;

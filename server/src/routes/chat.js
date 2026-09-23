@@ -256,6 +256,17 @@ router.post('/messages', (req, res) => {
   };
 
   messages.push(newMsg);
+
+  // Broadcast in real-time via WebSocket
+  try {
+    const wsService = require('../websocket');
+    if (wsService && typeof wsService.broadcastChatMessage === 'function') {
+      wsService.broadcastChatMessage(newMsg);
+    }
+  } catch (wsErr) {
+    console.warn('⚠️ [Chat] WebSocket broadcast notice:', wsErr.message);
+  }
+
   res.status(201).json({ success: true, message: newMsg });
 });
 

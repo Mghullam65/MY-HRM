@@ -184,6 +184,16 @@ router.post('/', (req, res) => {
     }
     lastUpdatedTimestamp = Date.now();
 
+    // Instant WebSocket Push
+    try {
+      const wsService = require('../websocket');
+      if (wsService && typeof wsService.broadcastNotification === 'function') {
+        wsService.broadcastNotification(newNotif.recipientEmpId, newNotif, newNotif.recipientRole);
+      }
+    } catch (wsErr) {
+      console.warn('⚠️ [Notifications] WebSocket push notice:', wsErr.message);
+    }
+
     res.status(201).json({
       success: true,
       message: 'Live notification dispatched successfully.',

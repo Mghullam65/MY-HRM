@@ -12,6 +12,12 @@ const App = {
       if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
         LiveNotifications.init();
       }
+      if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.init) {
+        HRMWebSocket.init();
+      }
+      if (typeof Chat !== 'undefined' && Chat.init) {
+        Chat.init();
+      }
       // Apply saved appearance settings immediately
         if (typeof DB !== 'undefined' && DB.getObj) {
           const s = DB.getObj('settings') || {};
@@ -327,6 +333,11 @@ const App = {
         <button class="topbar-btn" id="history-btn" onclick="App.toggleHistoryDrawer()" title="Activity History (Ctrl+H)">
           <i class="fa fa-clock-rotate-left"></i>
         </button>
+        <button class="topbar-btn" id="chat-topbar-btn" onclick="Chat.toggleDrawer()" title="Team Collaboration & Chat (Ctrl+M)" style="position:relative">
+          <i class="fa fa-comments"></i>
+          <span class="badge-dot" id="chat-badge-dot" style="display:none"></span>
+          <span id="chat-unread-badge" style="display:none;position:absolute;top:2px;right:2px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;line-height:1.2;box-shadow:0 0 6px rgba(99,102,241,0.6)"></span>
+        </button>
         <div style="position:relative">
           <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative">
             <i class="fa fa-bell"></i>
@@ -364,6 +375,9 @@ const App = {
 
     // Load dynamic notifications
     this.refreshNotifications();
+    if (typeof Chat !== 'undefined' && Chat.updateTopbarBadge) {
+      Chat.updateTopbarBadge();
+    }
 
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#notif-btn')) {
@@ -874,10 +888,20 @@ const App = {
         e.preventDefault();
         App.toggleHistoryDrawer();
       }
-      // Escape → close modals / search / history
+      // Ctrl+M or Cmd+M → toggle team collaboration / chat drawer
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        if (typeof Chat !== 'undefined' && Chat.toggleDrawer) {
+          Chat.toggleDrawer();
+        }
+      }
+      // Escape → close modals / search / history / chat
       if (e.key === 'Escape') {
         Modal.closeAll();
         App.closeHistoryDrawer();
+        if (typeof Chat !== 'undefined' && Chat.closeDrawer) {
+          Chat.closeDrawer();
+        }
         document.getElementById('search-dropdown')?.classList.remove('open');
         document.getElementById('notif-dropdown')?.classList.remove('open');
       }

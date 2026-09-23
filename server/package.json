@@ -11,7 +11,14 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js"
   },
-  "keywords": ["hrm", "human-resources", "management", "express", "prisma", "sqlite"],
+  "keywords": [
+    "hrm",
+    "human-resources",
+    "management",
+    "express",
+    "prisma",
+    "sqlite"
+  ],
   "author": "Mghullam65",
   "license": "MIT",
   "dependencies": {
@@ -22,7 +29,8 @@
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^6.9.16"
+    "nodemailer": "^6.9.16",
+    "ws": "^8.21.3"
   },
   "devDependencies": {
     "prisma": "^6.4.1"
