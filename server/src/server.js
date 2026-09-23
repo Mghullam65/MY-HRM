@@ -18,6 +18,7 @@ const syncRoutes = require('./routes/sync');
 const jobsRoutes = require('./routes/jobs');
 const jobEngine = require('./jobs/dailyAttendanceSummary');
 const emailRoutes = require('./routes/email');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -71,6 +72,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api', jobsRoutes);
 
 // Serve uploaded files (CVs, documents)

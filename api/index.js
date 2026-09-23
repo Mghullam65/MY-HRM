@@ -25,6 +25,7 @@ const notificationRoutes = require('../server/src/routes/notifications');
 const syncRoutes = require('../server/src/routes/sync');
 const jobsRoutes = require('../server/src/routes/jobs');
 const emailRoutes = require('../server/src/routes/email');
+const chatRoutes = require('../server/src/routes/chat');
 
 const app = express();
 
@@ -97,6 +98,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/sync', syncRoutes);
 app.use('/api/jobs', jobsRoutes);
 app.use('/api/email', emailRoutes);
+app.use('/api/chat', chatRoutes);
 app.use('/api', jobsRoutes);
 
 module.exports = app;

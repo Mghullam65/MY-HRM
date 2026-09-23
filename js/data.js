@@ -263,6 +263,7 @@ const DB = {
     this.ensureLoansData();
     this.ensureNineModulesData();
     this.ensureReportsSeedData();
+    this.ensureChatAndMeetingsData();
   },
 
   ensureAuditLogs() {
@@ -5465,6 +5466,156 @@ const DB = {
     }
   },
 
+  ensureChatAndMeetingsData() {
+    if (!this.get('chat_channels') || !this.get('chat_channels').length) {
+      this.set('chat_channels', [
+        {
+          id: 'chan-1',
+          name: 'All-Hands & Announcements',
+          type: 'group',
+          scope: 'all_company',
+          companyId: 1,
+          companyName: 'Apex Holdings Inc.',
+          description: 'Corporate announcements, town halls, and general workforce updates.',
+          createdBy: 1,
+          createdByName: 'Ahmed Khan (Executive Director)',
+          avatar: 'fa-bullhorn',
+          createdAt: '2026-09-01T08:00:00.000Z',
+          members: [1, 2, 3, 4, 5, 6]
+        },
+        {
+          id: 'chan-2',
+          name: 'Cross-Company Leadership Hub',
+          type: 'cross_company',
+          scope: 'executives',
+          companyId: 0,
+          companyName: 'Group Holdings & Affiliates',
+          description: 'Executive committee and department heads across sister entities.',
+          createdBy: 1,
+          createdByName: 'Ahmed Khan (Executive Director)',
+          avatar: 'fa-building-columns',
+          createdAt: '2026-09-02T10:30:00.000Z',
+          members: [1, 2, 3]
+        },
+        {
+          id: 'chan-3',
+          name: 'Engineering & Tech Operations',
+          type: 'group',
+          scope: 'department',
+          companyId: 1,
+          companyName: 'Apex Holdings Inc.',
+          description: 'Software development, infrastructure releases, and tech support sync.',
+          createdBy: 3,
+          createdByName: 'Bilal Ahmed (Lead Architect)',
+          avatar: 'fa-code-branch',
+          createdAt: '2026-09-03T11:00:00.000Z',
+          members: [1, 3, 5]
+        }
+      ]);
+    }
+
+    if (!this.get('chat_messages') || !this.get('chat_messages').length) {
+      this.set('chat_messages', [
+        {
+          id: 'msg-1',
+          channelId: 'chan-1',
+          senderId: 1,
+          senderName: 'Ahmed Khan',
+          senderRole: 'Super Admin',
+          senderCompany: 'Apex Holdings Inc.',
+          content: 'Welcome everyone to the unified HRM Collaboration & Messaging Workspace! You can share files up to 10MB and launch scheduled meetings directly from here.',
+          messageType: 'text',
+          attachments: [],
+          createdAt: '2026-09-10T09:00:00.000Z'
+        },
+        {
+          id: 'msg-2',
+          channelId: 'chan-1',
+          senderId: 2,
+          senderName: 'Sara Malik',
+          senderRole: 'HR Manager',
+          senderCompany: 'Apex Holdings Inc.',
+          content: 'Here is the approved Employee Holiday Calendar and Q4 Policy Circular for reference.',
+          messageType: 'file',
+          attachments: [
+            {
+              id: 'att-1',
+              fileName: 'Q4_Holiday_Schedule_2026.pdf',
+              fileSize: 420800,
+              fileType: 'application/pdf',
+              fileUrl: '/uploads/chat/sample_holiday_schedule.pdf'
+            }
+          ],
+          createdAt: '2026-09-10T09:15:00.000Z'
+        },
+        {
+          id: 'msg-3',
+          channelId: 'chan-2',
+          senderId: 1,
+          senderName: 'Ahmed Khan',
+          senderRole: 'Super Admin',
+          senderCompany: 'Apex Holdings Inc.',
+          content: 'Leadership sync scheduled for Thursday. Review the attached consolidation model before joining.',
+          messageType: 'file',
+          attachments: [
+            {
+              id: 'att-2',
+              fileName: 'Group_Consolidated_Budget_Q4.xlsx',
+              fileSize: 852000,
+              fileType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              fileUrl: '/uploads/chat/sample_budget_model.xlsx'
+            }
+          ],
+          createdAt: '2026-09-12T14:30:00.000Z'
+        }
+      ]);
+    }
+
+    if (!this.get('scheduled_meetings') || !this.get('scheduled_meetings').length) {
+      this.set('scheduled_meetings', [
+        {
+          id: 'meet-1',
+          title: 'Executive Strategic Planning & Q4 Review',
+          description: 'Quarterly review of company-wide performance metrics, hiring targets, and capital allocations.',
+          meetingId: '849-204-118',
+          passcode: 'HRM92X',
+          hostId: 1,
+          hostName: 'Ahmed Khan',
+          hostCompany: 'Apex Holdings Inc.',
+          startTime: '2026-09-25T10:00:00.000Z',
+          durationMinutes: 60,
+          isExternalAllowed: true,
+          status: 'scheduled',
+          attendees: [
+            { id: 1, name: 'Ahmed Khan', email: 'ahmed.khan@apex.com', type: 'internal' },
+            { id: 2, name: 'Sara Malik', email: 'sara.malik@apex.com', type: 'internal' },
+            { id: 3, name: 'Bilal Ahmed', email: 'bilal.ahmed@apex.com', type: 'internal' },
+            { email: 'investor.relations@venturecap.com', name: 'External Partner', type: 'external' }
+          ]
+        },
+        {
+          id: 'meet-2',
+          title: 'Lead Full-Stack Engineer Technical Interview',
+          description: 'Live coding walkthrough and technical architecture discussion with shortlisted candidate.',
+          meetingId: '731-905-442',
+          passcode: 'TECH45',
+          hostId: 2,
+          hostName: 'Sara Malik',
+          hostCompany: 'Apex Holdings Inc.',
+          startTime: '2026-09-26T15:00:00.000Z',
+          durationMinutes: 45,
+          isExternalAllowed: true,
+          status: 'scheduled',
+          attendees: [
+            { id: 2, name: 'Sara Malik', email: 'sara.malik@apex.com', type: 'internal' },
+            { id: 3, name: 'Bilal Ahmed', email: 'bilal.ahmed@apex.com', type: 'internal' },
+            { email: 'candidate.tariq@gmail.com', name: 'Tariq Mansoor', type: 'external' }
+          ]
+        }
+      ]);
+    }
+  },
+
   reset() {
     Object.keys(localStorage).filter(k => k.startsWith('hrm_')).forEach(k => localStorage.removeItem(k));
     this.seed();
@@ -5516,6 +5667,7 @@ const DB = {
     this.set('goals', goals, options);
     this.set('offer_letters', offerLetters, options);
     this.set('attendance_corrections', attendanceCorrections, options);
+    this.ensureChatAndMeetingsData();
   },
 
   get(key) {

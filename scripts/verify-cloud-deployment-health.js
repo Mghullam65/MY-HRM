@@ -74,7 +74,8 @@ const requiredRoutes = [
   '/api/notifications',
   '/api/sync',
   '/api/jobs',
-  '/api/email'
+  '/api/email',
+  '/api/chat'
 ];
 
 requiredRoutes.forEach(r => {
