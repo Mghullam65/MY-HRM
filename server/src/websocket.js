@@ -238,10 +238,10 @@ class HRMWebSocketService {
       message: msg
     };
 
-    for (const [ws, meta] of this.clients.entries()) {
-      if (ws.readyState === WebSocket.OPEN) {
-        this.send(ws, envelope);
-      }
+    if (senderWs) {
+      this.broadcastToOthers(senderWs, envelope);
+    } else {
+      this.broadcast(envelope);
     }
   }
 

@@ -32,18 +32,20 @@ const Chat = {
 
     // Listen to WebSocket presence & live messaging events
     if (typeof HRMWebSocket !== 'undefined') {
-      HRMWebSocket.on('presence:change', () => this.updatePresenceUI());
-      HRMWebSocket.on('presence:roster', () => this.updatePresenceUI());
-      HRMWebSocket.on('chat:read', (data) => {
-        if (data.channelId && data.userId !== (typeof Auth !== 'undefined' && Auth?.employee?.id)) {
-          // Read receipt sync
-        }
-      });
-      HRMWebSocket.on('chat:reaction', (data) => this.handleReactionUpdate(data));
-      HRMWebSocket.on('chat:typing', (data) => this.handleTypingIndicator(data));
-      HRMWebSocket.on('chat:message', (data) => {
-        if (data.message) this.handleIncomingMessage(data.message);
-      });
+      if (typeof HRMWebSocket.on === 'function') {
+        HRMWebSocket.on('presence:change', () => this.updatePresenceUI());
+        HRMWebSocket.on('presence:roster', () => this.updatePresenceUI());
+        HRMWebSocket.on('chat:read', (data) => {
+          if (data.channelId && data.userId !== (typeof Auth !== 'undefined' && Auth?.employee?.id)) {
+            // Read receipt sync
+          }
+        });
+        HRMWebSocket.on('chat:reaction', (data) => this.handleReactionUpdate(data));
+        HRMWebSocket.on('chat:typing', (data) => this.handleTypingIndicator(data));
+        HRMWebSocket.on('chat:message', (data) => {
+          if (data.message) this.handleIncomingMessage(data.message);
+        });
+      }
     }
 
     // Keyboard shortcut: Ctrl+M / Cmd+M opens chat
@@ -57,6 +59,48 @@ const Chat = {
     }
 
     console.log('%c💬 Microsoft Teams-Style Collaboration Hub initialized', 'color:#464eb8;font-weight:700');
+  },
+
+  // ── 0. Helper: Resolve Current Logged-In User & Check Ownership ──
+  getCurrentUser() {
+    let emp = (typeof Auth !== 'undefined' && Auth.employee) || null;
+    let usr = (typeof Auth !== 'undefined' && Auth.user) || null;
+
+    if (!emp && usr?.employeeId && typeof DB !== 'undefined') {
+      const allEmps = DB.get('employees') || [];
+      emp = allEmps.find(e => e.id === usr.employeeId);
+    }
+
+    const id = parseInt(emp?.id || usr?.employeeId || usr?.id || 1, 10);
+    const fullName = emp?.fullName || usr?.name || (id === 1 ? 'Ahmed Khan' : (id === 2 ? 'Sara Malik' : (id === 3 ? 'Usman Baig' : 'Team Member')));
+    const username = usr?.username || (emp?.email ? emp.email.split('@')[0] : 'admin');
+    const role = Auth?.role || usr?.role || 'admin';
+
+    return { id, fullName, username, role, emp };
+  },
+
+  isMyMessage(msg) {
+    if (!msg) return false;
+    const me = this.getCurrentUser();
+
+    // Check 1: Numeric or string senderId comparison
+    if (msg.senderId !== undefined && msg.senderId !== null) {
+      if (parseInt(msg.senderId, 10) === parseInt(me.id, 10)) return true;
+    }
+
+    // Check 2: Sender full name match (case-insensitive)
+    if (msg.senderName && me.fullName) {
+      const sName = msg.senderName.trim().toLowerCase();
+      const mName = me.fullName.trim().toLowerCase();
+      if (sName === mName || sName.includes(mName) || mName.includes(sName)) return true;
+    }
+
+    // Check 3: Sender username handle match
+    if (msg.senderUsername && me.username) {
+      if (msg.senderUsername.trim().toLowerCase() === me.username.trim().toLowerCase()) return true;
+    }
+
+    return false;
   },
 
   // ── 1. Seed Realistic Teams Conversations ──────────────────
@@ -362,7 +406,8 @@ const Chat = {
     if (typeof DB === 'undefined') return [];
     const employees = DB.get('employees') || [];
     const users = DB.get('users') || [];
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+    const me = this.getCurrentUser();
+    const myId = me.id;
 
     const empUserMap = {};
     users.forEach(u => {
@@ -404,7 +449,8 @@ const Chat = {
       this.ensureTeamsSeedData();
       channels = DB.get('chat_channels') || [];
     }
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+    const me = this.getCurrentUser();
+    const myId = me.id;
 
     return channels.filter(c => {
       if (c.type === 'direct') {
@@ -425,13 +471,73 @@ const Chat = {
     return all.filter(m => m.channelId === channelId);
   },
 
+  // ── Dynamic Counterparty Resolver for 1-on-1 Chats ─────────
+  getChannelDisplayInfo(channel) {
+    if (!channel) {
+      return { name: 'Chat', username: '', avatar: 'fa-comments', avatarBg: '#464eb8', isOnline: false, role: '' };
+    }
+
+    if (channel.type === 'bot') {
+      return {
+        name: channel.name || '✨ HRM AI Copilot',
+        username: channel.username || 'hrm.copilot',
+        avatar: channel.avatar || 'fa-wand-magic-sparkles',
+        avatarBg: channel.avatarBg || 'linear-gradient(135deg, #6366f1, #a855f7)',
+        isOnline: true,
+        role: 'Verified AI Agent',
+        isBot: true
+      };
+    }
+
+    // For direct 1-on-1 chats: ALWAYS identify the other person (counterparty)
+    if (channel.type === 'direct') {
+      const me = this.getCurrentUser();
+      let otherEmpId = null;
+
+      if (Array.isArray(channel.members) && channel.members.length > 0) {
+        otherEmpId = channel.members.find(id => parseInt(id, 10) !== parseInt(me.id, 10));
+      }
+      if (!otherEmpId && channel.targetEmpId && parseInt(channel.targetEmpId, 10) !== parseInt(me.id, 10)) {
+        otherEmpId = channel.targetEmpId;
+      }
+
+      if (otherEmpId) {
+        const employees = (typeof DB !== 'undefined' && DB.get('employees')) || [];
+        const otherEmp = employees.find(e => parseInt(e.id, 10) === parseInt(otherEmpId, 10));
+        if (otherEmp) {
+          const isOnline = typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(otherEmp.id);
+          const username = otherEmp.email ? otherEmp.email.split('@')[0] : (otherEmp.username || otherEmp.fullName.toLowerCase().replace(/[^a-z0-9]/g, '.'));
+          return {
+            name: otherEmp.fullName,
+            username: username,
+            avatar: typeof Utils !== 'undefined' ? Utils.avatarInitials(otherEmp.fullName) : otherEmp.fullName.substring(0, 2),
+            avatarBg: typeof Utils !== 'undefined' ? Utils.avatarColor(otherEmp.id) : '#464eb8',
+            isOnline: isOnline,
+            role: otherEmp.designation || 'Colleague',
+            empId: otherEmp.id
+          };
+        }
+      }
+    }
+
+    // Default for group / announcement channels
+    return {
+      name: channel.name,
+      username: channel.username || '',
+      avatar: channel.avatar || channel.name.substring(0, 2),
+      avatarBg: channel.avatarBg || '#464eb8',
+      isOnline: true,
+      role: channel.targetEmpRole || ''
+    };
+  },
+
   // ── 5. New Chat & Autocomplete Modal ──────────────────────
   startNewChat() {
     if (typeof document === 'undefined') return;
     const input = document.getElementById('teams-filter-input');
     if (input) {
       input.value = '@';
-      input.focus();
+      if (typeof input.focus === 'function') input.focus();
       this.filterRoster('@');
     }
   },
@@ -508,9 +614,9 @@ const Chat = {
   },
 
   startDirectChat(targetEmpId) {
-    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
-    const myId = myEmp.id;
-    targetEmpId = parseInt(targetEmpId);
+    const me = this.getCurrentUser();
+    const myId = me.id;
+    targetEmpId = parseInt(targetEmpId, 10);
 
     if (myId === targetEmpId) {
       if (typeof Toast !== 'undefined') Toast.show('Cannot start a direct chat with yourself.', 'info');
@@ -541,7 +647,7 @@ const Chat = {
         lastMessage: 'Started new direct conversation',
         targetEmpId: targetEmpId,
         targetEmpRole: targetEmp.designation || 'Staff',
-        companyName: targetEmp.companyName || myEmp.companyName || 'Apex Holdings',
+        companyName: targetEmp.companyName || me.emp?.companyName || 'Apex Holdings',
         avatar: typeof Utils !== 'undefined' ? Utils.avatarInitials(targetEmp.fullName) : targetEmp.fullName.substring(0,2),
         avatarBg: typeof Utils !== 'undefined' ? Utils.avatarColor(targetEmpId) : '#464eb8',
         members: [myId, targetEmpId]
@@ -851,28 +957,42 @@ const Chat = {
   },
 
   renderCardHTML(c) {
+    const info = this.getChannelDisplayInfo(c);
     const isActive = c.id === this.activeChannelId;
     const unread = this.unreadCounts[c.id] || 0;
-    const isOnline = c.type === 'bot' ? true : (c.targetEmpId ? (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(c.targetEmpId)) : true);
-    const bg = c.avatarBg || '#464eb8';
+    const isOnline = info.isOnline;
+    const bg = info.avatarBg || '#464eb8';
+
+    // Compute clean last message preview: if sent by me, prefix with "You: "
+    let lastMsgPreview = c.lastMessage || 'Click to open conversation';
+    const msgs = this.getMessages(c.id);
+    if (msgs.length > 0) {
+      const lastMsg = msgs[msgs.length - 1];
+      if (this.isMyMessage(lastMsg)) {
+        lastMsgPreview = `You: ${lastMsg.content.substring(0, 28)}`;
+      } else {
+        const namePrefix = lastMsg.senderName ? lastMsg.senderName.split(' ')[0] : 'Them';
+        lastMsgPreview = `${namePrefix}: ${lastMsg.content.substring(0, 24)}`;
+      }
+    }
 
     return `
       <div class="teams-chat-card ${isActive ? 'active' : ''} ${unread > 0 ? 'unread' : ''}" 
         data-channel-id="${c.id}" 
         onclick="Chat.openChannel('${c.id}')">
         <div class="teams-avatar-wrap" style="background:${bg}">
-          ${c.avatar && c.avatar.startsWith('fa-') ? `<i class="fa ${c.avatar}"></i>` : (c.avatar || c.name.substring(0, 2))}
+          ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
           <span class="teams-presence-badge ${isOnline ? 'online' : 'offline'}"></span>
         </div>
         <div class="teams-card-info">
           <div class="teams-card-top">
             <span class="teams-card-name">
-              ${c.name}
+              ${info.name}
               ${c.type === 'bot' ? '<span class="teams-copilot-pill">COPILOT</span>' : ''}
             </span>
             <span class="teams-card-time">${c.time || 'Today'}</span>
           </div>
-          <div class="teams-card-preview">${c.lastMessage || 'Click to open conversation'}</div>
+          <div class="teams-card-preview">${lastMsgPreview}</div>
         </div>
         ${unread > 0 ? `<span class="badge badge-danger" style="font-size:10px;padding:1px 6px;border-radius:10px">${unread}</span>` : ''}
       </div>
@@ -890,29 +1010,29 @@ const Chat = {
       return;
     }
 
-    const isOnline = channel.type === 'bot' ? true : (channel.targetEmpId ? (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(channel.targetEmpId)) : true);
+    const info = this.getChannelDisplayInfo(channel);
     const messages = this.getMessages(channel.id);
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
     const pinned = messages.filter(m => m.isPinned);
 
     panel.innerHTML = `
-      <!-- Convo Topbar -->
+      <!-- Convo Topbar (Displays who you are communicating with) -->
       <div class="teams-convo-header">
         <div class="teams-convo-header-left">
-          <div class="teams-avatar-wrap" style="background:${channel.avatarBg || '#464eb8'};width:38px;height:38px">
-            ${channel.avatar && channel.avatar.startsWith('fa-') ? `<i class="fa ${channel.avatar}"></i>` : (channel.avatar || channel.name.substring(0,2))}
-            <span class="teams-presence-badge ${isOnline ? 'online' : 'offline'}"></span>
+          <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:38px;height:38px">
+            ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0,2))}
+            <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
           </div>
           <div>
             <div class="teams-convo-title">
-              ${channel.name} 
-              ${channel.username ? `<span style="font-size:12px;color:#464eb8;font-weight:600;margin-left:6px">@${channel.username}</span>` : ''}
+              ${info.name} 
+              ${info.username ? `<span style="font-size:12px;color:#464eb8;font-weight:600;margin-left:6px">@${info.username}</span>` : ''}
               ${channel.type === 'bot' ? '<span class="teams-copilot-pill" style="margin-left:6px">HR AI AGENT</span>' : ''}
             </div>
             <div class="teams-convo-status">
-              <span style="width:7px;height:7px;border-radius:50%;background:${isOnline ? '#107c41' : '#94a3b8'}"></span>
-              <span>${isOnline ? (channel.type === 'bot' ? 'Always Active' : 'Available') : 'Offline'}</span>
-              ${channel.targetEmpRole ? `<span>• ${channel.targetEmpRole}</span>` : ''}
+              <span style="width:7px;height:7px;border-radius:50%;background:${info.isOnline ? '#107c41' : '#94a3b8'}"></span>
+              <span>${info.isOnline ? (channel.type === 'bot' ? 'Always Active' : 'Available') : 'Offline'}</span>
+              ${info.role ? `<span>• ${info.role}</span>` : ''}
+              ${channel.type === 'direct' ? `<span style="opacity:0.8;font-size:11px">• Direct Chat</span>` : ''}
             </div>
           </div>
         </div>
@@ -947,7 +1067,7 @@ const Chat = {
 
       <!-- Messages Stream -->
       <div class="teams-msg-container" id="teams-msg-container">
-        ${this.renderMessagesHTML(messages, myId)}
+        ${this.renderMessagesHTML(messages)}
       </div>
 
       <!-- Typing Indicator -->
@@ -1013,7 +1133,7 @@ const Chat = {
     this.scrollToBottom();
   },
 
-  renderMessagesHTML(messages, myId) {
+  renderMessagesHTML(messages) {
     if (messages.length === 0) {
       return `
         <div style="text-align:center;padding:40px;color:var(--text-3)">
@@ -1027,7 +1147,7 @@ const Chat = {
     let html = `<div style="text-align:center;margin:8px 0"><span style="background:rgba(0,0,0,0.06);padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;color:var(--text-3)">Today</span></div>`;
 
     messages.forEach(msg => {
-      const isMe = msg.senderId === myId;
+      const isMe = this.isMyMessage(msg);
       const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
       html += `
@@ -1047,15 +1167,18 @@ const Chat = {
             ` : ''}
           </div>
 
+          <!-- Avatar: ONLY for incoming (counterparty) messages, NEVER for outgoing (me) -->
           ${!isMe ? `
             <div class="teams-avatar-wrap" style="width:32px;height:32px;font-size:11px;background:${msg.isBot ? 'linear-gradient(135deg, #6366f1, #a855f7)' : (typeof Utils !== 'undefined' ? Utils.avatarColor(msg.senderId) : '#6366f1')}">
-              ${msg.isBot ? '<i class="fa fa-wand-magic-sparkles"></i>' : (typeof Utils !== 'undefined' ? Utils.avatarInitials(msg.senderName) : msg.senderName.substring(0,2))}
+              ${msg.isBot ? '<i class="fa fa-wand-magic-sparkles"></i>' : (typeof Utils !== 'undefined' ? Utils.avatarInitials(msg.senderName) : (msg.senderName||'Colleague').substring(0,2))}
             </div>
           ` : ''}
+
           <div style="display:flex;flex-direction:column;${isMe ? 'align-items:flex-end' : ''};max-width:100%">
+            <!-- Sender Header: ONLY for incoming (counterparty) messages, NEVER for outgoing (me) -->
             ${!isMe ? `
               <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;display:flex;align-items:center;gap:6px">
-                <span>${msg.senderName}</span>
+                <span>${msg.senderName || 'Colleague'}</span>
                 ${msg.isBot ? '<span class="teams-copilot-pill">COPILOT</span>' : ''}
                 <span style="font-weight:400;color:var(--text-3)">${timeStr}</span>
                 ${msg.isPinned ? '<i class="fa fa-thumbtack text-warning" title="Pinned" style="font-size:10px"></i>' : ''}
@@ -1110,15 +1233,16 @@ const Chat = {
     const content = input.value.trim();
     if (!content) return;
 
-    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
+    const me = this.getCurrentUser();
     const channel = this.getActiveChannel();
     if (!channel) return;
 
     const newMsg = {
       id: `msg-${Date.now()}-${Math.floor(Math.random()*1000)}`,
       channelId: channel.id,
-      senderId: myEmp.id,
-      senderName: myEmp.fullName,
+      senderId: me.id,
+      senderName: me.fullName,
+      senderUsername: me.username,
       content,
       replyTo: this.replyingTo ? { id: this.replyingTo.id, senderName: this.replyingTo.senderName, content: this.replyingTo.content } : null,
       createdAt: new Date().toISOString()
@@ -1129,7 +1253,7 @@ const Chat = {
       allMsgs.push(newMsg);
       DB.set('chat_messages', allMsgs);
 
-      // Update channel last message & time
+      // Update channel last message & time (preview is 'You: ...' for the sender)
       const channels = DB.get('chat_channels') || [];
       const ch = channels.find(c => c.id === channel.id);
       if (ch) {
@@ -1138,6 +1262,10 @@ const Chat = {
         DB.set('chat_channels', channels);
       }
     }
+
+    // Sender's channel is NEVER marked unread for themselves
+    this.unreadCounts[channel.id] = 0;
+    this.updateBadges();
 
     if (typeof HRMWebSocket !== 'undefined') {
       HRMWebSocket.sendChatMessage(newMsg);
@@ -1161,8 +1289,9 @@ const Chat = {
 
   handleIncomingMessage(msg) {
     if (!msg || !msg.channelId) return;
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
-    if (msg.senderId === myId) return;
+
+    // CRITICAL FIX: If message was sent by myself, ignore it completely (never mark unread, never treat as incoming)
+    if (this.isMyMessage(msg)) return;
 
     if (typeof DB !== 'undefined') {
       const allMsgs = DB.get('chat_messages') || [];
@@ -1220,8 +1349,8 @@ const Chat = {
   handleTypingIndicator(payload) {
     if (!payload || !payload.channelId) return;
     const { channelId, userName, isTyping, userId } = payload;
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
-    if (userId === myId) return;
+    const me = this.getCurrentUser();
+    if (userId === me.id) return;
 
     if (!this.typingUsers[channelId]) this.typingUsers[channelId] = new Set();
     if (isTyping) this.typingUsers[channelId].add(userName);
@@ -1252,7 +1381,7 @@ const Chat = {
     const end = input.selectionEnd;
     const selected = input.value.substring(start, end) || 'text';
     input.value = input.value.substring(0, start) + `${tag}${selected}${tag}` + input.value.substring(end);
-    input.focus();
+    if (typeof input.focus === 'function') input.focus();
   },
 
   formatMessageText(text) {
@@ -1301,15 +1430,16 @@ const Chat = {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
+      const me = this.getCurrentUser();
       const channel = this.getActiveChannel();
       if (!channel) return;
 
       const newMsg = {
         id: `msg-${Date.now()}`,
         channelId: channel.id,
-        senderId: myEmp.id,
-        senderName: myEmp.fullName,
+        senderId: me.id,
+        senderName: me.fullName,
+        senderUsername: me.username,
         content: `Shared file: ${file.name}`,
         attachments: [{ id: `att-${Date.now()}`, fileName: file.name, fileSize: file.size, fileUrl: e.target.result }],
         createdAt: new Date().toISOString()
@@ -1332,7 +1462,8 @@ const Chat = {
 
   renderReactionsHTML(msgId, reactions = {}) {
     const emojis = Object.keys(reactions || {});
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+    const me = this.getCurrentUser();
+    const myId = me.id;
     let html = '<div class="chat-reactions-row" style="display:flex;gap:4px;margin-top:3px">';
     emojis.forEach(emoji => {
       const users = reactions[emoji] || [];
@@ -1376,7 +1507,8 @@ const Chat = {
       return;
     }
 
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+    const me = this.getCurrentUser();
+    const myId = me.id;
     const chanId = this.activeChannelId;
 
     if (typeof DB !== 'undefined') {
@@ -1556,7 +1688,7 @@ const Chat = {
 
   handleCopilotQuery(query) {
     const q = query.toLowerCase();
-    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Ahmed Khan' };
+    const me = this.getCurrentUser();
 
     // Simulate typing
     const bar = document.getElementById('teams-typing-bar');
@@ -1578,7 +1710,7 @@ const Chat = {
 
       if (q.includes('leave') || q.includes('vacation') || q.includes('balance')) {
         const balances = (typeof DB !== 'undefined' && DB.get('leave_balances')) || [];
-        const myBal = balances.find(b => b.employeeId === myEmp.id) || { annual: 14, sick: 10, casual: 8 };
+        const myBal = balances.find(b => b.employeeId === me.id) || { annual: 14, sick: 10, casual: 8 };
         reply = `🌴 **Your Current Leave Quota for 2026:**\n- **Annual Leaves:** ${myBal.annual || 14} days remaining\n- **Sick Leaves:** ${myBal.sick || 10} days remaining\n- **Casual Leaves:** ${myBal.casual || 8} days remaining\n\n*Would you like me to open the leave application form for you?*`;
       } else if (q.includes('attendance') || q.includes('present') || q.includes('check in')) {
         const att = (typeof DB !== 'undefined' && DB.get('attendance')) || [];
@@ -1643,15 +1775,16 @@ const Chat = {
     clearInterval(this.voiceTimer);
     this.isRecordingVoice = false;
 
-    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
+    const me = this.getCurrentUser();
     const channel = this.getActiveChannel();
     if (!channel) return;
 
     const newMsg = {
       id: `msg-${Date.now()}`,
       channelId: channel.id,
-      senderId: myEmp.id,
-      senderName: myEmp.fullName,
+      senderId: me.id,
+      senderName: me.fullName,
+      senderUsername: me.username,
       content: 'Voice message (0:04)',
       isVoice: true,
       voiceDuration: `0:0${Math.max(1, this.voiceDuration)}`,
@@ -1688,6 +1821,7 @@ const Chat = {
   launchCall(type = 'video') {
     const channel = this.getActiveChannel();
     if (!channel) return;
+    const info = this.getChannelDisplayInfo(channel);
 
     this.playMessageSound('ring');
     const existing = document.getElementById('teams-call-modal-overlay');
@@ -1701,9 +1835,9 @@ const Chat = {
       <div class="teams-call-window">
         <div class="teams-call-body">
           <div class="teams-call-avatar-ring">
-            ${channel.avatar && channel.avatar.startsWith('fa-') ? `<i class="fa ${channel.avatar}"></i>` : (channel.avatar || channel.name.substring(0, 2))}
+            ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
           </div>
-          <div class="teams-call-name">${channel.name}</div>
+          <div class="teams-call-name">${info.name}</div>
           <div class="teams-call-status" id="teams-call-status-label">
             <i class="fa fa-spinner fa-spin"></i>
             <span>Connecting to Microsoft Teams Conference…</span>
