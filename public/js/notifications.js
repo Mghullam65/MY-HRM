@@ -453,6 +453,15 @@ const LiveNotifications = {
       localStorage.setItem('hrm_live_notif_ping', JSON.stringify(broadcastPayload));
     } catch (e) {}
 
+    // 2.5 Real-Time WebSocket Push (Zero latency)
+    if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isConnected) {
+      try {
+        HRMWebSocket.sendNotification(notif);
+      } catch (wsErr) {
+        console.warn('[LiveNotifications] WebSocket push notice:', wsErr.message);
+      }
+    }
+
     // 3. Sync to Cloud REST API in background
     if (typeof API !== 'undefined' && API.createNotification) {
       API.createNotification(notif).catch(() => {});

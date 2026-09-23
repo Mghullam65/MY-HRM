@@ -195,6 +195,55 @@ async function runTests() {
     assert(receivedNotif.notif.title === 'Annual Leave Approved', 'Targeted live notification received by EMP-102');
     assert(receivedNotif.notif.category === 'leave', 'Notification category preserved');
 
+    // Test client-dispatched notification:send over WebSocket
+    let clientSendNotifPromise = new Promise(resolve => {
+      client1.ws.on('message', function onMsg(raw) {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === 'notification:live' && msg.notif.id === 'notif-client-101') {
+          client1.ws.removeListener('message', onMsg);
+          resolve(msg);
+        }
+      });
+    });
+
+    client2.ws.send(JSON.stringify({
+      type: 'notification:send',
+      notif: {
+        id: 'notif-client-101',
+        recipientEmpId: 101,
+        title: 'New Chat Mention',
+        message: 'Sara mentioned you in Engineering channel',
+        category: 'chat'
+      }
+    }));
+
+    const clientReceivedNotif = await clientSendNotifPromise;
+    assert(clientReceivedNotif.notif.title === 'New Chat Mention', 'Client-dispatched notification over WS delivered to target recipient');
+
+    // CATEGORY 7: Real-Time Message Reactions & Emoji Broadcast
+    console.log('\n▶ CATEGORY 7: Real-Time Message Reactions & Emoji Broadcast...');
+    let reactionPromise = new Promise(resolve => {
+      client1.ws.on('message', function onMsg(raw) {
+        const msg = JSON.parse(raw.toString());
+        if (msg.type === 'chat:reaction' && msg.messageId === 'msg-test-101') {
+          client1.ws.removeListener('message', onMsg);
+          resolve(msg);
+        }
+      });
+    });
+
+    client2.ws.send(JSON.stringify({
+      type: 'chat:reaction',
+      messageId: 'msg-test-101',
+      channelId: 'chan-announcements',
+      emoji: '👍'
+    }));
+
+    const receivedReaction = await reactionPromise;
+    assert(receivedReaction.messageId === 'msg-test-101', 'Reaction event delivered with matching messageId');
+    assert(receivedReaction.reactions && Array.isArray(receivedReaction.reactions['👍']), 'Reaction thumbs-up map correctly initialized');
+    assert(receivedReaction.reactions['👍'].includes(102), 'Peer empId 102 registered in reactions list');
+
     // Disconnect client2 and verify presence offline broadcast
     let leavePromise = new Promise(resolve => {
       client1.ws.on('message', function onMsg(raw) {

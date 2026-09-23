@@ -226,36 +226,58 @@ router.post('/channels', (req, res) => {
 });
 
 // ── GET /api/chat/messages/:channelId ───────────────────────
-// Fetch messages for a channel
+// Fetch messages for a channel with optional cursor pagination
 router.get('/messages/:channelId', (req, res) => {
   const { channelId } = req.params;
-  const channelMsgs = messages.filter(m => m.channelId === channelId);
-  res.json({ success: true, messages: channelMsgs });
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 200);
+  const before = req.query.before;
+
+  let channelMsgs = messages.filter(m => m.channelId === channelId);
+
+  if (before) {
+    const beforeTime = new Date(before).getTime();
+    if (!isNaN(beforeTime)) {
+      channelMsgs = channelMsgs.filter(m => new Date(m.createdAt).getTime() < beforeTime);
+    }
+  }
+
+  const total = channelMsgs.length;
+  const paginated = channelMsgs.slice(-limit);
+
+  res.json({
+    success: true,
+    total,
+    count: paginated.length,
+    hasMore: total > paginated.length,
+    messages: paginated
+  });
 });
 
 // ── POST /api/chat/messages ─────────────────────────────────
-// Post message to a channel
+// Post message to a channel with optional replies and attachments
 router.post('/messages', (req, res) => {
-  const { channelId, senderId, senderName, senderRole, senderCompany, content, messageType, attachments } = req.body;
+  const { channelId, senderId, senderName, senderRole, senderCompany, content, messageType, attachments, replyTo } = req.body;
 
   if (!channelId || !senderId || (!content && (!attachments || attachments.length === 0))) {
     return res.status(400).json({ success: false, message: 'Message content or attachment required' });
   }
 
   const newMsg = {
-    id: `msg-${Date.now()}`,
+    id: `msg-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     channelId,
     senderId: parseInt(senderId),
     senderName: senderName || 'User',
     senderRole: senderRole || 'Employee',
     senderCompany: senderCompany || 'Company',
-    content: content || '',
+    content: (content || '').trim(),
     messageType: messageType || (attachments && attachments.length > 0 ? 'file' : 'text'),
     attachments: attachments || [],
+    replyTo: replyTo || null,
+    reactions: {},
     createdAt: new Date().toISOString()
   };
 
-  messages.push(newMsg);
+  addMessage(newMsg);
 
   // Broadcast in real-time via WebSocket
   try {
@@ -268,6 +290,38 @@ router.post('/messages', (req, res) => {
   }
 
   res.status(201).json({ success: true, message: newMsg });
+});
+
+// ── POST /api/chat/messages/:messageId/reactions ────────────
+// Toggle emoji reaction on a message
+router.post('/messages/:messageId/reactions', (req, res) => {
+  const { messageId } = req.params;
+  const { userId, emoji } = req.body;
+
+  if (!userId || !emoji) {
+    return res.status(400).json({ success: false, message: 'userId and emoji required' });
+  }
+
+  const updatedReactions = toggleReaction(messageId, userId, emoji);
+  if (!updatedReactions) {
+    return res.status(404).json({ success: false, message: 'Message not found' });
+  }
+
+  // Broadcast reaction event via WebSocket
+  try {
+    const wsService = require('../websocket');
+    if (wsService && typeof wsService.broadcast === 'function') {
+      const msg = messages.find(m => m.id === messageId);
+      wsService.broadcast({
+        type: 'chat:reaction',
+        messageId,
+        channelId: msg ? msg.channelId : null,
+        reactions: updatedReactions
+      });
+    }
+  } catch (wsErr) {}
+
+  res.json({ success: true, messageId, reactions: updatedReactions });
 });
 
 // ── POST /api/chat/upload ───────────────────────────────────
@@ -393,5 +447,58 @@ router.post('/meetings/verify', (req, res) => {
     }
   });
 });
+
+const messageIdSet = new Set(messages.map(m => m.id));
+const channelMessageMap = new Map();
+
+messages.forEach(m => {
+  if (!channelMessageMap.has(m.channelId)) {
+    channelMessageMap.set(m.channelId, []);
+  }
+  channelMessageMap.get(m.channelId).push(m.id);
+});
+
+function addMessage(newMsg) {
+  if (!newMsg || !newMsg.id || messageIdSet.has(newMsg.id)) return;
+
+  messageIdSet.add(newMsg.id);
+  if (!newMsg.reactions) newMsg.reactions = {};
+  messages.push(newMsg);
+
+  const chanId = newMsg.channelId || 'general';
+  if (!channelMessageMap.has(chanId)) {
+    channelMessageMap.set(chanId, []);
+  }
+  const chanList = channelMessageMap.get(chanId);
+  chanList.push(newMsg.id);
+
+  // Retain up to 200 messages per channel
+  if (chanList.length > 200) {
+    const evictedId = chanList.shift();
+    messageIdSet.delete(evictedId);
+    const evictIdx = messages.findIndex(m => m.id === evictedId);
+    if (evictIdx !== -1) messages.splice(evictIdx, 1);
+  }
+}
+
+function toggleReaction(messageId, userId, emoji) {
+  const msg = messages.find(m => m.id === messageId);
+  if (!msg) return null;
+  if (!msg.reactions) msg.reactions = {};
+  if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+  const uid = parseInt(userId);
+  const idx = msg.reactions[emoji].indexOf(uid);
+  if (idx > -1) {
+    msg.reactions[emoji].splice(idx, 1);
+    if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
+  } else {
+    msg.reactions[emoji].push(uid);
+  }
+  return msg.reactions;
+}
+
+router.addMessage = addMessage;
+router.toggleReaction = toggleReaction;
 
 module.exports = router;

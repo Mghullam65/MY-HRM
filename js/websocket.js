@@ -18,8 +18,11 @@ const HRMWebSocket = {
     this.connect();
 
     // Re-auth when Auth session changes
-    window.addEventListener('hrm:auth_change', () => {
-      if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
+    window.addEventListener('hrm:auth_change', (e) => {
+      const action = e.detail?.action;
+      if (action === 'logout') {
+        this.deauthenticate();
+      } else if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
         this.authenticate();
       }
     });
@@ -30,7 +33,10 @@ const HRMWebSocket = {
   getWebSocketUrl() {
     const isHttps = window.location.protocol === 'https:';
     const proto = isHttps ? 'wss:' : 'ws:';
-    const host = window.location.host || 'localhost:5000';
+    let host = window.location.host;
+    if (!host || window.location.protocol === 'file:') {
+      host = 'localhost:5000';
+    }
     return `${proto}//${host}/ws`;
   },
 
@@ -125,6 +131,16 @@ const HRMWebSocket = {
     });
   },
 
+  deauthenticate() {
+    this.isAuthenticated = false;
+    this.activeUserId = null;
+    if (this.isConnected && this.socket && this.socket.readyState === WebSocket.OPEN) {
+      try {
+        this.socket.close();
+      } catch (e) {}
+    }
+  },
+
   handleIncoming(payload) {
     if (!payload || !payload.type) return;
 
@@ -180,6 +196,13 @@ const HRMWebSocket = {
         this.emit('chat:read', payload);
         break;
 
+      case 'chat:reaction':
+        this.emit('chat:reaction', payload);
+        if (typeof Chat !== 'undefined' && Chat.handleReactionUpdate) {
+          Chat.handleReactionUpdate(payload);
+        }
+        break;
+
       case 'notification:live':
         if (payload.notif) {
           if (typeof LiveNotifications !== 'undefined' && LiveNotifications.handleIncomingBroadcast) {
@@ -212,6 +235,13 @@ const HRMWebSocket = {
     });
   },
 
+  sendNotification(notif) {
+    return this.send({
+      type: 'notification:send',
+      notif
+    });
+  },
+
   sendTyping(channelId, isTyping) {
     return this.send({
       type: 'chat:typing',
@@ -224,6 +254,15 @@ const HRMWebSocket = {
     return this.send({
       type: 'chat:read',
       channelId
+    });
+  },
+
+  sendReaction(messageId, channelId, emoji) {
+    return this.send({
+      type: 'chat:reaction',
+      messageId,
+      channelId,
+      emoji
     });
   },
 

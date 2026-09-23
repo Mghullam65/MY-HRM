@@ -61,7 +61,8 @@ const coreFiles = [
   'js/trial.js',
   'js/events.js',
   'js/reports.js',
-  'js/chat.js'
+  'js/chat.js',
+  'js/websocket.js'
 ];
 
 coreFiles.forEach(f => {

@@ -74,6 +74,9 @@ const Auth = {
     DB.update('users', matchedUser.id, { lastLogin: new Date().toISOString() });
     DB.log('LOGIN', 'Auth', `${this._employee.fullName} logged in`, matchedUser.id);
     sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee: this._employee }));
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hrm:auth_change', { detail: { action: 'login', user: safeUser, employee: this._employee } }));
+    }
     return { success: true };
   },
 
@@ -83,6 +86,9 @@ const Auth = {
     this._user = null;
     this._employee = null;
     sessionStorage.removeItem('hrm_session');
+    if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('hrm:auth_change', { detail: { action: 'logout' } }));
+    }
   },
 
   refreshSession() {

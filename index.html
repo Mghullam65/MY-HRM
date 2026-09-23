@@ -25,7 +25,122 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/main.css?v=2.5.2">
+  <link rel="stylesheet" href="css/main.css?v=3.0.0">
+
+  <!-- Dedicated Chatbox Instant UI Styles (Cache-Proof) -->
+  <style id="chatbox-instant-css">
+    /* ── Floating Chat Launcher ── */
+    .chat-floating-launcher {
+      position: fixed !important;
+      bottom: 24px !important;
+      right: 24px !important;
+      width: 58px !important;
+      height: 58px !important;
+      border-radius: 50% !important;
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
+      color: #ffffff !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 24px !important;
+      cursor: pointer !important;
+      box-shadow: 0 10px 30px rgba(79, 70, 229, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+      z-index: 1040 !important;
+      border: 2px solid rgba(255, 255, 255, 0.2) !important;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    .chat-floating-launcher:hover {
+      transform: scale(1.08) translateY(-3px) !important;
+      box-shadow: 0 14px 36px rgba(79, 70, 229, 0.65), 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+    }
+    .chat-floating-badge {
+      position: absolute !important;
+      top: -3px !important;
+      right: -3px !important;
+      background: #ef4444 !important;
+      color: white !important;
+      font-size: 11px !important;
+      font-weight: 800 !important;
+      min-width: 20px !important;
+      height: 20px !important;
+      padding: 0 5px !important;
+      border-radius: 10px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      border: 2px solid var(--bg, #0f172a) !important;
+      box-shadow: 0 2px 6px rgba(239, 68, 68, 0.6) !important;
+    }
+
+    /* ── Floating Chatbox Window (Non-intrusive bottom-right widget) ── */
+    .chat-drawer {
+      position: fixed !important;
+      bottom: 92px !important;
+      right: 24px !important;
+      top: auto !important;
+      left: auto !important;
+      width: 440px !important;
+      max-width: calc(100vw - 32px) !important;
+      height: 620px !important;
+      max-height: calc(100vh - 120px) !important;
+      background: var(--card, #1e293b) !important;
+      border: 1px solid var(--border, rgba(255, 255, 255, 0.12)) !important;
+      border-radius: 20px !important;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
+      z-index: 1050 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      transform: translateY(24px) scale(0.96) !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease, width 0.2s ease, height 0.2s ease !important;
+    }
+    .chat-drawer.open {
+      transform: translateY(0) scale(1) !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+    .chat-drawer.minimized {
+      height: 60px !important;
+      overflow: hidden !important;
+    }
+    .chat-drawer.maximized {
+      width: 780px !important;
+      height: calc(100vh - 48px) !important;
+      max-height: calc(100vh - 48px) !important;
+      bottom: 24px !important;
+      right: 24px !important;
+    }
+
+    /* Transparent click-away layer (does NOT dim the dashboard on desktop) */
+    .chat-drawer-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      z-index: 1045 !important;
+      pointer-events: none !important;
+    }
+    .chat-drawer-overlay.open {
+      pointer-events: auto !important;
+    }
+
+    @media (max-width: 600px) {
+      .chat-drawer {
+        bottom: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+      }
+      .chat-drawer-overlay.open {
+        background: rgba(0, 0, 0, 0.6) !important;
+      }
+    }
+  </style>
 
   <style>
     /* ── Additional inline overrides ── */
@@ -125,6 +240,10 @@
 ══════════════════════════════════════ -->
 <div id="chat-drawer-overlay" class="chat-drawer-overlay" onclick="Chat.closeDrawer()"></div>
 <aside id="chat-drawer" class="chat-drawer"></aside>
+<div id="chat-floating-launcher" class="chat-floating-launcher" onclick="Chat.toggleDrawer()" title="Team Chatbox (Ctrl+M)">
+  <i class="fa fa-comments"></i>
+  <span id="chat-floating-badge" class="chat-floating-badge" style="display:none">0</span>
+</div>
 
 <!-- Supabase Cloud Database SDK (Local bundle with CDN fallback) -->
 <script src="js/vendor/supabase.js"></script>
@@ -138,10 +257,11 @@
 <script src="js/bankFormats.js?v=2.5.0"></script>
 <script src="js/notifications.js?v=2.5.0"></script>
 <script src="js/auth.js?v=2.5.0"></script>
-<script src="js/chat.js?v=2.5.0"></script>
+<script src="js/websocket.js?v=2.5.0"></script>
+<script src="js/chat.js?v=3.0.0"></script>
 <script src="js/landing.js?v=2.5.2"></script>
 <script src="js/trial.js?v=2.5.0"></script>
-<script src="js/app.js?v=2.5.0"></script>
+<script src="js/app.js?v=3.0.0"></script>
 <script src="js/dashboard.js?v=2.5.0"></script>
 <script src="js/employees.js?v=2.5.2"></script>
 <script src="js/attendance.js?v=2.5.2"></script>
@@ -164,7 +284,7 @@
   <script>
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
-      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils','Chat'];
+      const required = ['Security','API','I18n','DB','LiveNotifications','Auth','HRMWebSocket','Landing','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils','Chat'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
         console.error('HRM: Missing modules:', missing);

@@ -159,8 +159,26 @@ class HRMWebSocketService {
         if (!msg.id) msg.id = 'msg-' + Date.now();
         if (!msg.createdAt) msg.createdAt = new Date().toISOString();
 
+        // Persist message into shared chat store if available
+        try {
+          const chatRoutes = require('./routes/chat');
+          if (chatRoutes && typeof chatRoutes.addMessage === 'function') {
+            chatRoutes.addMessage(msg);
+          }
+        } catch (e) {}
+
         // Broadcast to relevant clients
         this.broadcastChatMessage(msg, ws);
+        break;
+      }
+
+      case 'notification:send': {
+        if (!payload.notif) return;
+        const notif = payload.notif;
+        if (!notif.id) notif.id = 'notif-' + Date.now();
+        if (!notif.createdAt) notif.createdAt = new Date().toISOString();
+
+        this.broadcastNotification(notif.recipientEmpId, notif, notif.recipientRole);
         break;
       }
 
@@ -183,6 +201,24 @@ class HRMWebSocketService {
           userId: meta.userId,
           readAt: new Date().toISOString()
         });
+        break;
+      }
+
+      case 'chat:reaction': {
+        if (!payload.messageId || !payload.emoji) return;
+        try {
+          const chatRoutes = require('./routes/chat');
+          if (chatRoutes && typeof chatRoutes.toggleReaction === 'function') {
+            const actorId = meta.empId || meta.userId || payload.userId;
+            const updatedReactions = chatRoutes.toggleReaction(payload.messageId, actorId, payload.emoji);
+            this.broadcast({
+              type: 'chat:reaction',
+              messageId: payload.messageId,
+              channelId: payload.channelId,
+              reactions: updatedReactions
+            });
+          }
+        } catch (e) {}
         break;
       }
 
