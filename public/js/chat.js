@@ -1,5 +1,5 @@
 // ============================================================
-// HRM SYSTEM — Real-Time Internal Chat & Collaboration Engine
+// HRM SYSTEM — Microsoft Teams-Style Enterprise Chat Engine
 // Instant Team Messaging, Colleague Username Search & File Sharing
 // ============================================================
 
@@ -7,19 +7,16 @@ const Chat = {
   isOpen: false,
   isMinimized: false,
   isMaximized: false,
-  activeTab: 'colleagues', // 'colleagues' | 'chats' | 'channels'
-  viewMode: 'list',  // 'list' | 'convo'
-  activeChannelId: 'chan-1',
+  activeFilter: 'all', // 'all' | 'unread' | 'colleagues' | 'channels'
+  activeChannelId: 'chan-wajiha',
+  collapsedSections: { favorites: false, chats: false, colleagues: false },
   unreadCounts: {},
   typingTimeout: null,
   typingUsers: {}, // channelId -> Set of names
   audioCtx: null,
 
   init() {
-    if (typeof DB !== 'undefined' && DB.ensureChatAndMeetingsData) {
-      DB.ensureChatAndMeetingsData();
-    }
-
+    this.ensureTeamsSeedData();
     this.initAudio();
     this.calculateInitialUnreads();
 
@@ -39,7 +36,7 @@ const Chat = {
       });
     }
 
-    // Keyboard shortcut: Ctrl+M / Cmd+M opens chat drawer
+    // Keyboard shortcut: Ctrl+M / Cmd+M opens chat
     if (typeof document !== 'undefined') {
       document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm' && !e.shiftKey) {
@@ -49,34 +46,202 @@ const Chat = {
       });
     }
 
-    console.log('%c💬 Real-Time Chatbox & Colleague Collaboration Engine initialized', 'color:#6366f1;font-weight:700');
+    console.log('%c💬 Microsoft Teams-Style Collaboration Hub initialized', 'color:#464eb8;font-weight:700');
   },
 
-  // ── 1. Web Audio Synthesizer for Message Pop ───────────────
+  // ── 1. Seed Realistic Teams Conversations ──────────────────
+  ensureTeamsSeedData() {
+    if (typeof DB === 'undefined') return;
+
+    let channels = DB.get('chat_channels') || [];
+    let messages = DB.get('chat_messages') || [];
+
+    const teamsSeedChannels = [
+      {
+        id: 'chan-wajiha',
+        name: 'Wajiha Mazhar',
+        username: 'wajiha.mazhar',
+        avatar: 'WM',
+        avatarBg: '#d97706',
+        type: 'direct',
+        isFavorite: false,
+        time: '6:36 PM',
+        lastMessage: 'ya kia baat hoi',
+        targetEmpId: 101,
+        targetEmpRole: 'Product Designer',
+        members: [1, 101]
+      },
+      {
+        id: 'chan-ghulam',
+        name: 'Ghulam Mustafa',
+        username: 'ghulam.mustafa',
+        avatar: 'GM',
+        avatarBg: '#0f766e',
+        type: 'direct',
+        isFavorite: true,
+        time: '4:43 PM',
+        lastMessage: 'You: https://www.youtube...',
+        targetEmpId: 102,
+        targetEmpRole: 'Senior Analyst',
+        members: [1, 102]
+      },
+      {
+        id: 'chan-cmit',
+        name: 'CMIT Internship Group',
+        username: 'cmit.interns',
+        avatar: 'CI',
+        avatarBg: '#2563eb',
+        type: 'group',
+        isFavorite: false,
+        time: '6:24 PM',
+        lastMessage: 'Wajiha: W.slam',
+        targetEmpId: null,
+        targetEmpRole: 'Engineering Cohort',
+        members: [1, 2, 3, 101]
+      },
+      {
+        id: 'chan-humna',
+        name: 'Humna Ishfaq',
+        username: 'humna.ishfaq',
+        avatar: 'HI',
+        avatarBg: '#475569',
+        type: 'direct',
+        isFavorite: false,
+        time: '6:08 PM',
+        lastMessage: 'You: ok',
+        targetEmpId: 103,
+        targetEmpRole: 'QA Engineer',
+        members: [1, 103]
+      },
+      {
+        id: 'chan-prisha',
+        name: 'Prisha Ahmad',
+        username: 'prisha.ahmad',
+        avatar: 'PA',
+        avatarBg: '#059669',
+        type: 'direct',
+        isFavorite: false,
+        time: '6:05 PM',
+        lastMessage: 'Sure Sir',
+        targetEmpId: 104,
+        targetEmpRole: 'HR Executive',
+        members: [1, 104]
+      },
+      {
+        id: 'chan-mazhar',
+        name: 'Mazhar Hussain',
+        username: 'mazhar.hussain',
+        avatar: 'MH',
+        avatarBg: '#b91c1c',
+        type: 'direct',
+        isFavorite: false,
+        time: '5:44 PM',
+        lastMessage: 'You: ok',
+        targetEmpId: 105,
+        targetEmpRole: 'Operations Manager',
+        members: [1, 105]
+      },
+      {
+        id: 'chan-sara',
+        name: 'Sara Malik',
+        username: 'sara.malik',
+        avatar: 'SM',
+        avatarBg: '#6366f1',
+        type: 'direct',
+        isFavorite: true,
+        time: '5:15 PM',
+        lastMessage: 'Here is the approved Q4 salary matrix and policy.',
+        targetEmpId: 2,
+        targetEmpRole: 'HR Director',
+        members: [1, 2]
+      },
+      {
+        id: 'chan-usman',
+        name: 'Usman Baig',
+        username: 'usman.baig',
+        avatar: 'UB',
+        avatarBg: '#14b8a6',
+        type: 'direct',
+        isFavorite: false,
+        time: '3:20 PM',
+        lastMessage: 'All engineering sprint tasks are synchronized.',
+        targetEmpId: 3,
+        targetEmpRole: 'Engineering Lead',
+        members: [1, 3]
+      },
+      {
+        id: 'chan-1',
+        name: 'All-Hands & Announcements',
+        username: 'announcements',
+        avatar: 'fa-bullhorn',
+        avatarBg: '#464eb8',
+        type: 'group',
+        isFavorite: false,
+        time: '2:00 PM',
+        lastMessage: 'Ahmed Khan: Welcome to the unified HRM Workspace!',
+        targetEmpId: null,
+        targetEmpRole: 'Apex Holdings Inc.',
+        members: [1, 2, 3, 4, 5, 26]
+      }
+    ];
+
+    // Merge seed channels if missing
+    teamsSeedChannels.forEach(seed => {
+      const exists = channels.find(c => c.id === seed.id || (c.type === 'direct' && c.targetEmpId === seed.targetEmpId));
+      if (!exists) {
+        channels.push(seed);
+      }
+    });
+    DB.set('chat_channels', channels);
+
+    // Initial message history for chan-wajiha
+    if (!messages.some(m => m.channelId === 'chan-wajiha')) {
+      messages.push(
+        {
+          id: 'msg-w-1',
+          channelId: 'chan-wajiha',
+          senderId: 1,
+          senderName: 'Ahmed Khan',
+          content: 'Assalam o alaikum Wajiha, did you review the revised UI mockups for the attendance portal?',
+          createdAt: new Date(Date.now() - 3600000).toISOString()
+        },
+        {
+          id: 'msg-w-2',
+          channelId: 'chan-wajiha',
+          senderId: 101,
+          senderName: 'Wajiha Mazhar',
+          content: 'W.slam Sir! Yes, I checked the color contrast and layout cards.',
+          createdAt: new Date(Date.now() - 2400000).toISOString()
+        },
+        {
+          id: 'msg-w-3',
+          channelId: 'chan-wajiha',
+          senderId: 101,
+          senderName: 'Wajiha Mazhar',
+          content: 'ya kia baat hoi',
+          createdAt: new Date(Date.now() - 600000).toISOString()
+        }
+      );
+      DB.set('chat_messages', messages);
+    }
+  },
+
+  // ── 2. Web Audio Synthesizer ──────────────────────────────
   initAudio() {
     try {
       if (typeof window === 'undefined') return;
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtxClass) {
-        this.audioCtx = new AudioCtxClass();
-      }
-    } catch (e) {
-      console.warn('[Chat] Audio init notice:', e.message);
-    }
+      if (AudioCtxClass) this.audioCtx = new AudioCtxClass();
+    } catch (e) {}
   },
 
   playMessageSound(type = 'incoming') {
     try {
       if (typeof window === 'undefined') return;
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      if (!this.audioCtx && AudioCtxClass) {
-        this.audioCtx = new AudioCtxClass();
-      }
+      if (!this.audioCtx && AudioCtxClass) this.audioCtx = new AudioCtxClass();
       if (!this.audioCtx) return;
-
-      if (this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      }
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
 
       const ctx = this.audioCtx;
       const now = ctx.currentTime;
@@ -85,40 +250,26 @@ const Chat = {
 
       osc.type = 'sine';
       if (type === 'incoming') {
-        // High soft bubble pop (659Hz -> 880Hz)
         osc.frequency.setValueAtTime(659.25, now);
         osc.frequency.exponentialRampToValueAtTime(880.0, now + 0.12);
         gain.gain.setValueAtTime(0.15, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.2);
       } else {
-        // Subtle outgoing pop (440Hz -> 587Hz)
         osc.frequency.setValueAtTime(440.0, now);
         osc.frequency.exponentialRampToValueAtTime(587.33, now + 0.08);
         gain.gain.setValueAtTime(0.08, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.14);
       }
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.2);
     } catch (err) {}
   },
 
-  // ── 2. Unread Badge Calculation ───────────────────────────
+  // ── 3. Unread Badges ──────────────────────────────────────
   calculateInitialUnreads() {
-    const channels = this.getChannels();
-    channels.forEach(ch => {
-      if (ch.id === 'chan-1' && !this.unreadCounts[ch.id]) {
-        this.unreadCounts[ch.id] = 1;
-      } else if (!this.unreadCounts[ch.id]) {
-        this.unreadCounts[ch.id] = 0;
-      }
-    });
-
+    this.unreadCounts['chan-wajiha'] = 1;
     this.updateBadges();
   },
 
@@ -130,7 +281,6 @@ const Chat = {
     if (typeof document === 'undefined') return;
     const total = this.getTotalUnreadCount();
 
-    // 1. Floating launcher badge
     const floatBadge = document.getElementById('chat-floating-badge');
     if (floatBadge) {
       if (total > 0) {
@@ -141,7 +291,6 @@ const Chat = {
       }
     }
 
-    // 2. Topbar navigation badge
     const pill = document.getElementById('chat-unread-badge');
     const dot = document.getElementById('chat-badge-dot');
     if (pill) {
@@ -152,53 +301,11 @@ const Chat = {
         pill.style.display = 'none';
       }
     }
-    if (dot) {
-      dot.style.display = total > 0 ? 'block' : 'none';
-    }
-
-    // 3. Chat tabs badge
-    const tabBadge = document.getElementById('chat-tab-unread-badge');
-    if (tabBadge) {
-      if (total > 0) {
-        tabBadge.textContent = total > 9 ? '9+' : total;
-        tabBadge.style.display = 'inline-block';
-      } else {
-        tabBadge.style.display = 'none';
-      }
-    }
+    if (dot) dot.style.display = total > 0 ? 'block' : 'none';
   },
 
   updateTopbarBadge() {
     this.updateBadges();
-  },
-
-  // ── 3. Data Getters & Channels ────────────────────────────
-  getChannels() {
-    if (typeof DB === 'undefined') return [];
-    let channels = DB.get('chat_channels');
-    if (!channels || !channels.length) {
-      if (DB.ensureChatAndMeetingsData) DB.ensureChatAndMeetingsData();
-      channels = DB.get('chat_channels') || [];
-    }
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
-
-    return channels.filter(c => {
-      if (c.type === 'direct') {
-        return Array.isArray(c.members) && c.members.includes(myId);
-      }
-      return true;
-    });
-  },
-
-  getActiveChannel() {
-    const channels = this.getChannels();
-    return channels.find(c => c.id === this.activeChannelId) || channels[0] || null;
-  },
-
-  getMessages(channelId) {
-    if (typeof DB === 'undefined') return [];
-    const all = DB.get('chat_messages') || [];
-    return all.filter(m => m.channelId === channelId);
   },
 
   // ── 4. Colleague Directory & Username Resolution ──────────
@@ -208,7 +315,6 @@ const Chat = {
     const users = DB.get('users') || [];
     const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
 
-    // Build username map from users table
     const empUserMap = {};
     users.forEach(u => {
       if (u.employeeId) empUserMap[u.employeeId] = u.username;
@@ -242,80 +348,99 @@ const Chat = {
     });
   },
 
-  searchColleaguesByUsername(query) {
-    if (typeof document === 'undefined') return;
-    const popover = document.getElementById('chat-username-autocomplete');
-    if (!popover) return;
-
-    const trimmed = (query || '').trim().replace(/^@/, '').toLowerCase();
-    if (!trimmed) {
-      popover.style.display = 'none';
-      popover.innerHTML = '';
-      return;
+  getChannels() {
+    if (typeof DB === 'undefined') return [];
+    let channels = DB.get('chat_channels');
+    if (!channels || !channels.length) {
+      this.ensureTeamsSeedData();
+      channels = DB.get('chat_channels') || [];
     }
+    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
 
-    const members = this.getAllCompanyMembers();
-    const matches = members.filter(m => 
-      !m.isSelf && (
-        m.username.toLowerCase().includes(trimmed) ||
-        m.fullName.toLowerCase().includes(trimmed) ||
-        m.designation.toLowerCase().includes(trimmed) ||
-        m.department.toLowerCase().includes(trimmed)
-      )
-    ).slice(0, 8); // Top 8 matches
-
-    if (matches.length === 0) {
-      popover.innerHTML = `
-        <div style="padding:12px;text-align:center;color:var(--text-3);font-size:12px">
-          No colleague found matching "<strong>@${query.replace(/^@/, '')}</strong>"
-        </div>
-      `;
-      popover.style.display = 'block';
-      return;
-    }
-
-    let html = '';
-    matches.forEach(m => {
-      const initials = typeof Utils !== 'undefined' && Utils.avatarInitials 
-        ? Utils.avatarInitials(m.fullName) 
-        : m.fullName.substring(0, 2).toUpperCase();
-      const color = typeof Utils !== 'undefined' && Utils.avatarColor 
-        ? Utils.avatarColor(m.empId) 
-        : '#6366f1';
-
-      html += `
-        <div class="chat-user-autocomplete-item" onclick="Chat.startDirectChat(${m.empId})">
-          <div class="chat-user-item-left">
-            <div class="chat-user-avatar" style="background:${color}">
-              ${initials}
-              <span class="chat-status-dot ${m.isOnline ? 'online' : 'offline'}"></span>
-            </div>
-            <div>
-              <div class="chat-user-info-name">${m.fullName}</div>
-              <div class="chat-user-info-handle">@${m.username}</div>
-              <div class="chat-user-info-role">${m.designation} • ${m.department}</div>
-            </div>
-          </div>
-          <button class="chat-directory-btn" style="padding:3px 9px;font-size:11px">
-            <i class="fa fa-comment-dots"></i> Chat
-          </button>
-        </div>
-      `;
+    return channels.filter(c => {
+      if (c.type === 'direct') {
+        return Array.isArray(c.members) && c.members.includes(myId);
+      }
+      return true;
     });
-
-    popover.innerHTML = html;
-    popover.style.display = 'block';
   },
 
-  clearSearchInput() {
+  getActiveChannel() {
+    const channels = this.getChannels();
+    return channels.find(c => c.id === this.activeChannelId) || channels[0] || null;
+  },
+
+  getMessages(channelId) {
+    if (typeof DB === 'undefined') return [];
+    const all = DB.get('chat_messages') || [];
+    return all.filter(m => m.channelId === channelId);
+  },
+
+  // ── 5. New Chat & Autocomplete Modal ──────────────────────
+  startNewChat() {
     if (typeof document === 'undefined') return;
-    const input = document.getElementById('chat-username-input');
-    const popover = document.getElementById('chat-username-autocomplete');
-    if (input) input.value = '';
-    if (popover) {
-      popover.style.display = 'none';
-      popover.innerHTML = '';
+    const input = document.getElementById('teams-filter-input');
+    if (input) {
+      input.value = '@';
+      input.focus();
+      this.filterRoster('@');
     }
+  },
+
+  filterRoster(query) {
+    if (typeof document === 'undefined') return;
+    const cleanQuery = (query || '').toLowerCase().trim();
+    const dropdown = document.getElementById('teams-username-dropdown');
+
+    // If starts with @, show username autocomplete
+    if (cleanQuery.startsWith('@')) {
+      const handle = cleanQuery.replace(/^@/, '');
+      const members = this.getAllCompanyMembers();
+      const matches = members.filter(m => 
+        !m.isSelf && (
+          m.username.toLowerCase().includes(handle) ||
+          m.fullName.toLowerCase().includes(handle) ||
+          m.designation.toLowerCase().includes(handle)
+        )
+      ).slice(0, 8);
+
+      if (dropdown) {
+        if (matches.length === 0) {
+          dropdown.innerHTML = `<div style="padding:10px 14px;color:var(--text-3);font-size:12px">No colleague found with login username "@${handle}"</div>`;
+        } else {
+          dropdown.innerHTML = `
+            <div style="padding:6px 12px;font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Add / Message Colleague by @username</div>
+            ${matches.map(m => `
+              <div class="teams-chat-card" onclick="Chat.startDirectChat(${m.empId}); Chat.closeDropdown();" style="border-radius:6px;margin:2px">
+                <div class="teams-avatar-wrap" style="background:${typeof Utils !== 'undefined' ? Utils.avatarColor(m.empId) : '#6366f1'}">
+                  ${typeof Utils !== 'undefined' ? Utils.avatarInitials(m.fullName) : m.fullName.substring(0,2)}
+                  <span class="teams-presence-badge ${m.isOnline ? 'online' : 'offline'}"></span>
+                </div>
+                <div class="teams-card-info">
+                  <div class="teams-card-top">
+                    <span class="teams-card-name">${m.fullName}</span>
+                    <span style="font-size:11px;color:#464eb8;font-weight:700">@${m.username}</span>
+                  </div>
+                  <div class="teams-card-preview">${m.designation} • ${m.department}</div>
+                </div>
+              </div>
+            `).join('')}
+          `;
+        }
+        dropdown.style.display = 'block';
+      }
+      return;
+    }
+
+    if (dropdown) dropdown.style.display = 'none';
+    this.renderRosterList(cleanQuery);
+  },
+
+  closeDropdown() {
+    const dropdown = document.getElementById('teams-username-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    const input = document.getElementById('teams-filter-input');
+    if (input) input.value = '';
   },
 
   startDirectChatByUsername(username) {
@@ -347,7 +472,6 @@ const Chat = {
     const targetEmp = employees.find(e => e.id === targetEmpId);
     if (!targetEmp) return;
 
-    // Check if DM channel already exists
     const channels = (typeof DB !== 'undefined' && DB.get('chat_channels')) || [];
     let dmChannel = channels.find(c => 
       c.type === 'direct' && 
@@ -357,34 +481,71 @@ const Chat = {
     );
 
     if (!dmChannel) {
+      const username = targetEmp.email ? targetEmp.email.split('@')[0] : targetEmp.fullName.toLowerCase().replace(/[^a-z0-9]/g, '.');
       dmChannel = {
         id: `dm-${Math.min(myId, targetEmpId)}-${Math.max(myId, targetEmpId)}`,
         name: targetEmp.fullName,
+        username: username,
         type: 'direct',
-        scope: 'direct',
-        companyId: targetEmp.companyId || myEmp.companyId || 1,
-        companyName: targetEmp.companyName || myEmp.companyName || 'Apex Holdings',
-        description: `Direct conversation with ${targetEmp.fullName} (${targetEmp.designation || 'Staff'})`,
-        createdBy: myId,
-        createdByName: myEmp.fullName,
-        avatar: targetEmp.photo || 'fa-user',
+        isFavorite: false,
+        time: 'Just now',
+        lastMessage: 'Started new direct conversation',
         targetEmpId: targetEmpId,
-        targetEmpName: targetEmp.fullName,
-        targetEmpRole: targetEmp.designation,
-        createdAt: new Date().toISOString(),
+        targetEmpRole: targetEmp.designation || 'Staff',
+        companyName: targetEmp.companyName || myEmp.companyName || 'Apex Holdings',
+        avatar: typeof Utils !== 'undefined' ? Utils.avatarInitials(targetEmp.fullName) : targetEmp.fullName.substring(0,2),
+        avatarBg: typeof Utils !== 'undefined' ? Utils.avatarColor(targetEmpId) : '#464eb8',
         members: [myId, targetEmpId]
       };
-      channels.push(dmChannel);
+      channels.unshift(dmChannel);
       if (typeof DB !== 'undefined') DB.set('chat_channels', channels);
     }
 
     this.activeChannelId = dmChannel.id;
     this.viewMode = 'convo';
-    this.clearSearchInput();
-    this.openDrawer();
+    this.closeDropdown();
+    this.openChannel(dmChannel.id);
   },
 
-  // ── 5. Slide-Over & Dockable Chatbox Controls ─────────────
+  markChannelAsRead(channelId) {
+    this.unreadCounts[channelId] = 0;
+    this.updateBadges();
+    if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.sendReadReceipt) {
+      HRMWebSocket.sendReadReceipt(channelId);
+    }
+  },
+
+  openChannel(channelId) {
+    this.activeChannelId = channelId;
+    this.viewMode = 'convo';
+    this.markChannelAsRead(channelId);
+
+    // Refresh active state in roster
+    if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+      document.querySelectorAll('.teams-chat-card').forEach(el => {
+        el.classList.toggle('active', el.dataset.channelId === channelId);
+      });
+      this.renderConversationPanel();
+      setTimeout(() => this.scrollToBottom(), 50);
+    }
+  },
+
+  setFilter(filterName) {
+    this.activeFilter = filterName;
+    if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
+      document.querySelectorAll('.teams-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filterName);
+      });
+      this.renderRosterList();
+    }
+  },
+
+  toggleSection(sectionKey) {
+    this.collapsedSections[sectionKey] = !this.collapsedSections[sectionKey];
+    this.renderRosterList();
+  },
+
+  // ── 6. Drawer & Full Workspace Views ──────────────────────
   toggleDrawer() {
     if (this.isOpen) {
       this.closeDrawer();
@@ -406,11 +567,7 @@ const Chat = {
       drawer.classList.add('open');
       drawer.classList.remove('minimized');
       if (this.isMaximized) drawer.classList.add('maximized');
-      this.renderDrawer();
-    }
-
-    if (this.activeChannelId) {
-      this.markChannelAsRead(this.activeChannelId);
+      this.renderWorkspace(drawer, false);
     }
   },
 
@@ -418,7 +575,6 @@ const Chat = {
     if (typeof document === 'undefined') return;
     this.isOpen = false;
     this.isMinimized = false;
-    this.clearSearchInput();
 
     const overlay = document.getElementById('chat-drawer-overlay');
     const drawer = document.getElementById('chat-drawer');
@@ -438,11 +594,7 @@ const Chat = {
     if (!drawer) return;
 
     this.isMinimized = !this.isMinimized;
-    if (this.isMinimized) {
-      drawer.classList.add('minimized');
-    } else {
-      drawer.classList.remove('minimized');
-    }
+    drawer.classList.toggle('minimized', this.isMinimized);
   },
 
   toggleMaximize(e) {
@@ -452,55 +604,358 @@ const Chat = {
     if (!drawer) return;
 
     this.isMaximized = !this.isMaximized;
-    if (this.isMaximized) {
-      drawer.classList.add('maximized');
-    } else {
-      drawer.classList.remove('maximized');
+    drawer.classList.toggle('maximized', this.isMaximized);
+  },
+
+  renderFullWorkspace() {
+    const content = document.getElementById('page-content');
+    if (!content) return;
+    this.renderWorkspace(content, true);
+  },
+
+  // ── 7. Core Microsoft Teams UI Renderer ───────────────────
+  renderWorkspace(container, isFullScreen = false) {
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="teams-wrapper ${isFullScreen ? 'teams-fullscreen' : 'teams-widget'}">
+        <!-- 1. Left Vertical App Rail -->
+        <div class="teams-app-rail">
+          <div class="teams-rail-logo" title="Microsoft Teams for HRM Pro">
+            <i class="fa fa-users-viewfinder"></i>
+          </div>
+          <button class="teams-rail-btn active" title="Chat" onclick="Chat.setFilter('all')">
+            <i class="fa fa-comment-dots"></i>
+          </button>
+          <button class="teams-rail-btn" title="All Colleagues" onclick="Chat.setFilter('colleagues')">
+            <i class="fa fa-address-book"></i>
+          </button>
+          <button class="teams-rail-btn" title="Channels & Teams" onclick="Chat.setFilter('channels')">
+            <i class="fa fa-people-group"></i>
+          </button>
+          <button class="teams-rail-btn" title="Meet Now" onclick="Chat.startMeetNow()">
+            <i class="fa fa-video"></i>
+          </button>
+          <button class="teams-rail-btn" title="Activity" onclick="if (typeof App !== 'undefined') App.toggleNotifications();">
+            <i class="fa fa-bell"></i>
+          </button>
+        </div>
+
+        <!-- 2. Middle Chat List Column -->
+        <div class="teams-list-column">
+          <!-- Header -->
+          <div class="teams-list-header">
+            <div class="teams-list-title">Chat</div>
+            <div class="teams-header-actions">
+              <button class="teams-action-icon-btn" onclick="document.getElementById('teams-filter-input').focus()" title="Search / Filter">
+                <i class="fa fa-search"></i>
+              </button>
+              <button class="teams-action-icon-btn" onclick="Chat.startMeetNow()" title="Meet">
+                <i class="fa fa-video"></i>
+              </button>
+              <button class="teams-action-icon-btn" onclick="Chat.startNewChat()" title="New Chat (Enter @username)">
+                <i class="fa fa-pen-to-square"></i>
+              </button>
+              ${!isFullScreen ? `
+                <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
+                  <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
+                </button>
+                <button class="teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">
+                  <i class="fa fa-xmark"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Search / Filter Input Box -->
+          <div class="teams-filter-wrap" style="position:relative">
+            <div class="teams-filter-input-box">
+              <input 
+                type="text" 
+                id="teams-filter-input" 
+                class="teams-filter-input" 
+                placeholder="Filter by person or chat name (type @ for username)…"
+                autocomplete="off"
+                oninput="Chat.filterRoster(this.value)">
+              <i class="fa fa-times" style="font-size:11px;color:#8c8c8c;cursor:pointer" onclick="Chat.closeDropdown()" title="Clear"></i>
+            </div>
+            <!-- Live @username autocomplete dropdown -->
+            <div id="teams-username-dropdown" class="teams-username-dropdown" style="display:none"></div>
+          </div>
+
+          <!-- Filter Pills (Matching Teams: Unread, Meeting chats, etc.) -->
+          <div class="teams-filter-pills">
+            <button class="teams-pill-btn ${this.activeFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="Chat.setFilter('all')">All</button>
+            <button class="teams-pill-btn ${this.activeFilter === 'unread' ? 'active' : ''}" data-filter="unread" onclick="Chat.setFilter('unread')">Unread</button>
+            <button class="teams-pill-btn ${this.activeFilter === 'colleagues' ? 'active' : ''}" data-filter="colleagues" onclick="Chat.setFilter('colleagues')">Colleagues</button>
+            <button class="teams-pill-btn ${this.activeFilter === 'channels' ? 'active' : ''}" data-filter="channels" onclick="Chat.setFilter('channels')">Meeting chats</button>
+          </div>
+
+          <!-- Chat Items Roster -->
+          <div class="teams-roster-scroll" id="teams-roster-scroll"></div>
+        </div>
+
+        <!-- 3. Right Conversation Panel -->
+        <div class="teams-conversation-panel" id="teams-conversation-panel"></div>
+      </div>
+    `;
+
+    this.renderRosterList();
+    this.renderConversationPanel();
+  },
+
+  // ── 8. Roster List Rendering (Exact Microsoft Teams Layout) ─
+  renderRosterList(filterQuery = '') {
+    const scrollContainer = document.getElementById('teams-roster-scroll');
+    if (!scrollContainer) return;
+
+    const channels = this.getChannels();
+    const q = (filterQuery || '').toLowerCase().trim();
+
+    let filtered = channels;
+    if (this.activeFilter === 'unread') {
+      filtered = filtered.filter(c => (this.unreadCounts[c.id] || 0) > 0);
+    } else if (this.activeFilter === 'colleagues') {
+      filtered = filtered.filter(c => c.type === 'direct');
+    } else if (this.activeFilter === 'channels') {
+      filtered = filtered.filter(c => c.type !== 'direct');
     }
-    const maxBtn = document.getElementById('chat-max-btn');
-    if (maxBtn) {
-      maxBtn.innerHTML = this.isMaximized ? '<i class="fa fa-compress"></i>' : '<i class="fa fa-expand"></i>';
+
+    if (q) {
+      filtered = filtered.filter(c => 
+        c.name.toLowerCase().includes(q) || 
+        (c.username && c.username.toLowerCase().includes(q)) ||
+        (c.lastMessage && c.lastMessage.toLowerCase().includes(q))
+      );
     }
-  },
 
-  switchTab(tabName) {
-    this.activeTab = tabName;
-    this.viewMode = 'list';
-    this.clearSearchInput();
-    this.renderDrawer();
-  },
+    const favorites = filtered.filter(c => c.isFavorite);
+    const chats = filtered.filter(c => !c.isFavorite);
 
-  backToList() {
-    this.viewMode = 'list';
-    this.renderDrawer();
-  },
+    let html = '';
 
-  markChannelAsRead(channelId) {
-    this.unreadCounts[channelId] = 0;
-    this.updateBadges();
-
-    if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.sendReadReceipt) {
-      HRMWebSocket.sendReadReceipt(channelId);
+    // SECTION 1: Favorites
+    if (favorites.length > 0) {
+      html += `
+        <div class="teams-section-header" onclick="Chat.toggleSection('favorites')">
+          <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.favorites ? 'collapsed' : ''}"></i>
+          <span>Favorites (${favorites.length})</span>
+        </div>
+      `;
+      if (!this.collapsedSections.favorites) {
+        favorites.forEach(c => {
+          html += this.renderCardHTML(c);
+        });
+      }
     }
+
+    // SECTION 2: Chats (Active Conversations)
+    html += `
+      <div class="teams-section-header" style="margin-top:6px" onclick="Chat.toggleSection('chats')">
+        <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.chats ? 'collapsed' : ''}"></i>
+        <span>Chats (${chats.length})</span>
+      </div>
+    `;
+    if (!this.collapsedSections.chats) {
+      chats.forEach(c => {
+        html += this.renderCardHTML(c);
+      });
+    }
+
+    // SECTION 3: All Colleagues Directory
+    const colleagues = this.getAllCompanyMembers().filter(m => !m.isSelf);
+    html += `
+      <div class="teams-section-header" style="margin-top:12px" onclick="Chat.toggleSection('colleagues')">
+        <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.colleagues ? 'collapsed' : ''}"></i>
+        <span>All Colleagues Directory (${colleagues.length})</span>
+      </div>
+    `;
+    if (!this.collapsedSections.colleagues) {
+      colleagues.forEach(m => {
+        const initials = typeof Utils !== 'undefined' ? Utils.avatarInitials(m.fullName) : m.fullName.substring(0,2);
+        const color = typeof Utils !== 'undefined' ? Utils.avatarColor(m.empId) : '#6366f1';
+        html += `
+          <div class="teams-chat-card" onclick="Chat.startDirectChat(${m.empId})" title="Click to chat with ${m.fullName} (@${m.username})">
+            <div class="teams-avatar-wrap" style="background:${color}">
+              ${initials}
+              <span class="teams-presence-badge ${m.isOnline ? 'online' : 'offline'}"></span>
+            </div>
+            <div class="teams-card-info">
+              <div class="teams-card-top">
+                <span class="teams-card-name">${m.fullName}</span>
+                <span style="font-size:10.5px;color:#464eb8;font-weight:700">@${m.username}</span>
+              </div>
+              <div class="teams-card-preview">${m.designation} • ${m.department}</div>
+            </div>
+            <button class="btn btn-xs" style="padding:2px 8px;font-size:11px;background:#464eb8;color:#fff;border-radius:4px;border:none">Chat</button>
+          </div>
+        `;
+      });
+    }
+
+    scrollContainer.innerHTML = html;
   },
 
-  openChannel(channelId) {
-    this.activeChannelId = channelId;
-    this.viewMode = 'convo';
-    this.markChannelAsRead(channelId);
-    this.renderDrawer();
-    setTimeout(() => this.scrollToBottom(), 60);
+  renderCardHTML(c) {
+    const isActive = c.id === this.activeChannelId;
+    const unread = this.unreadCounts[c.id] || 0;
+    const isOnline = c.targetEmpId ? (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(c.targetEmpId)) : true;
+    const bg = c.avatarBg || '#464eb8';
+
+    return `
+      <div class="teams-chat-card ${isActive ? 'active' : ''} ${unread > 0 ? 'unread' : ''}" 
+        data-channel-id="${c.id}" 
+        onclick="Chat.openChannel('${c.id}')">
+        <div class="teams-avatar-wrap" style="background:${bg}">
+          ${c.avatar && c.avatar.startsWith('fa-') ? `<i class="fa ${c.avatar}"></i>` : (c.avatar || c.name.substring(0, 2))}
+          <span class="teams-presence-badge ${isOnline ? 'online' : 'offline'}"></span>
+        </div>
+        <div class="teams-card-info">
+          <div class="teams-card-top">
+            <span class="teams-card-name">${c.name}</span>
+            <span class="teams-card-time">${c.time || 'Today'}</span>
+          </div>
+          <div class="teams-card-preview">${c.lastMessage || 'Click to open conversation'}</div>
+        </div>
+        ${unread > 0 ? `<span class="badge badge-danger" style="font-size:10px;padding:1px 6px;border-radius:10px">${unread}</span>` : ''}
+      </div>
+    `;
   },
 
-  // ── 6. Message Dispatch & Receiving ───────────────────────
+  // ── 9. Right Conversation Panel Rendering ───────────────────
+  renderConversationPanel() {
+    const panel = document.getElementById('teams-conversation-panel');
+    if (!panel) return;
+
+    const channel = this.getActiveChannel();
+    if (!channel) {
+      panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--text-3)">Select a chat to start messaging</div>`;
+      return;
+    }
+
+    const isOnline = channel.targetEmpId ? (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(channel.targetEmpId)) : true;
+    const messages = this.getMessages(channel.id);
+    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+
+    panel.innerHTML = `
+      <!-- Convo Topbar -->
+      <div class="teams-convo-header">
+        <div class="teams-convo-header-left">
+          <div class="teams-avatar-wrap" style="background:${channel.avatarBg || '#464eb8'};width:38px;height:38px">
+            ${channel.avatar && channel.avatar.startsWith('fa-') ? `<i class="fa ${channel.avatar}"></i>` : (channel.avatar || channel.name.substring(0,2))}
+            <span class="teams-presence-badge ${isOnline ? 'online' : 'offline'}"></span>
+          </div>
+          <div>
+            <div class="teams-convo-title">
+              ${channel.name} 
+              ${channel.username ? `<span style="font-size:12px;color:#464eb8;font-weight:600;margin-left:6px">@${channel.username}</span>` : ''}
+            </div>
+            <div class="teams-convo-status">
+              <span style="width:7px;height:7px;border-radius:50%;background:${isOnline ? '#107c41' : '#94a3b8'}"></span>
+              <span>${isOnline ? 'Available' : 'Offline'}</span>
+              ${channel.targetEmpRole ? `<span>• ${channel.targetEmpRole}</span>` : ''}
+            </div>
+          </div>
+        </div>
+        <div class="teams-header-actions">
+          <button class="teams-action-icon-btn" onclick="Chat.startMeetNow()" title="Video Call"><i class="fa fa-video"></i></button>
+          <button class="teams-action-icon-btn" onclick="Chat.startMeetNow()" title="Audio Call"><i class="fa fa-phone"></i></button>
+          <button class="teams-action-icon-btn" onclick="document.getElementById('teams-filter-input').focus()" title="Find in Chat"><i class="fa fa-search"></i></button>
+          <button class="teams-action-icon-btn" onclick="Chat.showChannelMembersModal('${channel.id}')" title="More Options"><i class="fa fa-ellipsis"></i></button>
+        </div>
+      </div>
+
+      <!-- Messages Stream -->
+      <div class="teams-msg-container" id="teams-msg-container">
+        ${this.renderMessagesHTML(messages, myId)}
+      </div>
+
+      <!-- Typing Indicator -->
+      <div id="teams-typing-bar" class="chat-typing-bar" style="display:none"></div>
+
+      <!-- Compose Box (Microsoft Teams Input with formatting tools) -->
+      <div class="teams-compose-box">
+        <div class="teams-compose-card">
+          <textarea 
+            id="teams-msg-input" 
+            class="teams-compose-textarea" 
+            placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+            onkeydown="Chat.onInputTyping(event)"
+            oninput="this.style.height='auto';this.style.height=Math.min(130, this.scrollHeight)+'px'"></textarea>
+          <div class="teams-compose-toolbar">
+            <div class="teams-compose-tools">
+              <button class="teams-tool-btn" title="Bold" onclick="Chat.wrapText('**')"><i class="fa fa-bold"></i></button>
+              <button class="teams-tool-btn" title="Italic" onclick="Chat.wrapText('*')"><i class="fa fa-italic"></i></button>
+              <button class="teams-tool-btn" title="Attach file (up to 10MB)" onclick="document.getElementById('teams-file-picker').click()"><i class="fa fa-paperclip"></i></button>
+              <input type="file" id="teams-file-picker" style="display:none" onchange="Chat.handleFileUpload(this)">
+              <button class="teams-tool-btn" title="Add Emoji" onclick="Chat.showReactionPicker('new', this)"><i class="fa fa-face-smile"></i></button>
+            </div>
+            <button class="teams-send-btn" onclick="Chat.sendMessage()">
+              <span>Send</span>
+              <i class="fa fa-paper-plane" style="font-size:11px"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.scrollToBottom();
+  },
+
+  renderMessagesHTML(messages, myId) {
+    if (messages.length === 0) {
+      return `
+        <div style="text-align:center;padding:40px;color:var(--text-3)">
+          <div style="font-size:32px;color:#464eb8;margin-bottom:8px"><i class="fa fa-comments"></i></div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">This is the start of your chat</div>
+          <div style="font-size:12.5px;margin-top:4px">Send a message or share documents to collaborate.</div>
+        </div>
+      `;
+    }
+
+    let html = `<div style="text-align:center;margin:8px 0"><span style="background:rgba(0,0,0,0.06);padding:3px 10px;border-radius:10px;font-size:11px;font-weight:600;color:var(--text-3)">Today</span></div>`;
+
+    messages.forEach(msg => {
+      const isMe = msg.senderId === myId;
+      const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      html += `
+        <div class="teams-msg-row ${isMe ? 'outgoing' : 'incoming'}" data-msg-id="${msg.id}">
+          ${!isMe ? `
+            <div class="teams-avatar-wrap" style="width:32px;height:32px;font-size:11px;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(msg.senderId) : '#6366f1'}">
+              ${typeof Utils !== 'undefined' ? Utils.avatarInitials(msg.senderName) : msg.senderName.substring(0,2)}
+            </div>
+          ` : ''}
+          <div style="display:flex;flex-direction:column;${isMe ? 'align-items:flex-end' : ''}">
+            ${!isMe ? `
+              <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:2px;display:flex;gap:6px">
+                <span>${msg.senderName}</span>
+                <span style="font-weight:400;color:var(--text-3)">${timeStr}</span>
+              </div>
+            ` : ''}
+            <div class="teams-bubble">
+              <div>${this.formatMessageText(msg.content)}</div>
+              ${this.renderAttachmentsHTML(msg.attachments)}
+              ${isMe ? `<div style="font-size:10px;opacity:0.75;text-align:right;margin-top:3px">${timeStr} <i class="fa fa-check-double" style="font-size:9px;margin-left:3px"></i></div>` : ''}
+            </div>
+            <div class="chat-reactions-container">${this.renderReactionsHTML(msg.id, msg.reactions)}</div>
+          </div>
+        </div>
+      `;
+    });
+
+    return html;
+  },
+
+  // ── 10. Message Sending & File Uploads ─────────────────────
   sendMessage() {
     if (typeof document === 'undefined') return;
-    const input = document.getElementById('chat-input-text');
+    const input = document.getElementById('teams-msg-input');
     if (!input) return;
     const content = input.value.trim();
     if (!content) return;
 
-    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User', designation: 'Manager' };
+    const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
     const channel = this.getActiveChannel();
     if (!channel) return;
 
@@ -509,80 +964,76 @@ const Chat = {
       channelId: channel.id,
       senderId: myEmp.id,
       senderName: myEmp.fullName,
-      senderRole: (typeof Auth !== 'undefined' && Auth?.role) 
-        ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) 
-        : 'Employee',
-      senderCompany: myEmp.companyName || 'Apex Holdings Inc.',
       content,
-      messageType: 'text',
-      attachments: [],
       createdAt: new Date().toISOString()
     };
 
-    // Save to local DB
     if (typeof DB !== 'undefined') {
       const allMsgs = DB.get('chat_messages') || [];
       allMsgs.push(newMsg);
       DB.set('chat_messages', allMsgs);
+
+      // Update channel last message & time
+      const channels = DB.get('chat_channels') || [];
+      const ch = channels.find(c => c.id === channel.id);
+      if (ch) {
+        ch.lastMessage = `You: ${content.substring(0, 30)}${content.length > 30 ? '…' : ''}`;
+        ch.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        DB.set('chat_channels', channels);
+      }
     }
 
-    // Send via WebSocket
     if (typeof HRMWebSocket !== 'undefined') {
       HRMWebSocket.sendChatMessage(newMsg);
       HRMWebSocket.sendTyping(channel.id, false);
     }
 
-    // Play subtle outgoing pop
     this.playMessageSound('outgoing');
-
-    // Reset input
     input.value = '';
     input.style.height = 'auto';
 
-    // Append to DOM immediately
-    this.appendMessageToDOM(newMsg);
+    this.renderConversationPanel();
+    this.renderRosterList();
     this.scrollToBottom();
   },
 
   handleIncomingMessage(msg) {
     if (!msg || !msg.channelId) return;
-
     const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
     if (msg.senderId === myId) return;
 
-    // Check if channel belongs to current active view
     if (typeof DB !== 'undefined') {
       const allMsgs = DB.get('chat_messages') || [];
       if (!allMsgs.some(m => m.id === msg.id)) {
         allMsgs.push(msg);
         DB.set('chat_messages', allMsgs);
       }
+
+      const channels = DB.get('chat_channels') || [];
+      const ch = channels.find(c => c.id === msg.channelId);
+      if (ch) {
+        ch.lastMessage = `${msg.senderName}: ${msg.content.substring(0, 25)}`;
+        ch.time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        DB.set('chat_channels', channels);
+      }
     }
 
-    if (this.isOpen && this.activeChannelId === msg.channelId && this.viewMode === 'convo') {
-      this.appendMessageToDOM(msg);
+    if (this.activeChannelId === msg.channelId) {
+      this.renderConversationPanel();
       this.scrollToBottom();
       this.playMessageSound('incoming');
     } else {
-      // Increment unread count
       this.unreadCounts[msg.channelId] = (this.unreadCounts[msg.channelId] || 0) + 1;
       this.updateBadges();
       this.playMessageSound('incoming');
 
-      // Show toast alert
       if (typeof Toast !== 'undefined') {
-        const preview = msg.content.length > 50 ? msg.content.substring(0, 50) + '…' : msg.content;
-        Toast.show(`💬 <strong>${msg.senderName}:</strong> ${preview}`, 'info');
-      }
-
-      // Re-render list if currently on list view
-      if (this.isOpen && this.viewMode === 'list') {
-        this.renderDrawer();
+        Toast.show(`💬 <strong>${msg.senderName}:</strong> ${msg.content.substring(0, 45)}…`, 'info');
       }
     }
+    this.renderRosterList();
   },
 
-  // ── 7. Live Typing Indicators ─────────────────────────────
   onInputTyping(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -610,518 +1061,120 @@ const Chat = {
     const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
     if (userId === myId) return;
 
-    if (!this.typingUsers[channelId]) {
-      this.typingUsers[channelId] = new Set();
-    }
+    if (!this.typingUsers[channelId]) this.typingUsers[channelId] = new Set();
+    if (isTyping) this.typingUsers[channelId].add(userName);
+    else this.typingUsers[channelId].delete(userName);
 
-    if (isTyping) {
-      this.typingUsers[channelId].add(userName);
-    } else {
-      this.typingUsers[channelId].delete(userName);
-    }
-
-    if (this.isOpen && this.activeChannelId === channelId && this.viewMode === 'convo') {
-      this.renderTypingBar();
-    }
-  },
-
-  renderTypingBar() {
-    if (typeof document === 'undefined') return;
-    const bar = document.getElementById('chat-typing-bar');
-    if (!bar) return;
-
-    const names = Array.from(this.typingUsers[this.activeChannelId] || []);
-    if (names.length === 0) {
-      bar.innerHTML = '';
-      bar.style.display = 'none';
-    } else {
-      const label = names.length === 1 
-        ? `${names[0]} is typing...` 
-        : `${names.slice(0, 2).join(', ')} are typing...`;
-      bar.innerHTML = `
-        <div class="chat-typing-dots">
-          <span></span><span></span><span></span>
-        </div>
-        <span>${label}</span>
-      `;
-      bar.style.display = 'flex';
-    }
-  },
-
-  // ── 8. UI Rendering: Modern Header, Tabs, & Views ───────────
-  renderDrawer() {
-    if (typeof document === 'undefined') return;
-    const drawer = document.getElementById('chat-drawer');
-    if (!drawer) return;
-
-    const channel = this.getActiveChannel();
-    const isOnline = typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isConnected;
-    const totalUnreads = this.getTotalUnreadCount();
-
-    // 1. Header & Controls
-    const headerHTML = `
-      <div class="chat-header">
-        <div class="chat-title-wrap">
-          <div class="chat-title-icon">
-            <i class="fa fa-comments"></i>
-          </div>
-          <div>
-            <div class="chat-title-text">Company Chatbox</div>
-            <div class="chat-subtitle-text">
-              <span class="chat-online-dot" style="background:${isOnline ? '#10b981' : '#f59e0b'}"></span>
-              <span>${isOnline ? 'Active Connection' : 'Offline Engine'}</span>
-              <span>•</span>
-              <span style="color:#818cf8;font-weight:600">Enterprise HRM</span>
-            </div>
-          </div>
-        </div>
-        <div class="chat-header-actions">
-          <button class="chat-btn-ctrl" onclick="Chat.toggleMinimize(event)" title="Minimize">
-            <i class="fa fa-minus"></i>
-          </button>
-          <button class="chat-btn-ctrl" id="chat-max-btn" onclick="Chat.toggleMaximize(event)" title="${this.isMaximized ? 'Restore' : 'Maximize'}">
-            <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
-          </button>
-          <button class="chat-btn-ctrl" onclick="Chat.closeDrawer()" title="Close">
-            <i class="fa fa-xmark" style="font-size:15px"></i>
-          </button>
-        </div>
-      </div>
-    `;
-
-    // 2. Navigation Tabs Bar
-    const tabsHTML = `
-      <div class="chat-tabs-bar">
-        <button class="chat-tab-item ${this.activeTab === 'chats' ? 'active' : ''}" onclick="Chat.switchTab('chats')">
-          <i class="fa fa-comment-dots"></i>
-          <span>Chats</span>
-          <span id="chat-tab-unread-badge" class="chat-tab-badge" style="display:${totalUnreads > 0 ? 'inline-block' : 'none'}">${totalUnreads > 9 ? '9+' : totalUnreads}</span>
-        </button>
-        <button class="chat-tab-item ${this.activeTab === 'colleagues' ? 'active' : ''}" onclick="Chat.switchTab('colleagues')">
-          <i class="fa fa-users"></i>
-          <span>All Colleagues</span>
-        </button>
-        <button class="chat-tab-item ${this.activeTab === 'channels' ? 'active' : ''}" onclick="Chat.switchTab('channels')">
-          <i class="fa fa-hashtag"></i>
-          <span>Channels</span>
-        </button>
-      </div>
-    `;
-
-    // 3. Username Search Bar with Autocomplete Popover
-    const searchHTML = `
-      <div class="chat-username-search-wrap">
-        <div class="chat-search-input-box">
-          <span class="chat-search-prefix">@</span>
-          <input 
-            type="text" 
-            id="chat-username-input" 
-            class="chat-username-input" 
-            placeholder="Search colleague by login username (e.g. sara.malik, admin)…" 
-            autocomplete="off"
-            oninput="Chat.searchColleaguesByUsername(this.value)">
-          <i class="fa fa-times chat-search-clear" onclick="Chat.clearSearchInput()" title="Clear"></i>
-        </div>
-        <div id="chat-username-autocomplete" class="chat-username-autocomplete" style="display:none"></div>
-      </div>
-    `;
-
-    // 4. Content Area: Either Conversation View or Tab List
-    let contentHTML = '';
-
-    if (this.viewMode === 'convo' && channel) {
-      contentHTML = this.renderConvoViewHTML(channel);
-    } else {
-      contentHTML = `
-        <div class="chat-scroll-area">
-          ${this.activeTab === 'chats' ? this.renderRecentChatsListHTML() : ''}
-          ${this.activeTab === 'colleagues' ? this.renderColleaguesDirectoryHTML() : ''}
-          ${this.activeTab === 'channels' ? this.renderChannelsListHTML() : ''}
-        </div>
-      `;
-    }
-
-    drawer.innerHTML = `
-      ${headerHTML}
-      ${tabsHTML}
-      ${searchHTML}
-      ${contentHTML}
-    `;
-
-    if (this.viewMode === 'convo' && channel) {
-      this.renderMessagesStream();
-      this.renderTypingBar();
-    }
-  },
-
-  // ── 9. Conversation View HTML ─────────────────────────────
-  renderConvoViewHTML(channel) {
-    const isDirect = channel.type === 'direct';
-    const isTargetOnline = isDirect && typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(channel.targetEmpId);
-
-    return `
-      <div class="chat-convo-wrapper">
-        <!-- Convo Header with Back Button -->
-        <div class="chat-convo-header">
-          <div class="chat-convo-header-left">
-            <button class="chat-convo-back-btn" onclick="Chat.backToList()" title="Back to Chats / Directory">
-              <i class="fa fa-arrow-left"></i>
-            </button>
-            <div style="position:relative">
-              <div class="chat-msg-avatar" style="background:${isDirect ? '#4f46e5' : '#059669'}">
-                <i class="fa ${isDirect ? 'fa-user' : (channel.avatar || 'fa-hashtag')}"></i>
-              </div>
-              ${isDirect ? `<span class="chat-status-dot ${isTargetOnline ? 'online' : 'offline'}" style="bottom:-2px;right:-2px"></span>` : ''}
-            </div>
-            <div>
-              <div class="chat-convo-title">
-                ${channel.name}
-                ${channel.scope === 'all_company' ? '<span class="badge badge-primary" style="font-size:9.5px;padding:1px 5px;margin-left:5px">All Hands</span>' : ''}
-              </div>
-              <div class="chat-convo-sub">
-                ${isDirect 
-                  ? (isTargetOnline ? '<span style="color:#10b981;font-weight:600">🟢 Active Now</span>' : '<span style="color:var(--text-3)">⚪ Offline</span>')
-                  : `<span style="color:var(--text-3)"><i class="fa fa-users" style="font-size:10px"></i> ${(channel.members ? channel.members.length : 1)} members</span>`}
-                <span>•</span>
-                <span>${channel.companyName || 'Apex Holdings'}</span>
-              </div>
-            </div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <button class="chat-btn-ctrl" onclick="Chat.showChannelMembersModal('${channel.id}')" title="Members Details">
-              <i class="fa fa-circle-info"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Messages Container Stream -->
-        <div class="chat-messages-container" id="chat-messages-stream"></div>
-
-        <!-- Ephemeral Typing Indicator -->
-        <div class="chat-typing-bar" id="chat-typing-bar" style="display:none"></div>
-
-        <!-- Input Box -->
-        <div class="chat-input-area">
-          <div class="chat-input-wrapper">
-            <button class="chat-btn-attach" onclick="document.getElementById('chat-file-picker').click()" title="Share File/Document (up to 10MB)">
-              <i class="fa fa-paperclip"></i>
-            </button>
-            <input type="file" id="chat-file-picker" style="display:none" onchange="Chat.handleFileUpload(this)">
-            <textarea 
-              id="chat-input-text" 
-              rows="1" 
-              class="chat-input-field"
-              placeholder="Message ${isDirect ? '@' + channel.name : '#' + channel.name}… (Enter to send, Shift+Enter for newline)"
-              onkeydown="Chat.onInputTyping(event)"
-              oninput="this.style.height='auto';this.style.height=Math.min(120, this.scrollHeight)+'px'"></textarea>
-            <button class="chat-btn-send" onclick="Chat.sendMessage()" title="Send Message">
-              <i class="fa fa-paper-plane"></i>
-            </button>
-          </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px 0;font-size:10.5px;color:var(--text-3)">
-            <span><i class="fa fa-shield-halved" style="font-size:9.5px;margin-right:3px"></i> Enterprise Protected</span>
-            <span>Press <strong>Enter</strong> to send</span>
-          </div>
-        </div>
-      </div>
-    `;
-  },
-
-  // ── 10. Tab Views: Chats, Directory, & Channels ───────────
-  renderRecentChatsListHTML() {
-    const channels = this.getChannels();
-    const directChats = channels.filter(c => c.type === 'direct');
-    const groupChannels = channels.filter(c => c.type !== 'direct');
-
-    let html = '';
-
-    // Direct Messages Section
-    html += `<div class="chat-section-title">Direct Messages (${directChats.length})</div>`;
-    if (directChats.length === 0) {
-      html += `
-        <div style="padding:14px;background:var(--surface);border-radius:10px;text-align:center;color:var(--text-3);font-size:12px;margin-bottom:8px">
-          <i class="fa fa-user-plus" style="font-size:18px;margin-bottom:6px;display:block;color:#818cf8"></i>
-          No 1-on-1 conversations yet. Search any colleague above by their login username or browse "All Colleagues".
-        </div>
-      `;
-    } else {
-      directChats.forEach(c => {
-        const isActive = c.id === this.activeChannelId;
-        const unread = this.unreadCounts[c.id] || 0;
-        const isOnline = typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(c.targetEmpId);
-
-        html += `
-          <div class="chat-item-card ${isActive ? 'active' : ''}" onclick="Chat.openChannel('${c.id}')">
-            <div class="chat-item-left">
-              <div style="position:relative">
-                <div class="chat-msg-avatar" style="background:#4f46e5">
-                  <i class="fa fa-user"></i>
-                </div>
-                <span class="chat-status-dot ${isOnline ? 'online' : 'offline'}" style="bottom:-2px;right:-2px"></span>
-              </div>
-              <div class="chat-item-text">
-                <div class="chat-item-title">${c.name}</div>
-                <div class="chat-item-subtitle">${c.targetEmpRole || 'Colleague'} • ${isOnline ? '🟢 Online' : '⚪ Offline'}</div>
-              </div>
-            </div>
-            ${unread > 0 ? `<span class="chat-item-badge">${unread}</span>` : ''}
-          </div>
-        `;
-      });
-    }
-
-    // Channels Section
-    html += `<div class="chat-section-title" style="margin-top:8px">Workspaces & Channels (${groupChannels.length})</div>`;
-    groupChannels.forEach(c => {
-      const isActive = c.id === this.activeChannelId;
-      const unread = this.unreadCounts[c.id] || 0;
-
-      html += `
-        <div class="chat-item-card ${isActive ? 'active' : ''}" onclick="Chat.openChannel('${c.id}')">
-          <div class="chat-item-left">
-            <div class="chat-msg-avatar" style="background:${c.type === 'cross_company' ? '#8b5cf6' : '#059669'}">
-              <i class="fa ${c.avatar || 'fa-hashtag'}"></i>
-            </div>
-            <div class="chat-item-text">
-              <div class="chat-item-title">${c.name}</div>
-              <div class="chat-item-subtitle">${c.companyName || 'Company'} • ${(c.members ? c.members.length : 1)} members</div>
-            </div>
-          </div>
-          ${unread > 0 ? `<span class="chat-item-badge">${unread}</span>` : ''}
-        </div>
-      `;
-    });
-
-    return html;
-  },
-
-  renderColleaguesDirectoryHTML() {
-    const colleagues = this.getAllCompanyMembers();
-    const otherMembers = colleagues.filter(m => !m.isSelf);
-
-    let html = `
-      <div class="chat-section-title">All Company Members (${otherMembers.length})</div>
-      <div class="chat-directory-list">
-    `;
-
-    otherMembers.forEach(m => {
-      const initials = typeof Utils !== 'undefined' && Utils.avatarInitials 
-        ? Utils.avatarInitials(m.fullName) 
-        : m.fullName.substring(0, 2).toUpperCase();
-      const color = typeof Utils !== 'undefined' && Utils.avatarColor 
-        ? Utils.avatarColor(m.empId) 
-        : '#6366f1';
-
-      html += `
-        <div class="chat-directory-card">
-          <div class="chat-item-left">
-            <div style="position:relative">
-              <div class="chat-msg-avatar" style="background:${color}">
-                ${initials}
-              </div>
-              <span class="chat-status-dot ${m.isOnline ? 'online' : 'offline'}" style="bottom:-2px;right:-2px"></span>
-            </div>
-            <div class="chat-item-text">
-              <div class="chat-item-title">${m.fullName}</div>
-              <div style="font-size:11px;color:#818cf8;font-weight:600">@${m.username}</div>
-              <div class="chat-item-subtitle">${m.designation} • ${m.department}</div>
-            </div>
-          </div>
-          <button class="chat-directory-btn" onclick="Chat.startDirectChat(${m.empId})">
-            <i class="fa fa-comment-dots"></i> Message
-          </button>
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-    return html;
-  },
-
-  renderChannelsListHTML() {
-    const channels = this.getChannels().filter(c => c.type !== 'direct');
-
-    let html = `
-      <div class="chat-section-title">Team Channels (${channels.length})</div>
-      <div class="chat-directory-list">
-    `;
-
-    channels.forEach(c => {
-      const isActive = c.id === this.activeChannelId;
-      const unread = this.unreadCounts[c.id] || 0;
-
-      html += `
-        <div class="chat-directory-card ${isActive ? 'active' : ''}">
-          <div class="chat-item-left">
-            <div class="chat-msg-avatar" style="background:${c.type === 'cross_company' ? '#8b5cf6' : '#059669'}">
-              <i class="fa ${c.avatar || 'fa-hashtag'}"></i>
-            </div>
-            <div class="chat-item-text">
-              <div class="chat-item-title">${c.name}</div>
-              <div class="chat-item-subtitle">${c.description || 'Channel workspace'}</div>
-              <div style="font-size:10px;color:var(--text-3);margin-top:2px">
-                <i class="fa fa-users" style="font-size:9.5px"></i> ${(c.members ? c.members.length : 1)} members • ${c.companyName || 'Apex Holdings'}
-              </div>
-            </div>
-          </div>
-          <button class="chat-directory-btn" onclick="Chat.openChannel('${c.id}')">
-            ${unread > 0 ? `<span class="chat-tab-badge" style="margin-right:4px">${unread}</span>` : ''}
-            Join
-          </button>
-        </div>
-      `;
-    });
-
-    html += `</div>`;
-    return html;
-  },
-
-  renderChannelList(filterText = '') {
-    this.renderDrawer();
-  },
-
-  filterChannels(val) {
-    this.searchColleaguesByUsername(val);
-  },
-
-  updatePresenceUI() {
-    if (this.isOpen) {
-      if (this.viewMode === 'convo') {
-        const channel = this.getActiveChannel();
-        if (channel && channel.type === 'direct') {
-          const isOnline = typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(channel.targetEmpId);
-          const sub = document.querySelector('.chat-convo-sub');
-          if (sub) {
-            sub.innerHTML = `
-              ${isOnline ? '<span style="color:#10b981;font-weight:600">🟢 Active Now</span>' : '<span style="color:var(--text-3)">⚪ Offline</span>'}
-              <span>•</span>
-              <span>${channel.companyName || 'Apex Holdings'}</span>
-            `;
-          }
+    if (this.activeChannelId === channelId) {
+      const bar = document.getElementById('teams-typing-bar');
+      if (bar) {
+        const names = Array.from(this.typingUsers[channelId]);
+        if (names.length === 0) {
+          bar.innerHTML = '';
+          bar.style.display = 'none';
+        } else {
+          bar.innerHTML = `
+            <div class="chat-typing-dots"><span></span><span></span><span></span></div>
+            <span style="font-size:11.5px;color:var(--text-3);font-style:italic">${names[0]} is typing...</span>
+          `;
+          bar.style.display = 'flex';
         }
-      } else {
-        this.renderDrawer();
       }
     }
   },
 
-  // ── 11. Messages Stream Rendering ─────────────────────────
-  renderMessagesStream() {
-    if (typeof document === 'undefined') return;
-    const stream = document.getElementById('chat-messages-stream');
-    if (!stream) return;
+  wrapText(tag) {
+    const input = document.getElementById('teams-msg-input');
+    if (!input) return;
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const selected = input.value.substring(start, end) || 'text';
+    input.value = input.value.substring(0, start) + `${tag}${selected}${tag}` + input.value.substring(end);
+    input.focus();
+  },
 
-    const messages = this.getMessages(this.activeChannelId);
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
+  startMeetNow() {
+    if (typeof Toast !== 'undefined') {
+      Toast.show('📹 Microsoft Teams Video Conference call link copied to clipboard & room launched.', 'success');
+    }
+  },
 
-    if (messages.length === 0) {
-      stream.innerHTML = `
-        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text-3);padding:30px;text-align:center">
-          <div style="width:50px;height:50px;border-radius:50%;background:rgba(99,102,241,0.12);display:flex;align-items:center;justify-content:center;color:#818cf8;font-size:22px;margin-bottom:12px">
-            <i class="fa fa-comments"></i>
-          </div>
-          <h4 style="margin:0 0 6px 0;color:var(--text);font-size:14.5px">Direct HRM Chat</h4>
-          <p style="margin:0;font-size:12px;max-width:260px">Send messages, documents or notes instantly within your enterprise network.</p>
-        </div>
-      `;
+  formatMessageText(text) {
+    if (!text) return '';
+    let escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    escaped = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">$1</a>');
+    return escaped.replace(/\n/g, '<br>');
+  },
+
+  renderAttachmentsHTML(attachments) {
+    if (!attachments || !attachments.length) return '';
+    return `
+      <div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">
+        ${attachments.map(att => `
+          <a href="${att.fileUrl || '#'}" download="${att.fileName}" class="chat-attachment-card" style="padding:6px 10px;border-radius:6px;background:rgba(0,0,0,0.06);display:flex;align-items:center;gap:8px;text-decoration:none;color:inherit">
+            <i class="fa fa-file-pdf" style="color:#ef4444;font-size:16px"></i>
+            <div style="flex:1;overflow:hidden">
+              <div style="font-size:12px;font-weight:600">${att.fileName}</div>
+              <div style="font-size:10px;opacity:0.75">${Math.round((att.fileSize||1024)/1024)} KB • Click to download</div>
+            </div>
+            <i class="fa fa-download" style="font-size:12px;opacity:0.7"></i>
+          </a>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  handleFileUpload(input) {
+    if (!input.files || !input.files[0]) return;
+    const file = input.files[0];
+    if (file.size > 10 * 1024 * 1024) {
+      if (typeof Toast !== 'undefined') Toast.show('File exceeds 10MB limit.', 'error');
+      input.value = '';
       return;
     }
 
-    let html = '';
-    let lastDate = '';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User' };
+      const channel = this.getActiveChannel();
+      if (!channel) return;
 
-    messages.forEach(msg => {
-      const msgDate = new Date(msg.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-      if (msgDate !== lastDate) {
-        html += `
-          <div class="chat-date-separator">
-            <span>${msgDate}</span>
-          </div>
-        `;
-        lastDate = msgDate;
+      const newMsg = {
+        id: `msg-${Date.now()}`,
+        channelId: channel.id,
+        senderId: myEmp.id,
+        senderName: myEmp.fullName,
+        content: `Shared file: ${file.name}`,
+        attachments: [{ id: `att-${Date.now()}`, fileName: file.name, fileSize: file.size, fileUrl: e.target.result }],
+        createdAt: new Date().toISOString()
+      };
+
+      if (typeof DB !== 'undefined') {
+        const allMsgs = DB.get('chat_messages') || [];
+        allMsgs.push(newMsg);
+        DB.set('chat_messages', allMsgs);
       }
 
-      const isMe = msg.senderId === myId;
-      const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-      html += `
-        <div class="chat-msg-row ${isMe ? 'outgoing' : 'incoming'}" data-msg-id="${msg.id}">
-          ${!isMe ? `
-            <div class="chat-msg-avatar" style="background:${typeof Utils !== 'undefined' ? Utils.avatarColor(msg.senderId) : '#6366f1'}">
-              ${typeof Utils !== 'undefined' ? Utils.avatarInitials(msg.senderName) : msg.senderName.substring(0,2).toUpperCase()}
-            </div>
-          ` : ''}
-          <div class="chat-msg-bubble-wrap">
-            ${!isMe ? `
-              <div class="chat-msg-sender-meta">
-                <span style="font-weight:700;color:var(--text)">${msg.senderName}</span>
-                <span style="color:var(--text-3)">${msg.senderRole || ''}</span>
-              </div>
-            ` : ''}
-            <div class="chat-bubble">
-              <div class="chat-msg-text">${this.formatMessageText(msg.content)}</div>
-              ${this.renderAttachmentsHTML(msg.attachments)}
-              <div class="chat-msg-time">${timeStr} ${isMe ? '<i class="fa fa-check-double" style="font-size:9.5px;margin-left:3px;color:#93c5fd"></i>' : ''}</div>
-            </div>
-            <div class="chat-reactions-container">${this.renderReactionsHTML(msg.id, msg.reactions)}</div>
-          </div>
-        </div>
-      `;
-    });
-
-    stream.innerHTML = html;
-    this.scrollToBottom();
+      if (typeof HRMWebSocket !== 'undefined') HRMWebSocket.sendChatMessage(newMsg);
+      this.playMessageSound('outgoing');
+      this.renderConversationPanel();
+      input.value = '';
+      if (typeof Toast !== 'undefined') Toast.show(`Shared "${file.name}"`, 'success');
+    };
+    reader.readAsDataURL(file);
   },
 
-  appendMessageToDOM(msg) {
-    if (typeof document === 'undefined') return;
-    const stream = document.getElementById('chat-messages-stream');
-    if (!stream) return;
-
-    const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
-    const isMe = msg.senderId === myId;
-    const timeStr = new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const row = document.createElement('div');
-    row.className = `chat-msg-row ${isMe ? 'outgoing' : 'incoming'} new-message-anim`;
-    row.setAttribute('data-msg-id', msg.id);
-    row.innerHTML = `
-      ${!isMe ? `
-        <div class="chat-msg-avatar" style="background:${typeof Utils !== 'undefined' ? Utils.avatarColor(msg.senderId) : '#6366f1'}">
-          ${typeof Utils !== 'undefined' ? Utils.avatarInitials(msg.senderName) : msg.senderName.substring(0,2).toUpperCase()}
-        </div>
-      ` : ''}
-      <div class="chat-msg-bubble-wrap">
-        ${!isMe ? `
-          <div class="chat-msg-sender-meta">
-            <span style="font-weight:700;color:var(--text)">${msg.senderName}</span>
-            <span style="color:var(--text-3)">${msg.senderRole || ''}</span>
-          </div>
-        ` : ''}
-        <div class="chat-bubble">
-          <div class="chat-msg-text">${this.formatMessageText(msg.content)}</div>
-          ${this.renderAttachmentsHTML(msg.attachments)}
-          <div class="chat-msg-time">${timeStr} ${isMe ? '<i class="fa fa-check-double" style="font-size:9.5px;margin-left:3px;color:#93c5fd"></i>' : ''}</div>
-        </div>
-        <div class="chat-reactions-container">${this.renderReactionsHTML(msg.id, msg.reactions)}</div>
-      </div>
-    `;
-
-    stream.appendChild(row);
-  },
-
-  // ── 12. Emoji Reactions ───────────────────────────────────
   renderReactionsHTML(msgId, reactions = {}) {
     const emojis = Object.keys(reactions || {});
     const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
-    let html = '<div class="chat-reactions-row">';
+    let html = '<div class="chat-reactions-row" style="display:flex;gap:4px;margin-top:3px">';
     emojis.forEach(emoji => {
       const users = reactions[emoji] || [];
       if (!users.length) return;
       const reacted = users.includes(myId);
-      html += `<span class="chat-reaction-tag ${reacted ? 'reacted' : ''}" onclick="Chat.toggleReaction('${msgId}', '${emoji}')" title="${users.length} reaction${users.length > 1 ? 's' : ''}">${emoji} <span>${users.length}</span></span>`;
+      html += `<span class="chat-reaction-tag ${reacted ? 'reacted' : ''}" onclick="Chat.toggleReaction('${msgId}', '${emoji}')">${emoji} ${users.length}</span>`;
     });
-    html += `<span class="chat-reaction-tag" style="opacity:0.6;font-size:9.5px;cursor:pointer" onclick="Chat.showReactionPicker('${msgId}', this)" title="Add Reaction">➕</span></div>`;
+    html += `<span class="chat-reaction-tag" style="opacity:0.6;font-size:9.5px;cursor:pointer" onclick="Chat.showReactionPicker('${msgId}', this)">➕</span></div>`;
     return html;
   },
 
@@ -1134,7 +1187,7 @@ const Chat = {
     const popover = document.createElement('div');
     popover.className = 'chat-reaction-popover';
     popover.style.cssText = 'position:fixed;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:5px 9px;display:flex;gap:7px;box-shadow:0 8px 24px rgba(0,0,0,0.4);z-index:9999;font-size:17px;cursor:pointer;';
-    popover.innerHTML = commonEmojis.map(e => `<span style="transition:transform 0.12s;display:inline-block;padding:2px" onmouseover="this.style.transform='scale(1.3)'" onmouseout="this.style.transform='scale(1)'" onclick="Chat.toggleReaction('${msgId}', '${e}'); this.parentElement.remove();">${e}</span>`).join('');
+    popover.innerHTML = commonEmojis.map(e => `<span style="padding:2px" onclick="Chat.toggleReaction('${msgId}', '${e}'); this.parentElement.remove();">${e}</span>`).join('');
 
     document.body.appendChild(popover);
     const rect = triggerEl.getBoundingClientRect();
@@ -1151,6 +1204,12 @@ const Chat = {
   },
 
   toggleReaction(msgId, emoji) {
+    if (msgId === 'new') {
+      const input = document.getElementById('teams-msg-input');
+      if (input) input.value += ` ${emoji}`;
+      return;
+    }
+
     const myId = (typeof Auth !== 'undefined' && Auth?.employee?.id) || 1;
     const chanId = this.activeChannelId;
 
@@ -1161,26 +1220,15 @@ const Chat = {
         if (!msg.reactions) msg.reactions = {};
         if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
         const idx = msg.reactions[emoji].indexOf(myId);
-        if (idx > -1) {
-          msg.reactions[emoji].splice(idx, 1);
-          if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
-        } else {
-          msg.reactions[emoji].push(myId);
-        }
+        if (idx > -1) msg.reactions[emoji].splice(idx, 1);
+        else msg.reactions[emoji].push(myId);
         DB.set('chat_messages', allMsgs);
-        this.handleReactionUpdate({ messageId: msgId, channelId: chanId, reactions: msg.reactions });
+        this.renderConversationPanel();
       }
     }
 
     if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isConnected) {
       HRMWebSocket.sendReaction(msgId, chanId, emoji);
-    }
-
-    if (typeof API !== 'undefined' && API.request) {
-      API.request(`/chat/messages/${msgId}/reactions`, {
-        method: 'POST',
-        body: JSON.stringify({ userId: myId, emoji })
-      }).catch(() => {});
     }
   },
 
@@ -1192,180 +1240,49 @@ const Chat = {
       if (msg) {
         msg.reactions = payload.reactions || {};
         DB.set('chat_messages', allMsgs);
-      }
-    }
-    if (typeof document !== 'undefined') {
-      const container = document.querySelector(`[data-msg-id="${payload.messageId}"] .chat-reactions-container`);
-      if (container) {
-        container.innerHTML = this.renderReactionsHTML(payload.messageId, payload.reactions || {});
+        if (this.activeChannelId === payload.channelId) {
+          this.renderConversationPanel();
+        }
       }
     }
   },
 
-  // ── 13. File Sharing & Attachments ────────────────────────
-  formatMessageText(text) {
-    if (!text) return '';
-    let escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-
-    escaped = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline;word-break:break-all">$1</a>');
-    return escaped.replace(/\n/g, '<br>');
-  },
-
-  renderAttachmentsHTML(attachments) {
-    if (!attachments || !attachments.length) return '';
-
-    return `
-      <div class="chat-attachments-list">
-        ${attachments.map(att => {
-          let icon = 'fa-file';
-          if (att.fileType && att.fileType.includes('pdf')) icon = 'fa-file-pdf text-danger';
-          else if (att.fileType && (att.fileType.includes('sheet') || att.fileType.includes('excel') || att.fileName.endsWith('.xlsx') || att.fileName.endsWith('.csv'))) icon = 'fa-file-excel text-success';
-          else if (att.fileType && att.fileType.includes('image')) icon = 'fa-file-image text-info';
-
-          const sizeKb = att.fileSize ? Math.round(att.fileSize / 1024) + ' KB' : '';
-
-          return `
-            <a href="${att.fileUrl || '#'}" download="${att.fileName}" class="chat-attachment-card" title="Click to download ${att.fileName}">
-              <i class="fa ${icon} chat-attachment-icon"></i>
-              <div style="flex:1;overflow:hidden">
-                <div class="chat-attachment-name">${att.fileName}</div>
-                <div class="chat-attachment-size">${sizeKb} • Click to download</div>
-              </div>
-              <i class="fa fa-download" style="font-size:12px;opacity:0.7"></i>
-            </a>
-          `;
-        }).join('')}
-      </div>
-    `;
-  },
-
-  handleFileUpload(input) {
-    if (!input.files || !input.files[0]) return;
-    const file = input.files[0];
-
-    const maxBytes = 10 * 1024 * 1024; // 10MB limit
-    if (file.size > maxBytes) {
-      if (typeof Toast !== 'undefined') {
-        Toast.show(`File size (${(file.size / (1024*1024)).toFixed(2)}MB) exceeds 10MB limit.`, 'error');
-      }
-      input.value = '';
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const myEmp = (typeof Auth !== 'undefined' && Auth?.employee) || { id: 1, fullName: 'Admin User', designation: 'Staff' };
-      const channel = this.getActiveChannel();
-      if (!channel) return;
-
-      const newMsg = {
-        id: `msg-${Date.now()}-${Math.floor(Math.random()*1000)}`,
-        channelId: channel.id,
-        senderId: myEmp.id,
-        senderName: myEmp.fullName,
-        senderRole: (typeof Auth !== 'undefined' && Auth?.role) 
-          ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) 
-          : 'Staff',
-        senderCompany: myEmp.companyName || 'Apex Holdings Inc.',
-        content: `Shared file: ${file.name}`,
-        messageType: 'file',
-        attachments: [
-          {
-            id: `att-${Date.now()}`,
-            fileName: file.name,
-            fileSize: file.size,
-            fileType: file.type || 'application/octet-stream',
-            fileUrl: e.target.result // Base64 data URL
-          }
-        ],
-        createdAt: new Date().toISOString()
-      };
-
-      if (typeof DB !== 'undefined') {
-        const allMsgs = DB.get('chat_messages') || [];
-        allMsgs.push(newMsg);
-        DB.set('chat_messages', allMsgs);
-      }
-
-      if (typeof HRMWebSocket !== 'undefined') {
-        HRMWebSocket.sendChatMessage(newMsg);
-      }
-
-      this.playMessageSound('outgoing');
-      this.appendMessageToDOM(newMsg);
-      this.scrollToBottom();
-      input.value = '';
-
-      if (typeof Toast !== 'undefined') {
-        Toast.show(`File "${file.name}" sent successfully.`, 'success');
-      }
-    };
-
-    reader.readAsDataURL(file);
+  updatePresenceUI() {
+    this.renderRosterList();
+    this.renderConversationPanel();
   },
 
   scrollToBottom() {
     if (typeof document === 'undefined') return;
-    const stream = document.getElementById('chat-messages-stream');
-    if (stream) {
-      stream.scrollTop = stream.scrollHeight;
-    }
+    const stream = document.getElementById('teams-msg-container');
+    if (stream) stream.scrollTop = stream.scrollHeight;
   },
 
   showChannelMembersModal(channelId) {
     const channel = this.getChannels().find(c => c.id === channelId);
     if (!channel) return;
-
     const employees = (typeof DB !== 'undefined' && DB.get('employees')) || [];
     const members = (channel.members || []).map(id => employees.find(e => e.id === id)).filter(Boolean);
 
     const content = `
       <div style="padding:10px">
-        <div style="margin-bottom:14px">
-          <h4 style="margin:0 0 4px 0">${channel.name}</h4>
-          <p style="margin:0;font-size:12px;color:var(--text-3)">${channel.description || 'Channel Member Directory'}</p>
-        </div>
-        <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
-          ${members.map(m => {
-            const isOnline = typeof HRMWebSocket !== 'undefined' && HRMWebSocket.isUserOnline(m.id);
-            return `
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border-radius:8px">
-                <div style="display:flex;align-items:center;gap:10px">
-                  <div style="position:relative">
-                    <div class="avatar avatar-sm" style="background:${typeof Utils !== 'undefined' ? Utils.avatarColor(m.id) : '#6366f1'}">
-                      ${typeof Utils !== 'undefined' ? Utils.avatarInitials(m.fullName) : m.fullName.substring(0,2)}
-                    </div>
-                    <span class="chat-status-dot ${isOnline ? 'online' : 'offline'}" style="bottom:-2px;right:-2px"></span>
-                  </div>
-                  <div>
-                    <div style="font-size:13px;font-weight:700;color:var(--text)">${m.fullName}</div>
-                    <div style="font-size:11px;color:var(--text-3)">${m.designation || 'Staff'} • ${m.department || 'General'}</div>
-                  </div>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px">
-                  <span class="badge ${isOnline ? 'badge-success' : 'badge-ghost'}" style="font-size:10px">
-                    ${isOnline ? 'Online' : 'Offline'}
-                  </span>
-                  <button class="btn btn-primary btn-xs" onclick="Chat.startDirectChat(${m.id}); if (typeof Modal !== 'undefined') Modal.close();">
-                    Message
-                  </button>
-                </div>
+        <h4 style="margin:0 0 10px 0">${channel.name}</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${members.map(m => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:var(--surface);border-radius:8px">
+              <div>
+                <strong>${m.fullName}</strong>
+                <div style="font-size:11px;color:var(--text-3)">${m.designation || 'Staff'}</div>
               </div>
-            `;
-          }).join('')}
+              <button class="btn btn-primary btn-xs" onclick="Chat.startDirectChat(${m.id}); Modal.close();">Chat</button>
+            </div>
+          `).join('')}
         </div>
       </div>
     `;
 
     if (typeof Modal !== 'undefined') {
-      Modal.open({
-        title: 'Channel Members Directory',
-        content,
-        footer: '<button class="btn btn-primary btn-sm" onclick="Modal.close()">Close</button>'
-      });
+      Modal.open({ title: 'Chat Members', content });
     }
   }
 };

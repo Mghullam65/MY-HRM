@@ -25,7 +25,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/main.css?v=3.0.0">
+  <link rel="stylesheet" href="css/main.css?v=3.5.0">
 
   <!-- Dedicated Chatbox Instant UI Styles (Cache-Proof) -->
   <style id="chatbox-instant-css">
@@ -72,20 +72,20 @@
       box-shadow: 0 2px 6px rgba(239, 68, 68, 0.6) !important;
     }
 
-    /* ── Floating Chatbox Window (Non-intrusive bottom-right widget) ── */
+    /* ── Floating Microsoft Teams Chatbox Window ── */
     .chat-drawer {
       position: fixed !important;
-      bottom: 92px !important;
+      bottom: 24px !important;
       right: 24px !important;
       top: auto !important;
       left: auto !important;
-      width: 440px !important;
+      width: 920px !important;
       max-width: calc(100vw - 32px) !important;
-      height: 620px !important;
-      max-height: calc(100vh - 120px) !important;
+      height: 680px !important;
+      max-height: calc(100vh - 48px) !important;
       background: var(--card, #1e293b) !important;
       border: 1px solid var(--border, rgba(255, 255, 255, 0.12)) !important;
-      border-radius: 20px !important;
+      border-radius: 16px !important;
       box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
       z-index: 1050 !important;
       display: flex !important;
@@ -102,12 +102,16 @@
       pointer-events: auto !important;
     }
     .chat-drawer.minimized {
-      height: 60px !important;
+      height: 54px !important;
       overflow: hidden !important;
     }
     .chat-drawer.maximized {
-      width: 780px !important;
+      width: calc(100vw - 48px) !important;
       height: calc(100vh - 48px) !important;
+      max-height: calc(100vh - 48px) !important;
+      bottom: 24px !important;
+      right: 24px !important;
+    }
       max-height: calc(100vh - 48px) !important;
       bottom: 24px !important;
       right: 24px !important;
@@ -256,12 +260,12 @@
 <script src="js/taxEngine.js?v=2.5.0"></script>
 <script src="js/bankFormats.js?v=2.5.0"></script>
 <script src="js/notifications.js?v=2.5.0"></script>
-<script src="js/auth.js?v=2.5.0"></script>
+<script src="js/auth.js?v=3.5.0"></script>
 <script src="js/websocket.js?v=2.5.0"></script>
-<script src="js/chat.js?v=3.0.0"></script>
+<script src="js/chat.js?v=3.5.0"></script>
 <script src="js/landing.js?v=2.5.2"></script>
 <script src="js/trial.js?v=2.5.0"></script>
-<script src="js/app.js?v=3.0.0"></script>
+<script src="js/app.js?v=3.5.0"></script>
 <script src="js/dashboard.js?v=2.5.0"></script>
 <script src="js/employees.js?v=2.5.2"></script>
 <script src="js/attendance.js?v=2.5.2"></script>

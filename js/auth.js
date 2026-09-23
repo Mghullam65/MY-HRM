@@ -291,11 +291,11 @@ const Auth = {
 
   canAccessModule(module) {
     const moduleMap = {
-      superadmin: ['dashboard','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
-      hr_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
-      dept_manager: ['dashboard','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports'],
-      employee: ['dashboard','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
-      onboarding: ['dashboard','profile','attendance','leaves','events','holidays'],
+      superadmin: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
+      hr_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
+      dept_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports'],
+      employee: ['dashboard','chat','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
+      onboarding: ['dashboard','chat','profile','attendance','leaves','events','holidays'],
     };
     return (moduleMap[this.role] || []).includes(module);
   },
@@ -303,6 +303,7 @@ const Auth = {
   getSidebarItems() {
     const all = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
+      { id: 'chat', label: 'Team Chat', icon: 'fa-comments', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', roles: ['onboarding'] },
       { id: 'employees', label: 'Employees', icon: 'fa-users', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'attendance', label: 'Attendance', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },

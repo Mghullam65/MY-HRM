@@ -711,6 +711,7 @@ const App = {
       events: 'Events & Announcements', reports: 'Reports',
       administration: 'Administration', settings: 'Settings', profile: 'My Profile',
       settlement: 'Exit & Settlements', companies: 'Corporate Entities & Holdings',
+      chat: 'Team Chat & Instant Messaging'
     };
 
     if (title) title.textContent = moduleLabels[module] || module;
@@ -725,6 +726,7 @@ const App = {
       try {
         switch (module) {
           case 'dashboard':     Dashboard.render(); break;
+          case 'chat':          if (typeof Chat !== 'undefined') Chat.renderFullWorkspace(); break;
           case 'employees':     Employees.render(); break;
           case 'attendance':    Attendance.render(); break;
           case 'leaves':        Leaves.render(); break;
