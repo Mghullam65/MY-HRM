@@ -9,7 +9,7 @@ const Employees = {
   filterStatus: '',
 
   getActiveStage() {
-    if (['current', 'ex', 'all', 'directory', 'orgchart', 'career_moves'].includes(this.currentView)) return 'directory';
+    if (['current', 'ex', 'all', 'directory', 'orgchart', 'career_moves', 'probation'].includes(this.currentView)) return 'directory';
     if (['edms', 'doc_expiry', 'contracts'].includes(this.currentView)) return 'edms';
     if (['hr_letters', 'discipline'].includes(this.currentView)) return 'hr_letters';
     if (['dependents_events', 'exit_clearance', 'settlement'].includes(this.currentView)) return 'dependents_events';
@@ -28,14 +28,14 @@ const Employees = {
     const isDeptMgr = Auth.role === 'dept_manager';
     const myEmpId = Auth.employee?.id;
 
-    // Staff role subtab access guard: includes exit_clearance, contracts, career_moves
-    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance', 'settlement', 'contracts', 'career_moves'];
+    // Staff role subtab access guard: includes exit_clearance, contracts, career_moves, probation
+    const staffAllowedViews = ['hr_letters', 'discipline', 'doc_expiry', 'edms', 'dependents_events', 'directory', 'orgchart', 'exit_clearance', 'settlement', 'contracts', 'career_moves', 'probation'];
     if (isStaff && !staffAllowedViews.includes(this.currentView)) {
       this.currentView = 'directory';
     }
 
     // Deputy Manager access guard: access to team views across the stages
-    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance', 'settlement', 'contracts', 'career_moves'];
+    const deptMgrAllowedViews = ['current', 'ex', 'all', 'orgchart', 'directory', 'edms', 'doc_expiry', 'hr_letters', 'discipline', 'dependents_events', 'exit_clearance', 'settlement', 'contracts', 'career_moves', 'probation'];
     if (isDeptMgr && !deptMgrAllowedViews.includes(this.currentView)) {
       this.currentView = 'current';
     }
@@ -117,9 +117,11 @@ const Employees = {
               </button>
               <button class="btn btn-sm ${this.currentView==='orgchart'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('orgchart')">
                 <i class="fa fa-sitemap"></i> Organization Chart
-              </button>
               <button class="btn btn-sm ${this.currentView==='career_moves'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('career_moves')">
                 <i class="fa fa-route"></i> Career Moves (Promotions &amp; Transfers)
+              </button>
+              <button class="btn btn-sm ${this.currentView==='probation'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('probation')">
+                <i class="fa fa-user-clock"></i> Probation &amp; Confirmations
               </button>
             </div>
             ${['current','ex','all'].includes(this.currentView) ? `
@@ -292,6 +294,10 @@ const Employees = {
     }
     if (this.currentView === 'career_moves') {
       this.renderCareerMoves(container);
+      return;
+    }
+    if (this.currentView === 'probation') {
+      this.renderProbationWorkspace(container);
       return;
     }
 
@@ -12088,7 +12094,599 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     DB.set('transfers', transfers);
     this.showTransferHandoverModal(transferId);
     this.renderTable();
-  }
+  },
 
+  // ═══════════════════════════════════════════════
+  // PROBATION & CONFIRMATION MANAGEMENT WORKSPACE
+  // ═══════════════════════════════════════════════
+  probationFilter: 'all',
+  probationDeptFilter: '',
+
+  renderProbationWorkspace(container) {
+    const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const myEmpId = Auth.employee?.id;
+    const allEmps = DB.get('employees') || [];
+    const contracts = DB.get('contracts') || [];
+    const depts = DB.get('departments') || [];
+    const scopedEmps = Auth.getScopedEmployees(allEmps);
+    const scopedIds = scopedEmps.map(e => e.id);
+
+    // Identify employees in probation (either by employmentType === 'Probation', or probationary contract)
+    let probationers = allEmps.filter(e => {
+      if (isStaff && e.id !== myEmpId) return false;
+      if (Auth.role === 'dept_manager' && !scopedIds.includes(e.id)) return false;
+
+      const hasProbContract = contracts.some(c => c.employeeId === e.id && (c.contractType === 'Probationary' || c.status === 'probation'));
+      const isProbType = e.employmentType === 'Probation';
+      const isPendingConfirm = e.probationPassed === false && e.status === 'active';
+
+      return (isProbType || hasProbContract || isPendingConfirm) && e.status === 'active';
+    });
+
+    const today = new Date();
+
+    // Compute live timeline data for each probationer
+    const items = probationers.map(emp => {
+      const contract = contracts.find(c => c.employeeId === emp.id && (c.contractType === 'Probationary' || c.status === 'probation')) || {};
+      const joinDateStr = emp.joinDate || contract.startDate || '2026-06-01';
+      const joinDate = new Date(joinDateStr);
+
+      // Probation end date: 90 days default if not set
+      let endDateStr = emp.probationEndDate || contract.probationEndDate || contract.endDate;
+      if (!endDateStr) {
+        const d = new Date(joinDate);
+        d.setDate(d.getDate() + 90);
+        endDateStr = d.toISOString().split('T')[0];
+      }
+      const endDate = new Date(endDateStr);
+
+      const daysElapsed = Math.max(0, Math.floor((today - joinDate) / (1000 * 60 * 60 * 24)));
+      const daysRemaining = Math.ceil((endDate - today) / (1000 * 60 * 60 * 24));
+      const totalDuration = Math.max(90, Math.floor((endDate - joinDate) / (1000 * 60 * 60 * 24)));
+      const progressPct = Math.min(100, Math.max(0, Math.round((daysElapsed / totalDuration) * 100)));
+
+      // Status tagging
+      let statusKey = 'in_progress';
+      let statusLabel = 'In Progress';
+      let statusColor = 'var(--primary)';
+
+      if (emp.probationPassed === true || emp.employmentType === 'Permanent') {
+        statusKey = 'confirmed';
+        statusLabel = 'Confirmed';
+        statusColor = 'var(--success)';
+      } else if (daysRemaining < 0) {
+        statusKey = 'overdue';
+        statusLabel = 'Confirmation Overdue';
+        statusColor = 'var(--danger)';
+      } else if (daysRemaining <= 15) {
+        statusKey = 'due_soon';
+        statusLabel = 'Action Due Soon';
+        statusColor = 'var(--warning)';
+      }
+
+      // 30-60-90 Milestones
+      const m30 = daysElapsed >= 30;
+      const m60 = daysElapsed >= 60;
+      const m90 = daysElapsed >= 90;
+
+      const dept = depts.find(d => d.id == emp.departmentId)?.name || 'General Operations';
+
+      return {
+        emp,
+        contract,
+        dept,
+        joinDateStr,
+        endDateStr,
+        daysElapsed,
+        daysRemaining,
+        totalDuration,
+        progressPct,
+        statusKey,
+        statusLabel,
+        statusColor,
+        m30,
+        m60,
+        m90
+      };
+    });
+
+    // Counts for KPIs
+    const activeProbCount = items.filter(i => i.statusKey !== 'confirmed').length;
+    const dueSoonCount = items.filter(i => i.statusKey === 'due_soon').length;
+    const overdueCount = items.filter(i => i.statusKey === 'overdue').length;
+    const confirmedCount = (DB.get('hr_letters') || []).filter(l => l.letterType === 'confirmation').length;
+
+    // Filter items
+    let filteredItems = items;
+    if (this.probationFilter !== 'all') {
+      filteredItems = filteredItems.filter(i => i.statusKey === this.probationFilter);
+    }
+    if (this.probationDeptFilter) {
+      filteredItems = filteredItems.filter(i => i.emp.departmentId == this.probationDeptFilter);
+    }
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- KPI Summary Cards -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Active Probationers</div>
+            <div style="font-size:24px;font-weight:800;color:var(--primary);margin-top:4px">${activeProbCount} Staff</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Serving 90-day onboarding tenure</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--warning)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Action Due Soon (&le; 15 Days)</div>
+            <div style="font-size:24px;font-weight:800;color:var(--warning);margin-top:4px">${dueSoonCount} Review${dueSoonCount!==1?'s':''}</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Probation expiry within 2 weeks</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--danger)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Overdue Confirmations</div>
+            <div style="font-size:24px;font-weight:800;color:var(--danger);margin-top:4px">${overdueCount} Pending</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Exceeded 90-day period without board decision</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Confirmed to Permanent</div>
+            <div style="font-size:24px;font-weight:800;color:var(--success);margin-top:4px">${confirmedCount} Letters</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Issued official employment confirmation</div>
+          </div>
+        </div>
+
+        <!-- Filter & Control Bar -->
+        <div class="card" style="margin-bottom:20px;padding:14px 18px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);text-transform:uppercase">Filter:</span>
+              <div style="display:flex;gap:4px;background:var(--surface);padding:3px;border-radius:8px;border:1px solid var(--border)">
+                <button class="btn btn-xs ${this.probationFilter==='all'?'btn-primary':'btn-ghost'}" onclick="Employees.probationFilter='all';Employees.renderTable()">All (${items.length})</button>
+                <button class="btn btn-xs ${this.probationFilter==='overdue'?'btn-danger':'btn-ghost'}" onclick="Employees.probationFilter='overdue';Employees.renderTable()">Overdue (${overdueCount})</button>
+                <button class="btn btn-xs ${this.probationFilter==='due_soon'?'btn-warning':'btn-ghost'}" onclick="Employees.probationFilter='due_soon';Employees.renderTable()">Due Soon (${dueSoonCount})</button>
+                <button class="btn btn-xs ${this.probationFilter==='in_progress'?'btn-info':'btn-ghost'}" onclick="Employees.probationFilter='in_progress';Employees.renderTable()">In Progress</button>
+              </div>
+
+              <select class="form-control" style="font-size:12.5px;padding:4px 10px;width:auto;border-radius:8px" onchange="Employees.probationDeptFilter=this.value;Employees.renderTable()">
+                <option value="">All Departments</option>
+                ${depts.map(d => `<option value="${d.id}" ${this.probationDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+              </select>
+            </div>
+
+            <div style="font-size:12px;color:var(--text-3)">
+              <i class="fa fa-info-circle"></i> Standard statutory probation is 90 days with 30-day checkpoint milestones
+            </div>
+          </div>
+        </div>
+
+        <!-- Probation Roster Table -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:700;font-size:14px;color:var(--text)">
+              <i class="fa fa-user-clock" style="margin-right:8px;color:var(--primary)"></i>Probation Tracking &amp; Formal Confirmation Matrix
+            </span>
+            <span style="font-size:12px;color:var(--text-3)">Showing ${filteredItems.length} active candidates</span>
+          </div>
+
+          <div class="table-wrapper" style="border:none;margin:0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Department</th>
+                  <th>Join &bull; Expiry Date</th>
+                  <th>Days Left</th>
+                  <th>Milestones (30/60/90)</th>
+                  <th>Tenure Progress</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filteredItems.length === 0 ? `
+                  <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-3)">No probation candidates found matching the selected filter.</td></tr>
+                ` : filteredItems.map(item => `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:36px;height:36px;border-radius:50%;background:var(--primary)22;color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">
+                          ${item.emp.fullName.split(' ').map(n=>n[0]).join('').substring(0,2)}
+                        </div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px;color:var(--text)">${item.emp.fullName}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${item.emp.designation || 'Staff'} &bull; ${item.emp.empNo || 'EMP'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge badge-secondary" style="font-size:11px">${item.dept}</span></td>
+                    <td>
+                      <div style="font-size:12px;font-weight:600;color:var(--text)">${item.joinDateStr}</div>
+                      <div style="font-size:11px;color:var(--text-3)">Target: <strong>${item.endDateStr}</strong></div>
+                    </td>
+                    <td>
+                      ${item.daysRemaining < 0 ? `
+                        <span class="badge badge-danger" style="font-size:11px"><i class="fa fa-triangle-exclamation"></i> ${Math.abs(item.daysRemaining)}d Overdue</span>
+                      ` : item.daysRemaining <= 15 ? `
+                        <span class="badge badge-warning" style="font-size:11px;background:#f59e0b;color:#fff"><i class="fa fa-clock"></i> ${item.daysRemaining}d Left</span>
+                      ` : `
+                        <span class="badge badge-info" style="font-size:11px"><i class="fa fa-hourglass-half"></i> ${item.daysRemaining}d Left</span>
+                      `}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:6px;align-items:center">
+                        <span title="30-Day Orientation Checkpoint" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:800;background:${item.m30?'var(--success)':'var(--surface-2)'};color:${item.m30?'#fff':'var(--text-3)'};border:1px solid var(--border)">
+                          30d
+                        </span>
+                        <span title="60-Day Mid-Review Checkpoint" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:800;background:${item.m60?'var(--success)':'var(--surface-2)'};color:${item.m60?'#fff':'var(--text-3)'};border:1px solid var(--border)">
+                          60d
+                        </span>
+                        <span title="90-Day Final Confirmation Decision" style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;font-size:10px;font-weight:800;background:${item.m90?'var(--primary)':'var(--surface-2)'};color:${item.m90?'#fff':'var(--text-3)'};border:1px solid var(--border)">
+                          90d
+                        </span>
+                      </div>
+                    </td>
+                    <td style="min-width:140px">
+                      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+                        <span style="font-weight:600">${item.daysElapsed} served</span>
+                        <span style="color:var(--text-3)">${item.progressPct}%</span>
+                      </div>
+                      <div style="width:100%;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden">
+                        <div style="width:${item.progressPct}%;height:100%;background:${item.statusColor}"></div>
+                      </div>
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:6px;align-items:center">
+                        ${isHrOrAdmin ? `
+                          <button class="btn btn-success btn-xs" onclick="Employees.showConfirmationModal(${item.emp.id})" title="Issue Formal Permanent Confirmation">
+                            <i class="fa fa-award"></i> Confirm
+                          </button>
+                          <button class="btn btn-warning btn-xs" onclick="Employees.showExtendProbationModal(${item.emp.id})" title="Extend Probation Period">
+                            <i class="fa fa-calendar-plus"></i> Extend
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Employees.printConfirmationLetter(${item.emp.id})" title="Print Confirmation Letter">
+                          <i class="fa fa-file-pdf"></i> Letter
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showConfirmationModal(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const curSalary = Number(emp.salary) || 100000;
+    const suggestedSalary = Math.round(curSalary * 1.10); // 10% post-probation standard increment
+
+    Modal.show(`Permanent Employment Confirmation — ${emp.fullName}`, `
+      <div style="margin-bottom:16px;background:var(--surface);padding:14px;border-radius:10px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:15px;font-weight:800;color:var(--text)">${emp.fullName}</div>
+          <div style="font-size:12px;color:var(--text-3)">${emp.designation || 'Staff'} &bull; ${emp.department || 'Operations'}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge badge-success" style="font-size:12px;padding:4px 10px"><i class="fa fa-circle-check"></i> Eligible for Confirmation</span>
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Probation Performance Rating (Stars)</label>
+          <select class="form-control" id="conf-rating">
+            <option value="5.0">★★★★★ 5.0 (Outstanding Exceeds Expectations)</option>
+            <option value="4.5" selected>★★★★☆ 4.5 (High Merit & Dedicated)</option>
+            <option value="4.0">★★★★☆ 4.0 (Solid Satisfactory Contributor)</option>
+            <option value="3.5">★★★☆☆ 3.5 (Meets Standard Core Competencies)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Effective Confirmation Date</label>
+          <input type="date" class="form-control" id="conf-date" value="${new Date().toISOString().split('T')[0]}">
+        </div>
+      </div>
+
+      <div class="form-row form-row-2">
+        <div class="form-group">
+          <label class="form-label">Current Base Salary (PKR)</label>
+          <input type="text" class="form-control" value="PKR ${curSalary.toLocaleString()}" disabled style="background:var(--surface-2)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Post-Confirmation Revised Base Salary (PKR)</label>
+          <input type="number" class="form-control" id="conf-new-salary" value="${suggestedSalary}">
+          <div style="font-size:11px;color:var(--text-3);margin-top:3px">Standard +10% confirmation increment auto-calculated. Adjust as necessary.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Board / HR Evaluation Remarks</label>
+        <textarea class="form-control" id="conf-remarks" rows="2" placeholder="e.g. Candidate has demonstrated technical competence, adherence to corporate values, and strong team collaboration. Formally confirmed as Permanent staff.">Candidate has completed the mandatory 90-day probationary tenure with high performance merit. Formally elevated to Permanent status.</textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-success" onclick="Employees.executeConfirmation(${emp.id})">
+          <i class="fa fa-award"></i> Issue Permanent Confirmation & Letter
+        </button>
+      `
+    });
+  },
+
+  executeConfirmation(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const rating = parseFloat(document.getElementById('conf-rating')?.value) || 4.5;
+    const effDate = document.getElementById('conf-date')?.value || new Date().toISOString().split('T')[0];
+    const newSalary = parseFloat(document.getElementById('conf-new-salary')?.value) || emp.salary || 100000;
+    const remarks = document.getElementById('conf-remarks')?.value || '';
+    const oldSalary = Number(emp.salary) || 100000;
+    const incAmount = Math.max(0, newSalary - oldSalary);
+    const incPct = oldSalary > 0 ? Math.round((incAmount / oldSalary) * 100) : 0;
+
+    // 1. Update Employee record
+    DB.update('employees', emp.id, {
+      employmentType: 'Permanent',
+      probationPassed: true,
+      probationStatus: 'confirmed',
+      salary: newSalary,
+      confirmationDate: effDate
+    });
+
+    // 2. Update Contract if exists
+    const contracts = DB.get('contracts') || [];
+    const contract = contracts.find(c => c.employeeId === emp.id && (c.contractType === 'Probationary' || c.status === 'probation'));
+    if (contract) {
+      contract.contractType = 'Permanent';
+      contract.probationPassed = true;
+      contract.status = 'active';
+      DB.set('contracts', contracts);
+    }
+
+    // 3. Log Salary Revision if salary revised
+    if (incAmount > 0) {
+      const revisions = DB.get('salary_revisions') || [];
+      revisions.unshift({
+        id: DB.generateId(),
+        employeeId: emp.id,
+        revisionType: 'confirmation',
+        oldSalary: oldSalary,
+        newSalary: newSalary,
+        incrementAmount: incAmount,
+        incrementPct: incPct,
+        effectiveDate: effDate,
+        scheduledReviewDate: new Date(Date.now() + 365*24*3600*1000).toISOString().split('T')[0],
+        reason: `Post-Probation Confirmation Increment (+${incPct}%)`,
+        approvedBy: Auth.user?.fullName || Auth.role,
+        status: 'applied',
+        createdAt: new Date().toISOString()
+      });
+      DB.set('salary_revisions', revisions);
+    }
+
+    // 4. Issue Official HR Confirmation Letter
+    const letters = DB.get('hr_letters') || [];
+    const newLetter = {
+      id: DB.generateId(),
+      employeeId: emp.id,
+      letterType: 'confirmation',
+      title: `Official Letter of Employment Confirmation — ${emp.fullName}`,
+      refNo: `HRM/CONF/${emp.id}/${new Date().getFullYear()}`,
+      issueDate: effDate,
+      effectiveDate: effDate,
+      issuedBy: Auth.user?.fullName || 'Director of Human Resources',
+      status: 'issued',
+      acknowledged: false,
+      details: {
+        oldType: 'Probationary',
+        newType: 'Permanent',
+        rating,
+        oldSalary,
+        newSalary,
+        remarks
+      }
+    };
+    letters.unshift(newLetter);
+    DB.set('hr_letters', letters);
+
+    DB.log('UPDATE', 'Employees', `Confirmed ${emp.fullName} as Permanent staff (Rating: ${rating}★, Salary: PKR ${newSalary.toLocaleString()})`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show('Employment Confirmed!', 'success', `${emp.fullName} has been granted Permanent status. Confirmation letter issued.`);
+    
+    // Auto-prompt to view / print letter
+    this.renderTable();
+    setTimeout(() => {
+      this.printConfirmationLetter(emp.id);
+    }, 500);
+  },
+
+  showExtendProbationModal(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    Modal.show(`Extend Probationary Period — ${emp.fullName}`, `
+      <div style="margin-bottom:14px;font-size:13px;color:var(--text-3)">
+        If additional time is needed to assess competencies or establish performance improvement, select the extension duration below.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Extension Duration</label>
+        <select class="form-control" id="prob-ext-days">
+          <option value="30">30 Calendar Days (Standard Extension)</option>
+          <option value="60">60 Calendar Days (Comprehensive Review)</option>
+          <option value="90">90 Calendar Days (Maximum Statutory Extension)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Performance Improvement Plan & Justification</label>
+        <textarea class="form-control" id="prob-ext-reason" rows="3" placeholder="Specify areas of development, targets, and manager support commitments..."></textarea>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-warning" onclick="Employees.executeExtendProbation(${emp.id})">
+          <i class="fa fa-calendar-plus"></i> Confirm Extension & Notify
+        </button>
+      `
+    });
+  },
+
+  executeExtendProbation(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const days = parseInt(document.getElementById('prob-ext-days')?.value) || 30;
+    const reason = document.getElementById('prob-ext-reason')?.value || 'Additional assessment period requested by supervisor.';
+
+    const curEndDate = new Date(emp.probationEndDate || new Date());
+    curEndDate.setDate(curEndDate.getDate() + days);
+    const newEndDateStr = curEndDate.toISOString().split('T')[0];
+
+    DB.update('employees', emp.id, {
+      probationEndDate: newEndDateStr,
+      probationStatus: 'extended'
+    });
+
+    const contracts = DB.get('contracts') || [];
+    const contract = contracts.find(c => c.employeeId === emp.id && (c.contractType === 'Probationary' || c.status === 'probation'));
+    if (contract) {
+      contract.probationEndDate = newEndDateStr;
+      contract.endDate = newEndDateStr;
+      DB.set('contracts', contracts);
+    }
+
+    // Issue HR Notice
+    const letters = DB.get('hr_letters') || [];
+    letters.unshift({
+      id: DB.generateId(),
+      employeeId: emp.id,
+      letterType: 'probation_extension',
+      title: `Notice of Probationary Extension (${days} Days) — ${emp.fullName}`,
+      refNo: `HRM/PROB-EXT/${emp.id}/${new Date().getFullYear()}`,
+      issueDate: new Date().toISOString().split('T')[0],
+      effectiveDate: new Date().toISOString().split('T')[0],
+      issuedBy: Auth.user?.fullName || 'Director of Human Resources',
+      status: 'issued',
+      acknowledged: false,
+      details: {
+        extensionDays: days,
+        newEndDate: newEndDateStr,
+        reason
+      }
+    });
+    DB.set('hr_letters', letters);
+
+    DB.log('UPDATE', 'Employees', `Extended probation for ${emp.fullName} by ${days} days to ${newEndDateStr}`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show('Probation Extended', 'warning', `${emp.fullName}'s probation is now extended until ${newEndDateStr}`);
+    this.renderTable();
+  },
+
+  printConfirmationLetter(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const letters = DB.get('hr_letters') || [];
+    const confLetter = letters.find(l => l.employeeId === empId && l.letterType === 'confirmation');
+    const company = DB.get('company') || { name: 'Apex Technologies Ltd', address: 'Plot 42, Blue Area, Islamabad, Pakistan' };
+    const printDate = new Date().toLocaleDateString('en-US', { day:'numeric', month:'long', year:'numeric' });
+    const salary = emp.salary || 120000;
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('Please allow popups to view the Confirmation Letter');
+      return;
+    }
+
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Employment Confirmation Letter — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 40px; margin: 0; background: #fff; }
+          .header { border-bottom: 2px solid #059669; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .company-title { font-size: 24px; font-weight: 800; color: #0f172a; }
+          .company-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+          .doc-title { font-size: 18px; font-weight: 800; color: #059669; text-align: center; text-transform: uppercase; letter-spacing: 1px; margin: 30px 0 20px 0; }
+          .content { line-height: 1.8; font-size: 14px; }
+          .table-box { width: 100%; border-collapse: collapse; margin: 25px 0; }
+          .table-box th, .table-box td { border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 13.5px; }
+          .table-box th { background: #f8fafc; text-align: left; font-weight: 700; width: 40%; }
+          .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+          .sign-block { width: 220px; border-top: 1px solid #94a3b8; padding-top: 8px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="company-title">${company.name || 'HRM Enterprise Systems'}</div>
+            <div class="company-sub">${company.address || 'Corporate Headquarters &bull; Human Resources Directorate'}</div>
+          </div>
+          <div style="text-align:right;font-size:12px;color:#64748b">
+            <div>Ref: ${confLetter?.refNo || 'HRM/CONF/' + emp.id + '/' + new Date().getFullYear()}</div>
+            <div>Date: ${printDate}</div>
+          </div>
+        </div>
+
+        <div class="doc-title">Official Letter of Employment Confirmation</div>
+
+        <div class="content">
+          <p><strong>To:</strong> ${emp.fullName}<br>
+          <strong>Employee ID:</strong> ${emp.empNo || 'EMP-' + emp.id}<br>
+          <strong>Designation:</strong> ${emp.designation || 'Staff Member'}<br>
+          <strong>Department:</strong> ${emp.department || 'Operations'}</p>
+
+          <p>Dear ${emp.fullName},</p>
+
+          <p>We are delighted to formally congratulate you on the successful completion of your probationary employment tenure with <strong>${company.name || 'Apex Technologies Ltd'}</strong>. Consequent upon your positive performance assessment and strong alignment with corporate culture, the Management is pleased to confirm your appointment as a <strong>Permanent Employee</strong> of the company, effective immediately.</p>
+
+          <table class="table-box">
+            <tr>
+              <th>Employment Status</th>
+              <td style="color:#059669;font-weight:800">Permanent & Regular</td>
+            </tr>
+            <tr>
+              <th>Confirmed Designation</th>
+              <td style="font-weight:700">${emp.designation || 'Staff Member'}</td>
+            </tr>
+            <tr>
+              <th>Department / Directorate</th>
+              <td>${emp.department || 'Operations'}</td>
+            </tr>
+            <tr>
+              <th>Confirmed Monthly Base Salary</th>
+              <td style="font-weight:800;color:#0f172a">PKR ${salary.toLocaleString()} / month</td>
+            </tr>
+            <tr>
+              <th>Benefits Entitlement</th>
+              <td>Full Medical Health Coverage, Provident Fund (PF) Matching, Annual Leave Accrual</td>
+            </tr>
+          </table>
+
+          <p>Your terms and conditions of employment shall henceforth be governed by the standard policies and service rules applicable to permanent employees of the company. We take this opportunity to appreciate the diligence, dedication, and positive contribution you have demonstrated during your onboarding tenure.</p>
+
+          <p>We look forward to your sustained success and a long, mutually rewarding career with us.</p>
+        </div>
+
+        <div class="footer">
+          <div class="sign-block">
+            <strong>Director of Human Resources</strong><br>
+            People & Culture Directorate
+          </div>
+          <div class="sign-block">
+            <strong>Managing Director / CEO</strong><br>
+            Executive Office
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 400);
+  }
 };
 

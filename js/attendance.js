@@ -47,7 +47,7 @@ const Attendance = {
     const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
 
     // Restrict default view
-    if (isEmployee && !['my_attendance', 'machine', 'corrections', 'timesheets'].includes(this.currentView)) {
+    if (isEmployee && !['my_attendance', 'machine', 'corrections', 'timesheets', 'roster'].includes(this.currentView)) {
       this.currentView = 'my_attendance';
     } else if (isManager && !['my_attendance', 'my_employees', 'machine', 'roster', 'timesheets', 'corrections'].includes(this.currentView)) {
       this.currentView = 'my_employees';
@@ -101,6 +101,7 @@ const Attendance = {
     if (isEmployee) {
       tabs = [
         { id:'my_attendance', label:'My Attendance & Punch', icon:'fa-user-clock' },
+        { id:'roster',        label:'My Shift Roster & Swaps', icon:'fa-calendar-days', badge: pendingSwaps },
         { id:'machine',       label:'My Machine Logs', icon:'fa-fingerprint' },
         { id:'corrections',   label:'Regularization & Timesheets', icon:'fa-clipboard-check', badge: pendingCorrections },
       ];
@@ -4329,6 +4330,10 @@ const Attendance = {
       Toast.show('Rotational shift roster generated successfully!', 'success');
       this.renderShiftRoster(document.getElementById('att-content'));
     });
+  },
+
+  showRequestSwapModal() {
+    this.showShiftSwapModal();
   },
 
   showShiftSwapModal() {

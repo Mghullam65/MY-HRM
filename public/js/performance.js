@@ -31,7 +31,7 @@ const Performance = {
 
   getActiveStage() {
     if (['cycles', 'goals', 'kpi'].includes(this.currentView)) return 'cycles';
-    if (['reviews', 'feedback360'].includes(this.currentView)) return 'reviews';
+    if (['reviews', 'feedback360', 'merit'].includes(this.currentView)) return 'reviews';
     if (['succession'].includes(this.currentView)) return 'succession';
     if (['lms'].includes(this.currentView)) return 'lms';
     return 'reviews';
@@ -105,11 +105,22 @@ const Performance = {
               <button class="btn btn-sm ${this.currentView==='feedback360'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('feedback360')">
                 <i class="fa fa-arrows-spin"></i> 360° Peer Feedback
               </button>
+              <button class="btn btn-sm ${this.currentView==='merit'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('merit')">
+                <i class="fa fa-arrow-trend-up"></i> Merit Increment Matrix
+              </button>
             </div>
             ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
-              <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
-                <i class="fa fa-plus"></i> Initiate Review
-              </button>
+              <div style="display:flex;gap:8px">
+                ${this.currentView==='merit' ? `
+                  <button class="btn btn-success btn-sm" onclick="Performance.applyAllMeritIncrements()">
+                    <i class="fa fa-check-double"></i> Batch Commit Revisions
+                  </button>
+                ` : `
+                  <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
+                    <i class="fa fa-plus"></i> Initiate Review
+                  </button>
+                `}
+              </div>
             ` : ''}
           </div>
         ` : ''}
@@ -138,6 +149,7 @@ const Performance = {
       case 'reviews':     this.renderReviews(container); break;
       case 'cycles':      this.renderAppraisalCycles(container); break;
       case 'feedback360': this.render360Feedback(container); break;
+      case 'merit':       this.renderMeritIncrementMatrix(container); break;
       case 'lms':         this.renderLMSAndSkills(container); break;
       case 'succession':  this.renderSuccessionAnd9Box(container); break;
       case 'kpi':         this.renderKPIs(container); break;
@@ -2129,6 +2141,463 @@ const Performance = {
       footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Scorecard</button>`
     });
   },
+
+  // ═══════════════════════════════════════════════
+  // MERIT INCREMENT MATRIX & COMPENSATION ENGINE
+  // ═══════════════════════════════════════════════
+  meritStrategy: 'balanced',
+  meritDeptFilter: '',
+
+  renderMeritIncrementMatrix(container) {
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const allEmps = DB.get('employees') || [];
+    let emps = this.getScopedEmployees();
+    if (this.meritDeptFilter) {
+      emps = emps.filter(e => e.departmentId == this.meritDeptFilter);
+    }
+    const depts = DB.get('departments') || [];
+    const reviews = DB.get('performance_reviews') || [];
+    const appraisals = DB.get('appraisals') || [];
+    const revisions = DB.get('salary_revisions') || [];
+
+    // Matrix multiplier configurations
+    const strategies = {
+      conservative: { name: 'Conservative (3% - 10%)', a: 10, b: 7, c: 3, d: 0 },
+      balanced:     { name: 'Balanced Standard (5% - 15%)', a: 15, b: 10, c: 5, d: 0 },
+      aggressive:   { name: 'High-Reward Growth (7% - 20%)', a: 20, b: 14, c: 7, d: 0 }
+    };
+    const strat = strategies[this.meritStrategy] || strategies.balanced;
+
+    // Build calibration item for each scoped employee
+    const items = emps.map(emp => {
+      // Find latest completed review or appraisal
+      const empRev = reviews.filter(r => r.employeeId === emp.id).sort((a,b) => (b.id||0)-(a.id||0))[0];
+      const empApp = appraisals.filter(a => a.employeeId === emp.id).sort((a,b) => (b.id||0)-(a.id||0))[0];
+      
+      let rating = 0;
+      let source = 'None';
+      if (empRev && (empRev.overallRating || empRev.rating || empRev.finalScore)) {
+        rating = Number(empRev.overallRating || empRev.rating || empRev.finalScore);
+        source = 'Review ' + (empRev.quarter || 'Q2') + ' ' + (empRev.year || '2026');
+      } else if (empApp && empApp.finalScore) {
+        rating = Number(empApp.finalScore);
+        source = 'Appraisal Rubric';
+      } else {
+        // Fallback default rating based on tenure or solid performance
+        rating = 3.8;
+        source = 'Baseline Assessment';
+      }
+
+      // Determine Grade & Recommended Increment
+      let grade = 'C';
+      let recPct = strat.c;
+      let gradeColor = 'var(--info)';
+      let gradeLabel = 'Meets Standards';
+
+      if (rating >= 4.5) {
+        grade = 'A';
+        recPct = strat.a;
+        gradeColor = 'var(--success)';
+        gradeLabel = 'Exceptional Top Performer';
+      } else if (rating >= 3.5) {
+        grade = 'B';
+        recPct = strat.b;
+        gradeColor = 'var(--primary)';
+        gradeLabel = 'Exceeds Expectations';
+      } else if (rating >= 2.5) {
+        grade = 'C';
+        recPct = strat.c;
+        gradeColor = 'var(--info)';
+        gradeLabel = 'Standard Performer';
+      } else {
+        grade = 'D';
+        recPct = strat.d;
+        gradeColor = 'var(--danger)';
+        gradeLabel = 'Needs Improvement / PIP';
+      }
+
+      const curSalary = Number(emp.salary) || 120000;
+      const incAmount = Math.round(curSalary * (recPct / 100));
+      const proposedSalary = curSalary + incAmount;
+      const dept = depts.find(d => d.id == emp.departmentId)?.name || 'General';
+
+      // Check if already applied
+      const recentRev = revisions.find(r => r.employeeId === emp.id && r.revisionType === 'merit');
+
+      return {
+        emp,
+        dept,
+        rating,
+        source,
+        grade,
+        gradeColor,
+        gradeLabel,
+        curSalary,
+        recPct,
+        incAmount,
+        proposedSalary,
+        isApplied: !!recentRev,
+        appliedDate: recentRev?.effectiveDate,
+        appliedPct: recentRev?.incrementPct
+      };
+    });
+
+    // Aggregates
+    const gradeACount = items.filter(i => i.grade === 'A').length;
+    const gradeBCount = items.filter(i => i.grade === 'B').length;
+    const gradeCCount = items.filter(i => i.grade === 'C').length;
+    const gradeDCount = items.filter(i => i.grade === 'D').length;
+    const totalCurrentPayroll = items.reduce((sum, i) => sum + i.curSalary, 0);
+    const totalProjectedIncrement = items.reduce((sum, i) => sum + (i.isApplied ? 0 : i.incAmount), 0);
+    const committedCount = items.filter(i => i.isApplied).length;
+
+    container.innerHTML = `
+      <div class="animate-fade-in">
+        <!-- Matrix KPI Overview Cards -->
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Top Tier (Grade A)</div>
+            <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:4px">${gradeACount} Staff</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Rec. +${strat.a}% Merit</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--primary)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Solid Tier (Grade B)</div>
+            <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${gradeBCount} Staff</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Rec. +${strat.b}% Merit</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--info)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Standard (Grade C)</div>
+            <div style="font-size:22px;font-weight:800;color:var(--info);margin-top:4px">${gradeCCount} Staff</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">Rec. +${strat.c}% Cost of Living</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--danger)">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">PIP Needed (Grade D)</div>
+            <div style="font-size:22px;font-weight:800;color:var(--danger);margin-top:4px">${gradeDCount} Staff</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">0% Increment (Action Plan)</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid #8b5cf6">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Projected Monthly Delta</div>
+            <div style="font-size:20px;font-weight:800;color:#8b5cf6;margin-top:4px">+PKR ${Math.round(totalProjectedIncrement/1000)}k/mo</div>
+            <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">${committedCount}/${items.length} Committed</div>
+          </div>
+        </div>
+
+        <!-- Calibration & Controls Toolbar -->
+        <div class="card" style="margin-bottom:20px;padding:16px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Appraisal Calibration Model</label>
+                <select class="form-control" style="font-size:13px;padding:6px 12px;border-radius:8px" onchange="Performance.meritStrategy=this.value;Performance.renderView()">
+                  <option value="balanced" ${this.meritStrategy==='balanced'?'selected':''}>⚖️ Balanced Standard (A: 15% | B: 10% | C: 5%)</option>
+                  <option value="aggressive" ${this.meritStrategy==='aggressive'?'selected':''}>🚀 High-Reward Growth (A: 20% | B: 14% | C: 7%)</option>
+                  <option value="conservative" ${this.meritStrategy==='conservative'?'selected':''}>🛡️ Conservative Baseline (A: 10% | B: 7% | C: 3%)</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Filter Department</label>
+                <select class="form-control" style="font-size:13px;padding:6px 12px;border-radius:8px" onchange="Performance.meritDeptFilter=this.value;Performance.renderView()">
+                  <option value="">All Departments (${allEmps.length})</option>
+                  ${depts.map(d => `<option value="${d.id}" ${this.meritDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center">
+              ${isHrOrAdmin ? `
+                <button class="btn btn-success" onclick="Performance.applyAllMeritIncrements()">
+                  <i class="fa fa-bolt"></i> Batch Commit All Revisions
+                </button>
+              ` : ''}
+              <button class="btn btn-ghost" onclick="window.print()">
+                <i class="fa fa-print"></i> Print Matrix Sheet
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Calibration Matrix Table -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:700;font-size:14px;color:var(--text)">
+              <i class="fa fa-table-list" style="margin-right:8px;color:var(--primary)"></i>Merit Increment Calibration Roster
+            </span>
+            <span style="font-size:12px;color:var(--text-3)">Ratings synced with annual appraisal cycles and manager reviews</span>
+          </div>
+
+          <div class="table-wrapper" style="border:none;margin:0">
+            <table>
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Department</th>
+                  <th>Current Base Salary</th>
+                  <th>Appraisal Score</th>
+                  <th>Calibration Tier</th>
+                  <th>Recommended %</th>
+                  <th>Projected Salary</th>
+                  <th>Status / Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map(item => `
+                  <tr>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:10px">
+                        <div style="width:34px;height:34px;border-radius:50%;background:var(--primary)22;color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px">
+                          ${item.emp.fullName.split(' ').map(n=>n[0]).join('').substring(0,2)}
+                        </div>
+                        <div>
+                          <div style="font-weight:700;font-size:13px;color:var(--text)">${item.emp.fullName}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${item.emp.designation || 'Staff'} &bull; ${item.emp.empNo || 'EMP'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td><span class="badge badge-secondary" style="font-size:11px">${item.dept}</span></td>
+                    <td style="font-weight:600;color:var(--text)">${Utils.formatCurrency(item.curSalary)}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px">
+                        <span style="font-weight:800;color:var(--warning);font-size:13.5px">★ ${item.rating.toFixed(1)}</span>
+                        <span style="font-size:10.5px;color:var(--text-3)">(${item.source})</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge" style="background:${item.gradeColor}22;color:${item.gradeColor};font-weight:700;border:1px solid ${item.gradeColor}44">
+                        Grade ${item.grade} &bull; ${item.gradeLabel}
+                      </span>
+                    </td>
+                    <td>
+                      <span style="font-size:14px;font-weight:800;color:${item.recPct>0?'var(--success)':'var(--text-3)'}">
+                        ${item.recPct > 0 ? `+${item.recPct}%` : '0%'}
+                      </span>
+                      ${item.incAmount > 0 ? `<div style="font-size:10.5px;color:var(--text-3)">+${Utils.formatCurrency(item.incAmount)}/mo</div>` : ''}
+                    </td>
+                    <td style="font-weight:700;color:var(--primary);font-size:13.5px">
+                      ${Utils.formatCurrency(item.proposedSalary)}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:6px;align-items:center">
+                        ${item.isApplied ? `
+                          <span class="badge badge-success" style="font-size:11px"><i class="fa fa-check"></i> Applied (+${item.appliedPct}%)</span>
+                        ` : isHrOrAdmin ? `
+                          <button class="btn btn-primary btn-xs" onclick="Performance.applySingleMeritIncrement(${item.emp.id}, ${item.recPct})" title="Commit to Payroll">
+                            <i class="fa fa-check"></i> Apply
+                          </button>
+                        ` : `
+                          <span class="badge badge-secondary" style="font-size:10.5px">Pending HR</span>
+                        `}
+                        <button class="btn btn-ghost btn-xs" onclick="Performance.printMeritLetter(${item.emp.id})" title="Print Formal Merit Letter">
+                          <i class="fa fa-file-pdf"></i> Letter
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  applySingleMeritIncrement(empId, pct) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const curSalary = Number(emp.salary) || 120000;
+    const incAmount = Math.round(curSalary * (pct / 100));
+    const newSalary = curSalary + incAmount;
+
+    const revisions = DB.get('salary_revisions') || [];
+    const newRev = {
+      id: DB.generateId(),
+      employeeId: emp.id,
+      revisionType: 'merit',
+      oldSalary: curSalary,
+      newSalary: newSalary,
+      incrementAmount: incAmount,
+      incrementPct: pct,
+      effectiveDate: new Date().toISOString().split('T')[0],
+      scheduledReviewDate: new Date(Date.now() + 365*24*3600*1000).toISOString().split('T')[0],
+      reason: `Annual Merit Increment Calibration (+${pct}%) based on Appraisal Rating`,
+      approvedBy: Auth.user?.fullName || Auth.role,
+      status: 'applied',
+      createdAt: new Date().toISOString()
+    };
+    revisions.unshift(newRev);
+    DB.set('salary_revisions', revisions);
+
+    // Update Employee base salary
+    DB.update('employees', emp.id, { salary: newSalary });
+    DB.log('UPDATE', 'Performance', `Committed merit revision for ${emp.fullName}: PKR ${curSalary.toLocaleString()} -> PKR ${newSalary.toLocaleString()} (+${pct}%)`, Auth.user?.id);
+
+    Toast.show('Merit Increment Committed!', 'success', `${emp.fullName} salary revised to ${Utils.formatCurrency(newSalary)}`);
+    this.renderView();
+  },
+
+  applyAllMeritIncrements() {
+    const isHrOrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    if (!isHrOrAdmin) {
+      Toast.show('Access Denied', 'error', 'Only HR and Super Admin can commit merit increments');
+      return;
+    }
+
+    const emps = this.getScopedEmployees();
+    const revisions = DB.get('salary_revisions') || [];
+    let committedCount = 0;
+
+    emps.forEach(emp => {
+      const alreadyApplied = revisions.some(r => r.employeeId === emp.id && r.revisionType === 'merit');
+      if (alreadyApplied) return;
+
+      const curSalary = Number(emp.salary) || 120000;
+      // Get score
+      const reviews = DB.get('performance_reviews') || [];
+      const empRev = reviews.filter(r => r.employeeId === emp.id).sort((a,b) => (b.id||0)-(a.id||0))[0];
+      const rating = empRev ? Number(empRev.overallRating || empRev.rating || 3.8) : 3.8;
+      
+      let pct = 10;
+      if (rating >= 4.5) pct = 15;
+      else if (rating >= 3.5) pct = 10;
+      else if (rating >= 2.5) pct = 5;
+      else pct = 0;
+
+      if (pct <= 0) return;
+
+      const incAmount = Math.round(curSalary * (pct / 100));
+      const newSalary = curSalary + incAmount;
+
+      revisions.unshift({
+        id: DB.generateId(),
+        employeeId: emp.id,
+        revisionType: 'merit',
+        oldSalary: curSalary,
+        newSalary: newSalary,
+        incrementAmount: incAmount,
+        incrementPct: pct,
+        effectiveDate: new Date().toISOString().split('T')[0],
+        scheduledReviewDate: new Date(Date.now() + 365*24*3600*1000).toISOString().split('T')[0],
+        reason: `Batch Annual Appraisal Merit Increment (+${pct}%)`,
+        approvedBy: Auth.user?.fullName || Auth.role,
+        status: 'applied',
+        createdAt: new Date().toISOString()
+      });
+
+      DB.update('employees', emp.id, { salary: newSalary });
+      committedCount++;
+    });
+
+    DB.set('salary_revisions', revisions);
+    DB.log('UPDATE', 'Performance', `Batch applied merit increments for ${committedCount} employees`, Auth.user?.id);
+    Toast.show('Batch Revisions Applied!', 'success', `Successfully updated salaries for ${committedCount} employees.`);
+    this.renderView();
+  },
+
+  printMeritLetter(empId) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+    const rev = (DB.get('salary_revisions') || []).find(r => r.employeeId === empId && r.revisionType === 'merit');
+    const oldSal = rev ? rev.oldSalary : (emp.salary || 120000);
+    const newSal = rev ? rev.newSalary : Math.round(oldSal * 1.10);
+    const pct = rev ? rev.incrementPct : 10;
+    const incAmt = newSal - oldSal;
+    const company = DB.get('company') || { name: 'Apex Technologies Ltd', address: 'Plot 42, Blue Area, Islamabad, Pakistan' };
+    const printDate = new Date().toLocaleDateString('en-US', { day:'numeric', month:'long', year:'numeric' });
+
+    const w = window.open('', '_blank');
+    if (!w) {
+      alert('Please allow popups to view the Merit Letter');
+      return;
+    }
+
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Merit Salary Increment Letter — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; padding: 40px; margin: 0; background: #fff; }
+          .header { border-bottom: 2px solid #0284c7; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .company-title { font-size: 24px; font-weight: 800; color: #0f172a; }
+          .company-sub { font-size: 12px; color: #64748b; margin-top: 4px; }
+          .doc-title { font-size: 18px; font-weight: 800; color: #0284c7; text-align: center; text-transform: uppercase; letter-spacing: 1px; margin: 30px 0 20px 0; }
+          .content { line-height: 1.8; font-size: 14px; }
+          .table-box { width: 100%; border-collapse: collapse; margin: 25px 0; }
+          .table-box th, .table-box td { border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 13.5px; }
+          .table-box th { background: #f8fafc; text-align: left; font-weight: 700; }
+          .footer { margin-top: 60px; display: flex; justify-content: space-between; }
+          .sign-block { width: 220px; border-top: 1px solid #94a3b8; padding-top: 8px; text-align: center; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="company-title">${company.name || 'HRM Enterprise Systems'}</div>
+            <div class="company-sub">${company.address || 'Corporate Headquarters &bull; Human Resources Directorate'}</div>
+          </div>
+          <div style="text-align:right;font-size:12px;color:#64748b">
+            <div>Ref: HRM/PERF/REV-${emp.id}-${new Date().getFullYear()}</div>
+            <div>Date: ${printDate}</div>
+          </div>
+        </div>
+
+        <div class="doc-title">Official Performance Merit Increment Letter</div>
+
+        <div class="content">
+          <p><strong>To:</strong> ${emp.fullName}<br>
+          <strong>Employee ID:</strong> ${emp.empNo || 'EMP-' + emp.id}<br>
+          <strong>Designation:</strong> ${emp.designation || 'Staff'}<br>
+          <strong>Department:</strong> ${emp.department || 'General'}</p>
+
+          <p>Dear ${emp.fullName},</p>
+
+          <p>On behalf of the executive leadership and the Human Capital Committee, we are pleased to inform you that in recognition of your exemplary performance, dedicated contributions, and high achievements during the recent Performance Appraisal Cycle, the management has approved an official <strong>Performance Merit Increment</strong> in your compensation.</p>
+
+          <table class="table-box">
+            <tr>
+              <th>Current Gross Monthly Base Salary</th>
+              <td>PKR ${oldSal.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <th>Approved Merit Increment Percentage</th>
+              <td style="color:#0284c7;font-weight:800">+${pct}%</td>
+            </tr>
+            <tr>
+              <th>Monthly Increment Value</th>
+              <td>PKR ${incAmt.toLocaleString()}</td>
+            </tr>
+            <tr style="background:#f0fdf4">
+              <th style="color:#15803d">Revised Gross Monthly Base Salary</th>
+              <td style="color:#15803d;font-weight:800;font-size:15px">PKR ${newSal.toLocaleString()}</td>
+            </tr>
+            <tr>
+              <th>Effective Date</th>
+              <td>${rev?.effectiveDate || new Date().toISOString().split('T')[0]}</td>
+            </tr>
+          </table>
+
+          <p>All associated allowances, incentives, and provident contributions tied to your base salary will adjust accordingly in the upcoming payroll disbursement. We appreciate your dedication, leadership, and continued commitment towards the excellence of our organization.</p>
+
+          <p>We look forward to your sustained success in the upcoming cycle.</p>
+        </div>
+
+        <div class="footer">
+          <div class="sign-block">
+            <strong>Head of Human Resources</strong><br>
+            Directorate of People & Culture
+          </div>
+          <div class="sign-block">
+            <strong>Chief Financial Officer</strong><br>
+            Finance & Corporate Operations
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    w.document.close();
+    w.focus();
+    setTimeout(() => { w.print(); }, 400);
+  }
 };
 
 if (typeof window !== 'undefined') window.Performance = Performance;

@@ -4246,6 +4246,9 @@ const Leaves = {
                 <button class="btn btn-outline" onclick="Leaves.showBulkEncashmentModal()">
                   <i class="fa fa-users-gear"></i> Annual Bulk Encashment Run
                 </button>
+                <button class="btn btn-secondary" onclick="Leaves.showYearEndCarryForwardModal()" style="font-weight:700">
+                  <i class="fa fa-calendar-check"></i> Fiscal Year-End Carry-Forward Engine
+                </button>
               ` : ''}
             </div>
           </div>
@@ -4858,4 +4861,240 @@ const Leaves = {
     Toast.show(`Successfully executed bulk encashment for ${processed} employees! Scheduled in payroll.`, 'success');
     this.render();
   },
+
+  showYearEndCarryForwardModal() {
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
+    const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const balances = DB.get('leave_balances') || [];
+
+    const reconList = employees.map(emp => {
+      const bal = balances.find(b => b.employeeId === emp.id && b.leaveTypeId === 1) || { balance: 14 };
+      const currentBal = bal.balance !== undefined ? bal.balance : 12;
+      const carryLimit = 10;
+      const carriedDays = Math.min(carryLimit, currentBal);
+      const surplus = Math.max(0, currentBal - carryLimit);
+      const dailyRate = Math.round(Number(emp.salary || 50000) / 30);
+      const estEncashment = surplus * dailyRate;
+
+      return {
+        emp,
+        currentBal,
+        carriedDays,
+        surplus,
+        dailyRate,
+        estEncashment,
+        newYearOpening: carriedDays + 14 // 14 days annual entitlement for next year
+      };
+    });
+
+    const totalCarried = reconList.reduce((s, r) => s + r.carriedDays, 0);
+    const totalSurplus = reconList.reduce((s, r) => s + r.surplus, 0);
+    const totalEncashLiability = reconList.reduce((s, r) => s + r.estEncashment, 0);
+
+    Modal.show('Fiscal Year-End Leave Carry-Forward & Reconciliation Engine', `
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:14px">
+        <!-- Configuration Header -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:800;font-size:15px;color:var(--text);display:flex;align-items:center;gap:8px">
+              <i class="fa fa-calendar-check" style="color:var(--primary)"></i>
+              Annual Transition: Fiscal Year ${currentYear} &rarr; ${nextYear}
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+              Execute annual statutory balance rollover, carry-forward caps, and surplus leave reconciliation.
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="Leaves.printYearEndReconciliation(${currentYear})">
+              <i class="fa fa-print"></i> Print Audit Report
+            </button>
+          </div>
+        </div>
+
+        <!-- Policy Selector Cards -->
+        <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:10px">
+          <div style="background:var(--card);border:1.5px solid var(--primary);border-radius:10px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--primary);text-transform:uppercase">Policy Rule 1</div>
+            <div style="font-weight:800;font-size:13px;color:var(--text);margin-top:2px">Max 10 Days Carry-Forward</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">Rolls over up to 10 unused annual days to ${nextYear}. Total: <strong>${totalCarried} Days</strong>.</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--success);text-transform:uppercase">Surplus Policy</div>
+            <div style="font-weight:800;font-size:13px;color:var(--text);margin-top:2px">Auto-Encash Surplus to Payroll</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">${totalSurplus} surplus days encashed at standard rate: <strong>${Utils.formatCurrency(totalEncashLiability)}</strong>.</div>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase">New Year Grant</div>
+            <div style="font-weight:800;font-size:13px;color:var(--text);margin-top:2px">+14 Days Annual Entitlement</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">Standard annual leave quota added to carried-over balance.</div>
+          </div>
+        </div>
+
+        <!-- Reconciliation Table -->
+        <div class="table-wrapper" style="max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>${currentYear} Balance</th>
+                <th>Carried to ${nextYear}</th>
+                <th>Surplus (Encashed)</th>
+                <th>Encashment Payout</th>
+                <th>${nextYear} Opening Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${reconList.map(r => `
+                <tr>
+                  <td><strong>${r.emp.fullName}</strong> <span style="font-size:11px;color:var(--text-3)">(${r.emp.empNo})</span></td>
+                  <td>${r.currentBal}d</td>
+                  <td><span class="badge badge-primary">${r.carriedDays} Days</span></td>
+                  <td><span class="badge ${r.surplus > 0 ? 'badge-success' : 'badge-neutral'}">${r.surplus} Days</span></td>
+                  <td style="font-weight:700;color:${r.surplus > 0 ? 'var(--success)' : 'var(--text-3)'}">
+                    ${r.surplus > 0 ? Utils.formatCurrency(r.estEncashment) : '—'}
+                  </td>
+                  <td style="font-weight:800;color:var(--primary)">${r.newYearOpening} Days</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `, {
+      size: 'modal-lg',
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-primary" onclick="Leaves.executeYearEndCarryForward()" style="background:linear-gradient(135deg,#10b981,#059669);border:none;font-weight:700">
+          <i class="fa fa-play"></i> Execute Year-End Transition (${currentYear} &rarr; ${nextYear})
+        </button>
+      `
+    });
+  },
+
+  executeYearEndCarryForward() {
+    const currentYear = new Date().getFullYear();
+    const nextYear = currentYear + 1;
+    const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const balances = DB.get('leave_balances') || [];
+    const encashments = DB.get('leave_encashments') || [];
+    let count = 0;
+    let encashedCount = 0;
+
+    employees.forEach(emp => {
+      const bal = balances.find(b => b.employeeId === emp.id && b.leaveTypeId === 1);
+      const currentBal = bal ? (bal.balance !== undefined ? bal.balance : 12) : 12;
+      const carryLimit = 10;
+      const carriedDays = Math.min(carryLimit, currentBal);
+      const surplus = Math.max(0, currentBal - carryLimit);
+
+      // If surplus exists, auto-encash and push to payroll
+      if (surplus > 0) {
+        const baseSalary = Number(emp.salary || 50000);
+        const perDayRate = Math.round(baseSalary / 30);
+        const totalPayout = surplus * perDayRate;
+
+        encashments.unshift({
+          id: DB.nextId('leave_encashments'),
+          employeeId: emp.id,
+          year: currentYear,
+          leaveTypeId: 1,
+          availableBalance: currentBal,
+          retainedBalance: carriedDays,
+          encashedDays: surplus,
+          perDayRate,
+          totalPayout,
+          requestDate: Utils.today(),
+          status: 'approved',
+          approvedBy: Auth.user?.name || 'HR Admin (Fiscal Year-End)',
+          approvedAt: new Date().toISOString(),
+          payoutStatus: 'scheduled_in_payroll',
+          payrollMonth: `${nextYear}-01`,
+          notes: `Fiscal year-end auto-encashment of surplus leaves exceeding ${carryLimit}-day carry-over limit.`
+        });
+        encashedCount++;
+      }
+
+      // Update balance for the new year
+      if (bal) {
+        bal.allocated = carriedDays + 14;
+        bal.used = 0;
+        bal.balance = carriedDays + 14;
+      }
+      count++;
+    });
+
+    DB.set('leave_encashments', encashments);
+    DB.set('leave_balances', balances);
+    DB.log('CARRY_FORWARD', 'Leaves', `Executed fiscal year-end carry forward for ${count} employees (${encashedCount} surplus encashments scheduled in payroll).`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show(`Fiscal Year-End Transition executed for ${count} employees! Balances rolled over to ${nextYear}.`, 'success');
+    this.render();
+  },
+
+  printYearEndReconciliation(year) {
+    const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const balances = DB.get('leave_balances') || [];
+
+    const rows = employees.map((emp, i) => {
+      const bal = balances.find(b => b.employeeId === emp.id && b.leaveTypeId === 1) || { balance: 14 };
+      const currentBal = bal.balance !== undefined ? bal.balance : 12;
+      const carried = Math.min(10, currentBal);
+      const surplus = Math.max(0, currentBal - 10);
+      const payout = surplus * Math.round(Number(emp.salary || 50000) / 30);
+      return `
+        <tr>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0">${i + 1}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;font-weight:700">${emp.fullName} (${emp.empNo})</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center">${currentBal}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;color:#2563eb;font-weight:700">${carried}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;color:#10b981">${surplus}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right">${payout > 0 ? Utils.formatCurrency(payout) : '—'}</td>
+          <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:center;font-weight:800;color:#1e40af">${carried + 14}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const w = window.open('', '_blank');
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Fiscal_Year_End_Leave_Reconciliation_${year}</title>
+          <style>
+            body { margin:0; padding:28px; font-family:'Segoe UI',Roboto,Helvetica,sans-serif; background:#fff; color:#111; }
+            table { width:100%; border-collapse:collapse; font-size:12px; margin-top:16px; }
+            th { background:#f1f5f9; padding:10px; text-align:left; border-bottom:2px solid #cbd5e1; font-size:11px; text-transform:uppercase; }
+            @page { size: A4; margin: 12mm; }
+          </style>
+        </head>
+        <body>
+          <div style="border-bottom:2px solid #2563eb;padding-bottom:12px;margin-bottom:16px">
+            <h2 style="margin:0;color:#1e40af">HRM Enterprise Solutions &bull; Fiscal Year-End Leave Reconciliation</h2>
+            <div style="font-size:12px;color:#64748b;margin-top:4px">Audit Period: Year ${year} Rollover &bull; Generated on ${Utils.formatDate(Utils.today())}</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Employee Name</th>
+                <th style="text-align:center">Year-End Balance</th>
+                <th style="text-align:center">Carried Forward (Max 10)</th>
+                <th style="text-align:center">Surplus Encashed</th>
+                <th style="text-align:right">Encashment Liability</th>
+                <th style="text-align:center">New Year Opening</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+          <script>window.onload = function() { setTimeout(function() { window.print(); }, 350); };<\/script>
+        </body>
+      </html>
+    `);
+    w.document.close();
+  }
 };
