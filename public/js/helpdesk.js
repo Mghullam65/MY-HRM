@@ -618,6 +618,11 @@ const Helpdesk = {
               <i class="fa fa-comment-dots"></i> Chat Requester (${requester.fullName.split(' ')[0]})
             </button>
           ` : ''}
+          ${(!ticket.isAnonymous && (agent || requester)) ? `
+            <button class="btn btn-outline btn-xs" style="border-color:#107c41;color:#107c41;display:inline-flex;align-items:center;gap:4px;padding:4px 9px" onclick="Helpdesk.startDiagnosticCall(${ticket.id})" title="Launch Microsoft Teams Live Video & Screen Sharing Diagnostic">
+              <i class="fa fa-video"></i> Diagnostic Call
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -772,6 +777,52 @@ const Helpdesk = {
 
       if (typeof Toast !== 'undefined') {
         Toast.show(`Opened direct chat with ${targetEmp.fullName} regarding #${ticket.ticketNumber}`, 'success');
+      }
+    }
+  },
+
+  startDiagnosticCall(ticketId) {
+    const ticket = (typeof DB !== 'undefined') ? DB.find('helpdesk_tickets', ticketId) : null;
+    if (!ticket) {
+      if (typeof Toast !== 'undefined') Toast.show('Ticket not found', 'warning');
+      return;
+    }
+
+    const myEmpId = (typeof Auth !== 'undefined' && Auth.employee?.id) ? Auth.employee.id : 1;
+
+    let targetEmpId = null;
+    if (myEmpId === ticket.reporterId) {
+      targetEmpId = ticket.assignedTo;
+    } else {
+      targetEmpId = ticket.reporterId;
+    }
+
+    if (ticket.category === 'confidential_grievance' || !targetEmpId || targetEmpId === 0) {
+      if (typeof Toast !== 'undefined') {
+        Toast.show('Cannot launch live diagnostic call: Whistleblower identity is anonymous.', 'info');
+      }
+      return;
+    }
+
+    const employees = (typeof DB !== 'undefined' && DB.get('employees')) || [];
+    const targetEmp = employees.find(e => e.id === targetEmpId);
+    if (!targetEmp) {
+      if (typeof Toast !== 'undefined') Toast.show('Counterparty employee profile not found.', 'warning');
+      return;
+    }
+
+    if (typeof Chat !== 'undefined') {
+      if (typeof Chat.startDirectChat === 'function') {
+        Chat.startDirectChat(targetEmpId);
+      }
+      if (typeof Chat.launchCall === 'function') {
+        Chat.launchCall('video', {
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          ticketTitle: ticket.title,
+          targetEmpId: targetEmpId,
+          targetName: targetEmp.fullName
+        });
       }
     }
   },

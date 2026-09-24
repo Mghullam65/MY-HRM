@@ -2077,20 +2077,50 @@ const Chat = {
   },
 
   // ── 15. Microsoft Teams Calling Engine (Video & Audio) ────
-  startVideoCall() {
-    this.launchCall('video');
+  startVideoCall(options = {}) {
+    this.launchCall('video', options);
   },
 
-  startAudioCall() {
-    this.launchCall('audio');
+  startAudioCall(options = {}) {
+    this.launchCall('audio', options);
   },
 
-  launchCall(type = 'video') {
+  launchCall(type = 'video', options = {}) {
     const channel = this.getActiveChannel();
-    if (!channel) return;
-    const info = this.getChannelDisplayInfo(channel);
+    const me = this.getCurrentUser();
+    let contactName = options.targetName;
+    let contactAvatar = null;
 
-    this.playMessageSound('ring');
+    if (!contactName && channel) {
+      const info = this.getChannelDisplayInfo(channel);
+      contactName = info.name;
+      contactAvatar = info.avatar;
+    }
+    if (!contactName) contactName = 'Colleague';
+
+    const ticketNumber = options.ticketNumber || (channel?.lastMessage?.match(/TKT-\d{4}-\d{3}/i)?.[0]) || null;
+    const ticketTitle = options.ticketTitle || '';
+    const ticketId = options.ticketId || null;
+
+    this.activeCall = {
+      type,
+      contactName,
+      contactAvatar,
+      ticketId,
+      ticketNumber,
+      ticketTitle,
+      durationSec: 0,
+      isMuted: false,
+      isVideoOff: (type === 'audio'),
+      isScreenSharing: false,
+      isNotesOpen: false,
+      callInterval: null,
+      notes: ''
+    };
+
+    if (typeof this.playMessageSound === 'function') this.playMessageSound('ring');
+    if (typeof document === 'undefined') return;
+
     const existing = document.getElementById('teams-call-modal-overlay');
     if (existing) existing.remove();
 
@@ -2099,36 +2129,146 @@ const Chat = {
     overlay.id = 'teams-call-modal-overlay';
 
     overlay.innerHTML = `
-      <div class="teams-call-window">
-        <div class="teams-call-body">
-          <div class="teams-call-avatar-ring">
-            ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
+      <div class="teams-call-window" id="teams-call-window">
+        <!-- Call Top Bar -->
+        <div class="teams-call-topbar">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:#464eb8;color:#ffffff;font-size:12px">
+              <i class="fa fa-users-viewfinder"></i>
+            </span>
+            <div style="font-weight:700;color:#ffffff;font-size:13px">
+              Microsoft Teams Session
+              ${ticketNumber ? `<span class="badge" style="background:rgba(20,184,166,0.25);color:#2dd4bf;margin-left:8px;font-family:monospace;font-size:10.5px"><i class="fa fa-ticket"></i> #${ticketNumber}</span>` : ''}
+            </div>
+            ${ticketTitle ? `<span style="color:#94a3b8;font-size:12px;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"> — ${ticketTitle}</span>` : ''}
           </div>
-          <div class="teams-call-name">${info.name}</div>
-          <div class="teams-call-status" id="teams-call-status-label">
-            <i class="fa fa-spinner fa-spin"></i>
-            <span>Connecting to Microsoft Teams Conference…</span>
+
+          <div style="display:flex;align-items:center;gap:14px">
+            <div id="teams-call-status-label" class="teams-call-status">
+              <i class="fa fa-spinner fa-spin text-warning"></i>
+              <span>Connecting…</span>
+            </div>
+            <span style="font-size:11px;color:#94a3b8;display:inline-flex;align-items:center;gap:5px;border-left:1px solid rgba(255,255,255,0.15);padding-left:12px">
+              <i class="fa fa-shield-halved text-success"></i> 256-bit Encrypted
+            </span>
           </div>
         </div>
+
+        <!-- Call Body Area -->
+        <div class="teams-call-body" id="teams-call-body">
+          <!-- Main Viewport (Video / Screen Share) -->
+          <div class="teams-call-viewport" id="teams-call-viewport">
+            <!-- Normal Video Grid Mode -->
+            <div id="call-video-grid" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;position:relative">
+              <div class="teams-call-avatar-ring">
+                ${contactAvatar && contactAvatar.startsWith('fa-') ? `<i class="fa ${contactAvatar}"></i>` : (contactAvatar || contactName.substring(0, 2))}
+              </div>
+              <div class="teams-call-name">${contactName}</div>
+              <div style="font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:6px;margin-top:2px">
+                <span class="badge" style="background:rgba(70,78,184,0.3);color:#9299f7;font-size:10px">1080p HD</span>
+                <span>Active Voice Stream</span>
+              </div>
+
+              <!-- Animated Sound Wave Indicator -->
+              <div style="display:flex;align-items:center;gap:3px;margin-top:14px;height:18px">
+                <span class="teams-voice-wave" style="display:flex;align-items:center;gap:3px">
+                  <span style="width:3px;height:12px;background:#464eb8;border-radius:2px;animation:wavePulse 0.9s infinite alternate"></span>
+                  <span style="width:3px;height:18px;background:#10b981;border-radius:2px;animation:wavePulse 0.7s infinite alternate"></span>
+                  <span style="width:3px;height:8px;background:#464eb8;border-radius:2px;animation:wavePulse 1.1s infinite alternate"></span>
+                  <span style="width:3px;height:16px;background:#10b981;border-radius:2px;animation:wavePulse 0.8s infinite alternate"></span>
+                  <span style="width:3px;height:10px;background:#464eb8;border-radius:2px;animation:wavePulse 1.0s infinite alternate"></span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Screen Share Diagnostic Console (Hidden by default, shown when screen share toggled) -->
+            <div id="call-screenshare-view" class="teams-call-screenshare-view" style="display:none">
+              <div class="teams-call-screen-header">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="color:#10b981;font-weight:700">● LIVE STREAM</span>
+                  <span>Diagnostic Terminal — ${ticketNumber ? `Ticket #${ticketNumber}` : 'Remote Workstation'}</span>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn btn-xs" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;font-size:10px" onclick="Chat.runDiagnosticPing()">
+                    <i class="fa fa-network-wired text-primary"></i> Run Ping
+                  </button>
+                  <button class="btn btn-xs" style="background:#1e293b;color:#e2e8f0;border:1px solid #334155;font-size:10px" onclick="Chat.appendDiagnosticLog('Route table flushed. Re-established WireGuard peer 10.244.0.1')">
+                    <i class="fa fa-rotate text-success"></i> Flush Routes
+                  </button>
+                </div>
+              </div>
+              <div class="teams-call-screen-terminal" id="teams-diagnostic-terminal">
+                <div style="color:#64748b">// Microsoft Teams Remote Diagnostic Session Synchronized</div>
+                <div style="color:#38bdf8">[00:01] Target Host: staging-k8s-cluster.apex.local (IP: 10.244.0.42)</div>
+                <div style="color:#a855f7">[00:03] WireGuard Interface: wg0 | Handshake timeout detected every 12m</div>
+                <div style="color:#22c55e">[00:06] MTU packet size auto-negotiated to 1420 bytes</div>
+                <div style="color:#e2e8f0">[00:09] Active tunnel ping: 14.2ms avg (0% packet drop)</div>
+                <div style="color:#fbbf24">[00:12] Handshake refreshed with peer pubkey: 7K...qR=</div>
+              </div>
+            </div>
+
+            <!-- Self-View Picture in Picture (PiP) -->
+            <div class="teams-call-pip-card" id="teams-call-pip">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:10px;font-weight:700;color:#ffffff">You (${me.fullName.split(' ')[0]})</span>
+                <span id="pip-mic-badge" style="font-size:9px;color:#10b981"><i class="fa fa-microphone"></i></span>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;margin:4px 0" id="pip-video-preview">
+                <div style="width:36px;height:36px;border-radius:50%;background:#464eb8;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">
+                  ${typeof Utils !== 'undefined' ? Utils.avatarInitials(me.fullName) : 'ME'}
+                </div>
+              </div>
+              <div style="font-size:9.5px;color:#94a3b8;text-align:right">Self Camera (Active)</div>
+            </div>
+          </div>
+
+          <!-- Slide-Out Meeting Notes Panel -->
+          <div class="teams-call-sidepanel" id="teams-call-sidepanel" style="display:none">
+            <div style="font-weight:700;font-size:13px;color:#ffffff;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+              <span><i class="fa fa-clipboard text-primary"></i> Session Notes</span>
+              <button style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:12px" onclick="Chat.toggleCallNotes()">✕</button>
+            </div>
+            <textarea id="teams-call-notes-input" style="flex:1;background:#1a1c2e;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px;color:#ffffff;font-size:12px;font-family:inherit;resize:none;outline:none" placeholder="Type diagnostic findings, resolution actions, or follow-ups for this ticket...">${ticketNumber ? `Verified #${ticketNumber} with ${contactName}. ` : ''}</textarea>
+            <div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">
+              <button class="btn btn-xs" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:none;font-size:10px" onclick="Chat.insertNoteSnippet('MTU set to 1420. ')">+ MTU 1420</button>
+              <button class="btn btn-xs" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:none;font-size:10px" onclick="Chat.insertNoteSnippet('Handshake verified. ')">+ Handshake OK</button>
+              <button class="btn btn-xs" style="background:rgba(255,255,255,0.08);color:#e2e8f0;border:none;font-size:10px" onclick="Chat.insertNoteSnippet('User confirmed stable. ')">+ User Confirmed</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Call Controls Toolbar -->
         <div class="teams-call-controls">
-          <button class="teams-call-btn" id="call-mic-btn" onclick="Chat.toggleCallMic()" title="Mute Mic"><i class="fa fa-microphone"></i></button>
-          <button class="teams-call-btn" id="call-cam-btn" onclick="Chat.toggleCallCam()" title="Camera"><i class="fa fa-video"></i></button>
-          <button class="teams-call-btn" id="call-share-btn" onclick="Chat.toggleCallShare()" title="Share Screen"><i class="fa fa-arrow-up-from-bracket"></i></button>
-          <button class="teams-call-btn end-call" onclick="Chat.endCall()" title="End Call"><i class="fa fa-phone-slash"></i></button>
+          <button class="teams-call-btn" id="call-mic-btn" onclick="Chat.toggleCallMic()" title="Mute Microphone">
+            <i class="fa fa-microphone"></i>
+          </button>
+          <button class="teams-call-btn" id="call-cam-btn" onclick="Chat.toggleCallCam()" title="Camera On/Off">
+            <i class="fa fa-video"></i>
+          </button>
+          <button class="teams-call-btn" id="call-share-btn" onclick="Chat.toggleCallShare()" title="Share Screen / Diagnostic Console">
+            <i class="fa fa-desktop"></i>
+          </button>
+          <button class="teams-call-btn" id="call-notes-btn" onclick="Chat.toggleCallNotes()" title="Live Meeting Notes">
+            <i class="fa fa-note-sticky"></i>
+          </button>
+          <button class="teams-call-btn end-call" onclick="Chat.endCall()" title="Leave / End Call">
+            <i class="fa fa-phone-slash"></i>
+          </button>
         </div>
       </div>
     `;
 
     document.body.appendChild(overlay);
 
-    // Call connected simulation after 2.5s
+    // Call connected simulation after 1.5s
     setTimeout(() => {
       const status = document.getElementById('teams-call-status-label');
       if (status) {
-        status.innerHTML = `<span style="color:#107c41;font-weight:700">● Connected</span> <span id="call-duration-timer" style="margin-left:6px">00:01</span>`;
+        status.innerHTML = `<span style="color:#10b981;font-weight:700">● Connected</span> <span id="call-duration-timer" style="margin-left:6px;font-family:monospace;color:#ffffff">00:01</span>`;
         let sec = 1;
-        this.callInterval = setInterval(() => {
+        this.activeCall.callInterval = setInterval(() => {
           sec++;
+          if (this.activeCall) this.activeCall.durationSec = sec;
           const t = document.getElementById('call-duration-timer');
           if (t) {
             const m = String(Math.floor(sec/60)).padStart(2, '0');
@@ -2137,43 +2277,172 @@ const Chat = {
           }
         }, 1000);
       }
-    }, 2500);
+    }, 1500);
   },
 
   toggleCallMic() {
+    if (!this.activeCall) return;
+    this.activeCall.isMuted = !this.activeCall.isMuted;
     const btn = document.getElementById('call-mic-btn');
+    const badge = document.getElementById('pip-mic-badge');
+
     if (btn) {
-      btn.classList.toggle('active');
-      const isMuted = btn.classList.contains('active');
-      btn.innerHTML = `<i class="fa fa-microphone${isMuted ? '-slash' : ''}"></i>`;
-      if (typeof Toast !== 'undefined') Toast.show(isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
+      btn.classList.toggle('muted', this.activeCall.isMuted);
+      btn.innerHTML = `<i class="fa fa-microphone${this.activeCall.isMuted ? '-slash' : ''}"></i>`;
+    }
+    if (badge) {
+      badge.innerHTML = `<i class="fa fa-microphone${this.activeCall.isMuted ? '-slash' : ''}"></i>`;
+      badge.style.color = this.activeCall.isMuted ? '#ef4444' : '#10b981';
+    }
+    if (typeof Toast !== 'undefined') {
+      Toast.show(this.activeCall.isMuted ? 'Microphone muted' : 'Microphone unmuted', 'info');
     }
   },
 
   toggleCallCam() {
+    if (!this.activeCall) return;
+    this.activeCall.isVideoOff = !this.activeCall.isVideoOff;
     const btn = document.getElementById('call-cam-btn');
+    const pip = document.getElementById('pip-video-preview');
+
     if (btn) {
-      btn.classList.toggle('active');
-      const isOff = btn.classList.contains('active');
-      btn.innerHTML = `<i class="fa fa-video${isOff ? '-slash' : ''}"></i>`;
-      if (typeof Toast !== 'undefined') Toast.show(isOff ? 'Camera turned off' : 'Camera enabled', 'info');
+      btn.classList.toggle('muted', this.activeCall.isVideoOff);
+      btn.innerHTML = `<i class="fa fa-video${this.activeCall.isVideoOff ? '-slash' : ''}"></i>`;
+    }
+    if (pip) {
+      const me = this.getCurrentUser();
+      pip.innerHTML = this.activeCall.isVideoOff
+        ? `<span style="font-size:11px;color:#ef4444"><i class="fa fa-video-slash"></i> Off</span>`
+        : `<div style="width:36px;height:36px;border-radius:50%;background:#464eb8;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700">${typeof Utils !== 'undefined' ? Utils.avatarInitials(me.fullName) : 'ME'}</div>`;
+    }
+    if (typeof Toast !== 'undefined') {
+      Toast.show(this.activeCall.isVideoOff ? 'Camera turned off' : 'Camera enabled', 'info');
     }
   },
 
   toggleCallShare() {
+    if (!this.activeCall) return;
+    this.activeCall.isScreenSharing = !this.activeCall.isScreenSharing;
     const btn = document.getElementById('call-share-btn');
+    const videoGrid = document.getElementById('call-video-grid');
+    const screenView = document.getElementById('call-screenshare-view');
+
     if (btn) {
-      btn.classList.toggle('active');
-      if (typeof Toast !== 'undefined') Toast.show('🖥 Screen sharing synchronized', 'success');
+      btn.classList.toggle('active', this.activeCall.isScreenSharing);
+    }
+    if (videoGrid && screenView) {
+      if (this.activeCall.isScreenSharing) {
+        videoGrid.style.display = 'none';
+        screenView.style.display = 'flex';
+        if (typeof Toast !== 'undefined') Toast.show('🖥 Screen sharing diagnostic stream synchronized', 'success');
+      } else {
+        videoGrid.style.display = 'flex';
+        screenView.style.display = 'none';
+        if (typeof Toast !== 'undefined') Toast.show('Returned to video conference grid', 'info');
+      }
     }
   },
 
+  toggleCallNotes() {
+    if (!this.activeCall) return;
+    this.activeCall.isNotesOpen = !this.activeCall.isNotesOpen;
+    const btn = document.getElementById('call-notes-btn');
+    const panel = document.getElementById('teams-call-sidepanel');
+
+    if (btn) btn.classList.toggle('active', this.activeCall.isNotesOpen);
+    if (panel) {
+      panel.style.display = this.activeCall.isNotesOpen ? 'flex' : 'none';
+    }
+  },
+
+  insertNoteSnippet(text) {
+    const input = document.getElementById('teams-call-notes-input');
+    if (input) {
+      input.value += text;
+      input.focus();
+    }
+  },
+
+  appendDiagnosticLog(text) {
+    const term = document.getElementById('teams-diagnostic-terminal');
+    if (term) {
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const row = document.createElement('div');
+      row.style.color = '#38bdf8';
+      row.textContent = `[${now}] ${text}`;
+      term.appendChild(row);
+      term.scrollTop = term.scrollHeight;
+    }
+  },
+
+  runDiagnosticPing() {
+    this.appendDiagnosticLog('PING 10.244.0.1 (gateway) 56 bytes of data.');
+    setTimeout(() => {
+      this.appendDiagnosticLog('64 bytes from 10.244.0.1: icmp_seq=1 ttl=64 time=11.4 ms (STABLE)');
+    }, 400);
+  },
+
   endCall() {
-    clearInterval(this.callInterval);
-    this.playMessageSound('hangup');
-    const overlay = document.getElementById('teams-call-modal-overlay');
-    if (overlay) overlay.remove();
-    if (typeof Toast !== 'undefined') Toast.show('Call ended', 'info');
+    let durationStr = '00:00';
+    let ticketId = null;
+    let ticketNumber = null;
+    let notesText = '';
+
+    if (this.activeCall) {
+      if (this.activeCall.callInterval) clearInterval(this.activeCall.callInterval);
+      const sec = this.activeCall.durationSec || 0;
+      const m = String(Math.floor(sec/60)).padStart(2, '0');
+      const s = String(sec%60).padStart(2, '0');
+      durationStr = `${m}:${s}`;
+      ticketId = this.activeCall.ticketId;
+      ticketNumber = this.activeCall.ticketNumber;
+
+      if (typeof document !== 'undefined') {
+        const notesInput = document.getElementById('teams-call-notes-input');
+        if (notesInput) notesText = notesInput.value.trim();
+      }
+    }
+
+    if (typeof this.playMessageSound === 'function') this.playMessageSound('hangup');
+    if (typeof document !== 'undefined') {
+      const overlay = document.getElementById('teams-call-modal-overlay');
+      if (overlay) overlay.remove();
+    }
+
+    // 1. If call was related to a Helpdesk ticket, log diagnostic summary into ticket messages
+    if (ticketId && typeof DB !== 'undefined') {
+      const tickets = DB.get('helpdesk_tickets') || [];
+      const t = tickets.find(x => x.id === ticketId);
+      if (t) {
+        if (!t.messages) t.messages = [];
+        const me = this.getCurrentUser();
+        t.messages.push({
+          id: t.messages.length + 1,
+          senderId: me.id,
+          senderName: me.fullName,
+          role: 'DIAGNOSTIC SESSION',
+          text: `📞 **Microsoft Teams Diagnostic Video Call Completed**\nDuration: ${durationStr} • Screen-sharing telemetry verified.${notesText ? `\n*Session Notes:* ${notesText}` : ''}`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' Today',
+          isInternal: false
+        });
+        DB.set('helpdesk_tickets', tickets);
+
+        // If Helpdesk workspace is open, refresh thread
+        if (typeof Helpdesk !== 'undefined' && Helpdesk.selectedTicketId === ticketId) {
+          Helpdesk.openTicketWorkspace(ticketId);
+        }
+      }
+    }
+
+    // 2. Post call record into active Chat channel
+    const callSummary = `📞 **Microsoft Teams Video Call Ended**\nDuration: ${durationStr} ${ticketNumber ? `• Diagnostic for #${ticketNumber}` : ''}${notesText ? `\n*Notes:* ${notesText}` : ''}`;
+    this.sendCustomMessage(callSummary);
+
+    if (typeof Toast !== 'undefined') {
+      Toast.show(`Call ended (${durationStr})`, 'info');
+    }
+
+    this.activeCall = null;
   },
 
   // ── 16. Custom Status & Presence Popover ──────────────────
