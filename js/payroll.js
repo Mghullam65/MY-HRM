@@ -1710,8 +1710,10 @@ const Payroll = {
             <button class="btn btn-sm" onclick="Payroll.emailPayslips()" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);color:#fff;border:none;"><i class="fa fa-envelope"></i> Email Payslips</button>
             <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(null, Payroll.currentMonth)"><i class="fa fa-plus"></i> Generate Payslip</button>
           ` : `
+            <button class="btn btn-primary btn-sm" onclick="Payroll.printSlip(${Auth.employee?.id || 1}, Payroll.currentMonth)"><i class="fa fa-file-pdf"></i> Download PDF Payslip</button>
+            <button class="btn btn-secondary btn-sm" onclick="Payroll.showForm16Modal(${Auth.employee?.id || 1})"><i class="fa fa-scale-balanced"></i> FBR Tax Certificate (Form 16)</button>
             <div style="background:var(--surface);border:1px solid var(--border);padding:6px 12px;border-radius:8px;font-size:11.5px;color:var(--text-3);display:flex;align-items:center;gap:6px">
-              <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Self-Service &bull; Official Payslips Issued by HR &amp; Finance
+              <i class="fa fa-shield-halved" style="color:var(--primary)"></i> Employee Self-Service &bull; Official Digital Signatures
             </div>
           `}
         </div>
@@ -1733,7 +1735,9 @@ const Payroll = {
                     <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Print / PDF"><i class="fa fa-print"></i></button>
                     <button class="btn btn-ghost btn-icon btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')" title="Edit Slip"><i class="fa fa-pen"></i></button>
                   ` : `
-                    <button class="btn btn-primary btn-sm w-full" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View Slip</button>
+                    <button class="btn btn-primary btn-sm" style="flex:1" onclick="Payroll.viewSlip(${emp.id},'${this.currentMonth}')"><i class="fa fa-eye"></i> View</button>
+                    <button class="btn btn-ghost btn-sm" onclick="Payroll.printSlip(${emp.id},'${this.currentMonth}')" title="Download / Print PDF Payslip" style="color:var(--primary)"><i class="fa fa-file-pdf"></i> PDF</button>
+                    <button class="btn btn-ghost btn-sm" onclick="Payroll.showForm16Modal(${emp.id})" title="Download FBR Tax Certificate" style="color:var(--accent)"><i class="fa fa-scale-balanced"></i> Tax Cert</button>
                   `}
                 ` : `
                   ${canManage ? `
@@ -1897,8 +1901,9 @@ const Payroll = {
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
         ${(['superadmin', 'hr_manager'].includes(Auth.role) || Number(emp.id) === Auth.employee?.id) ? `
           <button class="btn btn-secondary" onclick="Payroll.exportSingleSlipCSV(${emp.id}, '${month}')"><i class="fa fa-file-csv"></i> Download CSV</button>
+          <button class="btn btn-secondary" onclick="Payroll.showForm16Modal(${emp.id})"><i class="fa fa-scale-balanced" style="color:var(--accent)"></i> FBR Tax Certificate</button>
           <button class="btn btn-info" onclick="Payroll.emailSinglePayslip(${emp.id}, '${month}')" style="background:linear-gradient(135deg,#0c4a6e,#0284c7);border:none;color:#fff;"><i class="fa fa-envelope"></i> Email Slip</button>
-          <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-print"></i> Print / Save as PDF</button>
+          <button class="btn btn-primary" onclick="Payroll.printSlip(${emp.id}, '${month}')"><i class="fa fa-file-pdf"></i> Download PDF Payslip</button>
         ` : `
           <div style="font-size:11.5px;color:var(--text-3);display:inline-flex;align-items:center;gap:6px;margin-right:auto">
             <i class="fa fa-shield-halved" style="color:var(--primary)"></i> View-Only Access &bull; Official signed/stamped payslips are provided by HR Administration.
@@ -3271,8 +3276,10 @@ const Payroll = {
   },
 
   printSlip(empId, month) {
-    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
-      Toast.show('Printing and downloading payslips is reserved for HR & Admin', 'warning');
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isOwnSlip = Auth.employee && Number(empId) === Number(Auth.employee.id);
+    if (!isHrOrAdmin && !isOwnSlip) {
+      Toast.show('Access Denied: You may only download and print your own payslip.', 'warning');
       return;
     }
     const emp = DB.find('employees', Number(empId));
@@ -3516,8 +3523,10 @@ const Payroll = {
   },
 
   printPFStatement(empId) {
-    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
-      Toast.show('Printing and downloading Provident Fund statements is reserved for HR & Admin', 'warning');
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isOwnStatement = Auth.employee && Number(empId) === Number(Auth.employee.id);
+    if (!isHrOrAdmin && !isOwnStatement) {
+      Toast.show('Access Denied: You may only print your own Provident Fund statement.', 'warning');
       return;
     }
     const emp = DB.find('employees', Number(empId));
@@ -4219,6 +4228,10 @@ const Payroll = {
   },
 
   showSection149Cert(employeeId, taxYear = '2026-2027') {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!isHrOrAdmin && Auth.employee) {
+      employeeId = Auth.employee.id;
+    }
     const emp = DB.find('employees', Number(employeeId)) || DB.get('employees')[0];
     if (!emp) return;
 
@@ -4343,30 +4356,48 @@ const Payroll = {
     `, {
       footer: `
         <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-        <button class="btn btn-primary" onclick="Payroll.printSection149Cert(${emp.id})">
-          <i class="fa fa-print"></i> Print Official Section 149 Certificate
+        <button class="btn btn-primary" onclick="Payroll.printSection149Cert(${emp.id}, '${taxYear}')">
+          <i class="fa fa-file-pdf"></i> Download / Print Official Section 149 Certificate (PDF)
         </button>
       `
     });
   },
 
-  printSection149Cert(employeeId) {
+  printSection149Cert(employeeId, taxYear = '2026-2027') {
+    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!isHrOrAdmin && Auth.employee && Number(employeeId) !== Number(Auth.employee.id)) {
+      Toast.show('Access Denied: You may only download your own tax certificate.', 'warning');
+      return;
+    }
+    const emp = DB.find('employees', Number(employeeId)) || Auth.employee;
+    const empTag = emp ? `${emp.empNo}_${(emp.fullName || '').replace(/\s+/g, '_')}` : `EMP_${employeeId}`;
     const area = document.getElementById('fbr-cert-print-area');
     if (!area) return;
     const w = window.open('', '_blank');
     w.document.write(`
+      <!DOCTYPE html>
       <html>
         <head>
-          <title>FBR_Section149_Certificate</title>
+          <meta charset="utf-8">
+          <title>FBR_Section149_Tax_Certificate_${empTag}_${taxYear}</title>
           <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
           <style>
-            body { margin:0; padding:20px; font-family:'Segoe UI',Roboto,Helvetica,sans-serif; background:#fff; color:#000; }
-            @page { size: A4; margin: 15mm; }
+            body { margin:0; padding:24px; font-family:'Segoe UI',Roboto,Helvetica,sans-serif; background:#fff; color:#000; }
+            @page { size: A4; margin: 12mm; }
+            @media print {
+              body { padding:0; }
+            }
           </style>
         </head>
         <body>
           ${area.outerHTML}
-          <script>window.onload = function() { window.print(); window.close(); }<\/script>
+          <script>
+            window.onload = function() { 
+              setTimeout(function() {
+                window.print(); 
+              }, 300);
+            };
+          <\/script>
         </body>
       </html>
     `);
