@@ -9538,17 +9538,30 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
   // ============================================================
   // PHASE 1: DISCIPLINE & LEGAL COMPLIANCE MODULE
   // ============================================================
-  disciplinarySubTab: 'inquiries',
+  disciplinarySubTab: 'show_cause',
 
   renderDiscipline(container) {
     const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
     const myEmpId = Auth.employee?.id;
     const allEmps = DB.get('employees') || [];
-    const types = DB.get('disciplinary_types') || [];
+    let types = DB.get('disciplinary_types') || [];
+    if (!types || types.length === 0) {
+      types = [
+        { id: 1, code: 'VIO-ABS', name: 'Unauthorized / Chronic Absenteeism', severity: 'major', description: 'Continuous absence without prior sanctioned leave or supervisor notification exceeding 3 days.' },
+        { id: 2, code: 'VIO-INSUB', name: 'Willful Insubordination & Non-Compliance', severity: 'severe', description: 'Direct refusal to obey legitimate executive or line manager work directives and corporate policies.' },
+        { id: 3, code: 'VIO-NEGL', name: 'Gross Negligence & Duty Dereliction', severity: 'severe', description: 'Carelessness or omission causing substantial operational loss, system downtime, or safety hazards.' },
+        { id: 4, code: 'VIO-FIN', name: 'Financial Irregularity & Asset Misappropriation', severity: 'severe', description: 'Falsification of accounts, fraudulent reimbursement claims, or unauthorized use of company assets.' },
+        { id: 5, code: 'VIO-ETH', name: 'Breach of Code of Ethics & Harassment', severity: 'severe', description: 'Workplace harassment, abusive conduct, or violation of nondisclosure and confidentiality agreements.' }
+      ];
+      DB.set('disciplinary_types', types);
+    }
     const actions = DB.get('disciplinary_actions') || [];
     const warningLetters = DB.get('warning_letters') || [];
+    const showCauseNotices = DB.get('show_cause_notices') || [];
     const suspensions = DB.get('suspensions') || [];
     const terminations = DB.get('terminations') || [];
+
+    const today = new Date();
 
     // Helper for warning severity badge
     const warningBadge = (level) => {
@@ -9562,22 +9575,35 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
       }
     };
 
-    const statusBadge = (status) => {
+    // Helper for SCN status badge
+    const scnStatusBadge = (status, replyDeadline) => {
+      const daysLeft = replyDeadline ? Math.ceil((new Date(replyDeadline) - today) / (1000 * 60 * 60 * 24)) : 0;
       switch(status) {
-        case 'under_investigation': return '<span class="badge badge-warning" style="background:#f59e0b;color:#fff"><i class="fa fa-magnifying-glass"></i> Under Investigation</span>';
-        case 'hearing_scheduled': return '<span class="badge badge-info"><i class="fa fa-calendar-check"></i> Hearing Scheduled</span>';
-        case 'action_taken': return '<span class="badge badge-danger"><i class="fa fa-gavel"></i> Sanction Issued</span>';
-        case 'closed': return '<span class="badge badge-success"><i class="fa fa-circle-check"></i> Inquiry Closed</span>';
-        default: return `<span class="badge badge-secondary">${status}</span>`;
+        case 'pending_explanation':
+          if (daysLeft < 0) return `<span class="badge badge-danger" style="animation:pulse 2s infinite"><i class="fa fa-clock"></i> Reply Overdue (${Math.abs(daysLeft)}d)</span>`;
+          return `<span class="badge badge-warning" style="background:#f59e0b;color:#fff"><i class="fa fa-clock"></i> Awaiting Defense (${daysLeft}d left)</span>`;
+        case 'explanation_submitted':
+          return '<span class="badge badge-info"><i class="fa fa-envelope-open-text"></i> Defense Submitted</span>';
+        case 'hearing_scheduled':
+          return '<span class="badge" style="background:#8b5cf6;color:#fff"><i class="fa fa-calendar-check"></i> Hearing Scheduled</span>';
+        case 'findings_recorded':
+          return '<span class="badge badge-primary"><i class="fa fa-clipboard-check"></i> Findings Recorded</span>';
+        case 'sanction_enforced':
+          return '<span class="badge badge-danger"><i class="fa fa-gavel"></i> Sanction Enforced</span>';
+        case 'exonerated':
+          return '<span class="badge badge-success"><i class="fa fa-shield-halved"></i> Exonerated (Dismissed)</span>';
+        default:
+          return `<span class="badge badge-secondary">${status}</span>`;
       }
     };
 
     if (isStaff) {
       // ──────────────────────────────────────────────────────────
-      // EMPLOYEE PORTAL: Strictly Scoped Personal Notices & Legal Acknowledgment
+      // EMPLOYEE PORTAL: Scoped Personal Notices, SCN Defense, & Warnings
       // ──────────────────────────────────────────────────────────
+      const myShowCause = showCauseNotices.filter(s => s.employeeId === myEmpId);
       const myLetters = warningLetters.filter(w => w.employeeId === myEmpId);
-      const myInquiries = actions.filter(a => a.employeeId === myEmpId);
+      const pendingSCN = myShowCause.filter(s => s.status === 'pending_explanation');
       const pendingAck = myLetters.filter(w => !w.acknowledged).length;
 
       container.innerHTML = `
@@ -9587,20 +9613,24 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
             <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
               <div>
                 <h3 style="font-size:17px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
-                  <i class="fa fa-gavel" style="color:var(--danger)"></i> Legal & Disciplinary Compliance Portal
+                  <i class="fa fa-gavel" style="color:var(--danger)"></i> Legal &amp; Disciplinary Compliance Portal
                 </h3>
                 <div style="font-size:12.5px;color:var(--text-3)">
                   Formal corporate disciplinary notices, inquiry hearings, and corrective remediation directives. Review official documents and formally sign receipt acknowledgment.
                 </div>
               </div>
               <div style="display:flex;align-items:center;gap:8px">
-                ${pendingAck > 0 ? `
+                ${pendingSCN.length > 0 ? `
+                  <span class="badge badge-danger" style="font-size:12px;padding:5px 12px;animation:pulse 2s infinite">
+                    <i class="fa fa-scale-balanced"></i> ${pendingSCN.length} Show-Cause Action Required
+                  </span>
+                ` : pendingAck > 0 ? `
                   <span class="badge badge-warning" style="font-size:12px;padding:5px 12px;background:#f59e0b;color:#fff">
                     <i class="fa fa-bell"></i> ${pendingAck} Pending Acknowledgment${pendingAck>1?'s':''}
                   </span>
                 ` : `
                   <span class="badge badge-success" style="font-size:12px;padding:5px 12px">
-                    <i class="fa fa-circle-check"></i> Fully Compliant & Acknowledged
+                    <i class="fa fa-circle-check"></i> Fully Compliant &amp; Acknowledged
                   </span>
                 `}
                 <span class="chip" style="font-size:11px"><i class="fa fa-shield-halved"></i> Corporate Legal Records</span>
@@ -9608,20 +9638,110 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
             </div>
           </div>
 
+          <!-- Pending Show-Cause Defense Alert Box (If any) -->
+          ${pendingSCN.map(scn => {
+            const daysLeft = Math.ceil((new Date(scn.replyDeadline) - today) / (1000 * 60 * 60 * 24));
+            return `
+              <div class="card mb-20" style="background:#fff;border:2px solid #ef4444;box-shadow:0 4px 14px rgba(239,68,68,0.12)">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+                  <div>
+                    <span class="badge badge-danger" style="font-size:11.5px;margin-bottom:6px">
+                      <i class="fa fa-triangle-exclamation"></i> ACTION REQUIRED: FORMAL SHOW-CAUSE NOTICE
+                    </span>
+                    <h3 style="font-size:16px;font-weight:800;color:#991b1b;margin:4px 0">${scn.title}</h3>
+                    <div style="font-size:12px;color:var(--text-3);margin-bottom:8px">
+                      Ref: <code>${scn.noticeNo}</code> &bull; Issued by: ${scn.issuedBy} on ${Utils.formatDate(scn.issueDate)}
+                    </div>
+                    <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:6px;font-size:13px;color:#7f1d1d;margin-bottom:10px">
+                      <strong>Allegations &amp; Particulars:</strong> ${scn.allegationDetails}
+                    </div>
+                    <div style="font-size:12px;font-weight:600;color:${daysLeft<=2?'#b91c1c':'#c2410c'}">
+                      <i class="fa fa-clock"></i> Mandatory Response Deadline: <strong>${Utils.formatDate(scn.replyDeadline)}</strong> (${daysLeft > 0 ? `${daysLeft} calendar days remaining` : 'DEADLINE OVERDUE - Submit Immediately'})
+                    </div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;min-width:160px">
+                    <button class="btn btn-danger" onclick="Employees.showSubmitShowCauseExplanationModal(${scn.id})" style="font-weight:700">
+                      <i class="fa fa-pen-to-square"></i> Submit Written Defense
+                    </button>
+                    <button class="btn btn-ghost btn-sm" onclick="Employees.printShowCauseNotice(${scn.id})">
+                      <i class="fa fa-file-pdf"></i> View Official Notice
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+
+          <!-- Show-Cause Notices Table for Employee -->
+          ${myShowCause.length > 0 ? `
+            <div class="card mb-20" style="padding:0">
+              <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+                <h4 style="font-size:14.5px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px">
+                  <i class="fa fa-scale-balanced" style="color:var(--primary)"></i> Formal Show-Cause Inquiries &amp; Proceedings (${myShowCause.length})
+                </h4>
+                <span style="font-size:12px;color:var(--text-3)">Statutory inquiry cases and defense filings</span>
+              </div>
+              <div class="table-wrapper" style="border:none">
+                <table>
+                  <thead><tr>
+                    <th>Notice Ref #</th>
+                    <th>Category</th>
+                    <th>Allegation Subject</th>
+                    <th>Issue Date</th>
+                    <th>Reply Due</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Actions</th>
+                  </tr></thead>
+                  <tbody>
+                    ${myShowCause.map(scn => `
+                      <tr>
+                        <td><code style="font-weight:700;color:var(--primary)">${scn.noticeNo}</code></td>
+                        <td><span class="chip">${scn.violationCategory || 'General'}</span></td>
+                        <td>
+                          <div style="font-weight:700;font-size:13px">${scn.title}</div>
+                          <div style="font-size:11px;color:var(--text-3);max-width:320px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${scn.allegationDetails}</div>
+                        </td>
+                        <td style="font-size:12px">${Utils.formatDate(scn.issueDate)}</td>
+                        <td style="font-size:12px;font-weight:600">${Utils.formatDate(scn.replyDeadline)}</td>
+                        <td>${scnStatusBadge(scn.status, scn.replyDeadline)}</td>
+                        <td style="text-align:right">
+                          <div style="display:flex;justify-content:flex-end;gap:6px">
+                            ${scn.status === 'pending_explanation' ? `
+                              <button class="btn btn-primary btn-xs" onclick="Employees.showSubmitShowCauseExplanationModal(${scn.id})">
+                                <i class="fa fa-pen"></i> Submit Defense
+                              </button>
+                            ` : scn.employeeExplanation?.submittedAt ? `
+                              <button class="btn btn-secondary btn-xs" onclick="Employees.showReviewExplanationModal(${scn.id})">
+                                <i class="fa fa-eye"></i> View Defense
+                              </button>
+                            ` : ''}
+                            <button class="btn btn-ghost btn-xs" onclick="Employees.printShowCauseNotice(${scn.id})" title="Print Show-Cause Notice">
+                              <i class="fa fa-file-pdf"></i> SCN PDF
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ` : ''}
+
           <!-- Warning Letters Table for Employee -->
           <div class="card mb-20" style="padding:0">
             <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
               <h4 style="font-size:14.5px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px">
-                <i class="fa fa-triangle-exclamation" style="color:var(--warning)"></i> Official Warning Letters & Corrective Directives (${myLetters.length})
+                <i class="fa fa-triangle-exclamation" style="color:var(--warning)"></i> Official Warning Letters &amp; Corrective Directives (${myLetters.length})
               </h4>
               <span style="font-size:12px;color:var(--text-3)">Confidential official correspondence issued to you</span>
             </div>
-            <div class="table-wrapper" style="border:none;border-radius:0">
+            <div class="table-wrapper" style="border:none">
               <table>
                 <thead><tr>
                   <th>Notice Ref #</th>
                   <th>Warning Classification</th>
-                  <th>Subject & Details</th>
+                  <th>Subject &amp; Details</th>
                   <th>Issue Date</th>
                   <th>Remediation Period</th>
                   <th>Acknowledgment Status</th>
@@ -9671,62 +9791,29 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
               </table>
             </div>
           </div>
-
-          <!-- Formal Disciplinary Inquiries Section for Employee -->
-          ${myInquiries.length > 0 ? `
-            <div class="card" style="padding:0">
-              <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
-                <h4 style="font-size:14px;font-weight:700;margin:0">Active or Resolved Inquiry Cases (${myInquiries.length})</h4>
-              </div>
-              <div class="table-wrapper" style="border:none;border-radius:0">
-                <table>
-                  <thead><tr>
-                    <th>Case #</th>
-                    <th>Allegation Category</th>
-                    <th>Summary</th>
-                    <th>Incident Date</th>
-                    <th>Hearing Date</th>
-                    <th>Investigation Status</th>
-                  </tr></thead>
-                  <tbody>
-                    ${myInquiries.map(a => {
-                      const typeObj = types.find(t => t.id === a.typeId);
-                      return `
-                        <tr>
-                          <td><code style="font-weight:700;color:var(--danger)">${a.caseNo}</code></td>
-                          <td><span class="chip">${typeObj?.name || 'General Inquiry'}</span></td>
-                          <td>
-                            <div style="font-weight:600;font-size:13px">${a.title}</div>
-                            <div style="font-size:11.5px;color:var(--text-3);max-width:350px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.description}</div>
-                          </td>
-                          <td style="font-size:12px">${Utils.formatDate(a.incidentDate)}</td>
-                          <td style="font-size:12px">${a.hearingDate ? Utils.formatDate(a.hearingDate) : 'Not Scheduled'}</td>
-                          <td>${statusBadge(a.status)}</td>
-                        </tr>
-                      `;
-                    }).join('')}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ` : ''}
         </div>
       `;
       return;
     }
 
     // ──────────────────────────────────────────────────────────
-    // HR MANAGEMENT & SUPERADMIN: Corporate Disciplinary Dashboard & Case Registry
+    // HR MANAGEMENT & SUPERADMIN: Corporate Disciplinary Dashboard & Show-Cause Hub
     // ──────────────────────────────────────────────────────────
+    const activeSCNs = showCauseNotices.filter(s => s.status === 'pending_explanation' || s.status === 'explanation_submitted').length;
     const activeInquiries = actions.filter(a => a.status === 'under_investigation' || a.status === 'hearing_scheduled').length;
     const totalWarnings = warningLetters.length;
     const pendingAckCount = warningLetters.filter(w => !w.acknowledged).length;
-    const totalSanctions = suspensions.length + terminations.length;
+    const totalSanctions = suspensions.length + terminations.length + showCauseNotices.filter(s => s.status === 'sanction_enforced').length;
 
     container.innerHTML = `
       <div class="animate-fade-in">
         <!-- Top Statistics Cards -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:16px;margin-bottom:20px">
+          <div class="card" style="padding:16px 20px;border-left:4px solid #ef4444">
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Pending Show-Cause Notices</div>
+            <div style="font-size:26px;font-weight:800;color:#ef4444;margin-top:4px">${showCauseNotices.length}</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">${activeSCNs} active response / hearing</div>
+          </div>
           <div class="card" style="padding:16px 20px;border-left:4px solid #f59e0b">
             <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Active Inquiries</div>
             <div style="font-size:26px;font-weight:800;color:#f59e0b;margin-top:4px">${activeInquiries}</div>
@@ -9735,17 +9822,12 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           <div class="card" style="padding:16px 20px;border-left:4px solid var(--primary)">
             <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Warnings Issued</div>
             <div style="font-size:26px;font-weight:800;color:var(--primary);margin-top:4px">${totalWarnings}</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Formal written directives</div>
-          </div>
-          <div class="card" style="padding:16px 20px;border-left:4px solid ${pendingAckCount>0?'#ea580c':'#16a34a'}">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Pending Signatures</div>
-            <div style="font-size:26px;font-weight:800;color:${pendingAckCount>0?'#ea580c':'#16a34a'};margin-top:4px">${pendingAckCount}</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Employee acknowledgments</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">${pendingAckCount} pending employee acknowledgment</div>
           </div>
           <div class="card" style="padding:16px 20px;border-left:4px solid var(--danger)">
-            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Severe Escalations</div>
+            <div style="font-size:12px;color:var(--text-3);font-weight:600;text-transform:uppercase">Severe Sanctions</div>
             <div style="font-size:26px;font-weight:800;color:var(--danger);margin-top:4px">${totalSanctions}</div>
-            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Suspensions & Terminations</div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:2px">Fines, Suspensions &amp; Terminations</div>
           </div>
         </div>
 
@@ -9754,88 +9836,108 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div>
               <h3 style="font-size:17.5px;font-weight:700;margin:0 0 4px 0;display:flex;align-items:center;gap:8px">
-                <i class="fa fa-scale-balanced" style="color:var(--primary)"></i> Corporate Legal & Disciplinary Management
+                <i class="fa fa-scale-balanced" style="color:var(--primary)"></i> Disciplinary Inquiry &amp; Formal Show-Cause System
               </h3>
               <div style="font-size:12.5px;color:var(--text-3)">
-                Manage formal inquiries, schedule hearings, issue corporate warning notices, and audit compliance trails.
+                Issue statutory Show-Cause Notices (7-day reply), record Inquiry Hearing Minutes, and enforce penalties under the labor compliance matrix.
               </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-danger btn-sm" onclick="Employees.showIssueShowCauseNoticeModal()">
+                <i class="fa fa-scale-balanced"></i> Issue Show-Cause Notice
+              </button>
               <button class="btn btn-secondary btn-sm" onclick="Employees.showIssueWarningLetterModal()">
                 <i class="fa fa-file-pen"></i> Issue Warning Letter
               </button>
               <button class="btn btn-primary btn-sm" onclick="Employees.showAddDisciplinaryActionModal()">
-                <i class="fa fa-plus"></i> Log Disciplinary Inquiry
+                <i class="fa fa-plus"></i> Log Case
               </button>
             </div>
           </div>
 
           <!-- Internal Sub-navigation Tabs -->
           <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-            <button class="btn btn-xs ${this.disciplinarySubTab==='inquiries'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='inquiries';Employees.renderDiscipline(document.getElementById('emp-content'))">
-              <i class="fa fa-magnifying-glass"></i> Inquiry Cases (${actions.length})
+            <button class="btn btn-xs ${this.disciplinarySubTab==='show_cause'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='show_cause';Employees.renderDiscipline(document.getElementById('emp-content'))">
+              <i class="fa fa-scale-balanced"></i> Show-Cause Notices (${showCauseNotices.length})
             </button>
             <button class="btn btn-xs ${this.disciplinarySubTab==='warnings'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='warnings';Employees.renderDiscipline(document.getElementById('emp-content'))">
               <i class="fa fa-triangle-exclamation"></i> Warning Letters Registry (${warningLetters.length})
             </button>
+            <button class="btn btn-xs ${this.disciplinarySubTab==='inquiries'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='inquiries';Employees.renderDiscipline(document.getElementById('emp-content'))">
+              <i class="fa fa-magnifying-glass"></i> Investigation Cases (${actions.length})
+            </button>
             <button class="btn btn-xs ${this.disciplinarySubTab==='types'?'btn-primary':'btn-ghost'}" onclick="Employees.disciplinarySubTab='types';Employees.renderDiscipline(document.getElementById('emp-content'))">
-              <i class="fa fa-book-bookmark"></i> Violation Policies (${types.length})
+              <i class="fa fa-book-bookmark"></i> Violation Policies &amp; Penalty Matrix (${types.length})
             </button>
           </div>
         </div>
 
-        <!-- Section 1: Inquiries Table -->
-        ${this.disciplinarySubTab === 'inquiries' ? `
+        <!-- Section 1: Show-Cause Notices Table -->
+        ${this.disciplinarySubTab === 'show_cause' ? `
           <div class="card" style="padding:0">
             <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-              <h4 style="font-size:14px;font-weight:700;margin:0">Active & Historical Disciplinary Cases</h4>
-              <span style="font-size:12px;color:var(--text-3)">Standard inquiry hearings and evidence repository</span>
+              <div>
+                <h4 style="font-size:14px;font-weight:700;margin:0">Statutory Show-Cause Notices &amp; Inquiry Proceedings</h4>
+                <div style="font-size:12px;color:var(--text-3)">Mandatory legal reply period, defense submissions, committee hearings, and sanction orders</div>
+              </div>
+              <button class="btn btn-danger btn-xs" onclick="Employees.showIssueShowCauseNoticeModal()">
+                <i class="fa fa-plus"></i> New Show-Cause Notice
+              </button>
             </div>
             <div class="table-wrapper" style="border:none;border-radius:0">
               <table>
                 <thead><tr>
-                  <th>Case Ref #</th>
+                  <th>Notice Ref #</th>
                   <th>Employee</th>
-                  <th>Violation Type</th>
-                  <th>Allegation Title</th>
-                  <th>Incident Date</th>
-                  <th>Hearing Date</th>
-                  <th>Investigator</th>
+                  <th>Violation Classification</th>
+                  <th>Allegations &amp; Subject</th>
+                  <th>Issue Date</th>
+                  <th>Reply Deadline</th>
                   <th>Status</th>
-                  <th style="text-align:right">Actions</th>
+                  <th style="text-align:right">Inquiry Actions</th>
                 </tr></thead>
                 <tbody>
-                  ${actions.length === 0 ? `
-                    <tr><td colspan="9"><div class="empty-state" style="padding:30px"><h3>No Disciplinary Cases Logged</h3><p>Click "Log Disciplinary Inquiry" to create a new formal investigation.</p></div></td></tr>
-                  ` : actions.map(a => {
-                    const emp = allEmps.find(e => e.id === a.employeeId) || {};
-                    const typeObj = types.find(t => t.id === a.typeId);
+                  ${showCauseNotices.length === 0 ? `
+                    <tr><td colspan="8"><div class="empty-state" style="padding:35px"><h3>No Show-Cause Notices Issued</h3><p>Click "Issue Show-Cause Notice" to initiate a formal statutory inquiry with a 7-day reply mandate.</p></div></td></tr>
+                  ` : showCauseNotices.map(scn => {
+                    const emp = allEmps.find(e => e.id === scn.employeeId) || {};
                     return `
                       <tr>
-                        <td><code style="font-family:monospace;font-weight:700;color:var(--danger)">${a.caseNo}</code></td>
+                        <td><code style="font-family:monospace;font-weight:700;color:var(--primary)">${scn.noticeNo}</code></td>
                         <td>
-                          <div style="font-weight:700;font-size:13px;color:var(--primary);cursor:pointer" onclick="Employees.renderProfile(${emp.id})">${emp.fullName || 'Unknown'}</div>
-                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo || ''} • ${Utils.getDeptName(emp.departmentId)}</div>
+                          <div style="font-weight:700;font-size:13px;color:var(--text)">${emp.fullName || 'Unknown'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo || ''} &bull; ${Utils.getDeptName(emp.departmentId)}</div>
                         </td>
-                        <td><span class="chip" style="font-size:11px">${typeObj?.name || 'General'}</span></td>
+                        <td><span class="chip" style="font-size:11px">${scn.violationCategory || 'Misconduct'}</span></td>
                         <td>
-                          <div style="font-weight:600;font-size:13px">${a.title}</div>
-                          <div style="font-size:11px;color:var(--text-3);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.description}</div>
+                          <div style="font-weight:600;font-size:13px">${scn.title}</div>
+                          <div style="font-size:11px;color:var(--text-3);max-width:240px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${scn.allegationDetails}</div>
                         </td>
-                        <td style="font-size:12px">${Utils.formatDate(a.incidentDate)}</td>
-                        <td style="font-size:12px">${a.hearingDate ? Utils.formatDate(a.hearingDate) : 'TBD'}</td>
-                        <td style="font-size:12px">${a.investigatorName || 'HR Directorate'}</td>
-                        <td>${statusBadge(a.status)}</td>
+                        <td style="font-size:12px">${Utils.formatDate(scn.issueDate)}</td>
+                        <td style="font-size:12px;font-weight:600">${Utils.formatDate(scn.replyDeadline)}</td>
+                        <td>${scnStatusBadge(scn.status, scn.replyDeadline)}</td>
                         <td style="text-align:right">
-                          <div style="display:flex;justify-content:flex-end;gap:6px">
-                            <button class="btn btn-secondary btn-xs" onclick="Employees.showIssueWarningLetterModal(${a.id})" title="Issue warning notice linked to this case">
-                              <i class="fa fa-gavel"></i> Sanction
+                          <div style="display:flex;justify-content:flex-end;gap:5px;flex-wrap:wrap">
+                            <button class="btn btn-ghost btn-xs" onclick="Employees.printShowCauseNotice(${scn.id})" title="Print Formal SCN Letter">
+                              <i class="fa fa-print"></i> SCN
                             </button>
-                            ${a.status !== 'closed' ? `
-                              <button class="btn btn-ghost btn-xs" onclick="Employees.closeDisciplinaryAction(${a.id})" title="Mark inquiry case resolved and closed">
-                                <i class="fa fa-check"></i> Close
+                            ${scn.employeeExplanation?.statement ? `
+                              <button class="btn btn-secondary btn-xs" onclick="Employees.showReviewExplanationModal(${scn.id})" title="Review Employee Defense Statement">
+                                <i class="fa fa-eye"></i> Defense
                               </button>
                             ` : ''}
+                            <button class="btn btn-primary btn-xs" onclick="Employees.showRecordHearingMinutesModal(${scn.id})" title="Record Committee Proceedings & Findings">
+                              <i class="fa fa-gavel"></i> Hearing
+                            </button>
+                            ${scn.status !== 'sanction_enforced' && scn.status !== 'exonerated' ? `
+                              <button class="btn btn-danger btn-xs" onclick="Employees.showEnforceSanctionModal(${scn.id})" title="Enforce Committee Sanction / Penalty">
+                                <i class="fa fa-bolt"></i> Sanction
+                              </button>
+                            ` : `
+                              <button class="btn btn-ghost btn-xs" onclick="Employees.printInquiryFindingsReport(${scn.id})" title="Print Final Order & Committee Report">
+                                <i class="fa fa-file-contract"></i> Order
+                              </button>
+                            `}
                           </div>
                         </td>
                       </tr>
@@ -9851,7 +9953,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
         ${this.disciplinarySubTab === 'warnings' ? `
           <div class="card" style="padding:0">
             <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-              <h4 style="font-size:14px;font-weight:700;margin:0">Official Warning Letters & Directives Registry</h4>
+              <h4 style="font-size:14px;font-weight:700;margin:0">Official Warning Letters &amp; Directives Registry</h4>
               <span style="font-size:12px;color:var(--text-3)">Audited corporate notices with digital receipt signatures</span>
             </div>
             <div class="table-wrapper" style="border:none;border-radius:0">
@@ -9860,7 +9962,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
                   <th>Warning Ref #</th>
                   <th>Employee</th>
                   <th>Notice Level</th>
-                  <th>Subject & Allegation</th>
+                  <th>Subject &amp; Allegation</th>
                   <th>Issue Date</th>
                   <th>Remediation</th>
                   <th>Issued By</th>
@@ -9901,7 +10003,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
                         </td>
                         <td style="text-align:right">
                           <button class="btn btn-ghost btn-xs" onclick="Employees.previewWarningLetterModal(${w.id})">
-                            <i class="fa fa-print"></i> View & Print
+                            <i class="fa fa-print"></i> View &amp; Print
                           </button>
                         </td>
                       </tr>
@@ -9913,11 +10015,74 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           </div>
         ` : ''}
 
-        <!-- Section 3: Disciplinary Types Catalog -->
+        <!-- Section 3: Inquiries Table -->
+        ${this.disciplinarySubTab === 'inquiries' ? `
+          <div class="card" style="padding:0">
+            <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+              <h4 style="font-size:14px;font-weight:700;margin:0">Active &amp; Historical Disciplinary Cases</h4>
+              <span style="font-size:12px;color:var(--text-3)">Standard inquiry hearings and evidence repository</span>
+            </div>
+            <div class="table-wrapper" style="border:none;border-radius:0">
+              <table>
+                <thead><tr>
+                  <th>Case Ref #</th>
+                  <th>Employee</th>
+                  <th>Violation Type</th>
+                  <th>Allegation Title</th>
+                  <th>Incident Date</th>
+                  <th>Hearing Date</th>
+                  <th>Investigator</th>
+                  <th>Status</th>
+                  <th style="text-align:right">Actions</th>
+                </tr></thead>
+                <tbody>
+                  ${actions.length === 0 ? `
+                    <tr><td colspan="9"><div class="empty-state" style="padding:30px"><h3>No Disciplinary Cases Logged</h3><p>Click "Log Case" to create a new formal investigation.</p></div></td></tr>
+                  ` : actions.map(a => {
+                    const emp = allEmps.find(e => e.id === a.employeeId) || {};
+                    const typeObj = types.find(t => t.id === a.typeId);
+                    return `
+                      <tr>
+                        <td><code style="font-family:monospace;font-weight:700;color:var(--danger)">${a.caseNo}</code></td>
+                        <td>
+                          <div style="font-weight:700;font-size:13px;color:var(--primary);cursor:pointer" onclick="Employees.renderProfile(${emp.id})">${emp.fullName || 'Unknown'}</div>
+                          <div style="font-size:11px;color:var(--text-3)">${emp.empNo || ''} &bull; ${Utils.getDeptName(emp.departmentId)}</div>
+                        </td>
+                        <td><span class="chip" style="font-size:11px">${typeObj?.name || 'General'}</span></td>
+                        <td>
+                          <div style="font-weight:600;font-size:13px">${a.title}</div>
+                          <div style="font-size:11px;color:var(--text-3);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${a.description}</div>
+                        </td>
+                        <td style="font-size:12px">${Utils.formatDate(a.incidentDate)}</td>
+                        <td style="font-size:12px">${a.hearingDate ? Utils.formatDate(a.hearingDate) : 'TBD'}</td>
+                        <td style="font-size:12px">${a.investigatorName || 'HR Directorate'}</td>
+                        <td><span class="badge badge-secondary">${a.status}</span></td>
+                        <td style="text-align:right">
+                          <div style="display:flex;justify-content:flex-end;gap:6px">
+                            <button class="btn btn-secondary btn-xs" onclick="Employees.showIssueWarningLetterModal(${a.id})" title="Issue warning notice linked to this case">
+                              <i class="fa fa-gavel"></i> Sanction
+                            </button>
+                            ${a.status !== 'closed' ? `
+                              <button class="btn btn-ghost btn-xs" onclick="Employees.closeDisciplinaryAction(${a.id})" title="Mark inquiry case resolved and closed">
+                                <i class="fa fa-check"></i> Close
+                              </button>
+                            ` : ''}
+                          </div>
+                        </td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ` : ''}
+
+        <!-- Section 4: Disciplinary Types & Policy Matrix -->
         ${this.disciplinarySubTab === 'types' ? `
           <div class="card" style="padding:0">
             <div style="padding:14px 18px;border-bottom:1px solid var(--border)">
-              <h4 style="font-size:14px;font-weight:700;margin:0">Standard Disciplinary Violation Types & Policy Matrix</h4>
+              <h4 style="font-size:14px;font-weight:700;margin:0">Statutory Violation Categories &amp; Standard Sanction Matrix</h4>
             </div>
             <div class="table-wrapper" style="border:none;border-radius:0">
               <table>
@@ -9925,8 +10090,8 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
                   <th>Code</th>
                   <th>Policy Name</th>
                   <th>Default Severity</th>
-                  <th>Description & Policy Guidelines</th>
-                  <th>Standard Protocol</th>
+                  <th>Description &amp; Guidelines</th>
+                  <th>Statutory Escalation Protocol</th>
                 </tr></thead>
                 <tbody>
                   ${types.map(t => `
@@ -9939,7 +10104,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
                         </span>
                       </td>
                       <td style="font-size:12.5px;color:var(--text-2);max-width:380px">${t.description}</td>
-                      <td style="font-size:12px;color:var(--text-3)">Formal investigation + Written notice</td>
+                      <td style="font-size:12px;color:var(--text-3)">Show-Cause Notice (7d) &bull; Committee Hearing &bull; Remedial Sanction</td>
                     </tr>
                   `).join('')}
                 </tbody>
@@ -9951,12 +10116,701 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     `;
   },
 
+  // ══════════════════════════════════════════════════════════════
+  // SHOW-CAUSE NOTICES (SCN) ENGINE
+  // ══════════════════════════════════════════════════════════════
+
+  showIssueShowCauseNoticeModal(empId = null) {
+    const emps = DB.get('employees') || [];
+    const types = DB.get('disciplinary_types') || [];
+    const targetEmpId = empId || (emps[0]?.id || 1);
+
+    const defaultDeadline = new Date();
+    defaultDeadline.setDate(defaultDeadline.getDate() + 7);
+    const deadlineStr = defaultDeadline.toISOString().split('T')[0];
+
+    Modal.show('Issue Formal Statutory Show-Cause Notice', `
+      <form onsubmit="Employees.createShowCauseNotice(event)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Accused Employee</label>
+            <select class="form-control" id="scn-emp" required>
+              ${emps.map(e => `<option value="${e.id}" ${e.id===targetEmpId?'selected':''}>${e.fullName} (${e.empNo}) - ${Utils.getDeptName(e.departmentId)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Violation Category</label>
+            <select class="form-control" id="scn-type" required>
+              ${types.map(t => `<option value="${t.id}">${t.name} (${t.code})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Issue Date</label>
+            <input type="date" class="form-control" id="scn-issue-date" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Mandatory Reply Deadline (7 Calendar Days)</label>
+            <input type="date" class="form-control" id="scn-deadline" value="${deadlineStr}" required>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Notice Subject / Charge Sheet Heading</label>
+          <input type="text" class="form-control" id="scn-title" placeholder="e.g. Show-Cause Notice for Continuous Unauthorized Absence and Neglect of Duty" required>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Specific Charge Particulars &amp; Factual Statement</label>
+          <textarea class="form-control" id="scn-allegations" rows="3" placeholder="State specific dates, locations, incidents, and corporate rules breached..." required></textarea>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Citations, Documentary Proof &amp; Complainant Summary</label>
+          <textarea class="form-control" id="scn-evidence" rows="2" placeholder="e.g. Biometric attendance punch records, email directives from department manager, CCTV footage..."></textarea>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Authorized Corporate Signatory</label>
+          <input type="text" class="form-control" id="scn-auth" value="Director of Human Resources &amp; Legal Affairs" required>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-scale-balanced"></i> Issue Official Show-Cause Notice</button>
+        </div>
+      </form>
+    `);
+  },
+
+  createShowCauseNotice(e) {
+    e.preventDefault();
+    const empId = parseInt(document.getElementById('scn-emp').value);
+    const typeId = parseInt(document.getElementById('scn-type').value);
+    const issueDate = document.getElementById('scn-issue-date').value;
+    const replyDeadline = document.getElementById('scn-deadline').value;
+    const title = document.getElementById('scn-title').value.trim();
+    const allegationDetails = document.getElementById('scn-allegations').value.trim();
+    const evidenceSummary = document.getElementById('scn-evidence')?.value.trim() || '';
+    const issuedBy = document.getElementById('scn-auth').value.trim();
+
+    const types = DB.get('disciplinary_types') || [];
+    const violationCategory = types.find(t => t.id === typeId)?.name || 'Breach of Workplace Regulations';
+
+    const notices = DB.get('show_cause_notices') || [];
+    const noticeNo = `SCN/${new Date().getFullYear()}/${String(notices.length + 1).padStart(3, '0')}`;
+
+    const newNotice = {
+      id: DB.nextId('show_cause_notices'),
+      noticeNo,
+      employeeId: empId,
+      typeId,
+      violationCategory,
+      title,
+      allegationDetails,
+      evidenceSummary,
+      issueDate,
+      replyDeadline,
+      status: 'pending_explanation',
+      issuedBy,
+      employeeExplanation: null,
+      hearingMinutes: null,
+      sanction: null,
+      createdAt: new Date().toISOString()
+    };
+
+    notices.unshift(newNotice);
+    DB.set('show_cause_notices', notices);
+
+    // Also mirror to disciplinary_actions
+    const actions = DB.get('disciplinary_actions') || [];
+    actions.unshift({
+      id: DB.nextId('disciplinary_actions'),
+      caseNo: `DIS-${noticeNo.replace(/\//g, '-')}`,
+      employeeId: empId,
+      typeId,
+      incidentDate: issueDate,
+      hearingDate: null,
+      title,
+      description: allegationDetails,
+      status: 'under_investigation',
+      reportedBy: issuedBy,
+      investigatorName: 'Inquiry Committee',
+      createdAt: new Date().toISOString()
+    });
+    DB.set('disciplinary_actions', actions);
+
+    // Dispatch notification
+    const emp = DB.find('employees', empId);
+    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
+      LiveNotifications.dispatch({
+        recipientEmpId: empId,
+        recipientRole: 'employee',
+        senderRole: 'hr_manager',
+        senderName: issuedBy,
+        type: 'legal_compliance',
+        priority: 'high',
+        title: `⚖️ Statutory Show-Cause Notice Issued (${noticeNo})`,
+        message: `You have been issued Show-Cause Notice ${noticeNo}: ${title}. You are required to submit your written defense within 7 calendar days (${Utils.formatDate(replyDeadline)}).`,
+        actionUrl: 'employees',
+        subView: 'discipline',
+        actionLabel: 'Submit Defense'
+      });
+    }
+
+    DB.log('CREATE', 'Discipline', `Issued Show-Cause Notice ${noticeNo} to ${emp?.fullName} (${title})`, Auth.user?.id);
+
+    Toast.show(`Show-Cause Notice ${noticeNo} dispatched!`, 'success');
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+    this.printShowCauseNotice(newNotice.id);
+  },
+
+  showSubmitShowCauseExplanationModal(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId);
+
+    Modal.show(`Submit Formal Defense / Written Explanation — ${scn.noticeNo}`, `
+      <form onsubmit="Employees.submitShowCauseExplanation(event, ${scn.id})">
+        <div style="background:#fef2f2;border:1px solid #fecaca;padding:12px;border-radius:8px;margin-bottom:14px">
+          <div style="font-weight:700;color:#991b1b;font-size:14px">${scn.title}</div>
+          <div style="font-size:12px;color:#7f1d1d;margin-top:4px">${scn.allegationDetails}</div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Plea / Position on Allegations</label>
+          <select class="form-control" id="exp-plea" required>
+            <option value="denial">Denial of All Allegations (Charges are Factual Incorrect / Misunderstood)</option>
+            <option value="admission_mitigation">Admission with Mitigating Circumstances (Regretful Admission due to Unavoidable Reasons)</option>
+            <option value="partial_denial">Partial Admission (Clarifying Specific Disputed Facts)</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Detailed Statement of Facts / Written Defense</label>
+          <textarea class="form-control" id="exp-statement" rows="5" placeholder="Provide your comprehensive chronological defense, reasons, factual justifications, and explanations in response to the allegations..." required></textarea>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Supporting Evidence, Hospital Slips, Communication Logs or Witness Citations</label>
+          <input type="text" class="form-control" id="exp-proof" placeholder="e.g. Attached WhatsApp approvals from line manager, medical certificate #4211...">
+        </div>
+
+        <div style="font-size:11.5px;color:var(--text-3);margin-bottom:14px">
+          <i class="fa fa-circle-info"></i> By submitting this statement, you affirm under corporate policy that the representations provided above are true and factual to the best of your knowledge.
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-success"><i class="fa fa-paper-plane"></i> Formally Sign &amp; Submit Defense</button>
+        </div>
+      </form>
+    `);
+  },
+
+  submitShowCauseExplanation(e, scnId) {
+    e.preventDefault();
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+
+    const plea = document.getElementById('exp-plea').value;
+    const statement = document.getElementById('exp-statement').value.trim();
+    const witnessProof = document.getElementById('exp-proof')?.value.trim() || '';
+
+    scn.employeeExplanation = {
+      submittedAt: new Date().toISOString(),
+      plea,
+      statement,
+      witnessProof,
+      submittedBy: Auth.employee?.fullName || Auth.user?.fullName || 'Employee'
+    };
+    scn.status = 'explanation_submitted';
+
+    DB.set('show_cause_notices', notices);
+    DB.log('UPDATE', 'Discipline', `Employee submitted written defense for SCN ${scn.noticeNo}`, Auth.user?.id);
+
+    Toast.show('Written defense submitted successfully!', 'success', 'Your formal explanation has been delivered to the Inquiry Committee.');
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+  },
+
+  showReviewExplanationModal(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn || !scn.employeeExplanation) return;
+    const emp = DB.find('employees', scn.employeeId);
+    const exp = scn.employeeExplanation;
+
+    Modal.show(`Review Employee Defense — ${scn.noticeNo}`, `
+      <div style="margin-bottom:14px;background:var(--surface);padding:12px 16px;border-radius:8px">
+        <div style="font-size:15px;font-weight:800">${emp?.fullName} (${emp?.empNo})</div>
+        <div style="font-size:12px;color:var(--text-3)">Notice: ${scn.title} &bull; Submitted: ${Utils.formatDate(exp.submittedAt)}</div>
+      </div>
+
+      <div style="background:#fef2f2;border:1px solid #fecaca;padding:10px 14px;border-radius:6px;margin-bottom:14px;font-size:12.5px;color:#7f1d1d">
+        <strong>Allegations Raised:</strong> ${scn.allegationDetails}
+      </div>
+
+      <div class="card mb-14" style="padding:14px;background:#f8fafc;border:1px solid #cbd5e1">
+        <div style="font-size:11.5px;text-transform:uppercase;font-weight:700;color:var(--primary);margin-bottom:4px">Formal Plea</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">${exp.plea.toUpperCase().replace(/_/g, ' ')}</div>
+
+        <div style="font-size:11.5px;text-transform:uppercase;font-weight:700;color:var(--primary);margin-bottom:4px">Accused Employee Statement</div>
+        <p style="font-size:13.5px;line-height:1.7;color:#334155;white-space:pre-wrap;margin:0 0 10px 0">${exp.statement}</p>
+
+        ${exp.witnessProof ? `
+          <div style="font-size:11.5px;text-transform:uppercase;font-weight:700;color:var(--primary);margin-bottom:4px">Citations &amp; Proof</div>
+          <div style="font-size:12.5px;color:#475569">${exp.witnessProof}</div>
+        ` : ''}
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
+        <button class="btn btn-primary" onclick="Modal.close('dynamic-modal'); Employees.showRecordHearingMinutesModal(${scn.id})">
+          <i class="fa fa-gavel"></i> Proceed to Committee Hearing
+        </button>
+      `
+    });
+  },
+
+  showRecordHearingMinutesModal(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId);
+    const existingMinutes = scn.hearingMinutes || {};
+
+    Modal.show(`Record Inquiry Committee Hearing &amp; Findings — ${scn.noticeNo}`, `
+      <form onsubmit="Employees.saveHearingMinutes(event, ${scn.id})">
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:14px">${emp?.fullName} &bull; ${scn.title}</div>
+          <div style="font-size:11.5px;color:var(--text-3)">Notice Ref: <code>${scn.noticeNo}</code></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
+          <div class="form-group">
+            <label class="form-label required">Hearing Date</label>
+            <input type="date" class="form-control" id="hm-date" value="${existingMinutes.hearingDate || Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Hearing Venue / Mode</label>
+            <input type="text" class="form-control" id="hm-venue" value="${existingMinutes.venue || 'Executive Boardroom A / Microsoft Teams'}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Presiding Inquiry Officer</label>
+            <input type="text" class="form-control" id="hm-presiding" value="${existingMinutes.presidingOfficer || 'Senior HR Director'}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Inquiry Committee Members</label>
+            <input type="text" class="form-control" id="hm-members" value="${existingMinutes.committeeMembers || 'Head of Legal &amp; Compliance, Departmental Manager'}" required>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Committee Hearing Proceedings &amp; Examination Notes</label>
+          <textarea class="form-control" id="hm-notes" rows="3" placeholder="Summary of statements, question &amp; answer examination, witness testimonies, and documentary scrutiny..." required>${existingMinutes.deliberationNotes || 'The Inquiry Committee convened to evaluate the charges framed against the employee along with their written defense.'}</textarea>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Inquiry Committee Verdict / Finding</label>
+          <select class="form-control" id="hm-finding" required>
+            <option value="fully_proven" ${existingMinutes.committeeFinding==='fully_proven'?'selected':''}>Fully Proven (Gross Misconduct Established with Sufficient Evidence)</option>
+            <option value="partially_proven" ${existingMinutes.committeeFinding==='partially_proven'?'selected':''}>Partially Proven (Minor Procedural Lapses without Malicious Intent)</option>
+            <option value="exonerated" ${existingMinutes.committeeFinding==='exonerated'?'selected':''}>Exonerated (Charges Dropped - Defense Justified &amp; Proven Valid)</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Committee Recommendations for Competent Authority</label>
+          <textarea class="form-control" id="hm-recommendation" rows="2" placeholder="Recommended statutory disciplinary action..." required>${existingMinutes.recommendation || 'Disciplinary sanction to be enforced in accordance with standard penalty matrix.'}</textarea>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save Committee Findings</button>
+        </div>
+      </form>
+    `);
+  },
+
+  saveHearingMinutes(e, scnId) {
+    e.preventDefault();
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+
+    const hearingDate = document.getElementById('hm-date').value;
+    const venue = document.getElementById('hm-venue').value.trim();
+    const presidingOfficer = document.getElementById('hm-presiding').value.trim();
+    const committeeMembers = document.getElementById('hm-members').value.trim();
+    const deliberationNotes = document.getElementById('hm-notes').value.trim();
+    const committeeFinding = document.getElementById('hm-finding').value;
+    const recommendation = document.getElementById('hm-recommendation').value.trim();
+
+    scn.hearingMinutes = {
+      hearingDate,
+      venue,
+      presidingOfficer,
+      committeeMembers,
+      deliberationNotes,
+      committeeFinding,
+      recommendation,
+      recordedAt: new Date().toISOString()
+    };
+    scn.status = 'findings_recorded';
+
+    DB.set('show_cause_notices', notices);
+    DB.log('UPDATE', 'Discipline', `Recorded inquiry hearing findings for SCN ${scn.noticeNo} (Finding: ${committeeFinding})`, Auth.user?.id);
+
+    Toast.show('Inquiry Hearing Findings Recorded!', 'success');
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+  },
+
+  showEnforceSanctionModal(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId);
+    const finding = scn.hearingMinutes?.committeeFinding || 'fully_proven';
+
+    Modal.show(`Enforce Statutory Disciplinary Sanction — ${scn.noticeNo}`, `
+      <form onsubmit="Employees.enforceSanction(event, ${scn.id})">
+        <div style="background:var(--surface);padding:12px;border-radius:8px;margin-bottom:14px">
+          <div style="font-weight:700;font-size:14px">${emp?.fullName} &bull; ${scn.title}</div>
+          <div style="font-size:12px;color:var(--text-3);margin-top:2px">
+            Committee Finding: <strong style="color:${finding==='exonerated'?'var(--success)':'var(--danger)'}">${finding.toUpperCase().replace(/_/g, ' ')}</strong>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Select Sanction from Statutory Penalty Matrix</label>
+          <select class="form-control" id="sanc-type" onchange="Employees.toggleSanctionFields()" required>
+            ${finding === 'exonerated' ? `
+              <option value="exonerated" selected>Exoneration &amp; Case Dismissal (Clean Record Restored)</option>
+            ` : `
+              <option value="written_warning">Formal Written Warning &amp; 30-Day Remediation Directive</option>
+              <option value="financial_surcharge">Financial Penalty / Salary Surcharge (Deduction in Next Payroll)</option>
+              <option value="suspension">Suspension Without Pay (Disciplinary Tenure)</option>
+              <option value="reprimand">Documented Official Reprimand (Placed in Personnel File)</option>
+              <option value="termination">Summary Termination with Cause (Immediate Discontinuation)</option>
+              <option value="exonerated">Exoneration &amp; Case Dismissal (Dismiss All Charges)</option>
+            `}
+          </select>
+        </div>
+
+        <div id="sanc-financial-group" style="display:none" class="form-group mb-14">
+          <label class="form-label required">Financial Surcharge Amount (PKR)</label>
+          <input type="number" class="form-control" id="sanc-amount" value="10000" min="1000" step="500">
+          <div style="font-size:11px;color:var(--text-3);margin-top:3px">This penalty will automatically register as a salary deduction in the next payroll cycle.</div>
+        </div>
+
+        <div id="sanc-suspension-group" style="display:none" class="form-group mb-14">
+          <label class="form-label required">Suspension Duration (Calendar Days)</label>
+          <input type="number" class="form-control" id="sanc-days" value="15" min="1" max="90">
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Competent Authority Final Order Directives</label>
+          <textarea class="form-control" id="sanc-notes" rows="3" required>In view of the findings of the Inquiry Committee, the Competent Authority hereby orders the execution of the selected disciplinary sanction.</textarea>
+        </div>
+
+        <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
+          <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-gavel"></i> Issue &amp; Enforce Final Order</button>
+        </div>
+      </form>
+    `);
+    this.toggleSanctionFields();
+  },
+
+  toggleSanctionFields() {
+    const val = document.getElementById('sanc-type')?.value;
+    const finGroup = document.getElementById('sanc-financial-group');
+    const suspGroup = document.getElementById('sanc-suspension-group');
+    if (finGroup) finGroup.style.display = val === 'financial_surcharge' ? 'block' : 'none';
+    if (suspGroup) suspGroup.style.display = val === 'suspension' ? 'block' : 'none';
+  },
+
+  enforceSanction(e, scnId) {
+    e.preventDefault();
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId);
+
+    const sanctionType = document.getElementById('sanc-type').value;
+    const amount = parseFloat(document.getElementById('sanc-amount')?.value) || 0;
+    const suspensionDays = parseInt(document.getElementById('sanc-days')?.value) || 0;
+    const finalOrderNotes = document.getElementById('sanc-notes').value.trim();
+
+    scn.sanction = {
+      sanctionType,
+      amount: sanctionType === 'financial_surcharge' ? amount : 0,
+      suspensionDays: sanctionType === 'suspension' ? suspensionDays : 0,
+      finalOrderNotes,
+      enforcedBy: Auth.user?.fullName || 'Competent Authority',
+      enforcedAt: new Date().toISOString()
+    };
+
+    if (sanctionType === 'exonerated') {
+      scn.status = 'exonerated';
+    } else {
+      scn.status = 'sanction_enforced';
+    }
+
+    // If written warning selected, generate warning letter
+    if (sanctionType === 'written_warning') {
+      const letters = DB.get('warning_letters') || [];
+      letters.unshift({
+        id: DB.nextId('warning_letters'),
+        warningLetterNo: `WRN/${new Date().getFullYear()}/${String(letters.length+1).padStart(3,'0')}`,
+        employeeId: scn.employeeId,
+        disciplinaryActionId: scn.id,
+        warningLevel: 'first_written',
+        title: `Formal Sanction: Written Warning Following Show-Cause Inquiry (${scn.noticeNo})`,
+        issueDate: Utils.today(),
+        remediationPlan: finalOrderNotes,
+        remediationDays: 30,
+        acknowledged: false,
+        authorizedBy: 'Competent Disciplinary Authority',
+        createdAt: new Date().toISOString()
+      });
+      DB.set('warning_letters', letters);
+    }
+
+    // If financial surcharge, schedule payroll penalty deduction
+    if (sanctionType === 'financial_surcharge' && amount > 0) {
+      const revisions = DB.get('salary_revisions') || [];
+      revisions.unshift({
+        id: DB.generateId(),
+        employeeId: scn.employeeId,
+        revisionType: 'penalty_deduction',
+        oldSalary: emp.salary,
+        newSalary: emp.salary,
+        incrementAmount: -amount,
+        incrementPct: 0,
+        effectiveDate: Utils.today(),
+        reason: `Disciplinary Surcharge / Penalty linked to SCN ${scn.noticeNo}: PKR ${amount.toLocaleString()}`,
+        approvedBy: Auth.user?.fullName || Auth.role,
+        status: 'applied',
+        createdAt: new Date().toISOString()
+      });
+      DB.set('salary_revisions', revisions);
+    }
+
+    // If termination selected, update employee
+    if (sanctionType === 'termination') {
+      DB.update('employees', scn.employeeId, {
+        status: 'inactive',
+        exitReason: `Disciplinary Dismissal with Cause (${scn.noticeNo})`
+      });
+    }
+
+    DB.set('show_cause_notices', notices);
+    DB.log('UPDATE', 'Discipline', `Enforced sanction [${sanctionType}] on ${emp?.fullName} for SCN ${scn.noticeNo}`, Auth.user?.id);
+
+    Toast.show('Disciplinary Sanction Enforced!', 'success', `Final order issued for ${emp?.fullName}.`);
+    Modal.close('dynamic-modal');
+    this.renderDiscipline(document.getElementById('emp-content'));
+    this.printInquiryFindingsReport(scn.id);
+  },
+
+  printShowCauseNotice(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId) || { fullName: 'Employee', empNo: 'EMP-??', cnic: '42201-???????-?', departmentId: 1, designationId: 1 };
+    const company = DB.get('company') || { name: 'Apex Technologies Ltd', address: 'Plot 42, Blue Area, Islamabad, Pakistan' };
+    const printDate = new Date().toLocaleDateString('en-US', { day:'numeric', month:'long', year:'numeric' });
+
+    const printWin = window.open('', '_blank', 'width=900,height=950');
+    if (!printWin) {
+      alert('Please allow popups to print the Show-Cause Notice');
+      return;
+    }
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>SHOW-CAUSE NOTICE ${scn.noticeNo} — ${emp.fullName}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #0f172a; line-height: 1.7; background: #fff; }
+          .header { border-bottom: 3px solid #dc2626; padding-bottom: 16px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .company-title { font-size: 22px; font-weight: 800; color: #991b1b; }
+          .company-sub { font-size: 11.5px; color: #64748b; }
+          .title { text-align: center; margin: 25px 0 20px; font-size: 18px; font-weight: 800; text-decoration: underline; color: #991b1b; text-transform: uppercase; letter-spacing: 0.5px; }
+          .content { font-size: 13.5px; text-align: justify; margin-bottom: 30px; }
+          .charge-box { background: #fef2f2; border: 1.5px solid #fecaca; border-radius: 8px; padding: 14px 18px; margin: 20px 0; }
+          .sig-block { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 50px; padding-top: 20px; border-top: 1px solid #cbd5e1; }
+          .sig-line { width: 220px; border-top: 1.5px solid #0f172a; padding-top: 6px; font-size: 12px; font-weight: 700; }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="company-title">${company.name || 'HRM Enterprise Systems Pvt. Ltd.'}</div>
+            <div class="company-sub">${company.address || 'Directorate of Legal Affairs, Governance & Human Capital'}</div>
+          </div>
+          <div style="text-align:right">
+            <span style="background:#fee2e2;color:#991b1b;font-weight:800;padding:4px 10px;border-radius:4px;font-size:11px">CONFIDENTIAL &bull; STATUTORY LEGAL NOTICE</span>
+            <div style="font-size:12px;color:#64748b;margin-top:6px">Ref: <strong>${scn.noticeNo}</strong></div>
+            <div style="font-size:12px;color:#64748b">Date: <strong>${printDate}</strong></div>
+          </div>
+        </div>
+
+        <div style="background:#f8fafc;padding:12px 16px;border-left:4px solid #64748b;font-size:13px;margin-bottom:20px;border-radius:4px">
+          <div><strong>To:</strong> Mr./Ms. ${emp.fullName} (EMP ID: <code>${emp.empNo || 'EMP-' + emp.id}</code>)</div>
+          <div><strong>Designation:</strong> ${emp.designation || 'Staff Member'} &bull; <strong>Department:</strong> ${emp.department || 'Operations'}</div>
+        </div>
+
+        <div class="title">OFFICIAL SHOW-CAUSE NOTICE</div>
+
+        <div class="content">
+          <p>WHEREAS, it has been officially reported to the competent management and disciplinary authorities that you have allegedly engaged in conduct constituting a direct violation of corporate service rules, workplace policies, and professional ethics as specified below:</p>
+
+          <div class="charge-box">
+            <div style="font-weight:800;color:#991b1b;font-size:14px;margin-bottom:6px">STATEMENT OF ALLEGATIONS &amp; CHARGES:</div>
+            <p style="margin:0 0 8px 0;font-size:13.5px;color:#7f1d1d"><strong>Charge:</strong> ${scn.title}</p>
+            <p style="margin:0;font-size:13px;color:#334155">${scn.allegationDetails}</p>
+            ${scn.evidenceSummary ? `
+              <div style="margin-top:10px;font-size:12px;color:#64748b;border-top:1px dashed #fca5a5;padding-top:6px">
+                <strong>Documentary Proof / Citation:</strong> ${scn.evidenceSummary}
+              </div>
+            ` : ''}
+          </div>
+
+          <p>NOW THEREFORE, in accordance with the corporate Employment Regulations and applicable Industrial and Commercial Employment Ordinances, you are hereby called upon to <strong>SHOW CAUSE</strong> in writing within <strong>7 (Seven) calendar days</strong> from the receipt of this notice (on or before <strong>${Utils.formatDate(scn.replyDeadline)}</strong>), as to why disciplinary proceedings should not be initiated against you, and why formal sanctions up to and including termination of your contract of service should not be imposed.</p>
+
+          <p>You are instructed to submit your written defense through the official employee portal or deliver the signed explanation directly to the Directorate of Human Resources. If no written defense is received within the stipulated period, it shall be presumed that you have no defense to offer, and ex-parte proceedings will be conducted in accordance with company rules.</p>
+        </div>
+
+        <div class="sig-block">
+          <div>
+            <div class="sig-line">${scn.issuedBy || 'Director of Human Resources'}</div>
+            <div style="font-size:11px;color:#64748b">Authorized Signatory &bull; Competent Authority</div>
+          </div>
+          <div style="text-align:right">
+            <div class="sig-line" style="margin-left:auto">Employee Signature &bull; Date</div>
+            <div style="font-size:11px;color:#64748b">Receipt Acknowledgment Required</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
+  },
+
+  printInquiryFindingsReport(scnId) {
+    const notices = DB.get('show_cause_notices') || [];
+    const scn = notices.find(s => s.id === scnId);
+    if (!scn) return;
+    const emp = DB.find('employees', scn.employeeId) || { fullName: 'Employee', empNo: 'EMP-??' };
+    const company = DB.get('company') || { name: 'Apex Technologies Ltd', address: 'Plot 42, Blue Area, Islamabad, Pakistan' };
+    const minutes = scn.hearingMinutes || {};
+    const sanc = scn.sanction || {};
+
+    const printWin = window.open('', '_blank', 'width=900,height=950');
+    if (!printWin) {
+      alert('Please allow popups to print the Inquiry Report');
+      return;
+    }
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>INQUIRY COMMITTEE REPORT &amp; FINAL ORDER — ${scn.noticeNo}</title>
+        <style>
+          body { font-family: 'Segoe UI', Arial, sans-serif; padding: 40px; color: #0f172a; line-height: 1.7; background: #fff; }
+          .header { border-bottom: 3px solid #1e293b; padding-bottom: 16px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .company-title { font-size: 22px; font-weight: 800; color: #0f172a; }
+          .title { text-align: center; margin: 25px 0 20px; font-size: 18px; font-weight: 800; text-decoration: underline; color: #0f172a; text-transform: uppercase; }
+          .table-box { width: 100%; border-collapse: collapse; margin: 18px 0; }
+          .table-box th, .table-box td { border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 13px; }
+          .table-box th { background: #f8fafc; text-align: left; font-weight: 700; width: 35%; }
+          .sig-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-top: 50px; padding-top: 20px; border-top: 1px solid #cbd5e1; }
+          .sig-line { border-top: 1.5px solid #0f172a; padding-top: 6px; font-size: 11.5px; font-weight: 700; text-align: center; }
+          @media print { body { padding: 15mm; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="company-title">${company.name || 'HRM Enterprise Systems Pvt. Ltd.'}</div>
+            <div style="font-size:11.5px;color:#64748b">Standing Inquiry Committee &bull; Disciplinary Directorate</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-weight:800;font-size:12px;color:#0f172a">FINAL DISCIPLINARY ORDER</div>
+            <div style="font-size:12px;color:#64748b">Ref: <strong>ORD-${scn.noticeNo}</strong></div>
+          </div>
+        </div>
+
+        <div class="title">INQUIRY COMMITTEE REPORT &amp; FINAL DISCIPLINARY ORDER</div>
+
+        <table class="table-box">
+          <tr><th>Subject Employee</th><td>${emp.fullName} (${emp.empNo || 'EMP-' + emp.id})</td></tr>
+          <tr><th>Original Show-Cause Notice</th><td>${scn.noticeNo} (Issued: ${Utils.formatDate(scn.issueDate)})</td></tr>
+          <tr><th>Violation Category</th><td>${scn.violationCategory || 'Misconduct'}</td></tr>
+          <tr><th>Hearing Date &amp; Venue</th><td>${Utils.formatDate(minutes.hearingDate)} at ${minutes.venue || 'Corporate Office'}</td></tr>
+          <tr><th>Presiding Inquiry Officer</th><td>${minutes.presidingOfficer || 'Senior HR Director'}</td></tr>
+          <tr><th>Inquiry Committee Members</th><td>${minutes.committeeMembers || 'Legal Counsel &amp; Operations Representative'}</td></tr>
+          <tr style="background:#f8fafc">
+            <th>Committee Finding</th>
+            <td style="font-weight:800;color:${minutes.committeeFinding==='exonerated'?'#16a34a':'#dc2626'}">
+              ${(minutes.committeeFinding || 'fully_proven').toUpperCase().replace(/_/g, ' ')}
+            </td>
+          </tr>
+          <tr>
+            <th>Committee Deliberation &amp; Notes</th>
+            <td style="font-size:12.5px">${minutes.deliberationNotes || 'The committee evaluated all evidence and defense statements.'}</td>
+          </tr>
+        </table>
+
+        <div style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:14px 18px;margin:20px 0">
+          <div style="font-weight:800;color:#0f172a;font-size:13.5px;margin-bottom:6px">COMPETENT AUTHORITY SANCTION &amp; FINAL DIRECTIVE:</div>
+          <div style="font-weight:700;font-size:14px;color:#b91c1c;margin-bottom:6px">
+            Enforced Sanction: ${(sanc.sanctionType || 'Sanction Order').toUpperCase().replace(/_/g, ' ')}
+            ${sanc.amount > 0 ? ` &bull; Fine / Deduction: PKR ${sanc.amount.toLocaleString()}` : ''}
+            ${sanc.suspensionDays > 0 ? ` &bull; Suspension: ${sanc.suspensionDays} Calendar Days` : ''}
+          </div>
+          <p style="margin:0;font-size:13px;color:#334155">${sanc.finalOrderNotes || 'The directive is effective immediately.'}</p>
+        </div>
+
+        <div class="sig-grid">
+          <div>
+            <div class="sig-line">${minutes.presidingOfficer || 'Presiding Officer'}</div>
+            <div style="font-size:10.5px;color:#64748b;text-align:center">Inquiry Committee Lead</div>
+          </div>
+          <div>
+            <div class="sig-line">Director of Human Resources</div>
+            <div style="font-size:10.5px;color:#64748b;text-align:center">HR Directorate</div>
+          </div>
+          <div>
+            <div class="sig-line">Managing Director / CEO</div>
+            <div style="font-size:10.5px;color:#64748b;text-align:center">Competent Corporate Authority</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+    printWin.focus();
+    setTimeout(() => { printWin.print(); }, 400);
+  },
+
   // Modal: Create Disciplinary Action Inquiry
   showAddDisciplinaryActionModal() {
     const emps = DB.get('employees') || [];
     const types = DB.get('disciplinary_types') || [];
 
-    Modal.show('Log Formal Disciplinary Inquiry', `
+    Modal.show('Log Formal Disciplinary Case', `
       <form onsubmit="Employees.createDisciplinaryAction(event)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px" class="mb-14">
           <div class="form-group">
@@ -9987,7 +10841,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
         </div>
 
         <div class="form-group mb-14">
-          <label class="form-label required">Detailed Incident Description & Factual Circumstances</label>
+          <label class="form-label required">Detailed Incident Description &amp; Factual Circumstances</label>
           <textarea class="form-control" id="da-desc" rows="3" placeholder="Provide factual particulars of the incident, witness accounts, and impacts on business operations..." required></textarea>
         </div>
 
@@ -10022,7 +10876,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     const investigatorName = document.getElementById('da-investigator').value.trim();
 
     const actions = DB.get('disciplinary_actions') || [];
-    const caseNo = `DIS-2026-${String(actions.length + 1).padStart(3, '0')}`;
+    const caseNo = `DIS-${new Date().getFullYear()}-${String(actions.length + 1).padStart(3, '0')}`;
 
     const newAction = {
       id: DB.nextId('disciplinary_actions'),
@@ -10043,25 +10897,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     actions.unshift(newAction);
     DB.set('disciplinary_actions', actions);
 
-    // Notify employee of formal investigation hearing
-    const emp = DB.find('employees', empId);
-    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
-      LiveNotifications.dispatch({
-        recipientEmpId: empId,
-        recipientRole: 'employee',
-        senderRole: 'hr_manager',
-        senderName: 'HR Legal Directorate',
-        type: 'legal_compliance',
-        priority: 'high',
-        title: `⚖️ Notice of Formal Disciplinary Inquiry (${caseNo})`,
-        message: `An inquiry case (${caseNo}: ${title}) has been registered regarding incident on ${Utils.formatDate(incidentDate)}. Please review via your portal.`,
-        actionUrl: 'employees',
-        subView: 'discipline',
-        actionLabel: 'View Notice'
-      });
-    }
-
-    Toast.show(`Disciplinary inquiry ${caseNo} registered successfully!`, 'success');
+    Toast.show(`Disciplinary case ${caseNo} registered successfully!`, 'success');
     Modal.close('dynamic-modal');
     this.renderDiscipline(document.getElementById('emp-content'));
   },
@@ -10070,7 +10906,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     const actions = DB.get('disciplinary_actions') || [];
     const a = actions.find(x => x.id === actionId);
     if (!a) return;
-    if (!confirm(`Are you sure you want to mark disciplinary inquiry ${a.caseNo} as officially resolved and closed?`)) return;
+    if (!confirm(`Are you sure you want to mark disciplinary case ${a.caseNo} as officially resolved and closed?`)) return;
 
     a.status = 'closed';
     a.resolvedAt = new Date().toISOString();
@@ -10103,7 +10939,6 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
               <option value="second_written">Second Written Warning</option>
               <option value="final_written">Final Written Warning</option>
               <option value="verbal">Documented Verbal Warning</option>
-              <option value="show_cause">Formal Show Cause Notice</option>
             </select>
           </div>
           <div class="form-group">
@@ -10127,20 +10962,20 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
         </div>
 
         <div class="form-group mb-14">
-          <label class="form-label required">Statement of Violation & Corrective Action Required</label>
+          <label class="form-label required">Statement of Violation &amp; Corrective Action Required</label>
           <textarea class="form-control" id="wl-plan" rows="3" required>${targetAction ? `With reference to inquiry ${targetAction.caseNo}: ${targetAction.description}. You are hereby instructed to strictly rectify performance and adhere to corporate guidelines.` : 'You are hereby directed to strictly observe official work timings, line manager reporting, and code of conduct obligations.'}</textarea>
         </div>
 
         <div class="form-group mb-14">
           <label class="form-label">Authorized Signatory</label>
-          <input type="text" class="form-control" id="wl-auth" value="Director of Human Resources & Legal Compliance" required>
+          <input type="text" class="form-control" id="wl-auth" value="Director of Human Resources &amp; Legal Compliance" required>
         </div>
 
         <input type="hidden" id="wl-action-id" value="${actionId || ''}">
 
         <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding-top:14px;border-top:1px solid var(--border)">
           <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
-          <button type="submit" class="btn btn-danger"><i class="fa fa-stamp"></i> Issue & Dispatch Warning Notice</button>
+          <button type="submit" class="btn btn-danger"><i class="fa fa-stamp"></i> Issue &amp; Dispatch Warning Notice</button>
         </div>
       </form>
     `);
@@ -10159,7 +10994,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     const actionId = actionIdVal ? parseInt(actionIdVal) : null;
 
     const letters = DB.get('warning_letters') || [];
-    const warningLetterNo = `WRN/2026/${String(letters.length + 1).padStart(3, '0')}`;
+    const warningLetterNo = `WRN/${new Date().getFullYear()}/${String(letters.length + 1).padStart(3, '0')}`;
 
     const newLetter = {
       id: DB.nextId('warning_letters'),
@@ -10182,7 +11017,6 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     letters.unshift(newLetter);
     DB.set('warning_letters', letters);
 
-    // If associated with a disciplinary action, update its status
     if (actionId) {
       const actions = DB.get('disciplinary_actions') || [];
       const act = actions.find(a => a.id === actionId);
@@ -10193,24 +11027,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
       }
     }
 
-    // Dispatch targeted live notification to employee
-    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
-      LiveNotifications.dispatch({
-        recipientEmpId: empId,
-        recipientRole: 'employee',
-        senderRole: 'hr_manager',
-        senderName: authorizedBy || 'HR Legal Compliance',
-        type: 'legal_compliance',
-        priority: 'high',
-        title: `⚠️ Formal Warning Notice Issued (${warningLetterNo})`,
-        message: `You have been issued a formal ${warningLevel.replace(/_/g, ' ')} (${warningLetterNo}: ${title}). A formal electronic acknowledgment of receipt is required.`,
-        actionUrl: 'employees',
-        subView: 'discipline',
-        actionLabel: 'Sign Notice'
-      });
-    }
-
-    Toast.show(`Official warning notice ${warningLetterNo} issued and dispatched to employee!`, 'success');
+    Toast.show(`Official warning notice ${warningLetterNo} issued!`, 'success');
     Modal.close('dynamic-modal');
     this.renderDiscipline(document.getElementById('emp-content'));
     this.previewWarningLetterModal(newLetter.id);
@@ -10224,14 +11041,13 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     const settings = DB.getObj('settings') || {};
     const isStaff = Auth.role === 'employee' || Auth.role === 'onboarding';
 
-    Modal.show('Corporate Legal Notice & Letterhead Preview', `
+    Modal.show('Corporate Legal Notice &amp; Letterhead Preview', `
       <div id="print-warning-letter-area" style="background:#fff;color:#111;padding:34px 38px;border-radius:8px;border:1.5px solid #cbd5e1;font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;position:relative">
-        <!-- Corporate Header -->
         <div style="border-bottom:3px solid #dc2626;padding-bottom:14px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:flex-end">
           <div>
             <h2 style="margin:0;font-size:22px;color:#991b1b;font-weight:800;letter-spacing:0.5px">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
-            <div style="font-size:11.5px;color:#64748b">Directorate of Legal Affairs, Governance & Human Capital</div>
-            <div style="font-size:11px;color:#64748b">Confidential Personnel Document • Ref: <strong>${l.warningLetterNo}</strong></div>
+            <div style="font-size:11.5px;color:#64748b">Directorate of Legal Affairs, Governance &amp; Human Capital</div>
+            <div style="font-size:11px;color:#64748b">Confidential Personnel Document &bull; Ref: <strong>${l.warningLetterNo}</strong></div>
           </div>
           <div style="text-align:right">
             <span class="badge badge-danger" style="font-size:11px;padding:4px 10px;text-transform:uppercase;letter-spacing:1px">STRICTLY CONFIDENTIAL</span>
@@ -10239,14 +11055,12 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           </div>
         </div>
 
-        <!-- Addressee Information -->
         <div style="margin-bottom:20px;font-size:13px;background:#f8fafc;padding:12px 16px;border-radius:6px;border-left:3px solid #64748b">
           <div><strong>To:</strong> Mr./Ms. ${emp.fullName}</div>
           <div><strong>Designation:</strong> ${Utils.getDesigName(emp.designationId)} | <strong>Employee ID:</strong> <code>${emp.empNo}</code></div>
           <div><strong>Department:</strong> ${Utils.getDeptName(emp.departmentId)} | <strong>CNIC:</strong> ${emp.cnic || 'N/A'}</div>
         </div>
 
-        <!-- Document Subject -->
         <div style="text-align:center;margin-bottom:22px">
           <h3 style="display:inline-block;margin:0;font-size:16.5px;font-weight:800;text-decoration:underline;text-transform:uppercase;color:#991b1b;letter-spacing:0.5px">
             OFFICIAL NOTICE: ${l.title}
@@ -10256,12 +11070,11 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           </div>
         </div>
 
-        <!-- Letter Body Content -->
         <div style="font-size:13.5px;color:#334155;text-align:justify;line-height:1.7;margin-bottom:30px">
           <p>This formal written notice serves as an official reprimand and corrective remediation directive under the Employment Regulations and Code of Professional Conduct of <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong>.</p>
           
           <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px 16px;margin:14px 0">
-            <strong style="color:#991b1b">Statement of Violation & Directive:</strong>
+            <strong style="color:#991b1b">Statement of Violation &amp; Directive:</strong>
             <p style="margin:4px 0 0 0;font-size:13px;color:#7f1d1d">${l.remediationPlan || 'Compliance with company standards and line management instructions is strictly mandated.'}</p>
           </div>
 
@@ -10270,13 +11083,12 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           <p style="font-size:12.5px;color:#64748b"><strong>Consequences of Non-Compliance:</strong> Failure to comply with the stipulated remediation directives or any recurrence of similar misconduct during or following this period shall result in escalated disciplinary sanctions, up to and including suspension without emoluments or summary termination of your contract of employment under corporate policy and applicable labor laws.</p>
         </div>
 
-        <!-- Dual Signature & Acknowledgment Block -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:40px;padding-top:20px;border-top:1px solid #e2e8f0">
           <div>
             <div style="font-size:11px;color:#64748b;text-transform:uppercase;font-weight:700;margin-bottom:20px">Issued By Management:</div>
             <div style="width:160px;height:40px;border-bottom:1.5px solid #334155;margin-bottom:6px"></div>
             <div style="font-size:13px;font-weight:700">${l.authorizedBy || 'HR Operations Directorate'}</div>
-            <div style="font-size:11px;color:#64748b">Authorized Signatory • Legal Affairs</div>
+            <div style="font-size:11px;color:#64748b">Authorized Signatory &bull; Legal Affairs</div>
           </div>
 
           <div>
@@ -10284,7 +11096,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
             ${l.acknowledged ? `
               <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 12px">
                 <div style="font-size:12px;font-weight:700;color:#166534">
-                  <i class="fa fa-circle-check"></i> Digitally Signed & Acknowledged
+                  <i class="fa fa-circle-check"></i> Digitally Signed &amp; Acknowledged
                 </div>
                 <div style="font-size:11px;color:#15803d;margin-top:2px">
                   Acknowledged by: <strong>${l.acknowledgedBy || emp.fullName}</strong>
@@ -10307,7 +11119,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
         <div style="display:flex;gap:8px;align-items:center">
           ${!l.acknowledged && (isStaff || Auth.employee?.id === l.employeeId) ? `
             <button type="button" class="btn btn-success" onclick="Employees.acknowledgeWarningLetter(${l.id}); Modal.close('dynamic-modal')">
-              <i class="fa fa-signature"></i> Sign & Acknowledge Receipt
+              <i class="fa fa-signature"></i> Sign &amp; Acknowledge Receipt
             </button>
           ` : ''}
           <button type="button" class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
@@ -10330,22 +11142,8 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     l.acknowledgedBy = (typeof Auth !== 'undefined' && Auth.employee?.fullName) ? Auth.employee.fullName : (emp.fullName || 'Employee');
     l.signatureNotes = 'Formally signed and acknowledged via secure employee portal session.';
     DB.set('warning_letters', letters);
-    if (typeof LiveNotifications !== 'undefined' && LiveNotifications.dispatch) {
-      LiveNotifications.dispatch({
-        recipientRole: 'hr_manager',
-        senderEmpId: l.employeeId,
-        senderName: emp.fullName || 'Employee',
-        type: 'legal_compliance',
-        priority: 'high',
-        title: `⚖️ Notice Acknowledged: ${emp.fullName}`,
-        message: `${emp.fullName} has formally acknowledged receipt and signed disciplinary warning notice ${l.warningLetterNo}.`,
-        actionUrl: 'employees',
-        subView: 'discipline',
-        actionLabel: 'View Audit'
-      });
-    }
 
-    Toast.show('Disciplinary notice receipt formally signed and recorded in corporate audit archive!', 'success');
+    Toast.show('Disciplinary notice receipt formally signed!', 'success');
     this.render();
   },
 
@@ -10357,6 +11155,11 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     const settings = DB.getObj('settings') || {};
 
     const printWin = window.open('', '_blank', 'width=900,height=950');
+    if (!printWin) {
+      alert('Please allow popups to print the Warning Letter');
+      return;
+    }
+
     printWin.document.write(`
       <!DOCTYPE html>
       <html>
@@ -10376,7 +11179,7 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
         <div class="header">
           <div>
             <h2 style="margin:0;font-size:22px;color:#991b1b">${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</h2>
-            <div style="font-size:12px;color:#64748b">Directorate of Legal Affairs, Governance & Human Capital</div>
+            <div style="font-size:12px;color:#64748b">Directorate of Legal Affairs, Governance &amp; Human Capital</div>
             <div style="font-size:11px;color:#64748b">Ref: ${l.warningLetterNo}</div>
           </div>
           <div style="text-align:right">
