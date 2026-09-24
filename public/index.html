@@ -79,9 +79,9 @@
       right: 24px !important;
       top: auto !important;
       left: auto !important;
-      width: 920px !important;
+      width: 440px !important;
       max-width: calc(100vw - 32px) !important;
-      height: 680px !important;
+      height: 620px !important;
       max-height: calc(100vh - 48px) !important;
       background: var(--card, #1e293b) !important;
       border: 1px solid var(--border, rgba(255, 255, 255, 0.12)) !important;
@@ -102,19 +102,29 @@
       pointer-events: auto !important;
     }
     .chat-drawer.minimized {
-      height: 54px !important;
+      width: 320px !important;
+      height: 48px !important;
+      min-height: 48px !important;
+      max-height: 48px !important;
+      border-radius: 12px !important;
       overflow: hidden !important;
+      cursor: pointer !important;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+      padding: 0 !important;
     }
     .chat-drawer.maximized {
-      width: calc(100vw - 48px) !important;
+      width: min(1200px, calc(100vw - 48px)) !important;
       height: calc(100vh - 48px) !important;
       max-height: calc(100vh - 48px) !important;
       bottom: 24px !important;
       right: 24px !important;
+      border-radius: 16px !important;
     }
-      max-height: calc(100vh - 48px) !important;
-      bottom: 24px !important;
-      right: 24px !important;
+
+    /* Hide floating launcher circle when chatbox is open or minimized */
+    .chat-drawer.open ~ #chat-floating-launcher,
+    .chat-drawer.minimized ~ #chat-floating-launcher {
+      display: none !important;
     }
 
     /* Transparent click-away layer (does NOT dim the dashboard on desktop) */

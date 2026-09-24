@@ -451,13 +451,6 @@ const App = {
           <i class="fa fa-clock-rotate-left"></i>
         </button>
 
-        <!-- Team Collaboration Chat -->
-        <button class="topbar-btn" id="chat-topbar-btn" onclick="Chat.toggleDrawer()" title="Team Collaboration & Chat (Ctrl+M)" style="position:relative">
-          <i class="fa fa-comments"></i>
-          <span class="badge-dot" id="chat-badge-dot" style="display:none"></span>
-          <span id="chat-unread-badge" style="display:none;position:absolute;top:2px;right:2px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#ffffff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 5px;line-height:1.2;box-shadow:0 0 6px rgba(99,102,241,0.6)"></span>
-        </button>
-
         <!-- Notifications -->
         <div style="position:relative">
           <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative">

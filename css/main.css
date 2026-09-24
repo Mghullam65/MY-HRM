@@ -2806,12 +2806,12 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 /* ── Main Chatbox Panel ── */
 .chat-drawer {
   position: fixed;
-  bottom: 90px;
+  bottom: 24px;
   right: 24px;
   width: 440px;
   max-width: calc(100vw - 32px);
   height: 620px;
-  max-height: calc(100vh - 110px);
+  max-height: calc(100vh - 48px);
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 18px;
@@ -2834,13 +2834,162 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 .chat-drawer.maximized {
   bottom: 24px;
   right: 24px;
-  width: 760px;
+  width: min(1200px, calc(100vw - 48px));
   height: calc(100vh - 48px);
   max-height: calc(100vh - 48px);
+  border-radius: 16px;
 }
 .chat-drawer.minimized {
-  height: 56px !important;
+  width: 320px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+  padding: 0 !important;
+}
+
+/* Hide floating launcher circle when chatbox is open or minimized */
+.chat-drawer.open ~ #chat-floating-launcher,
+.chat-drawer.minimized ~ #chat-floating-launcher {
+  display: none !important;
+}
+
+/* ── Docked Bottom Bar (when minimized) ── */
+.chat-docked-bottom-bar {
+  display: none;
+}
+.chat-drawer.minimized .chat-docked-bottom-bar {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  padding: 0 10px 0 12px;
+  background: var(--card, #1e293b);
+  box-sizing: border-box;
+}
+.chat-docked-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   overflow: hidden;
+  flex: 1;
+}
+.chat-docked-text {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  line-height: 1.2;
+}
+.chat-docked-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text, #f1f5f9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.chat-docked-sub {
+  font-size: 10.5px;
+  color: #10b981;
+  font-weight: 600;
+}
+.chat-docked-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.chat-drawer.minimized .teams-wrapper {
+  display: none !important;
+}
+
+/* ── Widget Mode Layout Control ── */
+.chat-drawer:not(.maximized) .teams-widget .teams-app-rail {
+  display: none !important;
+}
+.chat-drawer:not(.maximized) .teams-widget.show-convo .teams-list-column {
+  display: none !important;
+}
+.chat-drawer:not(.maximized) .teams-widget.show-convo .teams-conversation-panel {
+  display: flex !important;
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.chat-drawer:not(.maximized) .teams-widget.show-list .teams-list-column {
+  display: flex !important;
+  flex: 1 1 100% !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+.chat-drawer:not(.maximized) .teams-widget.show-list .teams-conversation-panel {
+  display: none !important;
+}
+
+/* Maximized Mode Layout Control */
+.chat-drawer.maximized .teams-widget .teams-app-rail {
+  display: flex !important;
+  width: 58px !important;
+  flex-shrink: 0 !important;
+}
+.chat-drawer.maximized .teams-widget .teams-list-column {
+  display: flex !important;
+  width: 320px !important;
+  flex-shrink: 0 !important;
+}
+.chat-drawer.maximized .teams-widget .teams-conversation-panel {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+
+/* Dropdown Options Menu */
+.teams-options-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 210px;
+  background: var(--card, #1e293b);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  z-index: 1100;
+  animation: fadeIn 0.15s ease;
+}
+.teams-opt-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: var(--text, #e2e8f0);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+  width: 100%;
+}
+.teams-opt-item:hover {
+  background: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+}
+.teams-opt-item i {
+  width: 16px;
+  font-size: 13px;
+  color: var(--text-3, #94a3b8);
+}
+.teams-opt-item:hover i {
+  color: #818cf8;
 }
 .chat-header {
   padding: 12px 16px;

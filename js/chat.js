@@ -7,6 +7,7 @@ const Chat = {
   isOpen: false,
   isMinimized: false,
   isMaximized: false,
+  widgetView: 'convo', // 'convo' (active chat in bottom box) | 'list' (contact roster)
   activeFilter: 'all', // 'all' | 'unread' | 'colleagues' | 'channels'
   activeChannelId: 'chan-wajiha',
   collapsedSections: { favorites: false, chats: false, colleagues: false },
@@ -673,9 +674,17 @@ const Chat = {
   openChannel(channelId) {
     this.activeChannelId = channelId;
     this.viewMode = 'convo';
+    this.widgetView = 'convo';
     this.replyingTo = null;
     this.inChatSearchActive = false;
     this.markChannelAsRead(channelId);
+
+    const drawer = document.getElementById('chat-drawer');
+    if (drawer && !this.isMaximized) {
+      this.renderWorkspace(drawer, false);
+      setTimeout(() => this.scrollToBottom(), 50);
+      return;
+    }
 
     // Refresh active state in roster
     if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
@@ -684,6 +693,25 @@ const Chat = {
       });
       this.renderConversationPanel();
       setTimeout(() => this.scrollToBottom(), 50);
+    }
+  },
+
+  selectChannel(channelId) {
+    this.closeOptionsMenu();
+    this.openChannel(channelId);
+  },
+
+  selectCopilot() {
+    this.closeOptionsMenu();
+    this.openChannel('chan-copilot');
+  },
+
+  toggleWidgetList(e) {
+    if (e) e.stopPropagation();
+    this.widgetView = this.widgetView === 'list' ? 'convo' : 'list';
+    const drawer = document.getElementById('chat-drawer');
+    if (drawer && !this.isMaximized) {
+      this.renderWorkspace(drawer, false);
     }
   },
 
@@ -747,6 +775,7 @@ const Chat = {
     if (typeof document === 'undefined') return;
     this.isOpen = true;
     this.isMinimized = false;
+    this.widgetView = 'convo'; // Default to conversation view in bottom box, not list form
 
     const overlay = document.getElementById('chat-drawer-overlay');
     const drawer = document.getElementById('chat-drawer');
@@ -785,6 +814,43 @@ const Chat = {
     this.isMinimized = !this.isMinimized;
     drawer.classList.toggle('minimized', this.isMinimized);
     this.closeOptionsMenu();
+
+    if (this.isMinimized) {
+      this.updateDockedBottomBar();
+    }
+  },
+
+  updateDockedBottomBar() {
+    const bar = document.getElementById('chat-docked-bottom-bar');
+    if (!bar) return;
+    const channel = this.getActiveChannel();
+    const info = this.getChannelDisplayInfo(channel);
+    const totalUnread = Object.values(this.unreadCounts).reduce((a, b) => a + (b || 0), 0);
+
+    bar.innerHTML = `
+      <div class="chat-docked-info" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+        <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:28px;height:28px;font-size:12px">
+          ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
+          <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
+        </div>
+        <div class="chat-docked-text">
+          <span class="chat-docked-name">${info.name}</span>
+          <span class="chat-docked-sub">${info.isOnline ? (channel && channel.type === 'bot' ? 'HR AI Copilot' : 'Active now') : 'Chat'}</span>
+        </div>
+        ${totalUnread > 0 ? `<span class="badge badge-danger" style="font-size:9px;padding:1px 5px;margin-left:4px">${totalUnread}</span>` : ''}
+      </div>
+      <div class="chat-docked-actions">
+        <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+          <i class="fa fa-chevron-up"></i>
+        </button>
+        <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize">
+          <i class="fa fa-expand"></i>
+        </button>
+        <button class="teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
+          <i class="fa fa-xmark"></i>
+        </button>
+      </div>
+    `;
   },
 
   toggleMaximize(e) {
@@ -806,13 +872,15 @@ const Chat = {
     maxIcons.forEach(icon => {
       icon.className = `fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}`;
     });
+
+    this.renderWorkspace(drawer, false);
   },
 
   toggleOptionsMenu(e) {
     if (e) e.stopPropagation();
     const dropdown = document.getElementById('teams-options-dropdown');
     if (!dropdown) return;
-    const isOpen = dropdown.style.display !== 'none';
+    const isOpen = dropdown.style.display === 'flex';
     if (isOpen) {
       this.closeOptionsMenu();
     } else {
@@ -892,8 +960,44 @@ const Chat = {
   renderWorkspace(container, isFullScreen = false) {
     if (!container) return;
 
+    const channel = this.getActiveChannel();
+    const info = this.getChannelDisplayInfo(channel);
+    const totalUnread = Object.values(this.unreadCounts).reduce((a, b) => a + (b || 0), 0);
+
+    const widgetClass = !isFullScreen 
+      ? `teams-widget ${this.isMaximized ? 'teams-widget-maximized' : (this.widgetView === 'list' ? 'show-list' : 'show-convo')}` 
+      : 'teams-fullscreen';
+
     container.innerHTML = `
-      <div class="teams-wrapper ${isFullScreen ? 'teams-fullscreen' : 'teams-widget'}">
+      <!-- Docked Bottom Bar (Visible when Chatbox is Minimized in Bottom Right) -->
+      ${!isFullScreen ? `
+        <div class="chat-docked-bottom-bar" id="chat-docked-bottom-bar" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+          <div class="chat-docked-info">
+            <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:28px;height:28px;font-size:12px">
+              ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
+              <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
+            </div>
+            <div class="chat-docked-text">
+              <span class="chat-docked-name">${info.name}</span>
+              <span class="chat-docked-sub">${info.isOnline ? (channel && channel.type === 'bot' ? 'HR AI Copilot' : 'Active now') : 'Chat'}</span>
+            </div>
+            ${totalUnread > 0 ? `<span class="badge badge-danger" style="font-size:9px;padding:1px 5px;margin-left:4px">${totalUnread}</span>` : ''}
+          </div>
+          <div class="chat-docked-actions">
+            <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+              <i class="fa fa-chevron-up"></i>
+            </button>
+            <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize">
+              <i class="fa fa-expand"></i>
+            </button>
+            <button class="teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
+              <i class="fa fa-xmark"></i>
+            </button>
+          </div>
+        </div>
+      ` : ''}
+
+      <div class="teams-wrapper ${widgetClass}">
         <!-- 1. Left Vertical App Rail -->
         <div class="teams-app-rail">
           <div class="teams-rail-logo" title="Microsoft Teams for HRM Pro">
@@ -923,7 +1027,14 @@ const Chat = {
         <div class="teams-list-column">
           <!-- Header -->
           <div class="teams-list-header">
-            <div class="teams-list-title">Chat</div>
+            <div class="teams-list-title" style="display:flex;align-items:center;gap:8px">
+              ${!isFullScreen && !this.isMaximized ? `
+                <button class="teams-action-icon-btn" onclick="Chat.toggleWidgetList(event)" title="Back to Conversation" style="width:28px;height:28px">
+                  <i class="fa fa-chevron-left"></i>
+                </button>
+              ` : ''}
+              <span>Chat</span>
+            </div>
             <div class="teams-header-actions">
               <button class="teams-action-icon-btn" onclick="document.getElementById('teams-filter-input').focus()" title="Search / Filter">
                 <i class="fa fa-search"></i>
@@ -934,24 +1045,12 @@ const Chat = {
               <button class="teams-action-icon-btn" onclick="Chat.startNewChat()" title="New Chat (Enter @username)">
                 <i class="fa fa-pen-to-square"></i>
               </button>
-              ${!isFullScreen ? `
-                <div class="teams-options-wrap" style="position:relative">
-                  <button class="teams-action-icon-btn" onclick="Chat.toggleOptionsMenu(event)" title="Options Dropdown Menu">
-                    <i class="fa fa-ellipsis-vertical"></i>
-                  </button>
-                  <div id="teams-options-dropdown" class="teams-options-dropdown" style="display:none">
-                    <div style="font-size:10px;font-weight:800;color:var(--text-3);padding:6px 8px;text-transform:uppercase">Chat Options</div>
-                    <button class="teams-opt-item" onclick="Chat.clearCurrentChat()"><i class="fa fa-broom"></i> Clear Conversation</button>
-                    <button class="teams-opt-item" onclick="Chat.exportChatTranscript()"><i class="fa fa-download"></i> Export Transcript</button>
-                    <button class="teams-opt-item" onclick="Chat.toggleMuteActiveChannel()"><i class="fa fa-bell-slash"></i> Mute / Unmute Alerts</button>
-                    <button class="teams-opt-item" onclick="Chat.selectChannel('chan-copilot')"><i class="fa fa-wand-magic-sparkles"></i> Switch to Copilot</button>
-                  </div>
-                </div>
-                <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom)">
+              ${!isFullScreen && !this.isMaximized ? `
+                <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom Box)">
                   <i class="fa fa-minus"></i>
                 </button>
-                <button class="teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
-                  <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
+                <button class="teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize">
+                  <i class="fa fa-expand"></i>
                 </button>
                 <button class="teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">
                   <i class="fa fa-xmark"></i>
@@ -1147,10 +1246,17 @@ const Chat = {
     const messages = this.getMessages(channel.id);
     const pinned = messages.filter(m => m.isPinned);
 
+    const inDrawer = document.getElementById('chat-drawer') && document.getElementById('chat-drawer').contains(panel);
+
     panel.innerHTML = `
       <!-- Convo Topbar (Displays who you are communicating with) -->
       <div class="teams-convo-header">
         <div class="teams-convo-header-left">
+          ${inDrawer && !this.isMaximized ? `
+            <button class="teams-action-icon-btn teams-roster-toggle-btn" onclick="Chat.toggleWidgetList(event)" title="All Chats & Contacts" style="margin-right:8px">
+              <i class="fa fa-bars"></i>
+            </button>
+          ` : ''}
           <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:38px;height:38px">
             ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0,2))}
             <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
@@ -1173,7 +1279,37 @@ const Chat = {
           <button class="teams-action-icon-btn" onclick="Chat.startVideoCall()" title="Video Call"><i class="fa fa-video"></i></button>
           <button class="teams-action-icon-btn" onclick="Chat.startAudioCall()" title="Audio Call"><i class="fa fa-phone"></i></button>
           <button class="teams-action-icon-btn" onclick="Chat.toggleInChatSearch()" title="Find in Chat"><i class="fa fa-search"></i></button>
-          <button class="teams-action-icon-btn" onclick="Chat.showChannelMembersModal('${channel.id}')" title="More Options"><i class="fa fa-ellipsis"></i></button>
+
+          <!-- Dropdown Options Menu in top right of chat -->
+          <div class="teams-options-wrap" style="position:relative">
+            <button class="teams-action-icon-btn" onclick="Chat.toggleOptionsMenu(event)" title="Options Dropdown Menu">
+              <i class="fa fa-ellipsis-vertical"></i>
+            </button>
+            <div id="teams-options-dropdown" class="teams-options-dropdown" style="display:none">
+              <div style="font-size:10px;font-weight:800;color:var(--text-3);padding:6px 8px;text-transform:uppercase">Chat Options</div>
+              <button class="teams-opt-item" onclick="Chat.clearCurrentChat()"><i class="fa fa-broom"></i> Clear Conversation</button>
+              <button class="teams-opt-item" onclick="Chat.exportChatTranscript()"><i class="fa fa-download"></i> Export Transcript</button>
+              <button class="teams-opt-item" onclick="Chat.toggleMuteActiveChannel()"><i class="fa fa-bell-slash"></i> Mute / Unmute Alerts</button>
+              <button class="teams-opt-item" onclick="Chat.selectCopilot()"><i class="fa fa-wand-magic-sparkles"></i> Switch to Copilot</button>
+            </div>
+          </div>
+
+          ${inDrawer ? `
+            <!-- Minimize to bottom box -->
+            <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom Box)">
+              <i class="fa fa-minus"></i>
+            </button>
+            <!-- Maximize / Restore -->
+            <button class="teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
+              <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
+            </button>
+            <!-- Close -->
+            <button class="teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">
+              <i class="fa fa-xmark"></i>
+            </button>
+          ` : `
+            <button class="teams-action-icon-btn" onclick="Chat.showChannelMembersModal('${channel.id}')" title="More Options"><i class="fa fa-ellipsis"></i></button>
+          `}
         </div>
       </div>
 
