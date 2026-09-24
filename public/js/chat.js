@@ -113,11 +113,125 @@ const Chat = {
 
     const teamsSeedChannels = [
       {
-        id: 'chan-copilot',
-        name: '✨ HRM AI Copilot',
-        username: 'hrm.copilot',
+        id: 'chan-saima',
+        name: 'Saima BD',
+        username: 'saima.bd',
+        avatar: 'S',
+        avatarBg: '#f472b6',
+        type: 'direct',
+        isFavorite: false,
+        time: '1:35 PM',
+        lastMessage: 'okay',
+        targetEmpId: 201,
+        targetEmpRole: 'Business Development',
+        members: [1, 201]
+      },
+      {
+        id: 'chan-num92',
+        name: '+92 316 0418470',
+        username: 'wa.923160418470',
+        avatar: 'M',
+        avatarBg: '#2dd4bf',
+        type: 'direct',
+        isFavorite: false,
+        time: '11:12 AM',
+        lastMessage: 'Sir kaysy ha ap?',
+        targetEmpId: 202,
+        targetEmpRole: 'External Client',
+        members: [1, 202]
+      },
+      {
+        id: 'chan-kallur',
+        name: 'Kallur Kot Travel Group',
+        username: 'kallur.travel',
+        avatar: 'KT',
+        avatarBg: '#0ea5e9',
+        type: 'group',
+        isFavorite: false,
+        time: '10:13 AM',
+        lastMessage: '~Rana Usama: Asalam o alaikum koi bhaii car pa aj Lahore ...',
+        targetEmpId: null,
+        targetEmpRole: 'Corporate Travel Pool',
+        members: [1, 203, 204]
+      },
+      {
+        id: 'chan-gemini',
+        name: 'Gimmini Pro 18 Month',
+        username: 'gemini.pro',
         avatar: 'fa-wand-magic-sparkles',
-        avatarBg: 'linear-gradient(135deg, #6366f1, #a855f7)',
+        avatarBg: '#38bdf8',
+        type: 'group',
+        isFavorite: false,
+        time: '9:12 AM',
+        lastMessage: '~work: Gemmini rate is so high due to the shortage of lin...',
+        targetEmpId: null,
+        targetEmpRole: 'AI Research Group',
+        members: [1, 999]
+      },
+      {
+        id: 'chan-arshad',
+        name: 'Arshad Iqbal 🇵🇰',
+        username: 'arshad.iqbal',
+        avatar: 'AI',
+        avatarBg: '#b45309',
+        type: 'direct',
+        isFavorite: false,
+        time: '12:23 AM',
+        lastMessage: '🎙️ 0:03',
+        isVoice: true,
+        targetEmpId: 205,
+        targetEmpRole: 'Logistics Partner',
+        members: [1, 205]
+      },
+      {
+        id: 'chan-chairs',
+        name: 'Chairs',
+        username: 'office.chairs',
+        avatar: 'C',
+        avatarBg: '#fb7185',
+        type: 'direct',
+        isFavorite: false,
+        time: 'Yesterday',
+        lastMessage: '✓✓ Aoa office chairs available',
+        targetEmpId: 206,
+        targetEmpRole: 'Procurement Vendor',
+        members: [1, 206]
+      },
+      {
+        id: 'chan-ghulaman',
+        name: 'UC Ghulaman',
+        username: 'uc.ghulaman',
+        avatar: 'UG',
+        avatarBg: '#1e40af',
+        type: 'group',
+        isFavorite: false,
+        time: 'Yesterday',
+        lastMessage: '~FANi: 📷 Photo',
+        isMuted: true,
+        targetEmpId: null,
+        targetEmpRole: 'Regional Liaison',
+        members: [1, 207, 208]
+      },
+      {
+        id: 'chan-touqeer',
+        name: 'Touqeer Home',
+        username: 'touqeer.home',
+        avatar: 'TH',
+        avatarBg: '#10b981',
+        type: 'direct',
+        isFavorite: false,
+        time: 'Yesterday',
+        lastMessage: '✓✓ Subha 6 bjy ata h wohi h ya',
+        targetEmpId: 209,
+        targetEmpRole: 'Operations Field',
+        members: [1, 209]
+      },
+      {
+        id: 'chan-copilot',
+        name: '✨ HRM Meta AI & Copilot',
+        username: 'hrm.copilot',
+        avatar: 'fa-robot',
+        avatarBg: '#00a884',
         type: 'bot',
         isFavorite: true,
         time: 'Now',
@@ -254,13 +368,10 @@ const Chat = {
       }
     ];
 
-    // Merge seed channels if missing
-    teamsSeedChannels.forEach(seed => {
-      const exists = channels.find(c => c.id === seed.id || (c.type === 'direct' && c.targetEmpId === seed.targetEmpId));
-      if (!exists) {
-        channels.push(seed);
-      }
-    });
+    // Prioritize and ensure WhatsApp seed channels exist at top in screenshot order
+    const waSeedMap = new Map(teamsSeedChannels.map(s => [s.id, s]));
+    channels = channels.filter(c => !waSeedMap.has(c.id));
+    channels = [...teamsSeedChannels, ...channels];
     DB.set('chat_channels', channels);
 
     // Initial message history for chan-copilot
@@ -363,6 +474,9 @@ const Chat = {
 
   // ── 3. Unread Badges ──────────────────────────────────────
   calculateInitialUnreads() {
+    this.unreadCounts['chan-saima'] = 1;
+    this.unreadCounts['chan-num92'] = 1;
+    this.unreadCounts['chan-gemini'] = 1;
     this.unreadCounts['chan-wajiha'] = 1;
     this.updateBadges();
   },
@@ -775,7 +889,7 @@ const Chat = {
     if (typeof document === 'undefined') return;
     this.isOpen = true;
     this.isMinimized = false;
-    this.widgetView = 'convo'; // Default to conversation view in bottom box, not list form
+    this.widgetView = 'list'; // Default to WhatsApp roster list view (matching screenshot)
 
     const overlay = document.getElementById('chat-drawer-overlay');
     const drawer = document.getElementById('chat-drawer');
@@ -828,25 +942,25 @@ const Chat = {
     const totalUnread = Object.values(this.unreadCounts).reduce((a, b) => a + (b || 0), 0);
 
     bar.innerHTML = `
-      <div class="chat-docked-info" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
-        <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:28px;height:28px;font-size:12px">
+      <div class="chat-docked-info" onclick="Chat.toggleMinimize(event)" title="Restore WhatsApp">
+        <div class="wa-avatar-wrap teams-avatar-wrap" style="background:${info.avatarBg || '#00a884'};width:28px;height:28px;font-size:12px">
           ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
-          <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
+          <span class="wa-online-dot" style="width:8px;height:8px"></span>
         </div>
         <div class="chat-docked-text">
           <span class="chat-docked-name">${info.name}</span>
-          <span class="chat-docked-sub">${info.isOnline ? (channel && channel.type === 'bot' ? 'HR AI Copilot' : 'Active now') : 'Chat'}</span>
+          <span class="chat-docked-sub" style="color:#25D366;font-weight:600">WhatsApp • ${info.isOnline ? 'Online' : 'Active'}</span>
         </div>
-        ${totalUnread > 0 ? `<span class="badge badge-danger" style="font-size:9px;padding:1px 5px;margin-left:4px">${totalUnread}</span>` : ''}
+        ${totalUnread > 0 ? `<span class="wa-unread-circle badge badge-danger" style="font-size:10px;min-width:18px;height:18px;padding:0 4px;margin-left:4px">${totalUnread}</span>` : ''}
       </div>
       <div class="chat-docked-actions">
-        <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+        <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore WhatsApp">
           <i class="fa fa-chevron-up"></i>
         </button>
-        <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize">
+        <button class="wa-action-btn teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize">
           <i class="fa fa-expand"></i>
         </button>
-        <button class="teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
+        <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
           <i class="fa fa-xmark"></i>
         </button>
       </div>
@@ -956,7 +1070,7 @@ const Chat = {
     this.renderWorkspace(content, true);
   },
 
-  // ── 7. Core Microsoft Teams UI Renderer ───────────────────
+  // ── 7. Core WhatsApp Web UI Renderer ───────────────────────
   renderWorkspace(container, isFullScreen = false) {
     if (!container) return;
 
@@ -971,124 +1085,146 @@ const Chat = {
     container.innerHTML = `
       <!-- Docked Bottom Bar (Visible when Chatbox is Minimized in Bottom Right) -->
       ${!isFullScreen ? `
-        <div class="chat-docked-bottom-bar" id="chat-docked-bottom-bar" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+        <div class="chat-docked-bottom-bar wa-docked-bar" id="chat-docked-bottom-bar" onclick="Chat.toggleMinimize(event)" title="Restore WhatsApp">
           <div class="chat-docked-info">
-            <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:28px;height:28px;font-size:12px">
+            <div class="wa-avatar-wrap teams-avatar-wrap" style="background:${info.avatarBg || '#00a884'};width:30px;height:30px;font-size:13px">
               ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
-              <span class="teams-presence-badge ${info.isOnline ? 'online' : 'offline'}"></span>
+              <span class="wa-online-dot" style="width:8px;height:8px"></span>
             </div>
             <div class="chat-docked-text">
               <span class="chat-docked-name">${info.name}</span>
-              <span class="chat-docked-sub">${info.isOnline ? (channel && channel.type === 'bot' ? 'HR AI Copilot' : 'Active now') : 'Chat'}</span>
+              <span class="chat-docked-sub" style="color:#25D366">WhatsApp • ${info.isOnline ? 'Online' : 'Active'}</span>
             </div>
-            ${totalUnread > 0 ? `<span class="badge badge-danger" style="font-size:9px;padding:1px 5px;margin-left:4px">${totalUnread}</span>` : ''}
+            ${totalUnread > 0 ? `<span class="wa-unread-circle badge badge-danger" style="font-size:10px;min-width:18px;height:18px">${totalUnread}</span>` : ''}
           </div>
           <div class="chat-docked-actions">
-            <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore Chatbox">
+            <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Restore WhatsApp">
               <i class="fa fa-chevron-up"></i>
             </button>
-            <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize">
+            <button class="wa-action-btn teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize">
               <i class="fa fa-expand"></i>
             </button>
-            <button class="teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
+            <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.closeDrawer(); event.stopPropagation();" title="Close">
               <i class="fa fa-xmark"></i>
             </button>
           </div>
         </div>
       ` : ''}
 
-      <div class="teams-wrapper ${widgetClass}">
-        <!-- 1. Left Vertical App Rail -->
-        <div class="teams-app-rail">
-          <div class="teams-rail-logo" title="Microsoft Teams for HRM Pro">
-            <i class="fa fa-users-viewfinder"></i>
-          </div>
-          <button class="teams-rail-btn active" title="Chat" onclick="Chat.setFilter('all')">
+      <div class="wa-wrapper teams-wrapper ${widgetClass}">
+        <!-- 1. Left Vertical Icon Rail (WhatsApp Web Style) -->
+        <div class="wa-rail teams-app-rail">
+          <!-- Top Icons -->
+          <button class="wa-rail-btn teams-rail-btn ${this.activeFilter === 'all' || this.activeFilter === 'unread' ? 'active' : ''}" title="Chats" onclick="Chat.setFilter('all')">
             <i class="fa fa-comment-dots"></i>
+            <span class="wa-rail-badge">4</span>
           </button>
-          <button class="teams-rail-btn" title="All Colleagues" onclick="Chat.setFilter('colleagues')">
-            <i class="fa fa-address-book"></i>
+          <button class="wa-rail-btn teams-rail-btn" title="Status" onclick="if(typeof Toast!=='undefined') Toast.show('Status updates active', 'info')">
+            <i class="fa-regular fa-circle-dot"></i>
+            <span class="wa-rail-dot"></span>
           </button>
-          <button class="teams-rail-btn" title="Channels & Teams" onclick="Chat.setFilter('channels')">
-            <i class="fa fa-people-group"></i>
+          <button class="wa-rail-btn teams-rail-btn" title="Channels" onclick="Chat.setFilter('groups')">
+            <i class="fa fa-bullhorn"></i>
+            <span class="wa-rail-dot"></span>
           </button>
-          <button class="teams-rail-btn" title="Meet Now" onclick="Chat.startVideoCall()">
-            <i class="fa fa-video"></i>
+          <button class="wa-rail-btn teams-rail-btn" title="Communities" onclick="if(typeof Toast!=='undefined') Toast.show('Communities tab', 'info')">
+            <i class="fa fa-users"></i>
           </button>
-          <button class="teams-rail-btn" title="Custom Presence" onclick="Chat.showStatusPopover(this)">
-            <i class="fa fa-circle-user"></i>
+          <button class="wa-rail-btn teams-rail-btn" title="Meta AI / Copilot" onclick="Chat.selectCopilot()">
+            <i class="fa fa-circle-nodes"></i>
+            <span class="wa-rail-dot"></span>
           </button>
-          <button class="teams-rail-btn" title="Activity" onclick="if (typeof App !== 'undefined') App.toggleNotifications();">
-            <i class="fa fa-bell"></i>
+          <button class="wa-rail-btn teams-rail-btn" title="Broadcast" onclick="if(typeof Toast!=='undefined') Toast.show('Broadcast lists', 'info')">
+            <i class="fa fa-tower-broadcast"></i>
           </button>
+
+          <!-- Spacer -->
+          <div style="flex:1"></div>
+
+          <!-- Bottom Icons -->
+          <button class="wa-rail-btn teams-rail-btn" title="Media & Files" onclick="if(typeof Toast!=='undefined') Toast.show('Shared media gallery', 'info')">
+            <i class="fa-regular fa-image"></i>
+          </button>
+          <button class="wa-rail-btn teams-rail-btn" title="Settings" onclick="if (typeof App !== 'undefined') App.navigate('settings');">
+            <i class="fa fa-gear"></i>
+          </button>
+          <div class="wa-rail-avatar" title="My Profile" onclick="if (typeof App !== 'undefined') App.navigate('profile');">
+            <div style="width:32px;height:32px;border-radius:50%;background:#00a884;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700">AK</div>
+          </div>
         </div>
 
-        <!-- 2. Middle Chat List Column -->
-        <div class="teams-list-column">
-          <!-- Header -->
-          <div class="teams-list-header">
-            <div class="teams-list-title" style="display:flex;align-items:center;gap:8px">
-              ${!isFullScreen && !this.isMaximized ? `
-                <button class="teams-action-icon-btn" onclick="Chat.toggleWidgetList(event)" title="Back to Conversation" style="width:28px;height:28px">
-                  <i class="fa fa-chevron-left"></i>
+        <!-- 2. WhatsApp Chat List Column -->
+        <div class="wa-list-column teams-list-column">
+          <!-- WhatsApp Header -->
+          <div class="wa-header teams-list-header">
+            <div class="wa-title teams-list-title">WhatsApp</div>
+            <div class="wa-header-actions teams-header-actions">
+              <!-- 3-Dots Dropdown Options -->
+              <div class="teams-options-wrap" style="position:relative">
+                <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.toggleOptionsMenu(event)" title="Menu">
+                  <i class="fa fa-ellipsis-vertical"></i>
                 </button>
-              ` : ''}
-              <span>Chat</span>
-            </div>
-            <div class="teams-header-actions">
-              <button class="teams-action-icon-btn" onclick="document.getElementById('teams-filter-input').focus()" title="Search / Filter">
-                <i class="fa fa-search"></i>
+                <div id="teams-options-dropdown" class="teams-options-dropdown" style="display:none">
+                  <div style="font-size:10px;font-weight:800;color:var(--text-3);padding:6px 8px;text-transform:uppercase">WhatsApp Options</div>
+                  <button class="teams-opt-item" onclick="Chat.startNewChat()"><i class="fa fa-user-plus"></i> New Chat</button>
+                  <button class="teams-opt-item" onclick="Chat.setFilter('groups')"><i class="fa fa-users"></i> New Group</button>
+                  <button class="teams-opt-item" onclick="Chat.selectCopilot()"><i class="fa fa-wand-magic-sparkles"></i> HRM Meta AI</button>
+                  <button class="teams-opt-item" onclick="Chat.clearCurrentChat()"><i class="fa fa-broom"></i> Clear Conversation</button>
+                  <button class="teams-opt-item" onclick="Chat.exportChatTranscript()"><i class="fa fa-download"></i> Export Chat</button>
+                  <button class="teams-opt-item" onclick="Chat.toggleMuteActiveChannel()"><i class="fa fa-bell-slash"></i> Mute Notifications</button>
+                </div>
+              </div>
+
+              <!-- New Chat (+) -->
+              <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.startNewChat()" title="New chat">
+                <i class="fa fa-square-plus"></i>
               </button>
-              <button class="teams-action-icon-btn" onclick="Chat.startVideoCall()" title="Meet">
-                <i class="fa fa-video"></i>
+
+              <!-- Window Controls: Min, Max, Close -->
+              <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom Box)">
+                <i class="fa fa-minus"></i>
               </button>
-              <button class="teams-action-icon-btn" onclick="Chat.startNewChat()" title="New Chat (Enter @username)">
-                <i class="fa fa-pen-to-square"></i>
+              <button class="wa-action-btn teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
+                <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
               </button>
-              ${!isFullScreen && !this.isMaximized ? `
-                <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom Box)">
-                  <i class="fa fa-minus"></i>
-                </button>
-                <button class="teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize">
-                  <i class="fa fa-expand"></i>
-                </button>
-                <button class="teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">
-                  <i class="fa fa-xmark"></i>
-                </button>
-              ` : ''}
+              <button class="wa-action-btn teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">
+                <i class="fa fa-xmark"></i>
+              </button>
             </div>
           </div>
 
-          <!-- Search / Filter Input Box -->
-          <div class="teams-filter-wrap" style="position:relative">
-            <div class="teams-filter-input-box">
+          <!-- Search Bar -->
+          <div class="wa-search-wrap teams-filter-wrap">
+            <div class="wa-search-box teams-filter-input-box">
+              <i class="fa fa-search wa-search-icon"></i>
               <input 
                 type="text" 
                 id="teams-filter-input" 
-                class="teams-filter-input" 
-                placeholder="Filter by person or chat name (type @ for username)…"
+                class="wa-search-input teams-filter-input" 
+                placeholder="Search or start a new chat"
                 autocomplete="off"
                 oninput="Chat.filterRoster(this.value)">
-              <i class="fa fa-times" style="font-size:11px;color:#8c8c8c;cursor:pointer" onclick="Chat.closeDropdown()" title="Clear"></i>
+              <i class="fa fa-times wa-search-clear" onclick="Chat.closeDropdown()" title="Clear"></i>
             </div>
-            <!-- Live @username autocomplete dropdown -->
+            <!-- Autocomplete dropdown -->
             <div id="teams-username-dropdown" class="teams-username-dropdown" style="display:none"></div>
           </div>
 
-          <!-- Filter Pills (Matching Teams: Unread, Meeting chats, etc.) -->
-          <div class="teams-filter-pills">
-            <button class="teams-pill-btn ${this.activeFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="Chat.setFilter('all')">All</button>
-            <button class="teams-pill-btn ${this.activeFilter === 'unread' ? 'active' : ''}" data-filter="unread" onclick="Chat.setFilter('unread')">Unread</button>
-            <button class="teams-pill-btn ${this.activeFilter === 'colleagues' ? 'active' : ''}" data-filter="colleagues" onclick="Chat.setFilter('colleagues')">Colleagues</button>
-            <button class="teams-pill-btn ${this.activeFilter === 'channels' ? 'active' : ''}" data-filter="channels" onclick="Chat.setFilter('channels')">Meeting chats</button>
+          <!-- Filter Pills (Matching WhatsApp Screenshot: All, Unread 4, Favorites, Groups 1, +) -->
+          <div class="wa-filter-pills teams-filter-pills">
+            <button class="wa-pill teams-pill-btn ${this.activeFilter === 'all' ? 'active' : ''}" data-filter="all" onclick="Chat.setFilter('all')">All</button>
+            <button class="wa-pill teams-pill-btn ${this.activeFilter === 'unread' ? 'active' : ''}" data-filter="unread" onclick="Chat.setFilter('unread')">Unread <span class="wa-pill-badge">${totalUnread > 0 ? totalUnread : 4}</span></button>
+            <button class="wa-pill teams-pill-btn ${this.activeFilter === 'favorites' ? 'active' : ''}" data-filter="favorites" onclick="Chat.setFilter('favorites')">Favorites</button>
+            <button class="wa-pill teams-pill-btn ${this.activeFilter === 'groups' ? 'active' : ''}" data-filter="groups" onclick="Chat.setFilter('groups')">Groups <span class="wa-pill-badge">1</span></button>
+            <button class="wa-pill wa-pill-add" onclick="if(typeof Toast!=='undefined') Toast.show('Custom filter added', 'info')" title="Add Filter"><i class="fa fa-plus"></i></button>
           </div>
 
-          <!-- Chat Items Roster -->
-          <div class="teams-roster-scroll" id="teams-roster-scroll"></div>
+          <!-- Chat Roster Items (WhatsApp Style) -->
+          <div class="wa-roster-scroll teams-roster-scroll" id="teams-roster-scroll"></div>
         </div>
 
-        <!-- 3. Right Conversation Panel -->
-        <div class="teams-conversation-panel" id="teams-conversation-panel"></div>
+        <!-- 3. WhatsApp Conversation Panel -->
+        <div class="wa-convo-panel teams-conversation-panel" id="teams-conversation-panel"></div>
       </div>
     `;
 
@@ -1096,7 +1232,7 @@ const Chat = {
     this.renderConversationPanel();
   },
 
-  // ── 8. Roster List Rendering (Exact Microsoft Teams Layout) ─
+  // ── 8. Roster List Rendering (Exact WhatsApp Layout) ────────
   renderRosterList(filterQuery = '') {
     const scrollContainer = document.getElementById('teams-roster-scroll');
     if (!scrollContainer) return;
@@ -1107,10 +1243,10 @@ const Chat = {
     let filtered = channels;
     if (this.activeFilter === 'unread') {
       filtered = filtered.filter(c => (this.unreadCounts[c.id] || 0) > 0);
-    } else if (this.activeFilter === 'colleagues') {
-      filtered = filtered.filter(c => c.type === 'direct');
-    } else if (this.activeFilter === 'channels') {
-      filtered = filtered.filter(c => c.type !== 'direct');
+    } else if (this.activeFilter === 'favorites') {
+      filtered = filtered.filter(c => c.isFavorite);
+    } else if (this.activeFilter === 'groups') {
+      filtered = filtered.filter(c => c.type === 'group');
     }
 
     if (q) {
@@ -1121,69 +1257,10 @@ const Chat = {
       );
     }
 
-    const favorites = filtered.filter(c => c.isFavorite);
-    const chats = filtered.filter(c => !c.isFavorite);
-
     let html = '';
-
-    // SECTION 1: Favorites
-    if (favorites.length > 0) {
-      html += `
-        <div class="teams-section-header" onclick="Chat.toggleSection('favorites')">
-          <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.favorites ? 'collapsed' : ''}"></i>
-          <span>Favorites (${favorites.length})</span>
-        </div>
-      `;
-      if (!this.collapsedSections.favorites) {
-        favorites.forEach(c => {
-          html += this.renderCardHTML(c);
-        });
-      }
-    }
-
-    // SECTION 2: Chats (Active Conversations)
-    html += `
-      <div class="teams-section-header" style="margin-top:6px" onclick="Chat.toggleSection('chats')">
-        <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.chats ? 'collapsed' : ''}"></i>
-        <span>Chats (${chats.length})</span>
-      </div>
-    `;
-    if (!this.collapsedSections.chats) {
-      chats.forEach(c => {
-        html += this.renderCardHTML(c);
-      });
-    }
-
-    // SECTION 3: All Colleagues Directory
-    const colleagues = this.getAllCompanyMembers().filter(m => !m.isSelf);
-    html += `
-      <div class="teams-section-header" style="margin-top:12px" onclick="Chat.toggleSection('colleagues')">
-        <i class="fa fa-chevron-down teams-section-chevron ${this.collapsedSections.colleagues ? 'collapsed' : ''}"></i>
-        <span>All Colleagues Directory (${colleagues.length})</span>
-      </div>
-    `;
-    if (!this.collapsedSections.colleagues) {
-      colleagues.forEach(m => {
-        const initials = typeof Utils !== 'undefined' ? Utils.avatarInitials(m.fullName) : m.fullName.substring(0,2);
-        const color = typeof Utils !== 'undefined' ? Utils.avatarColor(m.empId) : '#6366f1';
-        html += `
-          <div class="teams-chat-card" onclick="Chat.startDirectChat(${m.empId})" title="Click to chat with ${m.fullName} (@${m.username})">
-            <div class="teams-avatar-wrap" style="background:${color}">
-              ${initials}
-              <span class="teams-presence-badge ${m.isOnline ? 'online' : 'offline'}"></span>
-            </div>
-            <div class="teams-card-info">
-              <div class="teams-card-top">
-                <span class="teams-card-name">${m.fullName}</span>
-                <span style="font-size:10.5px;color:#464eb8;font-weight:700">@${m.username}</span>
-              </div>
-              <div class="teams-card-preview">${m.designation} • ${m.department}</div>
-            </div>
-            <button class="btn btn-xs" style="padding:2px 8px;font-size:11px;background:#464eb8;color:#fff;border-radius:4px;border:none">Chat</button>
-          </div>
-        `;
-      });
-    }
+    filtered.forEach(c => {
+      html += this.renderCardHTML(c);
+    });
 
     scrollContainer.innerHTML = html;
   },
@@ -1193,40 +1270,54 @@ const Chat = {
     const isActive = c.id === this.activeChannelId;
     const unread = this.unreadCounts[c.id] || 0;
     const isOnline = info.isOnline;
-    const bg = info.avatarBg || '#464eb8';
+    const bg = info.avatarBg || '#00a884';
 
-    // Compute clean last message preview: if sent by me, prefix with "You: "
-    let lastMsgPreview = c.lastMessage || 'Click to open conversation';
+    // Format WhatsApp preview with checkmarks, voice note, photo, or group sender
+    let previewHtml = c.lastMessage || 'Click to open conversation';
     const msgs = this.getMessages(c.id);
     if (msgs.length > 0) {
       const lastMsg = msgs[msgs.length - 1];
       if (this.isMyMessage(lastMsg)) {
-        lastMsgPreview = `You: ${lastMsg.content.substring(0, 28)}`;
+        previewHtml = `<i class="fa fa-check-double wa-ticks"></i> ${lastMsg.content.substring(0, 32)}`;
       } else {
-        const namePrefix = lastMsg.senderName ? lastMsg.senderName.split(' ')[0] : 'Them';
-        lastMsgPreview = `${namePrefix}: ${lastMsg.content.substring(0, 24)}`;
+        const namePrefix = c.type === 'group' && lastMsg.senderName ? `~${lastMsg.senderName.split(' ')[0]}: ` : '';
+        previewHtml = `${namePrefix}${lastMsg.content.substring(0, 32)}`;
+      }
+    } else {
+      if (c.lastMessage && c.lastMessage.startsWith('✓✓')) {
+        previewHtml = `<i class="fa fa-check-double wa-ticks"></i> ${c.lastMessage.replace('✓✓', '').trim()}`;
+      } else if (c.isVoice || (c.lastMessage && c.lastMessage.includes('🎙️'))) {
+        previewHtml = `<i class="fa fa-check-double wa-ticks"></i> <i class="fa fa-microphone" style="color:#00a884;margin-right:2px"></i> 0:03`;
+      } else if (c.lastMessage && c.lastMessage.includes('Photo')) {
+        previewHtml = `~FANi: <i class="fa fa-camera" style="margin: 0 2px"></i> Photo`;
       }
     }
 
     return `
-      <div class="teams-chat-card ${isActive ? 'active' : ''} ${unread > 0 ? 'unread' : ''}" 
+      <div class="wa-chat-item teams-chat-card ${isActive ? 'active' : ''} ${unread > 0 ? 'has-unread unread' : ''}" 
         data-channel-id="${c.id}" 
         onclick="Chat.openChannel('${c.id}')">
-        <div class="teams-avatar-wrap" style="background:${bg}">
+        
+        <!-- WhatsApp Round Avatar with Status Dot -->
+        <div class="wa-avatar-wrap teams-avatar-wrap" style="background:${bg}">
           ${info.avatar && info.avatar.startsWith('fa-') ? `<i class="fa ${info.avatar}"></i>` : (info.avatar || info.name.substring(0, 2))}
-          <span class="teams-presence-badge ${isOnline ? 'online' : 'offline'}"></span>
+          ${isOnline ? `<span class="wa-online-dot"></span>` : ''}
         </div>
-        <div class="teams-card-info">
-          <div class="teams-card-top">
-            <span class="teams-card-name">
-              ${info.name}
-              ${c.type === 'bot' ? '<span class="teams-copilot-pill">COPILOT</span>' : ''}
-            </span>
-            <span class="teams-card-time">${c.time || 'Today'}</span>
+
+        <!-- WhatsApp Chat Details -->
+        <div class="wa-chat-content teams-card-info">
+          <div class="wa-chat-top teams-card-top">
+            <span class="wa-chat-name teams-card-name">${info.name}</span>
+            <span class="wa-chat-time teams-card-time ${unread > 0 ? 'unread' : ''}">${c.time || 'Yesterday'}</span>
           </div>
-          <div class="teams-card-preview">${lastMsgPreview}</div>
+          <div class="wa-chat-bottom">
+            <div class="wa-chat-preview teams-card-preview">${previewHtml}</div>
+            <div class="wa-chat-meta">
+              ${c.isMuted ? `<i class="fa fa-bell-slash wa-mute-icon" title="Muted"></i>` : ''}
+              ${unread > 0 ? `<span class="wa-unread-circle badge badge-danger">${unread}</span>` : ''}
+            </div>
+          </div>
         </div>
-        ${unread > 0 ? `<span class="badge badge-danger" style="font-size:10px;padding:1px 6px;border-radius:10px">${unread}</span>` : ''}
       </div>
     `;
   },
@@ -1253,8 +1344,8 @@ const Chat = {
       <div class="teams-convo-header">
         <div class="teams-convo-header-left">
           ${inDrawer && !this.isMaximized ? `
-            <button class="teams-action-icon-btn teams-roster-toggle-btn" onclick="Chat.toggleWidgetList(event)" title="All Chats & Contacts" style="margin-right:8px">
-              <i class="fa fa-bars"></i>
+            <button class="wa-back-btn teams-action-icon-btn teams-roster-toggle-btn" onclick="Chat.toggleWidgetList(event)" title="Back to WhatsApp Chats" style="margin-right:8px">
+              <i class="fa fa-arrow-left"></i>
             </button>
           ` : ''}
           <div class="teams-avatar-wrap" style="background:${info.avatarBg || '#464eb8'};width:38px;height:38px">
