@@ -687,6 +687,38 @@ const Chat = {
     }
   },
 
+  openTicketFromChat(ticketId) {
+    if (typeof App !== 'undefined' && typeof App.navigate === 'function') {
+      App.navigate('helpdesk');
+    }
+    if (this.isMaximized) {
+      this.isMaximized = false;
+      if (typeof document !== 'undefined') {
+        const drawer = document.getElementById('chat-drawer');
+        if (drawer) drawer.classList.remove('maximized');
+      }
+    }
+    setTimeout(() => {
+      if (typeof Helpdesk !== 'undefined' && typeof Helpdesk.openTicketWorkspace === 'function') {
+        Helpdesk.openTicketWorkspace(ticketId);
+      }
+    }, 150);
+  },
+
+  openTicketFromChatByNumber(ticketNumber) {
+    if (typeof DB !== 'undefined') {
+      const tickets = DB.get('helpdesk_tickets') || [];
+      const t = tickets.find(x => x.ticketNumber === ticketNumber);
+      if (t) {
+        this.openTicketFromChat(t.id);
+        return;
+      }
+    }
+    if (typeof App !== 'undefined' && typeof App.navigate === 'function') {
+      App.navigate('helpdesk');
+    }
+  },
+
   setFilter(filterName) {
     this.activeFilter = filterName;
     if (typeof document !== 'undefined' && typeof document.querySelectorAll === 'function') {
@@ -1206,6 +1238,7 @@ const Chat = {
                 <div>${this.formatMessageText(msg.content)}</div>
               `}
 
+              ${msg.ticketContext ? this.renderTicketCard(msg.ticketContext, isMe) : ''}
               ${this.renderAttachmentsHTML(msg.attachments)}
               ${isMe ? `
                 <div style="font-size:10px;opacity:0.75;text-align:right;margin-top:3px;display:flex;align-items:center;justify-content:flex-end;gap:4px">
@@ -1225,17 +1258,58 @@ const Chat = {
     return html;
   },
 
-  // ── 10. Message Sending & File Uploads ─────────────────────
-  sendMessage() {
-    if (typeof document === 'undefined') return;
-    const input = document.getElementById('teams-msg-input');
-    if (!input) return;
-    const content = input.value.trim();
-    if (!content) return;
+  renderTicketCard(t, isMe = false) {
+    if (!t) return '';
+    const prioColors = {
+      urgent: '#ef4444',
+      high: '#f59e0b',
+      medium: '#06b6d4',
+      low: '#6b7280'
+    };
+    const prioColor = prioColors[t.ticketPriority] || '#464eb8';
+    const statusLabels = {
+      open: 'Open',
+      in_progress: 'In Progress',
+      resolved: 'Resolved',
+      closed: 'Closed'
+    };
 
+    return `
+      <div class="chat-ticket-card ${isMe ? 'outgoing' : 'incoming'}" style="margin-top:8px;padding:10px 12px;border-radius:8px;border-left:4px solid ${prioColor};box-shadow:0 1px 3px rgba(0,0,0,0.06);text-align:left">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="chat-ticket-icon-pill">
+              <i class="fa fa-ticket"></i>
+            </span>
+            <span style="font-weight:700;font-size:12px;font-family:monospace;letter-spacing:0.5px">${t.ticketNumber || ('Ticket #' + t.ticketId)}</span>
+          </div>
+          <span style="font-size:9.5px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:10px;background:${prioColor}25;color:${prioColor}">
+            ${t.ticketPriority || 'Standard'}
+          </span>
+        </div>
+
+        <div style="font-size:12.5px;font-weight:600;line-height:1.35;margin-bottom:6px">
+          ${t.ticketTitle || 'Helpdesk Support Ticket'}
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+          <div style="font-size:11px;opacity:0.85">
+            Status: <strong>${statusLabels[t.ticketStatus] || t.ticketStatus}</strong>
+            ${t.ticketDepartment ? ` • ${t.ticketDepartment}` : ''}
+          </div>
+          <button class="chat-ticket-view-btn" onclick="Chat.openTicketFromChat(${t.ticketId})">
+            <i class="fa fa-arrow-up-right-from-square" style="font-size:10px"></i> View Ticket in Helpdesk
+          </button>
+        </div>
+      </div>
+    `;
+  },
+
+  // ── 10. Message Sending & File Uploads ─────────────────────
+  sendCustomMessage(content, options = {}) {
     const me = this.getCurrentUser();
     const channel = this.getActiveChannel();
-    if (!channel) return;
+    if (!channel) return null;
 
     const newMsg = {
       id: `msg-${Date.now()}-${Math.floor(Math.random()*1000)}`,
@@ -1243,8 +1317,10 @@ const Chat = {
       senderId: me.id,
       senderName: me.fullName,
       senderUsername: me.username,
-      content,
-      replyTo: this.replyingTo ? { id: this.replyingTo.id, senderName: this.replyingTo.senderName, content: this.replyingTo.content } : null,
+      content: content || '',
+      ticketContext: options.ticketContext || null,
+      attachments: options.attachments || [],
+      replyTo: options.replyTo || null,
       createdAt: new Date().toISOString()
     };
 
@@ -1253,7 +1329,7 @@ const Chat = {
       allMsgs.push(newMsg);
       DB.set('chat_messages', allMsgs);
 
-      // Update channel last message & time (preview is 'You: ...' for the sender)
+      // Update channel last message & time
       const channels = DB.get('chat_channels') || [];
       const ch = channels.find(c => c.id === channel.id);
       if (ch) {
@@ -1265,21 +1341,38 @@ const Chat = {
 
     // Sender's channel is NEVER marked unread for themselves
     this.unreadCounts[channel.id] = 0;
-    this.updateBadges();
+    if (typeof this.updateBadges === 'function') this.updateBadges();
 
-    if (typeof HRMWebSocket !== 'undefined') {
+    if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.sendChatMessage) {
       HRMWebSocket.sendChatMessage(newMsg);
-      HRMWebSocket.sendTyping(channel.id, false);
+      if (HRMWebSocket.sendTyping) HRMWebSocket.sendTyping(channel.id, false);
     }
 
-    this.playMessageSound('outgoing');
+    if (typeof this.playMessageSound === 'function') this.playMessageSound('outgoing');
+    if (typeof this.renderConversationPanel === 'function') this.renderConversationPanel();
+    if (typeof this.renderRosterList === 'function') this.renderRosterList();
+    if (typeof this.scrollToBottom === 'function') this.scrollToBottom();
+
+    return newMsg;
+  },
+
+  sendMessage() {
+    if (typeof document === 'undefined') return;
+    const input = document.getElementById('teams-msg-input');
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
+
+    const channel = this.getActiveChannel();
+    if (!channel) return;
+
+    const replyTo = this.replyingTo ? { id: this.replyingTo.id, senderName: this.replyingTo.senderName, content: this.replyingTo.content } : null;
     this.replyingTo = null;
+
     input.value = '';
     input.style.height = 'auto';
 
-    this.renderConversationPanel();
-    this.renderRosterList();
-    this.scrollToBottom();
+    this.sendCustomMessage(content, { replyTo });
 
     // Trigger AI Copilot response if talking to Copilot
     if (channel.id === 'chan-copilot' || channel.type === 'bot') {
@@ -1391,6 +1484,11 @@ const Chat = {
     // Auto-link URLs
     escaped = escaped.replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:underline">$1</a>');
     
+    // Auto-link Helpdesk ticket references like #TKT-2026-001 or TKT-2026-001 or GRV-2026-001
+    escaped = escaped.replace(/(?:🎫\s*(?:Regarding\s*)?Ticket\s*#?|(?:^|\s)#)(TKT-\d{4}-\d{3}|GRV-\d{4}-\d{3})/gi, (match, tktNum) => {
+      return ` <span class="chat-ticket-inline-badge" onclick="Chat.openTicketFromChatByNumber('${tktNum}')" title="Click to view ${tktNum} in Helpdesk"><i class="fa fa-ticket"></i> #${tktNum} <i class="fa fa-arrow-up-right-from-square" style="font-size:9px"></i></span>`;
+    });
+
     // Markdown: Bold, Italic, Strikethrough, Code
     escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');

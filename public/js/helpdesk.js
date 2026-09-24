@@ -261,7 +261,7 @@ const Helpdesk = {
                 <th>Assigned Agent</th>
                 <th>Created</th>
                 <th>Status</th>
-                <th style="text-align:right;width:120px">Actions</th>
+                <th style="text-align:right;min-width:180px">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -269,6 +269,7 @@ const Helpdesk = {
                 const requester = allEmps.find(e => e.id === t.reporterId);
                 const agent = allEmps.find(e => e.id === t.assignedTo);
                 const isAnonymous = t.isAnonymous;
+                const myEmpId = (typeof Auth !== 'undefined' && Auth.employee?.id) || 1;
 
                 return `
                   <tr style="${t.priority === 'urgent' && t.status !== 'closed' ? 'background:rgba(239,68,68,0.04)' : ''}">
@@ -322,10 +323,22 @@ const Helpdesk = {
                       <span style="font-size:11.5px;color:var(--text-3)">${t.createdAt.split('T')[0]}</span>
                     </td>
                     <td>${this.getStatusBadge(t.status)}</td>
-                    <td style="text-align:right">
-                      <button class="btn btn-ghost btn-xs" onclick="Helpdesk.openTicketWorkspace(${t.id})" title="Open Conversation Thread">
-                        <i class="fa fa-comments" style="color:var(--primary)"></i> Reply (${(t.messages || []).length})
-                      </button>
+                    <td style="text-align:right;white-space:nowrap">
+                      <div style="display:inline-flex;gap:4px;align-items:center;justify-content:flex-end">
+                        ${agent ? `
+                          <button class="btn btn-ghost btn-xs" onclick="Helpdesk.chatWithParty(${t.id}, 'agent')" title="Direct Teams Chat with Assigned Agent (${agent.fullName})" style="color:#464eb8">
+                            <i class="fa fa-comment-dots"></i> Chat Agent
+                          </button>
+                        ` : ''}
+                        ${(!isAnonymous && requester && requester.id !== myEmpId) ? `
+                          <button class="btn btn-ghost btn-xs" onclick="Helpdesk.chatWithParty(${t.id}, 'reporter')" title="Direct Teams Chat with Requester (${requester.fullName})" style="color:#0284c7">
+                            <i class="fa fa-comment-dots"></i> Chat Requester
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-ghost btn-xs" onclick="Helpdesk.openTicketWorkspace(${t.id})" title="Open Conversation Thread">
+                          <i class="fa fa-comments" style="color:var(--primary)"></i> Reply (${(t.messages || []).length})
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `;
@@ -585,7 +598,7 @@ const Helpdesk = {
             Department: <b>${ticket.department}</b> | Target SLA: <b>${ticket.slaHours} Hours</b>
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           ${this.getStatusBadge(ticket.status)}
           ${isStaffOrAdmin ? `
             <select class="form-control" style="height:30px;font-size:11.5px;width:120px" onchange="Helpdesk.updateTicketStatus(${ticket.id}, this.value)">
@@ -594,6 +607,16 @@ const Helpdesk = {
               <option value="resolved" ${ticket.status==='resolved'?'selected':''}>Resolved</option>
               <option value="closed" ${ticket.status==='closed'?'selected':''}>Closed</option>
             </select>
+          ` : ''}
+          ${agent ? `
+            <button class="btn btn-outline btn-xs" style="border-color:#464eb8;color:#464eb8;display:inline-flex;align-items:center;gap:4px;padding:4px 9px" onclick="Helpdesk.chatWithParty(${ticket.id}, 'agent')" title="Direct Teams Chat with Assigned Agent (${agent.fullName})">
+              <i class="fa fa-comments"></i> Chat Agent (${agent.fullName.split(' ')[0]})
+            </button>
+          ` : ''}
+          ${(!ticket.isAnonymous && requester && requester.id !== (Auth.employee?.id || 1)) ? `
+            <button class="btn btn-outline btn-xs" style="border-color:#0284c7;color:#0284c7;display:inline-flex;align-items:center;gap:4px;padding:4px 9px" onclick="Helpdesk.chatWithParty(${ticket.id}, 'reporter')" title="Direct Teams Chat with Requester (${requester.fullName})">
+              <i class="fa fa-comment-dots"></i> Chat Requester (${requester.fullName.split(' ')[0]})
+            </button>
           ` : ''}
         </div>
       </div>
@@ -667,6 +690,90 @@ const Helpdesk = {
     // Re-render workspace thread
     this.openTicketWorkspace(ticketId);
     this.renderTable();
+  },
+
+  chatWithParty(ticketId, targetRole = 'auto') {
+    const ticket = (typeof DB !== 'undefined') ? DB.find('helpdesk_tickets', ticketId) : null;
+    if (!ticket) {
+      if (typeof Toast !== 'undefined') Toast.show('Ticket not found', 'warning');
+      return;
+    }
+
+    const myEmpId = (typeof Auth !== 'undefined' && Auth.employee?.id) ? Auth.employee.id : 1;
+
+    let targetEmpId = null;
+    if (targetRole === 'agent') {
+      targetEmpId = ticket.assignedTo;
+    } else if (targetRole === 'reporter') {
+      targetEmpId = ticket.reporterId;
+    } else {
+      targetEmpId = (myEmpId === ticket.reporterId) ? ticket.assignedTo : ticket.reporterId;
+    }
+
+    // Protection for anonymous whistleblower grievances
+    if (ticket.category === 'confidential_grievance' || !targetEmpId || targetEmpId === 0) {
+      if (typeof Toast !== 'undefined') {
+        Toast.show('Cannot start direct chat: This grievance was filed anonymously to protect whistleblower identity.', 'info');
+      }
+      return;
+    }
+
+    if (targetEmpId === myEmpId) {
+      if (typeof Toast !== 'undefined') {
+        Toast.show('You are already the assignee and reporter on this ticket.', 'info');
+      }
+      return;
+    }
+
+    const employees = (typeof DB !== 'undefined' && DB.get('employees')) || [];
+    const targetEmp = employees.find(e => e.id === targetEmpId);
+    if (!targetEmp) {
+      if (typeof Toast !== 'undefined') {
+        Toast.show('Counterparty employee profile not found.', 'warning');
+      }
+      return;
+    }
+
+    // Close workspace modal if open
+    if (typeof Modal !== 'undefined' && typeof Modal.close === 'function') {
+      Modal.close('dynamic-modal');
+    }
+
+    // 1. Switch or open direct chat channel
+    if (typeof Chat !== 'undefined') {
+      if (typeof Chat.startDirectChat === 'function') {
+        Chat.startDirectChat(targetEmpId);
+      }
+      if (typeof Chat.openDrawer === 'function') {
+        Chat.openDrawer();
+      }
+
+      // 2. Share ticket context card
+      const ticketContext = {
+        ticketId: ticket.id,
+        ticketNumber: ticket.ticketNumber,
+        ticketTitle: ticket.title,
+        ticketPriority: ticket.priority,
+        ticketStatus: ticket.status,
+        ticketDepartment: ticket.department
+      };
+
+      const introMsg = `🎫 Regarding Ticket #${ticket.ticketNumber}: "${ticket.title}" (${ticket.priority.toUpperCase()} priority • ${ticket.status.toUpperCase()})`;
+
+      const channelId = Chat.activeChannelId;
+      const existingMsgs = (typeof Chat.getMessages === 'function') ? (Chat.getMessages(channelId) || []) : [];
+      const alreadyShared = existingMsgs.some(m => (m.ticketContext && m.ticketContext.ticketId === ticket.id) || (m.content && m.content.includes(ticket.ticketNumber)));
+
+      if (!alreadyShared) {
+        if (typeof Chat.sendCustomMessage === 'function') {
+          Chat.sendCustomMessage(introMsg, { ticketContext });
+        }
+      }
+
+      if (typeof Toast !== 'undefined') {
+        Toast.show(`Opened direct chat with ${targetEmp.fullName} regarding #${ticket.ticketNumber}`, 'success');
+      }
+    }
   },
 
   updateTicketStatus(ticketId, newStatus) {

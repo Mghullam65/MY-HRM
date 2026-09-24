@@ -4435,6 +4435,92 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   background: rgba(0,0,0,0.06);
 }
 
+/* 12. Helpdesk Ticket Context Card in Chat */
+.chat-ticket-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.chat-ticket-card:hover {
+  transform: translateY(-1px);
+}
+.chat-ticket-card.incoming {
+  background: var(--surface, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  color: var(--text, #1e293b);
+}
+[data-theme="dark"] .chat-ticket-card.incoming {
+  background: #1e2030;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+.chat-ticket-card.outgoing {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+.chat-ticket-icon-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(70, 78, 184, 0.15);
+  color: #464eb8;
+  font-size: 11px;
+}
+.chat-ticket-card.outgoing .chat-ticket-icon-pill {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+.chat-ticket-view-btn {
+  background: #464eb8;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.chat-ticket-view-btn:hover {
+  background: #393e9a;
+  transform: scale(1.02);
+}
+.chat-ticket-card.outgoing .chat-ticket-view-btn {
+  background: #ffffff;
+  color: #464eb8;
+  font-weight: 700;
+}
+.chat-ticket-card.outgoing .chat-ticket-view-btn:hover {
+  background: #f1f5f9;
+}
+.chat-ticket-inline-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(70, 78, 184, 0.12);
+  color: #464eb8;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: monospace;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.chat-ticket-inline-badge:hover {
+  background: rgba(70, 78, 184, 0.25);
+  text-decoration: underline;
+}
+.teams-msg-row.outgoing .chat-ticket-inline-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
 /* ═══════════════════════════════════════════════
    OFFER LETTER SYSTEM DESIGN & CORPORATE LETTERHEAD
 ═══════════════════════════════════════════════ */
