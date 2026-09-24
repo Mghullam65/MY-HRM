@@ -1154,8 +1154,10 @@ const Chat = {
         ${channel.type === 'bot' ? `
           <div class="teams-copilot-chips">
             <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('How many annual leaves do I have left?')">🌴 My Leave Balances</span>
-            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('Who is present and checked in today?')">📊 Today\'s Attendance</span>
-            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('When is the upcoming salary disbursement date?')">💰 Payroll Schedule</span>
+            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('What is my latest salary and payslip breakdown?')">💰 My Latest Payslip</span>
+            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('What is the status of my helpdesk tickets?')">🎫 My Helpdesk Tickets</span>
+            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('What is my check-in time and attendance today?')">⏱️ Today\'s Attendance</span>
+            <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('What is the expense reimbursement submission cutoff date?')">📑 Expense Cutoff</span>
             <span class="teams-copilot-chip" onclick="Chat.sendCopilotPrompt('What is the company probation and remote work policy?')">📖 HR Policy Summary</span>
           </div>
         ` : ''}
@@ -1785,15 +1787,15 @@ const Chat = {
   },
 
   handleCopilotQuery(query) {
-    const q = query.toLowerCase();
+    const q = (query || '').toLowerCase().trim();
     const me = this.getCurrentUser();
 
     // Simulate typing
-    const bar = document.getElementById('teams-typing-bar');
+    const bar = (typeof document !== 'undefined') ? document.getElementById('teams-typing-bar') : null;
     if (bar) {
       bar.innerHTML = `
         <div class="chat-typing-dots"><span></span><span></span><span></span></div>
-        <span style="font-size:11.5px;color:#a855f7;font-style:italic">✨ HRM AI Copilot is reasoning...</span>
+        <span style="font-size:11.5px;color:#a855f7;font-style:italic">✨ HRM AI Copilot is analyzing enterprise records...</span>
       `;
       bar.style.display = 'flex';
     }
@@ -1805,22 +1807,188 @@ const Chat = {
       }
 
       let reply = '';
+      let ticketContext = null;
 
-      if (q.includes('leave') || q.includes('vacation') || q.includes('balance')) {
+      // ── INTENT 1: Specific Ticket Query or General Tickets ──
+      const ticketMatch = query.match(/(?:TKT|GRV)-\d{4}-\d{3}/i);
+      if (ticketMatch) {
+        const tktNum = ticketMatch[0].toUpperCase();
+        const tickets = (typeof DB !== 'undefined' && DB.get('helpdesk_tickets')) || [];
+        const t = tickets.find(x => x.ticketNumber && x.ticketNumber.toUpperCase() === tktNum);
+        if (t) {
+          const emps = (typeof DB !== 'undefined' && DB.get('employees')) || [];
+          const agent = emps.find(e => e.id === t.assignedTo);
+          const req = emps.find(e => e.id === t.reporterId);
+          reply = `🎫 **Found Ticket #${t.ticketNumber}: "${t.title}"**\n` +
+            `- **Status:** ${t.status.toUpperCase()}\n` +
+            `- **Priority:** ${t.priority.toUpperCase()} (${t.slaHours}h SLA target)\n` +
+            `- **Department:** ${t.department || 'IT Infrastructure'}\n` +
+            `- **Assigned Agent:** ${agent ? agent.fullName : 'Unassigned (In Triage)'}\n` +
+            `- **Requester:** ${t.isAnonymous ? 'Protected Whistleblower' : (req ? req.fullName : 'Staff')}\n` +
+            `- **Updates Logged:** ${(t.messages || []).length} responses in workspace thread\n\n` +
+            `*Click the interactive ticket card below to jump directly into the Helpdesk resolution workspace.*`;
+          ticketContext = {
+            ticketId: t.id,
+            ticketNumber: t.ticketNumber,
+            ticketTitle: t.title,
+            ticketPriority: t.priority,
+            ticketStatus: t.status,
+            ticketDepartment: t.department
+          };
+        } else {
+          reply = `🔍 I searched the Helpdesk archives but could not find a ticket matching **#${tktNum}**. Please check the ticket reference code or view the Helpdesk table.`;
+        }
+      } else if (q.includes('ticket') || q.includes('helpdesk') || q.includes('support request') || q.includes('grievance')) {
+        const tickets = (typeof DB !== 'undefined' && DB.get('helpdesk_tickets')) || [];
+        const myTickets = tickets.filter(t => t.reporterId === me.id || t.assignedTo === me.id);
+        if (myTickets.length > 0) {
+          reply = `🎫 **You are associated with ${myTickets.length} Helpdesk Tickets:**\n\n` +
+            myTickets.slice(0, 4).map(t => 
+              `- **${t.ticketNumber}** (${t.status.toUpperCase()} • ${t.priority.toUpperCase()}): "${t.title}"`
+            ).join('\n') +
+            `\n\n*Click on any ticket number above (e.g. #${myTickets[0].ticketNumber}) or navigate to the Helpdesk module to open the full workspace.*`;
+        } else {
+          reply = `🎫 **Helpdesk Service Desk Status:**\n- You currently have **0 active open tickets** in your queue.\n- Need technical or HR assistance? You can submit a support request anytime in the Helpdesk module.`;
+        }
+      }
+      // ── INTENT 2: Drafting Assistance (Leave, Resignation, Ticket) ──
+      else if (q.includes('draft') || q.includes('write') || q.includes('template') || q.includes('compose')) {
+        if (q.includes('leave') || q.includes('sick') || q.includes('vacation')) {
+          reply = `✍️ **Draft Leave Application Template:**\n\n` +
+            `*Subject: Application for [Annual/Sick] Leave — ${me.fullName}*\n\n` +
+            `Dear [Manager Name],\n\n` +
+            `I am writing to formally request [Number] day(s) of [Annual/Sick] leave from [Start Date] to [End Date], resuming duties on [Return Date].\n\n` +
+            `During my absence, [Colleague Name] will cover urgent operational matters, and I will be reachable via Microsoft Teams for critical escalations.\n\n` +
+            `Thank you for your consideration.\n\n` +
+            `Best regards,\n` +
+            `**${me.fullName}**\n${me.emp?.designation || 'Team Member'}`;
+        } else if (q.includes('resignation')) {
+          reply = `✍️ **Formal Resignation Letter Template:**\n\n` +
+            `*Subject: Notice of Resignation — ${me.fullName}*\n\n` +
+            `Dear [Manager Name],\n\n` +
+            `Please accept this correspondence as formal notification that I am tendering my resignation from my position as ${me.emp?.designation || 'Staff'} at Apex Holdings. My final working day will be [Date], in accordance with my contractual 30-day notice period.\n\n` +
+            `I sincerely appreciate the guidance, growth opportunities, and camaraderie experienced during my tenure here. I will ensure a seamless knowledge transfer of all ongoing responsibilities.\n\n` +
+            `Warm regards,\n` +
+            `**${me.fullName}**`;
+        } else {
+          reply = `✍️ **IT Helpdesk Service Request Template:**\n\n` +
+            `*Subject: [Brief Issue Summary, e.g. Docker License / VPN Reconnection]*\n\n` +
+            `*Machine Asset Tag:* [e.g. LAP-2026-042]\n` +
+            `*Operating System:* Windows 11 Enterprise\n` +
+            `*Description of Issue:* [Detail error message, timestamps, and steps already attempted]\n` +
+            `*Impact / Urgency:* [High - Work Blocked / Medium]\n\n` +
+            `*You can paste this directly into Helpdesk -> Open Support Ticket.*`;
+        }
+      }
+      // ── INTENT 3: Leave Quotas & Vacation Balances ──
+      else if (q.includes('leave') || q.includes('vacation') || q.includes('annual') || q.includes('sick') || q.includes('casual') || q.includes('balance') || q.includes('quota') || q.includes('time off')) {
         const balances = (typeof DB !== 'undefined' && DB.get('leave_balances')) || [];
-        const myBal = balances.find(b => b.employeeId === me.id) || { annual: 14, sick: 10, casual: 8 };
-        reply = `🌴 **Your Current Leave Quota for 2026:**\n- **Annual Leaves:** ${myBal.annual || 14} days remaining\n- **Sick Leaves:** ${myBal.sick || 10} days remaining\n- **Casual Leaves:** ${myBal.casual || 8} days remaining\n\n*Would you like me to open the leave application form for you?*`;
-      } else if (q.includes('attendance') || q.includes('present') || q.includes('check in')) {
+        const leaveTypes = (typeof DB !== 'undefined' && DB.get('leave_types')) || [];
+        const myBalRec = balances.find(b => b.employeeId === me.id);
+        const myBalMap = myBalRec ? myBalRec.balances : { '1': 10, '2': 18, '3': 14, '7': 5 };
+
+        const requests = (typeof DB !== 'undefined' && DB.get('leave_requests')) || [];
+        const myPending = requests.filter(r => r.employeeId === me.id && ['pending', 'manager_approved'].includes(r.status));
+
+        let lines = [];
+        if (leaveTypes.length > 0) {
+          leaveTypes.forEach(lt => {
+            const rem = myBalMap[lt.id] !== undefined ? myBalMap[lt.id] : lt.maxDays;
+            lines.push(`- **${lt.name} (${lt.code}):** ${rem} of ${lt.maxDays} days remaining`);
+          });
+        } else {
+          lines = [
+            `- **Annual Leaves (AL):** ${myBalMap['2'] || 18} days remaining`,
+            `- **Casual Leaves (CL):** ${myBalMap['1'] || 10} days remaining`,
+            `- **Sick Leaves (SL):** ${myBalMap['3'] || 14} days remaining`,
+            `- **Compensatory (COMP):** ${myBalMap['7'] || 5} days remaining`
+          ];
+        }
+
+        reply = `🌴 **Your Real-Time Leave Quota & Entitlements for 2026 (${me.fullName}):**\n` +
+          lines.join('\n') +
+          (myPending.length > 0 ? `\n\n⏳ *You currently have ${myPending.length} pending leave application awaiting HR final sign-off.*` : '\n\n✨ *No pending leave applications. All balances are fully verified.*') +
+          `\n\n*Would you like to file a new leave request in the Leaves module?*`;
+      }
+      // ── INTENT 3: Salary, Payslip, Earnings & Tax ──
+      else if (q.includes('salary') || q.includes('payroll') || q.includes('payslip') || q.includes('pay slip') || q.includes('paycheck') || q.includes('tax') || q.includes('net pay') || q.includes('earnings') || q.includes('deduction')) {
+        const salaries = (typeof DB !== 'undefined' && DB.get('salary')) || [];
+        const mySalaries = salaries.filter(s => s.employeeId === me.id).sort((a,b) => (b.month || '').localeCompare(a.month || ''));
+        const latest = mySalaries[0] || {
+          month: '2026-08',
+          basic: 350000,
+          allowances: 75000,
+          deductions: 45000,
+          tax: 69250,
+          netSalary: 310750,
+          status: 'processed',
+          paidOn: '2026-08-31'
+        };
+
+        const fmt = (n) => 'PKR ' + Number(n || 0).toLocaleString();
+
+        reply = `💰 **Latest Payroll & Compensation Summary (${me.fullName} • Month: ${latest.month}):**\n` +
+          `- **Basic Salary:** ${fmt(latest.basic)}\n` +
+          `- **Allowances (Utility, Medical & Fuel):** ${fmt(latest.allowances)}\n` +
+          `- **Gross Monthly Salary:** ${fmt((latest.basic || 0) + (latest.allowances || 0))}\n` +
+          `- **Statutory Deductions (EOBI / Provident Fund):** ${fmt(latest.deductions)}\n` +
+          `- **FBR Income Tax (Section 149 Withheld):** ${fmt(latest.tax)}\n` +
+          `- **Net Take-Home Disbursed:** **${fmt(latest.netSalary)}**\n` +
+          `- **Disbursal Status:** ${latest.status === 'processed' ? `✅ Disbursed to Bank on ${latest.paidOn || 'Month End'}` : '⏳ Pending Processing'}\n\n` +
+          `*All automated tax withholding certificates are generated according to national tax slabs.*`;
+      }
+      // ── INTENT 4: Attendance & Biometric Check-in Status ──
+      else if (q.includes('attendance') || q.includes('check in') || q.includes('check-in') || q.includes('checkin') || q.includes('punch') || q.includes('clock in') || q.includes('clock-in') || q.includes('clockin') || q.includes('present') || q.includes('hours worked')) {
         const att = (typeof DB !== 'undefined' && DB.get('attendance')) || [];
-        const today = new Date().toISOString().split('T')[0];
-        const todayLogs = att.filter(a => a.date === today);
-        reply = `📊 **Today's Workforce Attendance Summary:**\n- **Total Checked In:** ${todayLogs.length || 4} employees on duty\n- **On Time Rate:** 96%\n- **Average Check-In:** 08:52 AM\n\n*All active check-in timestamps have been synchronized with biometric terminals.*`;
-      } else if (q.includes('salary') || q.includes('payroll') || q.includes('slip')) {
-        reply = `💰 **HRM Pro Payroll Schedule:**\n- **Next Payday:** Last business day of the month.\n- **Tax Deductions:** Computed according to Section 149 statutory tax schedules.\n- **Direct Deposit:** Automated bank disbursement file is generated and validated.`;
-      } else if (q.includes('policy') || q.includes('probation') || q.includes('remote')) {
-        reply = `📖 **Apex Holdings Corporate Policy Highlights:**\n- **Standard Work Hours:** Mon-Fri, 9:00 AM – 6:00 PM (1 hr lunch).\n- **Probation Period:** 90 days from joining date.\n- **Hybrid / Remote Allowance:** Up to 2 remote working days per week upon manager approval.`;
-      } else {
-        reply = `✨ I understand you asked: *"${query}"*.\n\nAs your HRM Assistant, I can help query attendance records, submit reimbursement claims, review leave quotas, and explain corporate HR benefits. What specific record would you like to inspect?`;
+        const todayStr = new Date().toISOString().split('T')[0];
+        const myToday = att.find(a => a.employeeId === me.id && a.date === todayStr) || att.find(a => a.employeeId === me.id);
+        const allToday = att.filter(a => a.date === todayStr);
+
+        reply = `⏱️ **Biometric & Attendance Telemetry for ${me.fullName}:**\n` +
+          `- **Date:** ${myToday?.date || todayStr}\n` +
+          `- **First Punch In:** ${myToday?.timeIn || '09:11 AM'} (Terminal: ${myToday?.device || 'ZKTeco-HQ-01'})\n` +
+          `- **Last Punch Out:** ${myToday?.timeOut || 'In Progress (Active Workday)'}\n` +
+          `- **Attendance Status:** ${myToday?.status === 'present' ? '🟢 Present (On Time)' : 'Recorded'}\n` +
+          `- **Company-wide Checked In:** ${allToday.length > 0 ? allToday.length : 18} personnel active on premises today\n\n` +
+          `*Geofenced mobile check-ins and biometric scans synchronize live with the Attendance ledger.*`;
+      }
+      // ── INTENT 5: Expense Claims & Reimbursements ──
+      else if (q.includes('expense') || q.includes('reimburse') || q.includes('claim') || q.includes('receipt') || q.includes('travel expense')) {
+        const claims = (typeof DB !== 'undefined' && DB.get('expense_claims')) || [];
+        const myClaims = claims.filter(c => c.employeeId === me.id);
+
+        reply = `📑 **Expense Claims & Reimbursement Guidelines:**\n` +
+          `- **Monthly Cutoff Date:** 20th of each calendar month.\n` +
+          `- **Required Documentation:** Legible scanned receipts/vouchers must be attached for claims over PKR 1,000.\n` +
+          `- **Eligible Categories:** Client entertainment, inter-city travel, workstation accessories, and certifications.\n` +
+          (myClaims.length > 0 ? `- **Your Active Claims:** You have ${myClaims.length} recorded claims in the system.\n` : '') +
+          `- **Disbursal:** Approved claims are added to your monthly payroll deposit.\n\n` +
+          `*You can submit new expense claims with attachments in the Expenses module.*`;
+      }
+      // ── INTENT 6: Corporate Policies & Workplace Guidelines ──
+      else if (q.includes('policy') || q.includes('probation') || q.includes('remote') || q.includes('wfh') || q.includes('work from home') || q.includes('hours') || q.includes('notice') || q.includes('resignation') || q.includes('insurance') || q.includes('medical') || q.includes('maternity') || q.includes('paternity') || q.includes('carry forward') || q.includes('whistleblower') || q.includes('harassment')) {
+        reply = `📖 **Apex Holdings Corporate Policies & Governance Summary:**\n` +
+          `- **Working Hours:** Monday to Friday, 9:00 AM – 6:00 PM (1-hour lunch & prayer break).\n` +
+          `- **Hybrid Work Policy:** Eligible team members may work remotely up to 2 days/week with manager endorsement.\n` +
+          `- **Probation Period:** 90 days with formal progress check-ins at 45 and 85 days.\n` +
+          `- **Leave Carry-Forward:** Up to 10 annual leaves can be rolled into the new fiscal year; excess leaves are encashed in December.\n` +
+          `- **Notice Period on Resignation:** 30 days for confirmed staff; 15 days during probation.\n` +
+          `- **Group Health Insurance:** Inpatient hospitalization coverage up to PKR 1,000,000 per family unit.\n` +
+          `- **Whistleblower & Grievances:** Anti-harassment and ethics redressal supports 100% cryptographic anonymity.\n\n` +
+          `*For full policy documentation, visit the Knowledge Base in the Helpdesk module.*`;
+      }
+      // ── INTENT 8: Default Fallback & Intelligent Guidance ──
+      else {
+        reply = `✨ Hello ${me.fullName.split(' ')[0]}! I'm your **HRM AI Copilot**, connected live to company records and policy ledgers.\n\n` +
+          `Here are some things you can ask me in natural language:\n` +
+          `- 🌴 *"How many annual leaves do I have left?"*\n` +
+          `- 💰 *"Show me my latest salary and payslip breakdown"*\n` +
+          `- 🎫 *"What is the status of ticket #TKT-2026-001?"*\n` +
+          `- ⏱️ *"What was my check-in time today?"*\n` +
+          `- 📑 *"What is the deadline for submitting expense claims?"*\n` +
+          `- 📖 *"What is the company policy on remote work and probation?"*\n` +
+          `- ✍️ *"Draft a sick leave request email for me"*\n\n` +
+          `*Feel free to click any of the suggestion chips below or ask your own question!*`;
       }
 
       const botMsg = {
@@ -1829,6 +1997,7 @@ const Chat = {
         senderId: 999,
         senderName: 'HRM AI Copilot',
         content: reply,
+        ticketContext: ticketContext,
         isBot: true,
         createdAt: new Date().toISOString()
       };
@@ -1839,12 +2008,12 @@ const Chat = {
         DB.set('chat_messages', allMsgs);
       }
 
-      this.playMessageSound('incoming');
+      if (typeof this.playMessageSound === 'function') this.playMessageSound('incoming');
       if (this.activeChannelId === 'chan-copilot') {
-        this.renderConversationPanel();
-        this.scrollToBottom();
+        if (typeof this.renderConversationPanel === 'function') this.renderConversationPanel();
+        if (typeof this.scrollToBottom === 'function') this.scrollToBottom();
       }
-    }, 1200);
+    }, 600);
   },
 
   // ── 14. Voice Memo Recording Simulation ───────────────────
