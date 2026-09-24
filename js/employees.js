@@ -335,6 +335,7 @@ const Employees = {
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
             <thead><tr>
+              <th style="width:36px;text-align:center"><input type="checkbox" id="master-table-select" class="tbl-checkbox" onclick="App.toggleSelectAllRows(this, '.tbl-emp-checkbox')" title="Select all rows"></th>
               <th>Employee</th>
               <th>Emp #</th>
               <th>Department</th>
@@ -345,10 +346,13 @@ const Employees = {
               <th style="text-align:right">Actions</th>
             </tr></thead>
             <tbody>
-              ${emps.length === 0 ? `<tr><td colspan="8"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => {
+              ${emps.length === 0 ? `<tr><td colspan="9"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => {
                 const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
                 return `
                 <tr>
+                  <td style="text-align:center">
+                    <input type="checkbox" class="tbl-checkbox tbl-emp-checkbox" data-id="${e.id}" onclick="App.toggleRowSelect(this, ${e.id})" title="Select record">
+                  </td>
                   <td>
                     <div style="display:flex;align-items:center;gap:10px">
                       <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;${canViewProfile ? 'cursor:pointer' : 'cursor:default'}" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" title="View Profile"` : ''}>
@@ -390,6 +394,7 @@ const Employees = {
                   </td>
                   <td style="text-align:right">
                     <div class="tbl-actions" style="justify-content:flex-end">
+                      <button class="btn btn-ghost btn-icon btn-sm" onclick="App.openInspectDrawer('employee', ${e.id})" title="Quick Peek Inspector (Side Drawer)"><i class="fa fa-magnifying-glass" style="color:var(--info)"></i></button>
                       ${(isHROrAdmin || Auth.employee?.id === e.id) ? `
                         <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
                       ` : ''}

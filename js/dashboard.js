@@ -620,8 +620,13 @@ const Dashboard = {
         <!-- Charts Row -->
         <div class="grid-2 mb-20">
           <div class="chart-card">
-            <div class="card-header">
-              <div><div class="card-title">Attendance Trend</div><div class="card-subtitle">Last 7 days</div></div>
+            <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+              <div><div class="card-title">Attendance Trend</div><div class="card-subtitle" id="att-trend-subtitle">Last 7 days</div></div>
+              <div class="chart-range-pills">
+                <button class="chart-range-btn active" data-range="7d" onclick="Dashboard.switchAttendanceRange('7d')">7D</button>
+                <button class="chart-range-btn" data-range="30d" onclick="Dashboard.switchAttendanceRange('30d')">30D</button>
+                <button class="chart-range-btn" data-range="90d" onclick="Dashboard.switchAttendanceRange('90d')">90D</button>
+              </div>
             </div>
             <canvas id="chart-att-trend" height="220"></canvas>
           </div>
@@ -872,8 +877,56 @@ const Dashboard = {
       </div>
     `;
 
-    // Render charts after DOM is ready
-    setTimeout(() => this.renderCharts(att.filter(a => scopedIds.includes(a.employeeId)), scopedEmps, scopedLeaves, Auth.role === 'dept_manager'), 100);
+    // Render charts & animated number counters after DOM is ready
+    setTimeout(() => {
+      this.renderCharts(att.filter(a => scopedIds.includes(a.employeeId)), scopedEmps, scopedLeaves, Auth.role === 'dept_manager');
+      if (typeof Utils !== 'undefined' && Utils.animateCounter) {
+        document.querySelectorAll('.animate-count-up').forEach(el => {
+          const val = el.textContent.trim();
+          Utils.animateCounter(el, val, 750);
+        });
+      }
+    }, 100);
+  },
+
+  switchAttendanceRange(range = '7d') {
+    document.querySelectorAll('.chart-range-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.range === range);
+    });
+    const sub = document.getElementById('att-trend-subtitle');
+    if (sub) {
+      sub.textContent = range === '90d' ? 'Last 90 days' : (range === '30d' ? 'Last 30 days' : 'Last 7 days');
+    }
+    const daysCount = range === '90d' ? 90 : (range === '30d' ? 30 : 7);
+    const att = (typeof DB !== 'undefined' && DB.get ? DB.get('attendance') : []) || [];
+    const emps = (typeof DB !== 'undefined' && DB.get ? DB.get('employees') : []) || [];
+    const scopedEmps = (typeof Auth !== 'undefined' && Auth.getScopedEmployees) ? Auth.getScopedEmployees(emps) : emps;
+    const scopedIds = scopedEmps.map(e => e.id);
+
+    const days = [];
+    const presentData = [], absentData = [], lateData = [];
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const ds = d.toISOString().split('T')[0];
+      if (daysCount <= 14 || i % Math.ceil(daysCount / 10) === 0) {
+        days.push(d.toLocaleDateString('en', { month: 'short', day: '2-digit' }));
+      } else {
+        days.push('');
+      }
+      const dayAtt = att.filter(a => a.date === ds && (Auth.role === 'dept_manager' ? scopedIds.includes(a.employeeId) : true));
+      presentData.push(dayAtt.filter(a => a.status === 'present').length);
+      absentData.push(dayAtt.filter(a => a.status === 'absent').length);
+      lateData.push(dayAtt.filter(a => a.status === 'late').length);
+    }
+
+    const gridColor = 'rgba(255,255,255,0.06)';
+    const textColor = '#8899aa';
+
+    this.makeChart('chart-att-trend', 'line', days, [
+      { label:'Present', data: presentData, borderColor:'#10b981', backgroundColor:'rgba(16,185,129,0.15)', tension:0.35, fill:true },
+      { label:'Absent',  data: absentData,  borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,0.15)',  tension:0.35, fill:true },
+      { label:'Late',    data: lateData,    borderColor:'#f59e0b', backgroundColor:'rgba(245,158,11,0.15)', tension:0.35, fill:true },
+    ], gridColor, textColor);
   },
 
   renderActionCenterInbox() {
@@ -1936,3 +1989,10 @@ const Dashboard = {
     `;
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.Dashboard = Dashboard;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Dashboard;
+}

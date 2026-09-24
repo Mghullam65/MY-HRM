@@ -7181,6 +7181,83 @@ const Utils = {
       }
     }, 250);
   },
+
+  renderSkeleton(type = 'table') {
+    if (type === 'dashboard') {
+      return `
+        <div class="skeleton-grid-kpi">
+          ${[1, 2, 3, 4].map(() => `
+            <div class="skeleton-card">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span class="skeleton-box" style="width:70px;height:12px"></span>
+                <span class="skeleton-box skeleton-circle" style="width:28px;height:28px"></span>
+              </div>
+              <span class="skeleton-box" style="width:110px;height:24px;margin-top:8px"></span>
+              <span class="skeleton-box" style="width:90px;height:12px;margin-top:4px"></span>
+            </div>
+          `).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+          <div class="skeleton-card" style="height:280px;justify-content:center;align-items:center">
+            <span class="skeleton-box" style="width:140px;height:16px;margin-bottom:20px"></span>
+            <div style="display:flex;align-items:flex-end;gap:12px;height:180px;width:90%">
+              ${[40, 70, 50, 90, 60, 85, 95].map(h => `<span class="skeleton-box" style="height:${h}%;flex:1;border-radius:6px"></span>`).join('')}
+            </div>
+          </div>
+          <div class="skeleton-card" style="height:280px;justify-content:center;align-items:center">
+            <span class="skeleton-box skeleton-circle" style="width:160px;height:160px"></span>
+          </div>
+        </div>
+      `;
+    }
+    // Default: table shimmer skeleton
+    return `
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <span class="skeleton-box" style="width:160px;height:18px"></span>
+          <span class="skeleton-box" style="width:200px;height:32px"></span>
+        </div>
+        ${[1, 2, 3, 4, 5, 6].map(() => `
+          <div class="skeleton-table-row">
+            <span class="skeleton-box skeleton-circle" style="width:34px;height:34px"></span>
+            <div style="flex:1">
+              <span class="skeleton-box" style="width:180px;height:14px;margin-bottom:6px"></span>
+              <span class="skeleton-box" style="width:120px;height:11px"></span>
+            </div>
+            <span class="skeleton-box" style="width:100px;height:14px"></span>
+            <span class="skeleton-box" style="width:80px;height:22px;border-radius:12px"></span>
+            <span class="skeleton-box" style="width:40px;height:26px"></span>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  animateCounter(elementOrId, targetValue, duration = 800, prefix = '', suffix = '') {
+    if (typeof window === 'undefined' || !window.requestAnimationFrame) return;
+    const el = typeof elementOrId === 'string' ? document.getElementById(elementOrId) : elementOrId;
+    if (!el) return;
+    const num = parseFloat(String(targetValue).replace(/[^0-9.-]+/g, '')) || 0;
+    const isFloat = String(targetValue).includes('.');
+    const startTime = performance.now();
+
+    function update(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = num * eased;
+      const formatted = isFloat ? current.toFixed(1) : Math.round(current).toLocaleString();
+      el.textContent = `${prefix}${formatted}${suffix}`;
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        const finalFormatted = isFloat ? num.toFixed(1) : Math.round(num).toLocaleString();
+        el.textContent = `${prefix}${finalFormatted}${suffix}`;
+      }
+    }
+    requestAnimationFrame(update);
+  },
 };
 
 window.DB = DB;
