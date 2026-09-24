@@ -377,9 +377,24 @@ const Performance = {
     this.render();
   },
 
+  calculateEmployeeKPIFulfillment(empId) {
+    const emp = DB.find('employees', empId);
+    const kpis = (DB.get('kpis') || []).filter(k => !k.departmentId || (emp && k.departmentId === emp.departmentId));
+    if (kpis.length === 0) return 85;
+    const totalWeight = kpis.reduce((sum, k) => sum + (k.weight || 20), 0);
+    const weightedSum = kpis.reduce((sum, k) => {
+      const achieved = k.achieved || Math.round(k.target * 0.88);
+      const pct = Math.min(100, Math.round((achieved / k.target) * 100));
+      return sum + (pct * (k.weight || 20));
+    }, 0);
+    return Math.round(weightedSum / (totalWeight || 1));
+  },
+
   fillReview(reviewId) {
     const rev = DB.find('performance_reviews', reviewId);
     const emp = DB.find('employees', rev?.employeeId);
+    const autoKpi = this.calculateEmployeeKPIFulfillment(emp?.id);
+    const deptKpis = (DB.get('kpis') || []).filter(k => !k.departmentId || (emp && k.departmentId === emp.departmentId));
     const pse = emp?.pseEvaluation || {
       jobKnowledge: 4, workQuality: 4, teamwork: 4, punctuality: 4, leadership: 4,
       managerComments: '', employeeComments: ''
@@ -394,6 +409,17 @@ const Performance = {
             <div style="font-size:12px;color:var(--text-3);margin-top:2px">Direct Reporting Manager evaluation according to observed employee performance</div>
           </div>
           <span class="badge badge-primary"><i class="fa fa-user-tie" style="margin-right:4px"></i>${Auth.role === 'dept_manager' ? 'Deputy Manager / Tech Lead' : 'Manager'}</span>
+        </div>
+
+        <!-- SMART Goals & Department KPI Sync -->
+        <div style="background:linear-gradient(135deg,rgba(14,165,233,0.08),rgba(99,102,241,0.08));border:1px solid rgba(14,165,233,0.25);border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-weight:700;font-size:12.5px;color:var(--text)"><i class="fa fa-bullseye" style="color:var(--primary);margin-right:5px"></i> SMART Goals &amp; Department KPI Sync</div>
+            <div style="font-size:11.5px;color:var(--text-3)">Calculated from active departmental metrics and targets (${deptKpis.length} KPIs monitored)</div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="document.getElementById('rv-kpi').value = ${autoKpi}; if(typeof Toast!=='undefined') Toast.show('Synced from KPIs: ${autoKpi}%', 'info')">
+            <i class="fa fa-rotate"></i> Auto-Sync (${autoKpi}%)
+          </button>
         </div>
 
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">
@@ -437,7 +463,7 @@ const Performance = {
         <div class="form-row form-row-2">
           <div class="form-group" style="margin:0">
             <label class="form-label">KPI Fulfillment (%)</label>
-            <input type="number" class="form-control" id="rv-kpi" min="0" max="100" value="${rev?.kpiScore || 85}">
+            <input type="number" class="form-control" id="rv-kpi" min="0" max="100" value="${rev?.kpiScore || autoKpi}">
           </div>
           <div class="form-group" style="margin:0">
             <label class="form-label">KRA Score (%)</label>
@@ -491,7 +517,10 @@ const Performance = {
     const leadership = parseInt(document.getElementById('rv-dim-leadership')?.value) || 4;
 
     const avg = (knowledge + quality + teamwork + punctuality + leadership) / 5;
-    const overallRating = Math.max(1, Math.min(5, Math.round(avg)));
+    // 60% KPI Fulfillment + 40% Core Dimensions
+    const kpiNormalized = (kpiScore / 100) * 5;
+    const finalRatingScore = (kpiNormalized * 0.6) + (avg * 0.4);
+    const overallRating = Math.max(1, Math.min(5, Math.round(finalRatingScore)));
 
     const managerFeedback = document.getElementById('rv-mgr-fb')?.value.trim() || '';
     const selfFeedback = document.getElementById('rv-self-fb')?.value.trim() || '';
@@ -854,6 +883,114 @@ const Performance = {
   // ============================================================
   selected360EmpId: 4,
 
+  render360RadarSVG(categories, empReviews) {
+    const size = 320;
+    const center = size / 2;
+    const radius = 105;
+    const totalAxes = categories.length;
+
+    // Levels 1 to 5 concentric webs
+    let gridCircles = '';
+    for (let level = 1; level <= 5; level++) {
+      const r = (radius / 5) * level;
+      let points = [];
+      for (let i = 0; i < totalAxes; i++) {
+        const angle = -Math.PI / 2 + (i * 2 * Math.PI) / totalAxes;
+        const x = center + r * Math.cos(angle);
+        const y = center + r * Math.sin(angle);
+        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      }
+      gridCircles += `<polygon points="${points.join(' ')}" fill="none" stroke="var(--border, #cbd5e1)" stroke-width="${level === 5 ? '1.5' : '1'}" stroke-dasharray="${level < 5 ? '2,2' : 'none'}" />`;
+      gridCircles += `<text x="${center}" y="${(center - r + 3).toFixed(1)}" fill="var(--text-3, #94a3b8)" font-size="9" text-anchor="middle">${level}</text>`;
+    }
+
+    // Spokes and labels
+    let spokes = '';
+    categories.forEach((cat, i) => {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / totalAxes;
+      const xEnd = center + radius * Math.cos(angle);
+      const yEnd = center + radius * Math.sin(angle);
+      spokes += `<line x1="${center}" y1="${center}" x2="${xEnd.toFixed(1)}" y2="${yEnd.toFixed(1)}" stroke="var(--border, #cbd5e1)" stroke-width="1" />`;
+
+      const labelRadius = radius + 22;
+      const xLabel = center + labelRadius * Math.cos(angle);
+      const yLabel = center + labelRadius * Math.sin(angle) + 4;
+      const textAnchor = Math.abs(Math.cos(angle)) < 0.2 ? 'middle' : Math.cos(angle) > 0 ? 'start' : 'end';
+      spokes += `<text x="${xLabel.toFixed(1)}" y="${yLabel.toFixed(1)}" fill="var(--text, #1e293b)" font-size="10.5" font-weight="600" text-anchor="${textAnchor}">${cat.label.split(' ')[0]}</text>`;
+    });
+
+    // Helper to compute polygon points from a score map
+    const getPolygonPoints = (scoreMap) => {
+      return categories.map((cat, i) => {
+        const score = Math.max(0.5, Math.min(5, scoreMap[cat.key] || 3.5));
+        const r = (radius / 5) * score;
+        const angle = -Math.PI / 2 + (i * 2 * Math.PI) / totalAxes;
+        const x = center + r * Math.cos(angle);
+        const y = center + r * Math.sin(angle);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+    };
+
+    // Extract average scores by relationship
+    const getRelScores = (rel) => {
+      const revs = empReviews.filter(r => r.relationship === rel);
+      const res = {};
+      categories.forEach(cat => {
+        if (revs.length === 0) {
+          res[cat.key] = rel === 'Manager' ? 4.5 : rel === 'Self' ? 4.2 : 4.4;
+        } else {
+          const sum = revs.reduce((acc, r) => acc + (r.scores?.[cat.key] || 4), 0);
+          res[cat.key] = +(sum / revs.length).toFixed(1);
+        }
+      });
+      return res;
+    };
+
+    const mgrScores = getRelScores('Manager');
+    const peerScores = getRelScores('Peer');
+    const selfScores = getRelScores('Self');
+
+    const mgrPoints = getPolygonPoints(mgrScores);
+    const peerPoints = getPolygonPoints(peerScores);
+    const selfPoints = getPolygonPoints(selfScores);
+
+    const mgrAvg = (Object.values(mgrScores).reduce((a,b)=>a+b,0)/5).toFixed(1);
+    const peerAvg = (Object.values(peerScores).reduce((a,b)=>a+b,0)/5).toFixed(1);
+    const selfAvg = (Object.values(selfScores).reduce((a,b)=>a+b,0)/5).toFixed(1);
+
+    return `
+      <div class="card" style="padding:18px;display:flex;flex-direction:column;align-items:center;justify-content:space-between">
+        <div style="font-weight:700;font-size:13.5px;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+          <i class="fa fa-chart-pie" style="color:var(--primary)"></i> 360° Multilateral Radar Alignment
+        </div>
+        <svg viewBox="0 0 ${size} ${size}" style="width:100%;max-width:270px;height:auto;overflow:visible;margin:8px 0">
+          ${gridCircles}
+          ${spokes}
+          <!-- Manager Polygon (Indigo) -->
+          <polygon points="${mgrPoints}" fill="rgba(99, 102, 241, 0.22)" stroke="#6366f1" stroke-width="2.2" />
+          <!-- Peer Polygon (Green) -->
+          <polygon points="${peerPoints}" fill="rgba(16, 185, 129, 0.22)" stroke="#10b981" stroke-width="2.2" />
+          <!-- Self Polygon (Pink) -->
+          <polygon points="${selfPoints}" fill="rgba(236, 72, 153, 0.18)" stroke="#ec4899" stroke-width="2" stroke-dasharray="3,3" />
+        </svg>
+        <div style="display:flex;gap:12px;font-size:11px;flex-wrap:wrap;justify-content:center;border-top:1px solid var(--border);padding-top:10px;width:100%">
+          <span style="display:inline-flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#6366f1;border-radius:2px"></span>
+            <strong>Manager</strong> (${mgrAvg})
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#10b981;border-radius:2px"></span>
+            <strong>Peers</strong> (${peerAvg})
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:5px">
+            <span style="width:10px;height:10px;background:#ec4899;border-radius:2px"></span>
+            <strong>Self</strong> (${selfAvg})
+          </span>
+        </div>
+      </div>
+    `;
+  },
+
   render360Feedback(container) {
     const isEmp = Auth.role === 'employee';
     const allEmps = DB.get('employees').filter(e => e.status === 'active');
@@ -931,9 +1068,12 @@ const Performance = {
         </div>
       </div>
 
-      <!-- Competency Matrix & Qualitative Feedback Cards -->
-      <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:20px;margin-bottom:24px">
-        <!-- Competency Spider-Style Progress Grid -->
+      <!-- Competency Matrix, Radar Chart & Qualitative Feedback Cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:24px">
+        <!-- 1. Interactive SVG Radar Spider Chart -->
+        ${this.render360RadarSVG(categories, empReviews)}
+
+        <!-- 2. Competency Spider-Style Progress Grid -->
         <div class="card" style="padding:20px">
           <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:16px;display:flex;align-items:center;gap:8px">
             <i class="fa fa-chart-simple" style="color:var(--primary)"></i> 360 Multilateral Competency Breakdown
@@ -967,7 +1107,7 @@ const Performance = {
           </div>
         </div>
 
-        <!-- Qualitative Strengths & Growth Areas -->
+        <!-- 3. Qualitative Strengths & Growth Areas -->
         <div class="card" style="padding:20px;background:linear-gradient(135deg,var(--card),var(--surface))">
           <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
             <i class="fa fa-comment-dots" style="color:var(--success)"></i> Qualitative Peer Consensus
@@ -2248,13 +2388,17 @@ const Performance = {
     const gradeCCount = items.filter(i => i.grade === 'C').length;
     const gradeDCount = items.filter(i => i.grade === 'D').length;
     const totalCurrentPayroll = items.reduce((sum, i) => sum + i.curSalary, 0);
+    this.meritBudgetPool = this.meritBudgetPool || 650000;
     const totalProjectedIncrement = items.reduce((sum, i) => sum + (i.isApplied ? 0 : i.incAmount), 0);
     const committedCount = items.filter(i => i.isApplied).length;
+    const budgetPct = Math.min(999, Math.round((totalProjectedIncrement / this.meritBudgetPool) * 100));
+    const isOverBudget = totalProjectedIncrement > this.meritBudgetPool;
+    const deltaBudget = Math.abs(this.meritBudgetPool - totalProjectedIncrement);
 
     container.innerHTML = `
       <div class="animate-fade-in">
         <!-- Matrix KPI Overview Cards -->
-        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px">
           <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid var(--success)">
             <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Top Tier (Grade A)</div>
             <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:4px">${gradeACount} Staff</div>
@@ -2280,6 +2424,13 @@ const Performance = {
             <div style="font-size:20px;font-weight:800;color:#8b5cf6;margin-top:4px">+PKR ${Math.round(totalProjectedIncrement/1000)}k/mo</div>
             <div style="font-size:11.5px;color:var(--text-2);margin-top:2px">${committedCount}/${items.length} Committed</div>
           </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;border-top:3px solid ${isOverBudget ? 'var(--danger)' : 'var(--success)'}">
+            <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;font-weight:700">Increment Pool Budget</div>
+            <div style="font-size:20px;font-weight:800;color:${isOverBudget ? 'var(--danger)' : 'var(--success)'};margin-top:4px">${budgetPct}% Utilized</div>
+            <div style="font-size:11px;color:${isOverBudget ? 'var(--danger)' : 'var(--text-2)'};margin-top:2px;font-weight:600">
+              ${isOverBudget ? `⚠ Over by PKR ${Math.round(deltaBudget/1000)}k` : `Surplus: PKR ${Math.round(deltaBudget/1000)}k`}
+            </div>
+          </div>
         </div>
 
         <!-- Calibration & Controls Toolbar -->
@@ -2295,6 +2446,13 @@ const Performance = {
                 </select>
               </div>
               <div>
+                <label style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Monthly Budget Pool (PKR)</label>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <input type="number" class="form-control" style="width:145px;font-size:13px;padding:6px 10px;border-radius:8px" value="${this.meritBudgetPool}" step="25000" min="50000" onchange="Performance.meritBudgetPool=Number(this.value);Performance.renderView()">
+                  <span style="font-size:11px;color:var(--text-muted)">Cap</span>
+                </div>
+              </div>
+              <div>
                 <label style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;display:block;margin-bottom:4px">Filter Department</label>
                 <select class="form-control" style="font-size:13px;padding:6px 12px;border-radius:8px" onchange="Performance.meritDeptFilter=this.value;Performance.renderView()">
                   <option value="">All Departments (${allEmps.length})</option>
@@ -2304,6 +2462,9 @@ const Performance = {
             </div>
 
             <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn btn-secondary" onclick="Performance.exportMeritMatrixCSV()" title="Export Calibration Data to CSV">
+                <i class="fa fa-file-excel"></i> Export CSV
+              </button>
               ${isHrOrAdmin ? `
                 <button class="btn btn-success" onclick="Performance.applyAllMeritIncrements()">
                   <i class="fa fa-bolt"></i> Batch Commit All Revisions
@@ -2491,6 +2652,62 @@ const Performance = {
     DB.log('UPDATE', 'Performance', `Batch applied merit increments for ${committedCount} employees`, Auth.user?.id);
     Toast.show('Batch Revisions Applied!', 'success', `Successfully updated salaries for ${committedCount} employees.`);
     this.renderView();
+  },
+
+  exportMeritMatrixCSV() {
+    let emps = this.getScopedEmployees();
+    if (this.meritDeptFilter) {
+      emps = emps.filter(e => e.departmentId == this.meritDeptFilter);
+    }
+    const depts = DB.get('departments') || [];
+    const reviews = DB.get('performance_reviews') || [];
+    const appraisals = DB.get('appraisals') || [];
+    const revisions = DB.get('salary_revisions') || [];
+
+    const strategies = {
+      conservative: { name: 'Conservative (3% - 10%)', a: 10, b: 7, c: 3, d: 0 },
+      balanced:     { name: 'Balanced Standard (5% - 15%)', a: 15, b: 10, c: 5, d: 0 },
+      aggressive:   { name: 'High-Reward Growth (7% - 20%)', a: 20, b: 14, c: 7, d: 0 }
+    };
+    const strat = strategies[this.meritStrategy] || strategies.balanced;
+
+    let csv = 'Employee ID,Employee Name,Designation,Department,Current Base Salary (PKR),Appraisal Score,Calibration Grade,Recommended %,Projected New Salary (PKR),Monthly Increment (PKR),Annual Delta (PKR),Status\n';
+
+    emps.forEach(emp => {
+      const empRev = reviews.filter(r => r.employeeId === emp.id).sort((a,b) => (b.id||0)-(a.id||0))[0];
+      const empApp = appraisals.filter(a => a.employeeId === emp.id).sort((a,b) => (b.id||0)-(a.id||0))[0];
+      const rating = empRev ? Number(empRev.overallRating || empRev.rating || 3.8) : (empApp ? Number(empApp.finalScore || 3.8) : 3.8);
+
+      let grade = 'C';
+      let recPct = strat.c;
+      if (rating >= 4.5) { grade = 'A'; recPct = strat.a; }
+      else if (rating >= 3.5) { grade = 'B'; recPct = strat.b; }
+      else if (rating >= 2.5) { grade = 'C'; recPct = strat.c; }
+      else { grade = 'D'; recPct = strat.d; }
+
+      const curSal = Number(emp.salary) || 120000;
+      const incAmount = Math.round(curSal * (recPct / 100));
+      const newSal = curSal + incAmount;
+      const annualDelta = incAmount * 12;
+      const dept = depts.find(d => d.id == emp.departmentId)?.name || 'General';
+      const recentRev = revisions.find(r => r.employeeId === emp.id && r.revisionType === 'merit');
+      const status = recentRev ? `Applied (+${recentRev.incrementPct}%)` : 'Pending Commit';
+
+      csv += `"${emp.empNo || 'EMP-' + emp.id}","${emp.fullName}","${emp.designation || 'Staff'}","${dept}",${curSal},${rating.toFixed(1)},"Grade ${grade}",${recPct}%,${newSal},${incAmount},${annualDelta},"${status}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `HRM_Merit_Increment_Matrix_${new Date().getFullYear()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    if (typeof Toast !== 'undefined') {
+      Toast.show('Merit Matrix Exported!', 'success', 'Downloaded calibration CSV successfully.');
+    }
   },
 
   printMeritLetter(empId) {
