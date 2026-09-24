@@ -265,9 +265,24 @@ const Auth = {
         const roles = DB.get('roles') || [];
         const currentRoleObj = roles.find(r => r.code === this.role);
         if (currentRoleObj) {
+          // Superadmin has universal grant
+          if (currentRoleObj.code === 'superadmin') return true;
+
           const perms = DB.get('permissions') || [];
           const rolePerms = DB.get('role_permissions') || [];
-          const matchedPerm = perms.find(p => p.code === permission || p.code.startsWith(permission + '.') || permission.startsWith(p.code));
+          
+          // Alias normalizers for full feature interoperability
+          const candidateCodes = [
+            permission,
+            permission.replace(/^expenses\./, 'travel_expenses.'),
+            permission.replace(/^travel_expenses\./, 'expenses.'),
+            permission.replace(/^company\./, 'companies.'),
+            permission.replace(/^companies\./, 'company.'),
+            permission.replace(/^lms\./, 'training.'),
+            permission.replace(/^edms\./, 'documents.')
+          ];
+
+          const matchedPerm = perms.find(p => candidateCodes.some(c => p.code === c || p.code.startsWith(c + '.') || c.startsWith(p.code)));
           if (matchedPerm) {
             const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === matchedPerm.id);
             if (binding !== undefined) {
@@ -290,12 +305,43 @@ const Auth = {
   },
 
   canAccessModule(module) {
+    // Dynamic DB RBAC check for module view permission
+    try {
+      if (typeof DB !== 'undefined' && DB.get) {
+        const roles = DB.get('roles') || [];
+        const currentRoleObj = roles.find(r => r.code === this.role);
+        if (currentRoleObj) {
+          if (currentRoleObj.code === 'superadmin') return true;
+
+          const moduleCodeMap = {
+            expenses: 'travel_expenses',
+            company: 'companies',
+            lms: 'training',
+            edms: 'documents'
+          };
+          const resolvedCode = moduleCodeMap[module] || module;
+
+          const perms = DB.get('permissions') || [];
+          const rolePerms = DB.get('role_permissions') || [];
+          const viewPerm = perms.find(p => p.code === `${resolvedCode}.view` || p.code === `${module}.view`);
+          if (viewPerm) {
+            const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === viewPerm.id);
+            if (binding !== undefined) {
+              return !!binding.isGranted;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fall through
+    }
+
     const moduleMap = {
-      superadmin: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup'],
-      hr_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration'],
-      dept_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports'],
-      employee: ['dashboard','chat','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports'],
-      onboarding: ['dashboard','chat','profile','attendance','leaves','events','holidays'],
+      superadmin: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup','training','documents','shifts'],
+      hr_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','training','documents','shifts'],
+      dept_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','training','documents','shifts'],
+      employee: ['dashboard','chat','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports','training','documents','shifts'],
+      onboarding: ['dashboard','chat','profile','attendance','leaves','events','holidays','training','documents'],
     };
     return (moduleMap[this.role] || []).includes(module);
   },
@@ -304,22 +350,27 @@ const Auth = {
     const all = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', roles: ['onboarding'] },
-      { id: 'employees', label: 'Employees', icon: 'fa-users', roles: ['superadmin','hr_manager','dept_manager'] },
-      { id: 'attendance', label: 'Attendance', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
+      { id: 'employees', label: 'Employees & e-DMS', icon: 'fa-users', roles: ['superadmin','hr_manager','dept_manager'] },
+      { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
-      { id: 'payroll', label: 'Payroll', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-handshake-simple', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'companies', label: 'Corporate Entities', icon: 'fa-building-shield', roles: ['superadmin'] },
-      { id: 'performance', label: 'Performance', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
+      { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'events', label: 'Events', icon: 'fa-calendar-days', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
-      { id: 'reports', label: 'Reports', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'events', label: 'Events & Calendar', icon: 'fa-calendar-days', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
+      { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'administration', label: 'Administration', icon: 'fa-gear', roles: ['superadmin','hr_manager'] },
       { id: 'settings', label: 'Settings', icon: 'fa-sliders', roles: ['superadmin'] },
     ];
-    return all.filter(item => item.roles.includes(this.role));
+    return all.filter(item => {
+      // Must be allowed for role and have view access
+      if (!item.roles.includes(this.role)) return false;
+      return this.canAccessModule(item.id);
+    });
   },
 
   getDemoAccounts() {

@@ -2769,6 +2769,8 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
 
   // ─── Roles & Granular Permissions Matrix (Phase 2 RBAC) ────
   selectedRoleId: 2, // Default to HR Manager for easy viewing & toggling
+  rbacSearchTerm: '',
+  rbacCategoryFilter: 'all',
 
   renderRolesPermissions(c) {
     if (typeof DB.ensureRBACData === 'function') DB.ensureRBACData();
@@ -2786,6 +2788,28 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
       ? totalPermsCount
       : rolePermissions.filter(rp => rp.roleId === selectedRole.id && rp.isGranted).length;
 
+    // Filter modules based on category filter and search term
+    const categories = ['all', ...Array.from(new Set(modules.map(m => m.category || 'General')))];
+    const q = (this.rbacSearchTerm || '').trim().toLowerCase();
+    const filteredModules = modules.filter(m => {
+      const matchCat = this.rbacCategoryFilter === 'all' || m.category === this.rbacCategoryFilter;
+      const matchSearch = !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || (m.category && m.category.toLowerCase().includes(q));
+      return matchCat && matchSearch;
+    });
+
+    const categoryColors = {
+      'General': '#64748b',
+      'Human Resources': '#2563eb',
+      'Operations': '#059669',
+      'Finance': '#d97706',
+      'Talent': '#7c3aed',
+      'Compliance': '#dc2626',
+      'Governance': '#0284c7',
+      'Intelligence': '#4f46e5',
+      'Administration': '#475569',
+      'Collaboration': '#0891b2'
+    };
+
     c.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
         <div>
@@ -2796,7 +2820,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
             Roles &amp; Granular Permissions Matrix
           </h3>
           <div style="font-size:13px;color:var(--text-3);margin-top:4px">
-            Configure enterprise role-based access control (RBAC), custom roles, and module-level CRUD authorizations
+            Comprehensive RBAC Matrix governing all ${modules.length} enterprise modules &amp; subfeatures (View, Create, Edit, Delete, Approve, Export)
           </div>
         </div>
 
@@ -2816,7 +2840,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
           <div style="font-size:11.5px;font-weight:600;color:var(--text-3);text-transform:uppercase">Protected Modules</div>
           <div style="font-size:22px;font-weight:800;color:var(--primary);margin-top:4px">${modules.length} Modules</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Granular Access Gateways</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">100% Feature Coverage</div>
         </div>
 
         <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
@@ -2855,56 +2879,126 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         </div>
       </div>
 
-      <!-- Permissions Matrix Table -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-          <div>
-            <h4 style="margin:0;font-size:15px;font-weight:700;color:var(--text)">Module Access Permissions Matrix</h4>
-            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Grant or revoke specific actions per submodule</div>
+      <!-- Permissions Matrix Filter Toolbar -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px 12px 0 0;padding:14px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:1">
+          <div style="position:relative;width:100%;max-width:300px">
+            <i class="fa fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
+            <input type="text" id="rbac-module-search"
+              value="${this.rbacSearchTerm || ''}"
+              placeholder="Search ${modules.length} modules or features..."
+              oninput="Settings.filterRBACMatrix(this.value)"
+              style="padding:6px 12px 6px 32px;font-size:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);width:100%;outline:none">
+            ${this.rbacSearchTerm ? `
+              <button onclick="Settings.filterRBACMatrix('')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px">
+                <i class="fa fa-times"></i>
+              </button>
+            ` : ''}
           </div>
-          ${!isSuperAdmin ? `
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, true)">
-                <i class="fa fa-check-double"></i> Grant All
+
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${categories.map(cat => `
+              <button type="button" class="btn btn-xs ${this.rbacCategoryFilter === cat ? 'btn-primary' : 'btn-ghost'}"
+                style="border-radius:6px;font-size:11px;padding:3px 8px"
+                onclick="Settings.setRBACCategoryFilter('${cat}')">
+                ${cat === 'all' ? `All (${modules.length})` : cat}
               </button>
-              <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, false)">
-                <i class="fa fa-ban"></i> Revoke All
-              </button>
-            </div>
-          ` : `
-            <span class="badge badge-success" style="font-size:11px">
-              <i class="fa fa-lock"></i> Sovereign Access (Immutable)
-            </span>
-          `}
+            `).join('')}
+          </div>
         </div>
 
-        <div class="table-wrapper" style="margin:0">
+        ${!isSuperAdmin ? `
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, true)" title="Grant all actions across all modules">
+              <i class="fa fa-check-double"></i> Grant All
+            </button>
+            <button class="btn btn-outline btn-xs" onclick="Settings.bulkToggleRolePermissions(${selectedRole.id}, false)" title="Revoke all actions across all modules">
+              <i class="fa fa-ban"></i> Revoke All
+            </button>
+          </div>
+        ` : `
+          <span class="badge badge-success" style="font-size:11px">
+            <i class="fa fa-lock"></i> Sovereign Access (Immutable)
+          </span>
+        `}
+      </div>
+
+      <!-- Permissions Matrix Table -->
+      <div style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 12px 12px;overflow:hidden">
+        <div style="padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:12px;color:var(--text-muted)">
+            Showing <strong>${filteredModules.length}</strong> of <strong>${modules.length}</strong> protected modules and submodules
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted)">
+            Click any column header to batch toggle that action for the role
+          </div>
+        </div>
+
+        <div class="table-wrapper" style="margin:0;max-height:680px;overflow-y:auto">
           <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="background:var(--surface);text-align:center">
-                <th style="text-align:left;padding:12px 18px;font-size:12px;font-weight:700;color:var(--text-3)">Module</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">View</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Create</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Edit</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Delete</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Approve</th>
-                <th style="padding:12px 8px;font-size:12px;font-weight:700;color:var(--text-3);width:90px">Export</th>
+            <thead style="position:sticky;top:0;z-index:2">
+              <tr style="background:var(--surface);text-align:center;box-shadow:0 1px 0 var(--border)">
+                <th style="text-align:left;padding:12px 18px;font-size:12px;font-weight:700;color:var(--text-3);min-width:260px">MODULE &amp; SUBFEATURE</th>
+                ${['view', 'create', 'edit', 'delete', 'approve', 'export'].map(act => {
+                  const actPerms = permissions.filter(p => p.action === act);
+                  const grantedCount = isSuperAdmin ? actPerms.length : actPerms.filter(p => rolePermissions.some(rp => rp.roleId === selectedRole.id && rp.permissionId === p.id && rp.isGranted)).length;
+                  return `
+                    <th style="padding:10px 6px;font-size:12px;font-weight:700;color:var(--text-3);width:90px;cursor:${isSuperAdmin ? 'default' : 'pointer'}"
+                      onclick="${isSuperAdmin ? '' : `Settings.toggleColumnActionPermissions(${selectedRole.id}, '${act}')`}"
+                      title="${isSuperAdmin ? 'Immutable sovereign' : `Click to toggle all ${act.toUpperCase()} permissions`}">
+                      <div style="text-transform:uppercase">${act}</div>
+                      <div style="font-size:9.5px;color:var(--text-muted);font-weight:500">${grantedCount}/${actPerms.length}</div>
+                    </th>
+                  `;
+                }).join('')}
               </tr>
             </thead>
             <tbody>
-              ${modules.map(m => {
+              ${filteredModules.length === 0 ? `
+                <tr>
+                  <td colspan="7" style="text-align:center;padding:40px 20px;color:var(--text-muted)">
+                    <i class="fa fa-search" style="font-size:24px;margin-bottom:8px;display:block"></i>
+                    No modules match "${this.rbacSearchTerm}". Try clearing your search query.
+                  </td>
+                </tr>
+              ` : filteredModules.map(m => {
                 const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+                const catColor = categoryColors[m.category] || 'var(--primary)';
                 return `
                   <tr style="border-bottom:1px solid var(--border)">
-                    <td style="padding:14px 18px">
-                      <div style="display:flex;align-items:center;gap:10px">
-                        <div style="width:30px;height:30px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:14px">
-                          <i class="fa ${m.icon || 'fa-folder'}"></i>
+                    <td style="padding:12px 18px">
+                      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+                        <div style="display:flex;align-items:center;gap:12px">
+                          <div style="width:34px;height:34px;border-radius:8px;background:var(--surface);display:flex;align-items:center;justify-content:center;color:${catColor};font-size:15px;flex-shrink:0">
+                            <i class="fa ${m.icon || 'fa-folder'}"></i>
+                          </div>
+                          <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                              <span>${m.name}</span>
+                              <span style="font-size:9.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:${catColor}15;color:${catColor};border:1px solid ${catColor}30">
+                                ${m.category || 'General'}
+                              </span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px">
+                              Code: <code>${m.code}</code>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <div style="font-size:13px;font-weight:700;color:var(--text)">${m.name}</div>
-                          <div style="font-size:11px;color:var(--text-muted)">Category: ${m.category || 'General'} &bull; Code: <code>${m.code}</code></div>
-                        </div>
+
+                        ${!isSuperAdmin ? `
+                          <div style="display:flex;gap:4px">
+                            <button type="button" class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 6px;height:22px;border-radius:4px"
+                              onclick="Settings.toggleModuleRowPermissions(${selectedRole.id}, ${m.id}, true)"
+                              title="Grant all 6 actions for ${m.name}">
+                              <i class="fa fa-check text-success"></i> All
+                            </button>
+                            <button type="button" class="btn btn-ghost btn-xs" style="font-size:10px;padding:2px 6px;height:22px;border-radius:4px"
+                              onclick="Settings.toggleModuleRowPermissions(${selectedRole.id}, ${m.id}, false)"
+                              title="Revoke all 6 actions for ${m.name}">
+                              <i class="fa fa-times text-danger"></i> None
+                            </button>
+                          </div>
+                        ` : ''}
                       </div>
                     </td>
                     ${actions.map(act => {
@@ -2915,8 +3009,8 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
                       const disabled = isSuperAdmin ? 'disabled' : '';
 
                       return `
-                        <td style="text-align:center;padding:10px 8px">
-                          <label style="cursor:${isSuperAdmin ? 'default' : 'pointer'};display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px">
+                        <td style="text-align:center;padding:10px 6px">
+                          <label style="cursor:${isSuperAdmin ? 'default' : 'pointer'};display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px" title="${p.name} (${isGranted ? 'Granted' : 'Revoked'})">
                             <input type="checkbox"
                               ${isGranted ? 'checked' : ''}
                               ${disabled}
@@ -2965,6 +3059,90 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
       App.showToast(`Permission ${isGranted ? 'granted' : 'revoked'} for ${role?.name}`, 'success');
     }
 
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  toggleModuleRowPermissions(roleId, moduleId, isGranted) {
+    let rolePerms = DB.get('role_permissions') || [];
+    const permissions = DB.get('permissions') || [];
+    const modPerms = permissions.filter(p => p.moduleId === moduleId);
+    
+    modPerms.forEach(p => {
+      let b = rolePerms.find(rp => rp.roleId === roleId && rp.permissionId === p.id);
+      if (b) {
+        b.isGranted = isGranted;
+      } else {
+        rolePerms.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          roleId: roleId,
+          permissionId: p.id,
+          isGranted: isGranted
+        });
+      }
+    });
+
+    DB.set('role_permissions', rolePerms);
+    const mod = (DB.get('system_modules') || []).find(m => m.id === moduleId);
+    const role = (DB.get('roles') || []).find(r => r.id === roleId);
+    DB.log('UPDATE', 'Settings', `${isGranted ? 'Granted' : 'Revoked'} all permissions for module '${mod?.name}' on role '${role?.name}'`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`${isGranted ? 'Granted' : 'Revoked'} all actions for ${mod?.name}`, 'success');
+    }
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  toggleColumnActionPermissions(roleId, action, forceValue) {
+    let rolePerms = DB.get('role_permissions') || [];
+    const permissions = DB.get('permissions') || [];
+    const actPerms = permissions.filter(p => p.action === action);
+    
+    const allGranted = actPerms.every(p => {
+      const b = rolePerms.find(rp => rp.roleId === roleId && rp.permissionId === p.id);
+      return b && b.isGranted;
+    });
+    const targetGrant = (forceValue !== undefined) ? forceValue : !allGranted;
+
+    actPerms.forEach(p => {
+      let b = rolePerms.find(rp => rp.roleId === roleId && rp.permissionId === p.id);
+      if (b) {
+        b.isGranted = targetGrant;
+      } else {
+        rolePerms.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          roleId: roleId,
+          permissionId: p.id,
+          isGranted: targetGrant
+        });
+      }
+    });
+
+    DB.set('role_permissions', rolePerms);
+    const role = (DB.get('roles') || []).find(r => r.id === roleId);
+    DB.log('UPDATE', 'Settings', `${targetGrant ? 'Granted' : 'Revoked'} all '${action.toUpperCase()}' actions for role '${role?.name}'`, Auth.user?.id);
+
+    if (typeof App !== 'undefined' && App.showToast) {
+      App.showToast(`${targetGrant ? 'Granted' : 'Revoked'} all ${action.toUpperCase()} permissions for ${role?.name}`, 'success');
+    }
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
+
+  filterRBACMatrix(val) {
+    this.rbacSearchTerm = val;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+    const input = document.getElementById('rbac-module-search');
+    if (input) {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+  },
+
+  setRBACCategoryFilter(category) {
+    this.rbacCategoryFilter = category;
     const c = document.getElementById('settings-content');
     if (c) this.renderRolesPermissions(c);
   },

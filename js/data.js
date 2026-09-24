@@ -3678,21 +3678,56 @@ const DB = {
   },
 
   ensureRBACData() {
-    let modules = this.get('system_modules');
-    if (!modules || !modules.length) {
-      modules = [
-        { id: 1, code: 'dashboard', name: 'Executive Dashboard & Telemetry', category: 'General', icon: 'fa-gauge-high', sortOrder: 1, isActive: true },
-        { id: 2, code: 'employees', name: 'Personnel & Employee Dossiers', category: 'Human Resources', icon: 'fa-users', sortOrder: 2, isActive: true },
-        { id: 3, code: 'attendance', name: 'Time & Attendance Roster', category: 'Operations', icon: 'fa-clock', sortOrder: 3, isActive: true },
-        { id: 4, code: 'leaves', name: 'Leave Allocations & Quotas', category: 'Operations', icon: 'fa-calendar-xmark', sortOrder: 4, isActive: true },
-        { id: 5, code: 'payroll', name: 'Compensation, Tax & Payroll', category: 'Finance', icon: 'fa-money-bill-wave', sortOrder: 5, isActive: true },
-        { id: 6, code: 'travel_expenses', name: 'Business Travel & Expense Claims', category: 'Finance', icon: 'fa-plane-departure', sortOrder: 6, isActive: true },
-        { id: 7, code: 'performance', name: 'Performance Appraisals & KPIs', category: 'Talent', icon: 'fa-chart-line', sortOrder: 7, isActive: true },
-        { id: 8, code: 'recruitment', name: 'Talent Acquisition & Pipeline', category: 'Talent', icon: 'fa-briefcase', sortOrder: 8, isActive: true },
-        { id: 9, code: 'discipline', name: 'Legal Inquiries & Disciplinary Notices', category: 'Compliance', icon: 'fa-gavel', sortOrder: 9, isActive: true },
-        { id: 10, code: 'assets', name: 'Corporate Asset Inventory', category: 'Operations', icon: 'fa-laptop-file', sortOrder: 10, isActive: true },
-        { id: 11, code: 'settings', name: 'Governance, RBAC & Configurations', category: 'Administration', icon: 'fa-sliders', sortOrder: 11, isActive: true }
-      ];
+    const fullSystemModules = [
+      { id: 1, code: 'dashboard', name: 'Executive Dashboard & Telemetry', category: 'General', icon: 'fa-gauge-high', sortOrder: 1, isActive: true },
+      { id: 2, code: 'employees', name: 'Personnel & Employee Dossiers', category: 'Human Resources', icon: 'fa-users', sortOrder: 2, isActive: true },
+      { id: 3, code: 'documents', name: 'Digital Document Vault (e-DMS)', category: 'Human Resources', icon: 'fa-file-shield', sortOrder: 3, isActive: true },
+      { id: 4, code: 'attendance', name: 'Time & Attendance Roster', category: 'Operations', icon: 'fa-clock', sortOrder: 4, isActive: true },
+      { id: 5, code: 'shifts', name: 'Shift Rostering & Swaps', category: 'Operations', icon: 'fa-calendar-week', sortOrder: 5, isActive: true },
+      { id: 6, code: 'leaves', name: 'Leave Allocations & Quotas', category: 'Operations', icon: 'fa-calendar-xmark', sortOrder: 6, isActive: true },
+      { id: 7, code: 'payroll', name: 'Compensation, Tax & Payroll', category: 'Finance', icon: 'fa-money-bill-wave', sortOrder: 7, isActive: true },
+      { id: 8, code: 'settlement', name: 'Exit & Full-Final (F&F) Settlements', category: 'Finance', icon: 'fa-handshake-simple', sortOrder: 8, isActive: true },
+      { id: 9, code: 'travel_expenses', name: 'Business Travel & Expense Claims', category: 'Finance', icon: 'fa-plane-departure', sortOrder: 9, isActive: true },
+      { id: 10, code: 'performance', name: 'Performance Appraisals & KPIs', category: 'Talent', icon: 'fa-chart-line', sortOrder: 10, isActive: true },
+      { id: 11, code: 'training', name: 'Training & Learning Management (LMS)', category: 'Talent', icon: 'fa-graduation-cap', sortOrder: 11, isActive: true },
+      { id: 12, code: 'recruitment', name: 'Talent Acquisition & Pipeline', category: 'Talent', icon: 'fa-briefcase', sortOrder: 12, isActive: true },
+      { id: 13, code: 'discipline', name: 'Legal Inquiries & Disciplinary Notices', category: 'Compliance', icon: 'fa-gavel', sortOrder: 13, isActive: true },
+      { id: 14, code: 'assets', name: 'Corporate Asset Inventory', category: 'Operations', icon: 'fa-laptop-file', sortOrder: 14, isActive: true },
+      { id: 15, code: 'helpdesk', name: 'Helpdesk & Grievance Tickets', category: 'Operations', icon: 'fa-headset', sortOrder: 15, isActive: true },
+      { id: 16, code: 'events', name: 'Company Events & Public Holidays', category: 'Operations', icon: 'fa-calendar-days', sortOrder: 16, isActive: true },
+      { id: 17, code: 'companies', name: 'Corporate Entities & Multi-Company Holdings', category: 'Governance', icon: 'fa-building-shield', sortOrder: 17, isActive: true },
+      { id: 18, code: 'reports', name: 'Analytics & Executive Reports', category: 'Intelligence', icon: 'fa-file-chart-column', sortOrder: 18, isActive: true },
+      { id: 19, code: 'chat', name: 'Enterprise Collaboration & Team Chat', category: 'Collaboration', icon: 'fa-comments', sortOrder: 19, isActive: true },
+      { id: 20, code: 'administration', name: 'System Administration & Diagnostics', category: 'Administration', icon: 'fa-gear', sortOrder: 20, isActive: true },
+      { id: 21, code: 'settings', name: 'Governance, RBAC & Configurations', category: 'Administration', icon: 'fa-sliders', sortOrder: 21, isActive: true }
+    ];
+
+    let modules = this.get('system_modules') || [];
+    let modulesUpdated = false;
+
+    // Synchronize full modules list seamlessly even if an older list is in localStorage
+    if (!modules.length) {
+      modules = JSON.parse(JSON.stringify(fullSystemModules));
+      modulesUpdated = true;
+    } else {
+      let maxModId = modules.reduce((max, m) => Math.max(max, m.id || 0), 0);
+      fullSystemModules.forEach(fm => {
+        let existing = modules.find(m => m.code === fm.code);
+        if (!existing) {
+          modules.push({ ...fm, id: ++maxModId });
+          modulesUpdated = true;
+        } else {
+          // Keep metadata fresh
+          if (!existing.icon || existing.icon === 'fa-folder') { existing.icon = fm.icon; modulesUpdated = true; }
+          if (existing.category !== fm.category) { existing.category = fm.category; modulesUpdated = true; }
+          if (existing.name !== fm.name) { existing.name = fm.name; modulesUpdated = true; }
+          if (existing.sortOrder !== fm.sortOrder) { existing.sortOrder = fm.sortOrder; modulesUpdated = true; }
+        }
+      });
+    }
+
+    modules.sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+    if (modulesUpdated || !this.get('system_modules')) {
       this.set('system_modules', modules);
     }
 
@@ -3708,51 +3743,115 @@ const DB = {
       this.set('roles', roles);
     }
 
-    let permissions = this.get('permissions');
-    if (!permissions || !permissions.length) {
-      permissions = [];
-      let permId = 1;
-      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
-      modules.forEach(m => {
-        actions.forEach(a => {
+    let permissions = this.get('permissions') || [];
+    let permUpdated = false;
+    let maxPermId = permissions.reduce((max, p) => Math.max(max, p.id || 0), 0);
+    const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+
+    modules.forEach(m => {
+      actions.forEach(a => {
+        const pCode = `${m.code}.${a}`;
+        let existing = permissions.find(p => p.code === pCode || (p.moduleId === m.id && p.action === a));
+        if (!existing) {
           permissions.push({
-            id: permId++,
-            code: `${m.code}.${a}`,
+            id: ++maxPermId,
+            code: pCode,
             name: `${a.toUpperCase()} ${m.name}`,
             moduleId: m.id,
             action: a,
             description: `Permission to ${a} within ${m.name}`
           });
-        });
+          permUpdated = true;
+        } else if (existing.moduleId !== m.id || existing.code !== pCode) {
+          existing.moduleId = m.id;
+          existing.code = pCode;
+          permUpdated = true;
+        }
       });
+    });
+
+    if (permUpdated || !this.get('permissions')) {
       this.set('permissions', permissions);
     }
 
-    let rolePermissions = this.get('role_permissions');
-    if (!rolePermissions || !rolePermissions.length) {
-      rolePermissions = [];
-      let rpId = 1;
+    // Role-Permission Bindings
+    let rolePermissions = this.get('role_permissions') || [];
+    let rpUpdated = false;
+    let maxRpId = rolePermissions.reduce((max, rp) => Math.max(max, rp.id || 0), 0);
+
+    const computeDefaultGrant = (roleCode, permCode, action, modCode) => {
+      // 1. Superadmin has 100% sovereign permissions
+      if (roleCode === 'superadmin') return true;
+
+      // 2. HR Manager: full operations across HR, talent, operations, compliance
+      if (roleCode === 'hr_manager') {
+        if (permCode.startsWith('settings.delete') || permCode.startsWith('settings.export')) return false;
+        if (permCode.startsWith('companies.delete')) return false;
+        return true;
+      }
+
+      // 3. Dept Manager: supervisory approvals and team coordination
+      if (roleCode === 'dept_manager') {
+        if (['settings', 'administration', 'companies'].includes(modCode)) return false;
+        if (modCode === 'settlement') return action === 'view' || action === 'approve';
+        if (modCode === 'payroll') return false;
+        if (modCode === 'discipline') return action === 'view' || action === 'create';
+        if (['attendance', 'shifts', 'leaves', 'travel_expenses', 'expenses', 'performance', 'training', 'helpdesk'].includes(modCode)) {
+          return ['view', 'create', 'edit', 'approve', 'export'].includes(action);
+        }
+        if (modCode === 'recruitment') return ['view', 'create', 'edit', 'approve'].includes(action);
+        if (modCode === 'assets') return ['view', 'create', 'approve'].includes(action);
+        if (['dashboard', 'events', 'reports', 'chat', 'documents', 'employees'].includes(modCode)) {
+          return ['view', 'export', 'create'].includes(action);
+        }
+        return action === 'view';
+      }
+
+      // 4. Payroll Accountant: payroll, settlements, and expense claims
+      if (roleCode === 'payroll_accountant') {
+        if (['payroll', 'settlement', 'travel_expenses', 'expenses'].includes(modCode)) return true;
+        if (['dashboard', 'reports', 'attendance', 'leaves', 'employees'].includes(modCode)) {
+          return ['view', 'export'].includes(action);
+        }
+        if (modCode === 'chat') return ['view', 'create'].includes(action);
+        return false;
+      }
+
+      // 5. Regular Employee: self-service profile and requests
+      if (roleCode === 'employee') {
+        if (['settings', 'administration', 'companies', 'discipline'].includes(modCode)) return false;
+        if (action === 'delete' || action === 'approve') return false;
+        if (['leaves.create', 'travel_expenses.create', 'attendance.create', 'helpdesk.create', 'chat.create', 'shifts.create'].includes(permCode)) {
+          return true;
+        }
+        if (['dashboard', 'attendance', 'shifts', 'leaves', 'payroll', 'settlement', 'travel_expenses', 'performance', 'training', 'assets', 'helpdesk', 'events', 'reports', 'chat', 'documents'].includes(modCode)) {
+          return action === 'view';
+        }
+        return false;
+      }
+
+      return false;
+    };
+
+    roles.forEach(r => {
       permissions.forEach(p => {
-        // Superadmin has everything
-        rolePermissions.push({ id: rpId++, roleId: 1, permissionId: p.id, isGranted: true });
-
-        // HR Manager: everything except settings.delete and settings.export
-        const isHrGranted = !p.code.startsWith('settings.delete') && !p.code.startsWith('settings.export');
-        rolePermissions.push({ id: rpId++, roleId: 2, permissionId: p.id, isGranted: isHrGranted });
-
-        // Dept Manager: view, approve team items
-        const isDeptGranted = p.action === 'view' || p.action === 'approve' || (['travel_expenses', 'attendance', 'leaves'].some(k => p.code.startsWith(k)) && (p.action === 'create' || p.action === 'edit'));
-        rolePermissions.push({ id: rpId++, roleId: 3, permissionId: p.id, isGranted: isDeptGranted });
-
-        // Payroll Accountant: payroll + travel_expenses + dashboard
-        const isPayrollGranted = p.code.startsWith('payroll.') || p.code.startsWith('travel_expenses.') || p.code.startsWith('dashboard.view');
-        rolePermissions.push({ id: rpId++, roleId: 4, permissionId: p.id, isGranted: isPayrollGranted });
-
-        // Employee: self-service view, create on travel/leaves/expenses
-        const isEmpGranted = (p.action === 'view' && !['settings', 'discipline'].includes(p.code.split('.')[0])) ||
-                             (['leaves.create', 'travel_expenses.create', 'attendance.create'].includes(p.code));
-        rolePermissions.push({ id: rpId++, roleId: 5, permissionId: p.id, isGranted: isEmpGranted });
+        let binding = rolePermissions.find(rp => rp.roleId === r.id && rp.permissionId === p.id);
+        if (!binding) {
+          const mod = modules.find(m => m.id === p.moduleId);
+          const modCode = mod ? mod.code : p.code.split('.')[0];
+          const isGranted = computeDefaultGrant(r.code, p.code, p.action, modCode);
+          rolePermissions.push({
+            id: ++maxRpId,
+            roleId: r.id,
+            permissionId: p.id,
+            isGranted: isGranted
+          });
+          rpUpdated = true;
+        }
       });
+    });
+
+    if (rpUpdated || !this.get('role_permissions')) {
       this.set('role_permissions', rolePermissions);
     }
 
