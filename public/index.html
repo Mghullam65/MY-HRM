@@ -249,6 +249,34 @@
   <span id="chat-floating-badge" class="chat-floating-badge" style="display:none">0</span>
 </div>
 
+<!-- ══════════════════════════════════════
+     GLOBAL SPOTLIGHT COMMAND PALETTE (CTRL+K)
+══════════════════════════════════════ -->
+<div id="cmd-palette-overlay" class="cmd-palette-overlay" onclick="App.closeCommandPalette(event)">
+  <div class="cmd-palette-box" onclick="event.stopPropagation()">
+    <div class="cmd-palette-header">
+      <i class="fa fa-terminal cmd-palette-icon"></i>
+      <input type="text" id="cmd-palette-input" class="cmd-palette-input" placeholder="Type a command, module name, or search employees... (↑↓ to navigate, ↵ to select)" autocomplete="off" oninput="App.filterCommandPalette(this.value)">
+      <div class="cmd-palette-tags">
+        <button class="cmd-tag active" data-filter="all" onclick="App.setCommandPaletteFilter('all')">All</button>
+        <button class="cmd-tag" data-filter="actions" onclick="App.setCommandPaletteFilter('actions')">⚡ Actions</button>
+        <button class="cmd-tag" data-filter="modules" onclick="App.setCommandPaletteFilter('modules')">🧭 Modules</button>
+        <button class="cmd-tag" data-filter="people" onclick="App.setCommandPaletteFilter('people')">👥 People</button>
+      </div>
+      <kbd class="cmd-esc-badge" onclick="App.closeCommandPalette()">ESC</kbd>
+    </div>
+    <div class="cmd-palette-list" id="cmd-palette-list"></div>
+    <div class="cmd-palette-footer">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+        <span><kbd>↵</kbd> Select</span>
+        <span><kbd>ESC</kbd> Close</span>
+      </div>
+      <span class="cmd-palette-stat" id="cmd-palette-stat">HRM Pro Command Palette</span>
+    </div>
+  </div>
+</div>
+
 <!-- Supabase Cloud Database SDK (Local bundle with CDN fallback) -->
 <script src="js/vendor/supabase.js"></script>
 <script>if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>'); }</script>
