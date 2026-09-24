@@ -12491,6 +12491,105 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
   pointer-events: auto;
 }
 
+.landing-agent-panel.maximized {
+  bottom: 24px !important;
+  right: 24px !important;
+  left: auto !important;
+  top: auto !important;
+  width: 780px !important;
+  max-width: calc(100vw - 32px) !important;
+  height: calc(100vh - 48px) !important;
+  max-height: calc(100vh - 48px) !important;
+  border-radius: 20px !important;
+}
+
+.landing-agent-panel.minimized {
+  height: 52px !important;
+  width: 320px !important;
+  border-radius: 14px !important;
+  overflow: hidden !important;
+  cursor: pointer;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.6) !important;
+}
+
+.landing-agent-panel.minimized .landing-agent-chips-bar,
+.landing-agent-panel.minimized .landing-agent-messages,
+.landing-agent-panel.minimized .landing-agent-input-form {
+  display: none !important;
+}
+
+.landing-agent-panel.minimized .landing-agent-header {
+  padding: 10px 14px;
+}
+
+/* Agent Dropdown Menu ("drop option") */
+.agent-drop-menu {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  width: 240px;
+  background: rgba(30, 41, 59, 0.98);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  z-index: 1060;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: agent-menu-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes agent-menu-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.agent-drop-header {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 6px 8px 4px;
+  letter-spacing: 0.5px;
+}
+
+.agent-drop-item {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.agent-drop-item:hover {
+  background: rgba(99, 102, 241, 0.22);
+  color: #ffffff;
+}
+
+.agent-drop-item i {
+  width: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #a5b4fc;
+}
+
+.agent-drop-divider {
+  height: 1px;
+  background: rgba(148, 163, 184, 0.15);
+  margin: 4px 0;
+}
+
 /* Header */
 .landing-agent-header {
   padding: 14px 18px;

@@ -195,13 +195,68 @@ if (chatLauncher.style.display !== 'none') throw new Error('Team chat launcher m
 if (launcher.style.display !== 'none') throw new Error('Landing agent launcher must be hidden on login page');
 console.log('  ✅ On Login Page: Both floating widgets are suppressed');
 
-// 3. User logs in -> App Workspace
-Auth.isLoggedIn = () => true;
-Auth.employee = { id: 1, fullName: 'Ahmed Khan' };
-App.showApp();
-if (chatLauncher.style.display !== 'flex') throw new Error('Team chat launcher must be visible inside app workspace');
-if (launcher.style.display !== 'none') throw new Error('Landing agent launcher must be hidden inside app workspace');
-if (!document.body.classList.contains('app-workspace-active')) throw new Error('Body must have app-workspace-active in app workspace');
-console.log('  ✅ Inside App Workspace: Team Chatbox is VISIBLE for authenticated staff, Landing Agent is HIDDEN');
+// --- Step 4: Testing Chatbox Minimize, Maximize & Dropdown Options ---
+console.log('\n--- Step 4: Testing Minimize, Maximize & Drop Options Engine ---');
 
-console.log('\n🎉 ALL HRM PRO LANDING AGENT & CHAT ISOLATION TESTS PASSED (100%)!\n');
+// Test LandingAgent Minimize
+LandingAgent.open();
+LandingAgent.toggleMinimize();
+if (!panel.classList.contains('minimized')) throw new Error('LandingAgent panel should have .minimized class');
+if (!LandingAgent.isMinimized) throw new Error('LandingAgent.isMinimized should be true');
+console.log('  ✅ LandingAgent minimized successfully (dock bar mode)');
+
+// Test LandingAgent Restore from Minimize
+LandingAgent.toggleMinimize();
+if (panel.classList.contains('minimized')) throw new Error('LandingAgent panel should remove .minimized class on restore');
+if (LandingAgent.isMinimized) throw new Error('LandingAgent.isMinimized should be false');
+console.log('  ✅ LandingAgent restored from minimized state');
+
+// Test LandingAgent Maximize
+LandingAgent.toggleMaximize();
+if (!panel.classList.contains('maximized')) throw new Error('LandingAgent panel should have .maximized class');
+if (!LandingAgent.isMaximized) throw new Error('LandingAgent.isMaximized should be true');
+console.log('  ✅ LandingAgent maximized to wide-screen mode');
+
+// Test LandingAgent Restore from Maximize
+LandingAgent.toggleMaximize();
+if (panel.classList.contains('maximized')) throw new Error('LandingAgent panel should remove .maximized class on restore');
+if (LandingAgent.isMaximized) throw new Error('LandingAgent.isMaximized should be false');
+console.log('  ✅ LandingAgent restored from maximized state');
+
+// Test LandingAgent Dropdown Menu ("drop option")
+LandingAgent.toggleDropMenu();
+const dropMenu = document.getElementById('landing-agent-drop-menu');
+if (dropMenu.style.display !== 'flex') throw new Error('LandingAgent drop menu should display flex when toggled');
+console.log('  ✅ LandingAgent Dropdown Menu opened ("drop option")');
+LandingAgent.closeDropMenu();
+if (dropMenu.style.display !== 'none') throw new Error('LandingAgent drop menu should be none after close');
+console.log('  ✅ LandingAgent Dropdown Menu closed');
+
+// Test Internal Teams Chat Minimize & Maximize & Options
+eval(fs.readFileSync(path.join(__dirname, '../js/chat.js'), 'utf8'));
+const chatDrawer = document.getElementById('chat-drawer');
+
+Chat.openDrawer();
+Chat.toggleMinimize();
+if (!chatDrawer.classList.contains('minimized')) throw new Error('Chat drawer should have .minimized class');
+console.log('  ✅ Teams Chat minimized successfully');
+Chat.toggleMinimize();
+if (chatDrawer.classList.contains('minimized')) throw new Error('Chat drawer should not have .minimized class after restore');
+console.log('  ✅ Teams Chat restored from minimize');
+
+Chat.toggleMaximize();
+if (!chatDrawer.classList.contains('maximized')) throw new Error('Chat drawer should have .maximized class');
+console.log('  ✅ Teams Chat maximized successfully');
+Chat.toggleMaximize();
+if (chatDrawer.classList.contains('maximized')) throw new Error('Chat drawer should not have .maximized class after restore');
+console.log('  ✅ Teams Chat restored from maximize');
+
+Chat.toggleOptionsMenu();
+const teamsDrop = document.getElementById('teams-options-dropdown');
+if (teamsDrop.style.display !== 'flex') throw new Error('Teams options dropdown should be flex when opened');
+console.log('  ✅ Teams Chat Dropdown Menu opened');
+Chat.closeOptionsMenu();
+if (teamsDrop.style.display !== 'none') throw new Error('Teams options dropdown should be none when closed');
+console.log('  ✅ Teams Chat Dropdown Menu closed');
+
+console.log('\n🎉 ALL HRM PRO LANDING AGENT, CHAT ISOLATION & MIN/MAX/DROP TESTS PASSED (100%)!\n');

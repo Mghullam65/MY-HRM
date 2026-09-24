@@ -277,9 +277,31 @@
       </div>
     </div>
     <div class="landing-agent-header-actions">
-      <button class="agent-action-btn" onclick="LandingAgent.reset()" title="Restart Conversation">
-        <i class="fa fa-rotate-left"></i>
+      <!-- Dropdown Options Menu Trigger ("drop option") -->
+      <div class="agent-drop-wrapper" style="position:relative">
+        <button class="agent-action-btn" onclick="LandingAgent.toggleDropMenu(event)" title="Options & Tools (Drop Menu)">
+          <i class="fa fa-ellipsis-vertical"></i>
+        </button>
+        <div id="landing-agent-drop-menu" class="agent-drop-menu" style="display:none">
+          <div class="agent-drop-header">Agent Tools & Options</div>
+          <button class="agent-drop-item" onclick="LandingAgent.reset()"><i class="fa fa-rotate-left"></i> Reset Conversation</button>
+          <button class="agent-drop-item" onclick="LandingAgent.ask('Show me all 16 modules directory')"><i class="fa fa-cubes"></i> 16 Modules Directory</button>
+          <button class="agent-drop-item" onclick="LandingAgent.ask('What are the top 5 questions visitors ask?')"><i class="fa fa-lightbulb"></i> Top 5 Feature FAQs</button>
+          <button class="agent-drop-item" onclick="LandingAgent.ask('Tell me about Pakistan tax and gratuity compliance')"><i class="fa fa-scale-balanced"></i> Statutory Compliance</button>
+          <button class="agent-drop-item" onclick="LandingAgent.exportTranscript()"><i class="fa fa-download"></i> Export Chat Transcript</button>
+          <div class="agent-drop-divider"></div>
+          <button class="agent-drop-item text-primary" onclick="App.showLogin()"><i class="fa fa-key"></i> Launch Interactive Demo</button>
+        </div>
+      </div>
+      <!-- Minimize Button -->
+      <button class="agent-action-btn" onclick="LandingAgent.toggleMinimize(event)" title="Minimize (Dock to Bottom)">
+        <i class="fa fa-minus"></i>
       </button>
+      <!-- Maximize Button -->
+      <button class="agent-action-btn" id="agent-max-btn" onclick="LandingAgent.toggleMaximize(event)" title="Maximize / Restore">
+        <i class="fa fa-expand"></i>
+      </button>
+      <!-- Close Button -->
       <button class="agent-action-btn" onclick="LandingAgent.close()" title="Close Agent">
         <i class="fa fa-times"></i>
       </button>

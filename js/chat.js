@@ -784,6 +784,7 @@ const Chat = {
 
     this.isMinimized = !this.isMinimized;
     drawer.classList.toggle('minimized', this.isMinimized);
+    this.closeOptionsMenu();
   },
 
   toggleMaximize(e) {
@@ -792,8 +793,93 @@ const Chat = {
     const drawer = document.getElementById('chat-drawer');
     if (!drawer) return;
 
+    if (this.isMinimized) {
+      this.isMinimized = false;
+      drawer.classList.remove('minimized');
+    }
+
     this.isMaximized = !this.isMaximized;
     drawer.classList.toggle('maximized', this.isMaximized);
+    this.closeOptionsMenu();
+
+    const maxIcons = drawer.querySelectorAll('.teams-btn-maximize i');
+    maxIcons.forEach(icon => {
+      icon.className = `fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}`;
+    });
+  },
+
+  toggleOptionsMenu(e) {
+    if (e) e.stopPropagation();
+    const dropdown = document.getElementById('teams-options-dropdown');
+    if (!dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    if (isOpen) {
+      this.closeOptionsMenu();
+    } else {
+      dropdown.style.display = 'flex';
+    }
+  },
+
+  closeOptionsMenu() {
+    const dropdown = document.getElementById('teams-options-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+  },
+
+  clearCurrentChat() {
+    this.closeOptionsMenu();
+    const channel = this.getActiveChannel();
+    if (!channel) return;
+    if (confirm(`Are you sure you want to clear conversation messages for ${channel.name}?`)) {
+      if (typeof DB !== 'undefined') {
+        let msgs = DB.get('chat_messages') || [];
+        msgs = msgs.filter(m => m.channelId !== channel.id);
+        DB.set('chat_messages', msgs);
+      }
+      this.renderConversationPanel();
+      if (typeof Toast !== 'undefined') Toast.show('Conversation cleared', 'info');
+    }
+  },
+
+  exportChatTranscript() {
+    this.closeOptionsMenu();
+    const channel = this.getActiveChannel();
+    if (!channel) return;
+    const messages = this.getMessages(channel.id);
+    if (messages.length === 0) {
+      if (typeof Toast !== 'undefined') Toast.show('No messages in this chat to export', 'warning');
+      return;
+    }
+
+    let text = `====================================================\n`;
+    text += `HRM Pro Teams Chat — ${channel.name}\n`;
+    text += `Channel ID: ${channel.id}\n`;
+    text += `Exported: ${new Date().toLocaleString()}\n`;
+    text += `====================================================\n\n`;
+
+    messages.forEach(m => {
+      text += `[${m.time || ''}] ${m.senderName || 'Unknown'}:\n${m.content}\n\n`;
+    });
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `HRM_Chat_${channel.name.replace(/\s+/g, '_')}_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    if (typeof Toast !== 'undefined') Toast.show('Chat transcript exported', 'success');
+  },
+
+  toggleMuteActiveChannel() {
+    this.closeOptionsMenu();
+    const channel = this.getActiveChannel();
+    if (!channel) return;
+    channel.isMuted = !channel.isMuted;
+    if (typeof Toast !== 'undefined') {
+      Toast.show(channel.isMuted ? `Muted notifications for ${channel.name}` : `Unmuted notifications for ${channel.name}`, 'info');
+    }
   },
 
   renderFullWorkspace() {
@@ -849,7 +935,22 @@ const Chat = {
                 <i class="fa fa-pen-to-square"></i>
               </button>
               ${!isFullScreen ? `
-                <button class="teams-action-icon-btn" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
+                <div class="teams-options-wrap" style="position:relative">
+                  <button class="teams-action-icon-btn" onclick="Chat.toggleOptionsMenu(event)" title="Options Dropdown Menu">
+                    <i class="fa fa-ellipsis-vertical"></i>
+                  </button>
+                  <div id="teams-options-dropdown" class="teams-options-dropdown" style="display:none">
+                    <div style="font-size:10px;font-weight:800;color:var(--text-3);padding:6px 8px;text-transform:uppercase">Chat Options</div>
+                    <button class="teams-opt-item" onclick="Chat.clearCurrentChat()"><i class="fa fa-broom"></i> Clear Conversation</button>
+                    <button class="teams-opt-item" onclick="Chat.exportChatTranscript()"><i class="fa fa-download"></i> Export Transcript</button>
+                    <button class="teams-opt-item" onclick="Chat.toggleMuteActiveChannel()"><i class="fa fa-bell-slash"></i> Mute / Unmute Alerts</button>
+                    <button class="teams-opt-item" onclick="Chat.selectChannel('chan-copilot')"><i class="fa fa-wand-magic-sparkles"></i> Switch to Copilot</button>
+                  </div>
+                </div>
+                <button class="teams-action-icon-btn" onclick="Chat.toggleMinimize(event)" title="Minimize (Dock to Bottom)">
+                  <i class="fa fa-minus"></i>
+                </button>
+                <button class="teams-action-icon-btn teams-btn-maximize" onclick="Chat.toggleMaximize(event)" title="Maximize / Restore">
                   <i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>
                 </button>
                 <button class="teams-action-icon-btn" onclick="Chat.closeDrawer()" title="Close">

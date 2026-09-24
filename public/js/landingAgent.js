@@ -216,12 +216,18 @@ const LandingAgent = {
     }
   ],
 
+  isMinimized: false,
+  isMaximized: false,
+  isDropMenuOpen: false,
+
   // ── Initialization ──
   init() {
     this.renderChips();
     if (this.messageHistory.length === 0) {
       this.addAgentGreeting();
     }
+    this.initDraggable();
+    this.initGlobalClick();
   },
 
   // ── UI Controls ──
@@ -237,24 +243,190 @@ const LandingAgent = {
     this.isOpen = true;
     const panel = document.getElementById('landing-agent-panel');
     const launcher = document.getElementById('landing-agent-launcher');
-    if (panel) panel.classList.add('open');
+    if (panel) {
+      panel.classList.add('open');
+      if (this.isMinimized) panel.classList.add('minimized');
+      if (this.isMaximized) panel.classList.add('maximized');
+    }
     if (launcher) launcher.classList.add('active');
     setTimeout(() => {
       const input = document.getElementById('landing-agent-input');
-      if (input) input.focus();
+      if (input && !this.isMinimized) input.focus();
     }, 150);
   },
 
   close() {
     this.isOpen = false;
+    this.closeDropMenu();
     const panel = document.getElementById('landing-agent-panel');
     const launcher = document.getElementById('landing-agent-launcher');
-    if (panel) panel.classList.remove('open');
+    if (panel) {
+      panel.classList.remove('open');
+      panel.classList.remove('minimized');
+      panel.classList.remove('maximized');
+    }
     if (launcher) launcher.classList.remove('active');
+    this.isMinimized = false;
+    this.isMaximized = false;
+  },
+
+  toggleMinimize(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('landing-agent-panel');
+    if (!panel) return;
+    this.isMinimized = !this.isMinimized;
+    panel.classList.toggle('minimized', this.isMinimized);
+    this.closeDropMenu();
+    if (!this.isMinimized) {
+      setTimeout(() => {
+        const input = document.getElementById('landing-agent-input');
+        if (input) input.focus();
+      }, 100);
+    }
+  },
+
+  toggleMaximize(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('landing-agent-panel');
+    const maxBtn = document.getElementById('agent-max-btn');
+    if (!panel) return;
+
+    if (this.isMinimized) {
+      this.isMinimized = false;
+      panel.classList.remove('minimized');
+    }
+
+    this.isMaximized = !this.isMaximized;
+    panel.classList.toggle('maximized', this.isMaximized);
+    if (maxBtn) {
+      maxBtn.innerHTML = `<i class="fa ${this.isMaximized ? 'fa-compress' : 'fa-expand'}"></i>`;
+      maxBtn.title = this.isMaximized ? 'Restore Normal Window' : 'Maximize Window';
+    }
+    this.closeDropMenu();
+  },
+
+  toggleDropMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('landing-agent-drop-menu');
+    if (!menu) return;
+    this.isDropMenuOpen = (menu.style.display !== 'none');
+    if (this.isDropMenuOpen) {
+      this.closeDropMenu();
+    } else {
+      menu.style.display = 'flex';
+      this.isDropMenuOpen = true;
+    }
+  },
+
+  closeDropMenu() {
+    const menu = document.getElementById('landing-agent-drop-menu');
+    if (menu) menu.style.display = 'none';
+    this.isDropMenuOpen = false;
+  },
+
+  initGlobalClick() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.agent-drop-wrapper')) {
+        this.closeDropMenu();
+      }
+    });
+  },
+
+  // ── Drag & Drop Anywhere on Screen ──
+  initDraggable() {
+    if (typeof document === 'undefined') return;
+    const panel = document.getElementById('landing-agent-panel');
+    const header = document.querySelector('.landing-agent-header');
+    if (!panel || !header) return;
+
+    header.style.cursor = 'grab';
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    const onMouseDown = (e) => {
+      if (e.target.closest('button') || e.target.closest('.agent-drop-menu') || e.target.closest('input')) return;
+      if (this.isMaximized) return; // Don't drag while maximized
+      isDragging = true;
+      header.style.cursor = 'grabbing';
+
+      const rect = panel.getBoundingClientRect();
+      startX = e.clientX;
+      startY = e.clientY;
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      panel.style.bottom = 'auto';
+      panel.style.right = 'auto';
+      panel.style.left = `${initialLeft}px`;
+      panel.style.top = `${initialTop}px`;
+      panel.style.transition = 'none';
+
+      const onMouseMove = (ev) => {
+        if (!isDragging) return;
+        ev.preventDefault();
+        const dx = ev.clientX - startX;
+        const dy = ev.clientY - startY;
+
+        const maxL = Math.max(10, window.innerWidth - panel.offsetWidth - 10);
+        const maxT = Math.max(10, window.innerHeight - panel.offsetHeight - 10);
+        const newLeft = Math.max(10, Math.min(maxL, initialLeft + dx));
+        const newTop = Math.max(10, Math.min(maxT, initialTop + dy));
+
+        panel.style.left = `${newLeft}px`;
+        panel.style.top = `${newTop}px`;
+      };
+
+      const onMouseUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        header.style.cursor = 'grab';
+        panel.style.transition = '';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    };
+
+    header.addEventListener('mousedown', onMouseDown);
+  },
+
+  // ── Export Chat Transcript ──
+  exportTranscript() {
+    this.closeDropMenu();
+    if (this.messageHistory.length === 0) {
+      alert('No messages to export yet!');
+      return;
+    }
+
+    let text = `====================================================\n`;
+    text += `HRM Pro Feature Agent — FAQ Consultation Transcript\n`;
+    text += `Date: ${new Date().toLocaleString()}\n`;
+    text += `====================================================\n\n`;
+
+    this.messageHistory.forEach((m, idx) => {
+      const speaker = m.role === 'user' ? 'Visitor' : 'HRM Pro Agent';
+      const body = m.text || (m.html ? m.html.replace(/<[^>]*>/g, '').trim() : '');
+      text += `[${speaker}]:\n${body}\n\n`;
+    });
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `HRM_Pro_Agent_Chat_${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   },
 
   reset() {
     this.messageHistory = [];
+    this.closeDropMenu();
     const container = document.getElementById('landing-agent-messages');
     if (container) container.innerHTML = '';
     this.addAgentGreeting();
