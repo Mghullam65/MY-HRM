@@ -146,6 +146,19 @@ const App = {
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
+
+    // Chat Isolation & Landing Agent Control
+    document.body.classList.remove('app-workspace-active');
+    const chatBtn = document.getElementById('chat-floating-launcher');
+    if (chatBtn) chatBtn.style.display = 'none';
+    if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
+
+    const agentBtn = document.getElementById('landing-agent-launcher');
+    if (agentBtn) agentBtn.style.display = 'flex';
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.init) {
+      LandingAgent.init();
+    }
+
     if (typeof Landing !== 'undefined' && Landing.render) {
       Landing.render();
     }
@@ -166,6 +179,19 @@ const App = {
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
+
+    // Chat Isolation & Landing Agent Control
+    document.body.classList.remove('app-workspace-active');
+    const chatBtn = document.getElementById('chat-floating-launcher');
+    if (chatBtn) chatBtn.style.display = 'none';
+    if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
+
+    const agentBtn = document.getElementById('landing-agent-launcher');
+    if (agentBtn) agentBtn.style.display = 'flex';
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.init) {
+      LandingAgent.init();
+    }
+
     if (typeof Landing !== 'undefined' && Landing.renderModuleDetail) {
       Landing.renderModuleDetail(moduleId);
     }
@@ -186,6 +212,17 @@ const App = {
     if (login) login.style.display = 'flex';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
+
+    // Suppress both floating widgets on login screen
+    document.body.classList.remove('app-workspace-active');
+    const chatBtn = document.getElementById('chat-floating-launcher');
+    if (chatBtn) chatBtn.style.display = 'none';
+    if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
+
+    const agentBtn = document.getElementById('landing-agent-launcher');
+    if (agentBtn) agentBtn.style.display = 'none';
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
+
     Login.render();
     if (pushState && history.pushState) {
       history.pushState({ page: 'login' }, '', '#login');
@@ -204,6 +241,17 @@ const App = {
     if (login) login.style.display = 'none';
     if (trial) { trial.style.display = 'flex'; trial.setAttribute('data-theme', 'dark'); }
     if (app) app.style.display = 'none';
+
+    // Suppress internal chat & close agent
+    document.body.classList.remove('app-workspace-active');
+    const chatBtn = document.getElementById('chat-floating-launcher');
+    if (chatBtn) chatBtn.style.display = 'none';
+    if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
+
+    const agentBtn = document.getElementById('landing-agent-launcher');
+    if (agentBtn) agentBtn.style.display = 'none';
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
+
     if (typeof Trial !== 'undefined' && Trial.render) {
       Trial.render(plan);
     }
@@ -224,6 +272,16 @@ const App = {
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'flex';
+
+    // Enable workspace active mode: internal team chat visible, landing agent hidden
+    document.body.classList.add('app-workspace-active');
+    const chatBtn = document.getElementById('chat-floating-launcher');
+    if (chatBtn) chatBtn.style.display = 'flex';
+
+    const agentBtn = document.getElementById('landing-agent-launcher');
+    if (agentBtn) agentBtn.style.display = 'none';
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
+
     this.renderSidebar();
     this.renderTopbar();
     this.setupKeyboardShortcuts();
