@@ -5643,57 +5643,96 @@ const Employees = {
   orgChartDeptFilter: 'all',
   orgChartSearchQuery: '',
 
+  orgChartZoom: 1.0,
+  orgChartSearchQuery: '',
+  orgChartDeptFilter: 'all',
+  collapsedOrgNodes: new Set(),
+  orgPanX: 0,
+  orgPanY: 0,
+  isOrgPanning: false,
+  orgPanStartX: 0,
+  orgPanStartY: 0,
+
   renderOrgChart(container) {
     const allEmps = DB.get('employees') || [];
     const activeEmps = allEmps.filter(e => e.status === 'active');
     const depts = DB.get('departments') || [];
 
-    // Filter root and build reporting map
-    const rootEmp = activeEmps.find(e => e.role === 'superadmin' || e.id === 1) || activeEmps[0];
+    // Identify top-level executives / roots (no manager or manager not active or superadmin)
+    let rootEmps = activeEmps.filter(e => !e.managerId || e.role === 'superadmin' || e.id === 1);
+    if (rootEmps.length === 0) rootEmps = [activeEmps[0]];
+
+    // If superadmin exists, ensure Ahmed Khan is root
+    const ceo = activeEmps.find(e => e.role === 'superadmin' || e.id === 1);
+    if (ceo && !rootEmps.some(r => r.id === ceo.id)) rootEmps.unshift(ceo);
 
     container.innerHTML = `
       <div class="animate-fade-in">
         <!-- Top Toolbar -->
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-            <div style="font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px">
-              <i class="fa fa-sitemap" style="color:var(--primary)"></i> Organization Hierarchy Chart
+            <div style="font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px;color:var(--text)">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.12);color:var(--primary)">
+                <i class="fa fa-sitemap"></i>
+              </span>
+              Workforce Organization Hierarchy
             </div>
-            <span class="chip" style="font-size:11px;background:var(--surface)">${activeEmps.length} Active Members</span>
+            <span class="chip" style="font-size:11.5px;font-weight:600;background:var(--surface)"><i class="fa fa-users" style="margin-right:4px;color:var(--primary)"></i> ${activeEmps.length} Active Personnel</span>
           </div>
 
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <!-- Search in Tree -->
             <div style="position:relative;width:200px">
               <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:11px"></i>
-              <input type="text" class="form-control" placeholder="Find in chart..." style="padding-left:28px;font-size:12px;height:32px"
+              <input type="text" class="form-control" placeholder="Search employee..." style="padding-left:28px;font-size:12px;height:34px;border-radius:8px"
                 value="${this.orgChartSearchQuery}" oninput="Employees.orgChartSearchQuery=this.value.toLowerCase(); Employees.filterOrgChartNodes()">
             </div>
 
             <!-- Dept Filter -->
-            <select class="form-control" style="width:160px;font-size:12px;height:32px" onchange="Employees.orgChartDeptFilter=this.value; Employees.renderOrgChart(document.getElementById('emp-content'))">
-              <option value="all">All Departments</option>
+            <select class="form-control" style="width:170px;font-size:12px;height:34px;border-radius:8px" onchange="Employees.orgChartDeptFilter=this.value; Employees.renderOrgChart(document.getElementById('emp-content'))">
+              <option value="all">🏢 All Departments</option>
               ${depts.map(d => `<option value="${d.id}" ${this.orgChartDeptFilter==d.id?'selected':''}>${d.name}</option>`).join('')}
             </select>
 
-            <!-- Zoom Controls -->
-            <div style="display:flex;align-items:center;gap:2px;background:var(--surface);padding:2px;border-radius:8px;border:1px solid var(--border)">
-              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(0.1)" title="Zoom In"><i class="fa fa-magnifying-glass-plus"></i></button>
-              <span id="org-zoom-level" style="font-size:11px;font-family:monospace;padding:0 6px;min-width:40px;text-align:center">${Math.round(this.orgChartZoom*100)}%</span>
-              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(-0.1)" title="Zoom Out"><i class="fa fa-magnifying-glass-minus"></i></button>
-              <button class="btn btn-ghost btn-xs" onclick="Employees.resetOrgChartZoom()" title="Reset Zoom"><i class="fa fa-arrows-rotate"></i></button>
+            <!-- Zoom & Pan Controls -->
+            <div style="display:flex;align-items:center;gap:3px;background:var(--surface);padding:3px;border-radius:8px;border:1px solid var(--border)">
+              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(0.15)" title="Zoom In"><i class="fa fa-plus"></i></button>
+              <span id="org-zoom-level" style="font-size:11px;font-family:monospace;padding:0 6px;min-width:44px;text-align:center;font-weight:700">${Math.round(this.orgChartZoom*100)}%</span>
+              <button class="btn btn-ghost btn-xs" onclick="Employees.zoomOrgChart(-0.15)" title="Zoom Out"><i class="fa fa-minus"></i></button>
+              <button class="btn btn-ghost btn-xs" onclick="Employees.resetOrgChartTransform()" title="Reset Pan & Zoom"><i class="fa fa-expand"></i></button>
             </div>
 
+            <!-- Expand / Collapse All -->
+            <button class="btn btn-secondary btn-sm" onclick="Employees.toggleAllOrgBranches()" title="Expand or Collapse All Branches">
+              <i class="fa fa-arrows-split-up-and-left"></i> ${this.collapsedOrgNodes.size > 0 ? 'Expand All' : 'Collapse All'}
+            </button>
+
+            <!-- Export / Print PDF -->
+            <button class="btn btn-primary btn-sm" onclick="Employees.printOrgChart()" title="Export or Print High-Res PDF Org Chart" style="background:linear-gradient(135deg,#2563eb,#4f46e5);border:none">
+              <i class="fa fa-file-pdf"></i> Export PDF
+            </button>
+
             <button class="btn btn-ghost btn-sm" onclick="Employees.switchView('directory')" title="Switch to Grid View">
-              <i class="fa fa-id-card"></i> Grid View
+              <i class="fa fa-table-cells"></i> Grid
             </button>
           </div>
         </div>
 
-        <!-- Org Chart Canvas / Tree Area -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:30px 20px;overflow:auto;min-height:540px;display:flex;justify-content:center;position:relative">
-          <div id="org-tree-root" style="transform:scale(${this.orgChartZoom});transform-origin:top center;transition:transform .2s ease;display:inline-block">
-            ${this.buildOrgTreeNode(rootEmp, activeEmps)}
+        <!-- Org Chart Canvas / Drag-and-Pan Area -->
+        <div id="org-chart-canvas" style="background:radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0/24px 24px var(--surface);border:1.5px solid var(--border);border-radius:14px;overflow:hidden;min-height:600px;height:calc(100vh - 280px);display:flex;justify-content:center;align-items:flex-start;position:relative;cursor:grab;user-select:none">
+          <!-- Canvas HUD Overlay -->
+          <div style="position:absolute;bottom:14px;left:18px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:12px;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+            <span><i class="fa fa-mouse-pointer" style="margin-right:4px"></i> Click &amp; Drag to Pan</span>
+            <span>&bull;</span>
+            <span><i class="fa fa-arrows-up-down" style="margin-right:4px"></i> Scroll to Zoom</span>
+            <span>&bull;</span>
+            <span><i class="fa fa-comment-dots" style="margin-right:4px"></i> 1-Click Teams Chat</span>
+          </div>
+
+          <div id="org-tree-root" style="transform:translate(${this.orgPanX}px, ${this.orgPanY}px) scale(${this.orgChartZoom});transform-origin:top center;transition:transform .08s ease-out;display:inline-block;padding:40px 60px">
+            <div style="display:flex;gap:40px;justify-content:center">
+              ${rootEmps.map(rootEmp => this.buildOrgTreeNode(rootEmp, activeEmps)).join('')}
+            </div>
           </div>
         </div>
       </div>
@@ -5703,30 +5742,30 @@ const Employees = {
         .org-card {
           background: var(--card);
           border: 1.5px solid var(--border);
-          border-radius: 12px;
+          border-radius: 14px;
           padding: 12px 14px;
-          width: 220px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+          width: 230px;
+          box-shadow: 0 4px 14px rgba(0,0,0,0.06);
           cursor: pointer;
-          transition: all .2s ease;
+          transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
           position: relative;
           text-align: center;
         }
         .org-card:hover {
           border-color: var(--primary);
-          transform: translateY(-3px);
-          box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+          transform: translateY(-4px);
+          box-shadow: 0 10px 24px rgba(0,0,0,0.12);
         }
         .org-card.highlighted {
-          border-color: var(--warning);
-          box-shadow: 0 0 0 3px rgba(245,158,11,0.3);
+          border-color: var(--warning) !important;
+          box-shadow: 0 0 0 3px rgba(245,158,11,0.4) !important;
+          transform: translateY(-4px) scale(1.03);
         }
-        .org-card.root-card { border-top: 4px solid var(--primary); }
+        .org-card.root-card { border-top: 4px solid var(--primary); background: linear-gradient(180deg, var(--card) 0%, rgba(99,102,241,0.04) 100%); }
         .org-card.manager-card { border-top: 4px solid var(--accent); }
         .org-card.lead-card { border-top: 4px solid var(--info); }
         .org-card.member-card { border-top: 4px solid #10b981; }
-        .org-line-down { width: 2px; height: 24px; background: var(--border); margin: 0 auto; }
-        .org-line-up { width: 2px; height: 24px; background: var(--border); margin: 0 auto; }
+        .org-line-down { width: 2px; height: 26px; background: var(--border); margin: 0 auto; }
         .org-children-row {
           display: flex;
           justify-content: center;
@@ -5738,8 +5777,8 @@ const Employees = {
           content: '';
           position: absolute;
           top: 0;
-          left: 110px;
-          right: 110px;
+          left: 115px;
+          right: 115px;
           height: 2px;
           background: var(--border);
         }
@@ -5759,8 +5798,108 @@ const Employees = {
           height: 24px;
           background: var(--border);
         }
+        .org-quick-actions {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          margin-top: 8px;
+          padding-top: 8px;
+          border-top: 1px dashed var(--border);
+        }
+        .org-quick-btn {
+          width: 26px;
+          height: 26px;
+          border-radius: 6px;
+          border: 1px solid var(--border);
+          background: var(--surface);
+          color: var(--text-2);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+          cursor: pointer;
+          transition: all .15s ease;
+        }
+        .org-quick-btn:hover {
+          background: var(--primary);
+          color: white;
+          border-color: var(--primary);
+        }
+        .org-toggle-btn {
+          position: absolute;
+          bottom: -12px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: var(--card);
+          border: 1.5px solid var(--primary);
+          color: var(--primary);
+          font-size: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+          z-index: 2;
+          transition: all .15s ease;
+        }
+        .org-toggle-btn:hover {
+          background: var(--primary);
+          color: white;
+          transform: translateX(-50%) scale(1.1);
+        }
       </style>
     `;
+
+    this.initOrgChartPanEvents();
+  },
+
+  initOrgChartPanEvents() {
+    const canvas = document.getElementById('org-chart-canvas');
+    const root = document.getElementById('org-tree-root');
+    if (!canvas || !root) return;
+
+    canvas.addEventListener('mousedown', (e) => {
+      // Ignore if clicking on an interactive button or card
+      if (e.target.closest('button') || e.target.closest('.org-quick-btn') || e.target.closest('.org-toggle-btn')) return;
+      this.isOrgPanning = true;
+      this.orgPanStartX = e.clientX - this.orgPanX;
+      this.orgPanStartY = e.clientY - this.orgPanY;
+      canvas.style.cursor = 'grabbing';
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.isOrgPanning) return;
+      this.orgPanX = e.clientX - this.orgPanStartX;
+      this.orgPanY = e.clientY - this.orgPanStartY;
+      root.style.transform = `translate(${this.orgPanX}px, ${this.orgPanY}px) scale(${this.orgChartZoom})`;
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (this.isOrgPanning) {
+        this.isOrgPanning = false;
+        if (canvas) canvas.style.cursor = 'grab';
+      }
+    });
+
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      this.zoomOrgChart(delta);
+    }, { passive: false });
+  },
+
+  getSubtreeCount(empId, allEmps) {
+    let count = 0;
+    const direct = allEmps.filter(e => e.id !== empId && (e.managerId === empId || e.reportingTo === empId));
+    count += direct.length;
+    direct.forEach(d => {
+      count += this.getSubtreeCount(d.id, allEmps);
+    });
+    return count;
   },
 
   buildOrgTreeNode(emp, allEmps) {
@@ -5779,6 +5918,8 @@ const Employees = {
     const isHR = emp.role === 'hr_manager' || emp.id === 2;
 
     const cardClass = isRoot ? 'root-card' : isHR ? 'manager-card' : isDeptManager ? 'lead-card' : 'member-card';
+    const isCollapsed = this.collapsedOrgNodes.has(emp.id);
+    const totalTeamCount = this.getSubtreeCount(emp.id, allEmps);
 
     return `
       <div class="org-node-wrap" data-emp-id="${emp.id}" data-name="${emp.fullName.toLowerCase()}" data-dept="${emp.departmentId}">
@@ -5792,15 +5933,35 @@ const Employees = {
 
           <div style="font-weight:700;font-size:13.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${emp.fullName}</div>
           <div style="font-size:11px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Utils.getDesigName(emp.designationId)}</div>
-          <div style="font-size:10px;color:var(--primary);margin-top:2px">${Utils.getDeptName(emp.departmentId)}</div>
+          <div style="font-size:10px;color:var(--primary);margin-top:2px;font-weight:600">${Utils.getDeptName(emp.departmentId)}</div>
 
           <div style="margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px">
             <span class="chip" style="font-size:9.5px;padding:2px 6px">${emp.empNo}</span>
-            ${reports.length > 0 ? `<span class="badge badge-primary" style="font-size:9px;padding:2px 6px"><i class="fa fa-users"></i> ${reports.length} Reports</span>` : ''}
+            ${reports.length > 0 ? `<span class="badge badge-primary" style="font-size:9px;padding:2px 6px"><i class="fa fa-users"></i> ${reports.length} Direct (${totalTeamCount} Team)</span>` : ''}
           </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="org-quick-actions" onclick="event.stopPropagation()">
+            <button class="org-quick-btn" onclick="Chat.startDirectChat(${emp.id})" title="Send Instant Teams Message">
+              <i class="fa fa-comment-dots"></i>
+            </button>
+            <button class="org-quick-btn" onclick="Employees.renderProfile(${emp.id})" title="View Full Employee Profile">
+              <i class="fa fa-user"></i>
+            </button>
+            <button class="org-quick-btn" onclick="Payroll.viewSlip ? Payroll.viewSlip(${emp.id}, Utils.thisMonth()) : null" title="View Current Month Payslip">
+              <i class="fa fa-receipt"></i>
+            </button>
+          </div>
+
+          <!-- Collapse/Expand Branch Toggle -->
+          ${reports.length > 0 ? `
+            <div class="org-toggle-btn" onclick="Employees.toggleOrgBranch(${emp.id}, event)" title="${isCollapsed ? 'Expand Branch' : 'Collapse Branch'}">
+              <i class="fa ${isCollapsed ? 'fa-plus' : 'fa-minus'}"></i>
+            </div>
+          ` : ''}
         </div>
 
-        ${reports.length > 0 ? `
+        ${(reports.length > 0 && !isCollapsed) ? `
           <div class="org-line-down"></div>
           <div class="org-children-row">
             ${reports.map(child => `
@@ -5814,20 +5975,89 @@ const Employees = {
     `;
   },
 
+  toggleOrgBranch(empId, event) {
+    if (event) event.stopPropagation();
+    if (this.collapsedOrgNodes.has(empId)) {
+      this.collapsedOrgNodes.delete(empId);
+    } else {
+      this.collapsedOrgNodes.add(empId);
+    }
+    const container = document.getElementById('emp-content');
+    if (container) this.renderOrgChart(container);
+  },
+
+  toggleAllOrgBranches() {
+    if (this.collapsedOrgNodes.size > 0) {
+      this.collapsedOrgNodes.clear();
+    } else {
+      const allEmps = DB.get('employees') || [];
+      allEmps.forEach(e => {
+        const hasReports = allEmps.some(c => c.id !== e.id && (c.managerId === e.id || c.reportingTo === e.id));
+        if (hasReports) this.collapsedOrgNodes.add(e.id);
+      });
+    }
+    const container = document.getElementById('emp-content');
+    if (container) this.renderOrgChart(container);
+  },
+
   zoomOrgChart(delta) {
-    this.orgChartZoom = Math.min(1.8, Math.max(0.4, Math.round((this.orgChartZoom + delta) * 10) / 10));
+    this.orgChartZoom = Math.min(2.0, Math.max(0.3, Math.round((this.orgChartZoom + delta) * 100) / 100));
     const root = document.getElementById('org-tree-root');
-    if (root) root.style.transform = `scale(${this.orgChartZoom})`;
+    if (root) root.style.transform = `translate(${this.orgPanX}px, ${this.orgPanY}px) scale(${this.orgChartZoom})`;
     const label = document.getElementById('org-zoom-level');
     if (label) label.textContent = `${Math.round(this.orgChartZoom * 100)}%`;
   },
 
-  resetOrgChartZoom() {
+  resetOrgChartTransform() {
     this.orgChartZoom = 1.0;
+    this.orgPanX = 0;
+    this.orgPanY = 0;
     const root = document.getElementById('org-tree-root');
-    if (root) root.style.transform = 'scale(1)';
+    if (root) root.style.transform = 'translate(0px, 0px) scale(1)';
     const label = document.getElementById('org-zoom-level');
     if (label) label.textContent = '100%';
+  },
+
+  resetOrgChartZoom() {
+    this.resetOrgChartTransform();
+  },
+
+  printOrgChart() {
+    const area = document.getElementById('org-tree-root');
+    if (!area) return;
+    const w = window.open('', '_blank');
+    w.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Organization_Hierarchy_Chart_${Utils.today()}</title>
+          <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+          <style>
+            body { margin:0; padding:30px; font-family:'Segoe UI',Roboto,Helvetica,sans-serif; background:#fff; color:#000; text-align:center; }
+            .org-card { border:1.5px solid #cbd5e1; border-radius:10px; padding:12px; width:200px; display:inline-block; margin:0 auto; background:#fff; text-align:center; }
+            .org-node-wrap { display:inline-flex; flex-direction:column; align-items:center; }
+            .org-children-row { display:flex; justify-content:center; gap:20px; position:relative; padding-top:20px; }
+            .org-children-row::before { content:''; position:absolute; top:0; left:100px; right:100px; height:2px; background:#cbd5e1; }
+            .org-line-down { width:2px; height:20px; background:#cbd5e1; margin:0 auto; }
+            .org-child-col { display:flex; flex-direction:column; align-items:center; position:relative; }
+            .org-child-col::before { content:''; position:absolute; top:-20px; left:50%; width:2px; height:20px; background:#cbd5e1; }
+            .org-quick-actions, .org-toggle-btn { display:none !important; }
+            @page { size: landscape; margin: 10mm; }
+            @media print { body { padding:0; } }
+          </style>
+        </head>
+        <body>
+          <h2 style="margin-bottom:4px;color:#1e3a8a">HRM Enterprise &bull; Corporate Organization Hierarchy</h2>
+          <div style="font-size:12px;color:#64748b;margin-bottom:24px">Generated on ${Utils.formatDate(Utils.today())} &bull; Confidential Organizational Record</div>
+          <div style="display:inline-block;text-align:center">
+            ${area.innerHTML}
+          </div>
+          <script>window.onload = function() { setTimeout(function() { window.print(); }, 400); };<\/script>
+        </body>
+      </html>
+    `);
+    w.document.close();
   },
 
   filterOrgChartNodes() {

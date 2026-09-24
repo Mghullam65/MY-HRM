@@ -912,11 +912,14 @@ const Recruitment = {
               <i class="fa fa-table-list"></i> Assessment Sheets &amp; Funnel
             </button>
           </div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;box-shadow:0 2px 8px rgba(99,102,241,0.3)" onclick="Recruitment.showResumeParserModal()">
+              <i class="fa fa-wand-magic-sparkles"></i> AI Resume Parser &amp; Match
+            </button>
             <button class="btn btn-secondary btn-sm" onclick="Recruitment.pipelineFilter.viewMode = Recruitment.pipelineFilter.viewMode==='board'?'table':'board'; Recruitment.renderPipeline()">
               <i class="fa ${this.pipelineFilter.viewMode==='board'?'fa-table':'fa-columns'}"></i> ${this.pipelineFilter.viewMode==='board'?'Switch to Table View':'Switch to Kanban Board'}
             </button>
-            <button class="btn btn-primary btn-sm" onclick="Recruitment.showNewApplicantModal()">
+            <button class="btn btn-primary btn-sm" onclick="Recruitment.showAddApplicantModal()">
               <i class="fa fa-user-plus"></i> Add Applicant
             </button>
           </div>
@@ -1227,6 +1230,351 @@ const Recruitment = {
         ` : ''}
       </div>
     `);
+  },
+
+  showNewApplicantModal(defaultStage = 'applied') {
+    this.showAddApplicantModal(defaultStage);
+  },
+
+  showResumeParserModal() {
+    const jobs = DB.get('recruitment') || [];
+    const openJobs = jobs.filter(j => j.status === 'open' || j.status === 'interviewing');
+    const targetJobs = openJobs.length > 0 ? openJobs : jobs;
+
+    Modal.show('✨ AI-Powered Resume / CV Parser & Job Match Scoring', `
+      <div style="font-size:12.5px;color:var(--text-3);margin-bottom:16px">
+        Upload or paste candidate resumes to automatically extract candidate contact info, experience, education, and calculate instant <strong style="color:var(--primary)">Job Match %</strong> against active vacancy criteria.
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label class="form-label required" style="font-weight:700">1. Select Target Job Opening for Match Benchmark:</label>
+        <select class="form-control" id="parser-target-job" style="font-weight:600">
+          ${targetJobs.map(j => `<option value="${j.id}">${j.title} (${Utils.getDeptName(j.departmentId)})</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- Demo Resume Quick Fillers -->
+      <div style="margin-bottom:12px">
+        <div style="font-size:11.5px;color:var(--text-2);font-weight:600;margin-bottom:6px">Or Load Pre-Parsed Demo Resumes:</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="btn btn-secondary btn-xs" onclick="Recruitment.loadDemoResume('react')" style="border-radius:20px">
+            <i class="fa fa-code" style="color:#6366f1"></i> Senior React / Node Engineer
+          </button>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="Recruitment.loadDemoResume('hr')" style="border-radius:20px">
+            <i class="fa fa-user-tie" style="color:#10b981"></i> HR Operations Specialist
+          </button>
+          <button type="button" class="btn btn-secondary btn-xs" onclick="Recruitment.loadDemoResume('devops')" style="border-radius:20px">
+            <i class="fa fa-cloud" style="color:#0ea5e9"></i> Cloud &amp; DevOps Specialist
+          </button>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Zone -->
+      <div id="resume-drop-zone" style="border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;background:var(--surface);margin-bottom:14px;cursor:pointer;transition:all .2s"
+        onclick="document.getElementById('resume-file-input').click()"
+        ondragover="event.preventDefault();this.style.borderColor='var(--primary)';this.style.background='var(--primary-glow)'"
+        ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--surface)'"
+        ondrop="Recruitment.handleResumeDrop(event)">
+        <i class="fa fa-cloud-arrow-up" style="font-size:28px;color:var(--primary);margin-bottom:6px"></i>
+        <div style="font-weight:700;font-size:13px;color:var(--text)">Drag &amp; Drop Resume File (PDF, DOCX, TXT)</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px">or click to browse from local computer</div>
+        <input type="file" id="resume-file-input" accept=".pdf,.doc,.docx,.txt" style="display:none" onchange="Recruitment.handleResumeFileInput(this)">
+      </div>
+
+      <!-- Resume Text Content Area -->
+      <div class="form-group" style="margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <label class="form-label" style="font-weight:700">Resume Plain Text / Extracted Document Data:</label>
+          <span style="font-size:10.5px;color:var(--text-3)">Edit or paste text directly</span>
+        </div>
+        <textarea class="form-control" id="resume-raw-text" rows="6" placeholder="Paste full resume text here or click a demo resume above..." style="font-family:monospace;font-size:12px;line-height:1.5"></textarea>
+      </div>
+
+      <button type="button" class="btn btn-primary w-full" id="btn-run-parser" onclick="Recruitment.runResumeParser()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;font-weight:700;padding:10px">
+        <i class="fa fa-wand-magic-sparkles"></i> Run AI Parsing &amp; Match Analysis
+      </button>
+
+      <!-- AI Parser Output Area -->
+      <div id="parser-results-area" style="display:none;margin-top:20px;border-top:1.5px solid var(--border);padding-top:18px"></div>
+    `, { size: 'modal-lg' });
+  },
+
+  loadDemoResume(type) {
+    const rawArea = document.getElementById('resume-raw-text');
+    if (!rawArea) return;
+
+    if (type === 'react') {
+      rawArea.value = `Zaid Farooq
+Islamabad, Pakistan | +92 300 8765432 | zaid.farooq@techfrontier.pk
+LinkedIn: linkedin.com/in/zaidfarooq-dev | GitHub: github.com/zaidfarooq
+
+PROFESSIONAL SUMMARY:
+Senior Full-Stack Engineer with 5+ years of extensive experience building high-scale distributed web applications. Expert in React.js, TypeScript, Next.js, Node.js, Express, PostgreSQL, Prisma ORM, and RESTful API architecture. Proficient in Redux Toolkit, TailwindCSS, Docker, and CI/CD pipelines.
+
+WORK EXPERIENCE:
+Senior Software Engineer — CloudScale Technologies (2022 - Present)
+- Architected enterprise multi-tenant microservices using Node.js, Express, and PostgreSQL, handling over 2M requests daily.
+- Led frontend migration from legacy monolithic views to React 18 with modern component state and WebSocket real-time updates.
+- Mentored 4 junior engineers and implemented automated Jest test suites.
+
+Software Engineer — Apex Systems Lahore (2020 - 2022)
+- Built responsive client dashboards utilizing React, TypeScript, Redux, and TailwindCSS.
+- Designed database schemas in PostgreSQL with efficient indexing and query optimization.
+
+EDUCATION:
+BS in Computer Science — NUST Islamabad (2016 - 2020, CGPA 3.82)
+
+TECHNICAL SKILLS:
+React, TypeScript, JavaScript, Node.js, Express.js, PostgreSQL, SQL, REST APIs, Git, Docker, Redux, Next.js, TailwindCSS, Agile Scrum, Unit Testing`;
+    } else if (type === 'hr') {
+      rawArea.value = `Ayesha Khan
+Lahore, Pakistan | +92 321 4567890 | ayesha.khan@talentpro.pk
+LinkedIn: linkedin.com/in/ayesha-khan-hr
+
+PROFESSIONAL SUMMARY:
+Accomplished Human Resources Specialist with 4+ years of dedicated experience across end-to-end recruitment, employee lifecycle onboarding, corporate payroll administration, and Pakistan Labor Laws. Demonstrated expertise in FBR withholding compliance, EOBI & SESSI filings, and performance appraisals.
+
+WORK EXPERIENCE:
+HR Operations Specialist — Descon Engineering Lahore (2022 - Present)
+- Supervised full recruitment funnel from job postings and candidate ATS screening to structured interviews and offer issuance.
+- Spearheaded 4-phase digital onboarding workflow, reducing new hire ramp-up time by 35%.
+- Coordinated monthly payroll processing, salary tax withholding under Section 149, and EOBI statutory compliance.
+
+HR Associate — Packages Limited (2020 - 2022)
+- Managed biometric attendance logs, leave balances, and employee grievance mediation.
+- Organized quarterly 360-degree performance evaluation cycles for 180+ staff members.
+
+EDUCATION:
+BBA (Honors) in Human Resource Management — LUMS (2016 - 2020)
+
+CORE COMPETENCIES:
+Talent Acquisition, Recruitment, Employee Onboarding, Payroll, FBR Tax, Pakistan Labor Law, Performance Appraisals, EOBI, SESSI, HR Policies, MS Excel, Employee Relations`;
+    } else if (type === 'devops') {
+      rawArea.value = `Hamza Tariq
+Karachi, Pakistan | +92 333 1122334 | hamza.tariq@cloudops.io
+LinkedIn: linkedin.com/in/hamza-tariq-devops
+
+PROFESSIONAL SUMMARY:
+DevOps & Cloud Infrastructure Specialist with 4+ years of hands-on expertise automating Kubernetes clusters, AWS cloud infrastructure, CI/CD deployment pipelines, and Linux system security.
+
+WORK EXPERIENCE:
+DevOps Engineer — Systems Limited (2022 - Present)
+- Managed production Kubernetes (EKS) infrastructure running 80+ microservices with zero downtime.
+- Configured GitHub Actions and GitLab CI/CD pipelines for automated testing and Docker builds.
+- Implemented Prometheus and Grafana monitoring stacks for real-time alerting.
+
+Systems Administrator — NetSol Technologies (2020 - 2022)
+- Automated cloud infrastructure provisioning using Terraform and Ansible.
+- Maintained PostgreSQL and Redis high-availability clusters.
+
+EDUCATION:
+BS in Software Engineering — FAST-NUCES Karachi (2016 - 2020)
+
+CORE SKILLS:
+Docker, Kubernetes, AWS, CI/CD, Terraform, Linux, PostgreSQL, Git, Python, Bash, Prometheus, Grafana, Microservices`;
+    }
+    Toast.show(`Loaded ${type.toUpperCase()} demo resume text`, 'info');
+  },
+
+  handleResumeDrop(event) {
+    event.preventDefault();
+    const zone = document.getElementById('resume-drop-zone');
+    if (zone) {
+      zone.style.borderColor = 'var(--border)';
+      zone.style.background = 'var(--surface)';
+    }
+    const files = event.dataTransfer?.files;
+    if (files && files.length > 0) {
+      this.readResumeFile(files[0]);
+    }
+  },
+
+  handleResumeFileInput(input) {
+    if (input.files && input.files.length > 0) {
+      this.readResumeFile(input.files[0]);
+    }
+  },
+
+  readResumeFile(file) {
+    const rawArea = document.getElementById('resume-raw-text');
+    if (!rawArea) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target.result;
+      rawArea.value = content || `Extracted content from ${file.name}:\nCandidate Name: ${file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " ")}\nApplied via CV upload.`;
+      Toast.show(`Loaded file: ${file.name}`, 'success');
+    };
+    reader.readAsText(file);
+  },
+
+  runResumeParser() {
+    const rawText = document.getElementById('resume-raw-text')?.value || '';
+    const jobId = document.getElementById('parser-target-job')?.value;
+    const resultsArea = document.getElementById('parser-results-area');
+    if (!rawText.trim()) return Toast.show('Please paste or upload resume text first.', 'warning');
+    if (!resultsArea) return;
+
+    const jobs = DB.get('recruitment') || [];
+    const targetJob = jobs.find(j => j.id == jobId) || jobs[0];
+
+    // Extraction Regexes
+    const emailMatch = rawText.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    const phoneMatch = rawText.match(/(?:\+92|0)[0-9]{2,3}[-\s]?[0-9]{6,8}/) || rawText.match(/[0-9]{4}[-\s]?[0-9]{7}/);
+    const nameMatch = rawText.trim().split('\n')[0].replace(/[^a-zA-Z\s]/g, '').trim() || 'Candidate Name';
+    
+    // City extraction
+    const cities = ['Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Peshawar', 'Faisalabad', 'Multan'];
+    const detectedCity = cities.find(c => new RegExp(`\\b${c}\\b`, 'i').test(rawText)) || 'Pakistan';
+
+    // Experience extraction
+    const expMatch = rawText.match(/(\d+)\+?\s*years?/i);
+    const experienceYears = expMatch ? `${expMatch[1]} Years` : '3-5 Years';
+
+    // Education extraction
+    const eduKeywords = ['BS', 'MS', 'PhD', 'BBA', 'MBA', 'Bachelor', 'Master'];
+    const detectedEdu = eduKeywords.find(e => new RegExp(`\\b${e}\\b`, 'i').test(rawText)) || 'Bachelor Degree';
+
+    // Skills Dictionary
+    const skillDict = [
+      'React', 'JavaScript', 'TypeScript', 'Node.js', 'Express', 'PostgreSQL', 'SQL', 'MongoDB', 
+      'Docker', 'Kubernetes', 'AWS', 'CI/CD', 'Git', 'Redux', 'Next.js', 'TailwindCSS', 
+      'Talent Acquisition', 'Recruitment', 'Onboarding', 'Payroll', 'FBR Tax', 'Labor Law', 
+      'Performance Appraisals', 'EOBI', 'SESSI', 'MS Excel', 'Python', 'Linux', 'REST APIs', 'Agile'
+    ];
+    const detectedSkills = skillDict.filter(s => new RegExp(`\\b${s.replace('.', '\\.')}\\b`, 'i').test(rawText));
+
+    // Define target job expected skills
+    let jobKeywords = [];
+    const jobTitleLower = (targetJob?.title || '').toLowerCase();
+    if (jobTitleLower.includes('developer') || jobTitleLower.includes('engineer') || jobTitleLower.includes('react')) {
+      jobKeywords = ['React', 'JavaScript', 'TypeScript', 'Node.js', 'PostgreSQL', 'Git', 'REST APIs', 'Docker'];
+    } else if (jobTitleLower.includes('hr') || jobTitleLower.includes('executive') || jobTitleLower.includes('operations')) {
+      jobKeywords = ['Talent Acquisition', 'Recruitment', 'Onboarding', 'Payroll', 'FBR Tax', 'Labor Law', 'MS Excel'];
+    } else if (jobTitleLower.includes('sales') || jobTitleLower.includes('marketing')) {
+      jobKeywords = ['Communication', 'Client Relations', 'MS Excel', 'Agile', 'Leadership'];
+    } else {
+      jobKeywords = ['Communication', 'MS Excel', 'Agile', 'Git'];
+    }
+
+    const matchedSkills = jobKeywords.filter(k => detectedSkills.some(ds => ds.toLowerCase() === k.toLowerCase()));
+    const missingSkills = jobKeywords.filter(k => !matchedSkills.includes(k));
+
+    // Calculate match score
+    const basePct = Math.round((matchedSkills.length / Math.max(1, jobKeywords.length)) * 100);
+    const matchScore = Math.min(98, Math.max(45, basePct));
+    const scoreColor = matchScore >= 80 ? '#10b981' : matchScore >= 60 ? '#f59e0b' : '#ef4444';
+    const scoreLabel = matchScore >= 80 ? 'Exceptional Match' : matchScore >= 60 ? 'Strong Candidate' : 'Moderate Match';
+
+    // Store in temporary parsed state
+    this.lastParsedCandidate = {
+      name: nameMatch,
+      email: emailMatch ? emailMatch[0] : 'candidate@example.pk',
+      phone: phoneMatch ? phoneMatch[0] : '0300-1234567',
+      city: detectedCity,
+      experience: experienceYears,
+      education: detectedEdu,
+      jobId: targetJob.id,
+      jobTitle: targetJob.title,
+      aiMatchScore: matchScore,
+      matchedSkills: matchedSkills,
+      missingSkills: missingSkills,
+      detectedSkills: detectedSkills,
+      rawText: rawText
+    };
+
+    resultsArea.style.display = 'block';
+    resultsArea.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px">
+          <div>
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Extracted Candidate Profile</span>
+            <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:2px">${nameMatch}</div>
+            <div style="font-size:12px;color:var(--text-2);margin-top:2px">
+              <i class="fa fa-envelope" style="margin-right:4px"></i>${this.lastParsedCandidate.email} &bull; 
+              <i class="fa fa-phone" style="margin-right:4px;margin-left:6px"></i>${this.lastParsedCandidate.phone} &bull;
+              <i class="fa fa-location-dot" style="margin-right:4px;margin-left:6px"></i>${detectedCity}
+            </div>
+          </div>
+
+          <!-- Match Score Ribbon -->
+          <div style="display:flex;align-items:center;gap:10px;background:var(--card);border:1.5px solid ${scoreColor};padding:8px 16px;border-radius:10px">
+            <div style="font-size:26px;font-weight:900;color:${scoreColor}">${matchScore}%</div>
+            <div>
+              <div style="font-size:12px;font-weight:800;color:${scoreColor}">${scoreLabel}</div>
+              <div style="font-size:10px;color:var(--text-3)">for ${targetJob.title}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Skills Breakdown Matrix -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:#10b981;text-transform:uppercase;margin-bottom:8px">
+              <i class="fa fa-check-circle" style="margin-right:4px"></i> Matched Job Skills (${matchedSkills.length})
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${matchedSkills.map(s => `<span class="badge badge-success" style="font-size:11px"><i class="fa fa-check"></i> ${s}</span>`).join('')}
+              ${matchedSkills.length === 0 ? '<span style="font-size:11.5px;color:var(--text-3)">No core skills matched</span>' : ''}
+            </div>
+          </div>
+
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px">
+            <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;margin-bottom:8px">
+              <i class="fa fa-triangle-exclamation" style="margin-right:4px"></i> Missing / Desired Skills (${missingSkills.length})
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${missingSkills.map(s => `<span class="badge badge-warning" style="font-size:11px">${s}</span>`).join('')}
+              ${missingSkills.length === 0 ? '<span style="font-size:11.5px;color:var(--success)">100% skill coverage!</span>' : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Recommendation Summary -->
+        <div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.25);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--text);margin-bottom:16px">
+          <strong><i class="fa fa-robot" style="color:var(--primary);margin-right:6px"></i>AI ATS Recommendation:</strong>
+          Candidate has demonstrated proficiency in ${detectedSkills.slice(0, 5).join(', ')} with an estimated ${experienceYears} of industry experience. Profile matches ${matchScore}% of the benchmark qualifications for <strong>${targetJob.title}</strong>. Recommended to advance to Stage 2: Initial Screening.
+        </div>
+
+        <!-- Action Button -->
+        <button type="button" class="btn btn-success w-full" onclick="Recruitment.importParsedApplicant()" style="font-weight:800;padding:12px;font-size:13.5px;box-shadow:0 4px 12px rgba(16,185,129,0.25)">
+          <i class="fa fa-user-plus"></i> Import ${nameMatch} into Candidate Pipeline (${matchScore}% Match)
+        </button>
+      </div>
+    `;
+  },
+
+  importParsedApplicant() {
+    if (!this.lastParsedCandidate) return Toast.show('No parsed candidate to import.', 'error');
+    const p = this.lastParsedCandidate;
+    const apps = DB.get('applications') || [];
+    const newId = apps.length > 0 ? Math.max(...apps.map(a => a.id)) + 1 : 77460;
+
+    const newApp = {
+      id: newId,
+      jobId: Number(p.jobId),
+      jobTitle: p.jobTitle,
+      name: p.name,
+      email: p.email,
+      phone: p.phone,
+      city: p.city,
+      experience: p.experience,
+      expectedSalary: '180000',
+      stage: 'screen',
+      appliedOn: Utils.today(),
+      notes: `AI Parsed Resume: ${p.aiMatchScore}% match for ${p.jobTitle}. Skills: ${p.detectedSkills.join(', ')}`,
+      aiMatchScore: p.aiMatchScore,
+      matchedSkills: p.matchedSkills,
+      missingSkills: p.missingSkills,
+      resumeName: `${p.name.replace(/\s+/g, '_')}_Resume.pdf`
+    };
+
+    apps.unshift(newApp);
+    DB.set('applications', apps);
+    DB.log('APPLICANT_PARSED', 'Recruitment', `AI Resume Parser imported ${p.name} with ${p.aiMatchScore}% match for ${p.jobTitle}`, Auth.user?.id);
+
+    Modal.close('dynamic-modal');
+    Toast.show(`Candidate ${p.name} imported into Pipeline with ${p.aiMatchScore}% Match!`, 'success');
+    this.switchView('pipeline');
   },
 
   showAddApplicantModal(defaultStage = 'applied') {
@@ -6136,8 +6484,164 @@ const Recruitment = {
     return this.getDefaultOnboardingTasks(ob.joiningDate);
   },
 
+  renderPersonalOnboardingJourney(container) {
+    const emp = Auth.employee || { id: 26, fullName: 'Saad Ibrahim', empNo: 'EMP-026', joiningDate: '2026-09-15' };
+    const allEmps = DB.get('employees') || [];
+    const buddy = allEmps.find(e => e.id === 3) || allEmps[1]; // Usman Baig or Sara Malik
+    
+    // Onboarding 4-phase steps
+    const phases = [
+      {
+        id: 1,
+        title: 'Phase 1: Pre-boarding & Documentation',
+        desc: 'Official employment contract, CNIC copy, educational credentials & emergency contact',
+        badge: 'Completed',
+        badgeClass: 'badge-success',
+        icon: 'fa-file-shield',
+        tasks: [
+          { text: 'Employment contract signed & returned', done: true },
+          { text: 'CNIC & educational degrees uploaded to EDMS', done: true },
+          { text: 'Emergency contact information verified', done: true }
+        ]
+      },
+      {
+        id: 2,
+        title: 'Phase 2: Day 1 Induction & IT Hardware',
+        desc: 'Workstation setup, company laptop handover, email & VPN credentials issuance',
+        badge: 'In Progress',
+        badgeClass: 'badge-warning',
+        icon: 'fa-laptop-code',
+        tasks: [
+          { text: 'MacBook Pro / Dell workstation issued & signed for', done: true },
+          { text: 'Corporate email & MS Teams access configured', done: true },
+          { text: 'Biometric fingerprint & building RFID badge enrollment', done: false }
+        ]
+      },
+      {
+        id: 3,
+        title: 'Phase 3: First Week Integration',
+        desc: 'Department mentor pairing, company handbook review & compliance sign-offs',
+        badge: 'Pending',
+        badgeClass: 'badge-secondary',
+        icon: 'fa-handshake',
+        tasks: [
+          { text: 'Welcome sync with Department Buddy & Team Manager', done: false },
+          { text: 'HR corporate policies & code of conduct sign-off', done: false },
+          { text: 'HRM System Self-Service portal walkthrough', done: true }
+        ]
+      },
+      {
+        id: 4,
+        title: 'Phase 4: 30-60-90 Day Milestones',
+        desc: 'Quarterly OKR alignment, probation performance check-in & permanent confirmation',
+        badge: 'Upcoming',
+        badgeClass: 'badge-secondary',
+        icon: 'fa-flag-checkered',
+        tasks: [
+          { text: '30-Day initial alignment & role expectations check-in', done: false },
+          { text: '60-Day performance mid-probation review', done: false },
+          { text: '90-Day probation evaluation & formal confirmation', done: false }
+        ]
+      }
+    ];
+
+    container.innerHTML = `
+      <div class="animate-fade-in" style="max-width:1100px;margin:0 auto">
+        <!-- Hero Banner -->
+        <div style="background:linear-gradient(135deg,#1e3a8a,#3b82f6);color:white;border-radius:14px;padding:24px 28px;margin-bottom:24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;box-shadow:0 8px 24px rgba(37,99,235,0.2)">
+          <div>
+            <div style="font-size:12px;text-transform:uppercase;letter-spacing:1px;opacity:0.85;font-weight:700">Digital Onboarding Lifecycle Portal</div>
+            <div style="font-size:24px;font-weight:900;margin-top:4px">Welcome to the Team, ${emp.fullName}! 👋</div>
+            <div style="font-size:13px;opacity:0.9;margin-top:4px">
+              Employee ID: <strong>${emp.empNo || 'EMP-026'}</strong> &bull; Joining Date: <strong>${Utils.formatDate(emp.joiningDate || '2026-09-15')}</strong>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <span class="badge" style="background:rgba(255,255,255,0.2);color:white;font-size:12px;padding:6px 12px;border:1px solid rgba(255,255,255,0.3)">
+              <i class="fa fa-spinner fa-spin" style="margin-right:6px"></i> Onboarding Progress: 58%
+            </span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;align-items:flex-start">
+          <!-- Left: 4-Phase Stepper -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+            ${phases.map(phase => `
+              <div class="card" style="padding:18px 20px;border-left:4px solid ${phase.badgeClass === 'badge-success' ? '#10b981' : phase.badgeClass === 'badge-warning' ? '#f59e0b' : 'var(--border)'}">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+                  <div style="display:flex;align-items:center;gap:12px">
+                    <div style="width:38px;height:38px;border-radius:10px;background:var(--primary-glow);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px">
+                      <i class="fa ${phase.icon}"></i>
+                    </div>
+                    <div>
+                      <div style="font-weight:800;font-size:15px;color:var(--text)">${phase.title}</div>
+                      <div style="font-size:12px;color:var(--text-3);margin-top:2px">${phase.desc}</div>
+                    </div>
+                  </div>
+                  <span class="badge ${phase.badgeClass}">${phase.badge}</span>
+                </div>
+
+                <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:6px;display:flex;flex-direction:column;gap:8px">
+                  ${phase.tasks.map(t => `
+                    <div style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-2)">
+                      <i class="fa ${t.done ? 'fa-circle-check text-success' : 'fa-circle-dot text-muted'}" style="font-size:15px"></i>
+                      <span style="${t.done ? 'text-decoration:line-through;opacity:0.75' : 'font-weight:600'}">${t.text}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+
+          <!-- Right: Assigned Buddy & Welcome Vault -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+            <!-- Buddy Card -->
+            <div class="card" style="padding:20px;text-align:center">
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">Your Assigned Onboarding Buddy</div>
+              <div class="avatar avatar-lg" style="margin:0 auto 10px;background:var(--primary);color:white;font-weight:800">
+                ${Utils.avatarInitials(buddy.fullName)}
+              </div>
+              <div style="font-weight:800;font-size:15px;color:var(--text)">${buddy.fullName}</div>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">${Utils.getDesigName(buddy.designationId)}</div>
+              <div style="font-size:11.5px;color:var(--primary);margin-top:4px;font-weight:600">${Utils.getDeptName(buddy.departmentId)}</div>
+              
+              <div style="margin-top:16px">
+                <button class="btn btn-primary btn-sm w-full" onclick="Chat.startDirectChat(${buddy.id})" style="font-weight:700">
+                  <i class="fa fa-comment-dots"></i> Message ${buddy.fullName.split(' ')[0]} in Teams
+                </button>
+              </div>
+            </div>
+
+            <!-- Onboarding Documents Vault -->
+            <div class="card" style="padding:18px 20px">
+              <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:12px">Welcome Document Vault</div>
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <a href="javascript:void(0)" onclick="Toast.show('Downloading Employment Offer Packet...', 'info')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text);text-decoration:none;border:1px solid var(--border)">
+                  <span><i class="fa fa-file-pdf" style="color:#ef4444;margin-right:6px"></i> Employment Offer &amp; Terms</span>
+                  <i class="fa fa-download" style="color:var(--text-3)"></i>
+                </a>
+                <a href="javascript:void(0)" onclick="Toast.show('Downloading Corporate Handbook...', 'info')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text);text-decoration:none;border:1px solid var(--border)">
+                  <span><i class="fa fa-book" style="color:#3b82f6;margin-right:6px"></i> Corporate Handbook 2026</span>
+                  <i class="fa fa-download" style="color:var(--text-3)"></i>
+                </a>
+                <a href="javascript:void(0)" onclick="Toast.show('Downloading Code of Conduct...', 'info')" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;background:var(--surface);border-radius:8px;font-size:12px;color:var(--text);text-decoration:none;border:1px solid var(--border)">
+                  <span><i class="fa fa-shield-halved" style="color:#10b981;margin-right:6px"></i> IT Security &amp; NDA Policy</span>
+                  <i class="fa fa-download" style="color:var(--text-3)"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
   renderOnboarding(container) {
     if (!this.isHROrAdmin()) {
+      if (['onboarding', 'employee', 'dept_manager'].includes(Auth.role)) {
+        this.renderPersonalOnboardingJourney(container);
+        return;
+      }
       Toast.show('Access Denied: Only HR and Administrators have access to onboarding pipelines.', 'error');
       this.currentView = 'requisitions';
       this.render();
