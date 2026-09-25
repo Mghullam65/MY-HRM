@@ -168,6 +168,7 @@ const Auth = {
     if (typeof App !== 'undefined') {
       App.renderTopbar();
       App.renderSidebar();
+      App.renderPersonaDock?.();
       App.navigate(App.currentModule || 'dashboard');
     }
   },

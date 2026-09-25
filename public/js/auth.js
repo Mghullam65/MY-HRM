@@ -127,6 +127,7 @@ const Auth = {
           Toast.show(`Role Updated: Your access role is now "${newRole}".`, 'info');
         }
       }
+    }
   },
 
   DEMO_PERSONAS: [
@@ -167,6 +168,7 @@ const Auth = {
     if (typeof App !== 'undefined') {
       App.renderTopbar();
       App.renderSidebar();
+      App.renderPersonaDock?.();
       App.navigate(App.currentModule || 'dashboard');
     }
   },

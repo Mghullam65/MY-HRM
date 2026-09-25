@@ -284,6 +284,7 @@ const App = {
 
     this.renderSidebar();
     this.renderTopbar();
+    this.renderPersonaDock();
     this.setupKeyboardShortcuts();
     // Restore sidebar state
     const collapsed = localStorage.getItem('hrm_sidebar_collapsed') === '1';
@@ -2691,6 +2692,128 @@ const Login = {
           </button>
         </div>
       `
+    });
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ─── Floating Live Persona & Role Switcher Dock ─────────────
+  // ════════════════════════════════════════════════════════════
+  renderPersonaDock() {
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) {
+      const existing = document.getElementById('persona-floating-bar');
+      if (existing) existing.remove();
+      return;
+    }
+    let bar = document.getElementById('persona-floating-bar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = 'persona-floating-bar';
+      document.body.appendChild(bar);
+    }
+
+    const personas = Auth.DEMO_PERSONAS || [];
+    const currentUser = Auth.user?.username || 'admin';
+    const isMin = localStorage.getItem('hrm_persona_dock_min') === 'true';
+
+    if (isMin) {
+      const activePersona = personas.find(p => p.username === currentUser) || personas[0];
+      bar.innerHTML = `
+        <div class="persona-dock-pill-min animate-fade-in" onclick="App.togglePersonaDock(false)" title="Click to Expand Demo Role Switcher" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:30px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.35);font-size:12px;font-weight:700">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981"></span>
+          <i class="fa ${activePersona.icon}" style="color:${activePersona.color}"></i>
+          <span>${activePersona.name} (${activePersona.roleLabel})</span>
+          <i class="fa fa-chevron-up" style="font-size:10px;opacity:0.7"></i>
+        </div>
+      `;
+      bar.style.cssText = 'position:fixed;bottom:16px;right:24px;z-index:9990;';
+      return;
+    }
+
+    bar.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;max-width:96vw;';
+
+    bar.innerHTML = `
+      <div class="persona-dock-container animate-fade-in" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(15,23,42,0.88);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.14);border-radius:40px;color:#fff;box-shadow:0 16px 36px rgba(0,0,0,0.45);font-size:12px">
+        <div style="display:flex;align-items:center;gap:7px;padding-right:8px;border-right:1px solid rgba(255,255,255,0.15);flex-shrink:0">
+          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981"></span>
+          <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase">ROLE DOCK:</span>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none">
+          ${personas.map(p => {
+            const isActive = currentUser === p.username;
+            return `
+              <button onclick="Auth.switchPersona('${p.username}')" class="persona-dock-btn" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:${isActive ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.12)'};background:${isActive ? p.color : 'rgba(255,255,255,0.06)'};color:${isActive ? '#fff' : '#e2e8f0'};font-size:11.5px;font-weight:700;cursor:pointer;transition:all 0.15s ease;white-space:nowrap" title="${p.name} - ${p.description}">
+                <i class="fa ${p.icon}" style="font-size:11px"></i>
+                <span>${p.roleLabel}</span>
+                ${isActive ? '<i class="fa fa-check" style="font-size:9px"></i>' : ''}
+              </button>
+            `;
+          }).join('')}
+        </div>
+
+        <div style="display:flex;align-items:center;gap:6px;padding-left:8px;border-left:1px solid rgba(255,255,255,0.15);flex-shrink:0">
+          <button onclick="App.showPersonaLimitsModal()" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px" title="Inspect Active Role & Partial Permission Limits">
+            <i class="fa fa-circle-question" style="font-size:14px"></i>
+          </button>
+          <button onclick="App.togglePersonaDock(true)" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px" title="Minimize Dock">
+            <i class="fa fa-chevron-down" style="font-size:12px"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  },
+
+  togglePersonaDock(minimized) {
+    localStorage.setItem('hrm_persona_dock_min', minimized ? 'true' : 'false');
+    this.renderPersonaDock();
+  },
+
+  showPersonaLimitsModal() {
+    const p = (Auth.DEMO_PERSONAS || []).find(x => x.username === Auth.user?.username) || { name: Auth.user?.username, roleLabel: Auth.role };
+    Modal.show(`
+      <div style="padding:8px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">
+            <i class="fa fa-shield-halved"></i>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--text)">${p.name} — Access &amp; Permission Profile</h3>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Role: <strong>${p.roleLabel}</strong> (${Auth.role})</div>
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px;font-size:12.5px;color:var(--text-2);line-height:1.4">
+          ${p.description || 'Active system user profile.'}
+        </div>
+
+        <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px;text-transform:uppercase">Key Permissions Audit:</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            ['leaves.view', 'View Leaves Module & Balance'],
+            ['leaves.create', 'Apply / Submit Leave Request'],
+            ['leaves.approve', 'Manager / HR Approve Leave'],
+            ['payroll.run', 'Process Monthly Payroll'],
+            ['payroll.export', 'Export Bank & Tax Schedules'],
+            ['attendance.create', 'Clock In / Out Attendance'],
+            ['travel_expenses.create', 'Submit Expense Claim'],
+            ['travel_expenses.approve', 'Audit / Approve Expenses'],
+            ['settings.view', 'Settings & System Governance'],
+            ['settings.edit', 'Modify Permissions & Rules']
+          ].map(([perm, label]) => {
+            const has = Auth.can(perm) && Auth.canSeeFeature(perm);
+            return `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;font-size:11.5px">
+                <span style="color:var(--text-2)">${label}</span>
+                <span class="badge ${has ? 'badge-success' : 'badge-danger'}" style="font-size:10px;padding:2px 6px">
+                  ${has ? '<i class="fa fa-check"></i> Allowed' : '<i class="fa fa-ban"></i> Restricted'}
+                </span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `, {
+      footer: '<button class="btn btn-primary" onclick="Modal.close(\'dynamic-modal\')">Close Inspection</button>'
     });
   }
 };

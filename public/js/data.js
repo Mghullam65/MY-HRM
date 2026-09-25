@@ -3892,6 +3892,19 @@ const DB = {
     if (!this.get('user_permissions')) {
       this.set('user_permissions', []);
     }
+
+    let userFeatures = this.get('user_feature_access') || [];
+    if (!userFeatures.some(r => r.userId === 6)) {
+      userFeatures.push(
+        { id: 101, userId: 6, username: 'junior.hr', featureKey: 'leaves.approvals', visible: false, updatedAt: new Date().toISOString() },
+        { id: 102, userId: 6, username: 'junior.hr', featureKey: 'leaves.quota_adjustment', visible: false, updatedAt: new Date().toISOString() },
+        { id: 103, userId: 6, username: 'junior.hr', featureKey: 'payroll.run', visible: false, updatedAt: new Date().toISOString() },
+        { id: 104, userId: 6, username: 'junior.hr', featureKey: 'payroll.register', visible: false, updatedAt: new Date().toISOString() },
+        { id: 105, userId: 6, username: 'junior.hr', featureKey: 'expenses.approvals', visible: false, updatedAt: new Date().toISOString() },
+        { id: 106, userId: 6, username: 'junior.hr', featureKey: 'expenses.payroll_sync', visible: false, updatedAt: new Date().toISOString() }
+      );
+      this.set('user_feature_access', userFeatures);
+    }
   },
 
   ensureTravelAndExpenseData() {

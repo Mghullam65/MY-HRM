@@ -3840,9 +3840,14 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
               Manage on-premise physical ZKTeco attendance machines, internal LAN IPs, ports, and agent synchronization profiles
             </div>
           </div>
-          <button class="btn btn-primary btn-sm" onclick="Settings.openDeviceModal()">
-            <i class="fa fa-plus"></i> Add Biometric Terminal
-          </button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="Settings.openBiometricPunchSimulator()" style="border-radius:6px;font-weight:700">
+              <i class="fa fa-play-circle" style="color:var(--primary)"></i> Live Punch Simulator
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Settings.openDeviceModal()">
+              <i class="fa fa-plus"></i> Add Biometric Terminal
+            </button>
+          </div>
         </div>
 
         <div class="table-responsive">
@@ -4288,6 +4293,174 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Done</button>`
       });
     }, 700);
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ─── Biometric Terminal Real-Time Ingestion Simulator ───────
+  // ════════════════════════════════════════════════════════════
+  openBiometricPunchSimulator() {
+    const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const devices = DB.get('biometric_devices') || [
+      { id: 1, name: 'Head Office Main Entrance', deviceId: 'zk-head-office', ip: '192.168.1.201' },
+      { id: 2, name: 'Factory Production Floor A', deviceId: 'zk-factory-a', ip: '192.168.10.45' }
+    ];
+    const now = new Date();
+    const currentTimeStr = now.toTimeString().split(' ')[0].substring(0, 5); // HH:MM
+
+    Modal.show('Biometric Machine Real-Time Ingestion Simulator', `
+      <div style="padding:4px 0">
+        <div style="display:flex;align-items:center;gap:12px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;margin-bottom:16px">
+          <div style="width:42px;height:42px;border-radius:10px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+            <i class="fa fa-fingerprint"></i>
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:14px;color:var(--text)">Live Hardware Sync Simulator (ZKTeco / ADMS)</div>
+            <div style="font-size:12px;color:var(--text-3)">Simulate real-time biometric terminal punch records pushed directly into the attendance ledger and live notification pipeline.</div>
+          </div>
+        </div>
+
+        <div class="form-row form-row-2">
+          <div class="form-group">
+            <label class="form-label required">Select Employee / Badge Holder</label>
+            <select class="form-control" id="sim-emp-id">
+              ${emps.map(e => `
+                <option value="${e.id}">${e.fullName} (${e.empNo || 'EMP-' + e.id})</option>
+              `).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Originating Biometric Terminal</label>
+            <select class="form-control" id="sim-device-id">
+              ${devices.map(d => `
+                <option value="${d.id}">${d.name} (${d.ip})</option>
+              `).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row form-row-3">
+          <div class="form-group">
+            <label class="form-label required">Punch Type / Gate</label>
+            <select class="form-control" id="sim-punch-type">
+              <option value="check_in">Check-In (Arrival)</option>
+              <option value="check_out">Check-Out (Departure)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Biometric Modality</label>
+            <select class="form-control" id="sim-modality">
+              <option value="Fingerprint">Optical Fingerprint (99.8% match)</option>
+              <option value="FaceID">3D Facial Recognition (99.9% match)</option>
+              <option value="RFID">Contactless Smartcard RFID</option>
+              <option value="PalmVein">Palm Vein Biometrics</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Event Timestamp</label>
+            <input type="time" class="form-control" id="sim-punch-time" value="${currentTimeStr}">
+          </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-top:8px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:4px">
+            <i class="fa fa-code"></i> Hardware Raw Transaction Stream Format:
+          </div>
+          <div style="font-family:monospace;font-size:11px;color:var(--primary);white-space:nowrap;overflow-x:auto">
+            TCP/UDP &rarr; POST /api/attendance/biometric-sync { "protocol": "ADMS_v2", "status": 200, "verified": true }
+          </div>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Settings.executeBiometricPunchSimulation()">
+          <i class="fa fa-bolt"></i> Push Live Biometric Punch
+        </button>
+      `
+    });
+  },
+
+  executeBiometricPunchSimulation() {
+    const empId = Number(document.getElementById('sim-emp-id').value);
+    const deviceId = Number(document.getElementById('sim-device-id').value);
+    const punchType = document.getElementById('sim-punch-type').value;
+    const modality = document.getElementById('sim-modality').value;
+    const punchTime = document.getElementById('sim-punch-time').value || '09:00';
+
+    const emps = DB.get('employees') || [];
+    const emp = emps.find(e => e.id === empId);
+    const devices = DB.get('biometric_devices') || [];
+    const device = devices.find(d => d.id === deviceId) || { name: 'Main Terminal', deviceId: 'zk-main' };
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const fullTimestamp = `${todayStr}T${punchTime}:00`;
+
+    // 1. Update or create record in Attendance table
+    let attendance = DB.get('attendance') || [];
+    let record = attendance.find(a => a.employeeId === empId && a.date === todayStr);
+
+    if (!record) {
+      record = {
+        id: DB.nextId('attendance'),
+        employeeId: empId,
+        date: todayStr,
+        checkIn: punchType === 'check_in' ? punchTime : '09:00',
+        checkOut: punchType === 'check_out' ? punchTime : null,
+        status: 'present',
+        hoursWorked: punchType === 'check_out' ? 8.5 : 0,
+        biometricSynced: true,
+        terminal: device.name,
+        verificationMethod: modality
+      };
+      attendance.unshift(record);
+    } else {
+      if (punchType === 'check_in') {
+        record.checkIn = punchTime;
+        record.status = 'present';
+        record.biometricSynced = true;
+        record.terminal = device.name;
+        record.verificationMethod = modality;
+      } else {
+        record.checkOut = punchTime;
+        record.hoursWorked = 8.5;
+        record.biometricSynced = true;
+      }
+    }
+    DB.set('attendance', attendance);
+
+    // 2. Record in Raw Biometric Logs table
+    let bioPunches = DB.get('biometric_punches') || [];
+    bioPunches.unshift({
+      id: DB.nextId('biometric_punches'),
+      employeeId: empId,
+      employeeName: emp?.fullName || 'Employee #' + empId,
+      deviceId: device.deviceId,
+      terminalName: device.name,
+      punchType: punchType,
+      modality: modality,
+      timestamp: fullTimestamp,
+      syncStatus: 'SUCCESS',
+      checksum: 'ZK-' + Math.random().toString(36).substring(2, 8).toUpperCase()
+    });
+    if (bioPunches.length > 500) bioPunches.pop();
+    DB.set('biometric_punches', bioPunches);
+
+    // 3. Cryptographic Audit Log
+    DB.log('BIOMETRIC_PUNCH', 'Attendance', `Biometric ${punchType.toUpperCase()} ingested for ${emp?.fullName} via ${device.name} [${modality}] at ${punchTime}`, Auth.user?.id, 'INFO');
+
+    // 4. Live Multi-Channel Notification
+    if (typeof LiveNotifications !== 'undefined') {
+      LiveNotifications.dispatch({
+        recipientRole: 'all',
+        title: `🟢 Biometric ${punchType === 'check_in' ? 'Check-In' : 'Check-Out'}: ${emp?.fullName}`,
+        message: `${emp?.fullName} punched at terminal "${device.name}" via ${modality} at ${punchTime}. Attendance recorded.`,
+        type: 'attendance',
+        priority: 'normal'
+      });
+    }
+
+    Modal.close('dynamic-modal');
+    Toast.show(`Biometric ${punchType === 'check_in' ? 'Check-In' : 'Check-Out'} successfully ingested for ${emp?.fullName}!`, 'success');
   },
 
   // --- Authorized Public Internet IPs ---

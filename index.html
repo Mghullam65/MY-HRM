@@ -26,6 +26,7 @@
 
   <!-- App CSS -->
   <link rel="stylesheet" href="css/main.css?v=3.5.0">
+  <link rel="manifest" href="manifest.json">
 
   <!-- Dedicated Chatbox Instant UI Styles (Cache-Proof) -->
   <style id="chatbox-instant-css">
@@ -465,6 +466,15 @@
         console.error('HRM: Missing modules:', missing);
       } else {
         console.log('%c✅ HRM Pro loaded successfully — all modules ready', 'color:#10b981;font-weight:700;font-size:14px');
+      }
+
+      // Register PWA Offline Service Worker
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        navigator.serviceWorker.register('./sw.js').then(() => {
+          console.log('%c📱 PWA Service Worker Registered (Offline Shell Ready)', 'color:#6366f1;font-weight:700');
+        }).catch(err => {
+          console.warn('[ServiceWorker] Registration notice:', err.message);
+        });
       }
     });
   </script>

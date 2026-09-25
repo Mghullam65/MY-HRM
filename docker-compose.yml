@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  hrm-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hrm_enterprise_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=postgresql://hrm_user:hrm_secure_password@postgres:5432/hrm_production?schema=public
+      - JWT_SECRET=hrm_super_secret_jwt_key_2026_enterprise_production
+    depends_on:
+      - postgres
+    networks:
+      - hrm-net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: hrm_production_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=hrm_user
+      - POSTGRES_PASSWORD=hrm_secure_password
+      - POSTGRES_DB=hrm_production
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hrm-net
+
+networks:
+  hrm-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local
