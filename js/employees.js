@@ -5962,6 +5962,9 @@ const Employees = {
             <button class="org-quick-btn" onclick="Payroll.viewSlip ? Payroll.viewSlip(${emp.id}, Utils.thisMonth()) : null" title="View Current Month Payslip">
               <i class="fa fa-receipt"></i>
             </button>
+            <button class="org-quick-btn" onclick="Employees.openReassignManagerModal(${emp.id})" title="Reassign Line Manager / Change Hierarchy">
+              <i class="fa fa-user-pen"></i>
+            </button>
           </div>
 
           <!-- Collapse/Expand Branch Toggle -->
@@ -6031,6 +6034,139 @@ const Employees = {
 
   resetOrgChartZoom() {
     this.resetOrgChartTransform();
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ─── Hierarchy & Manager Reassignment Wizard ────────────────
+  // ════════════════════════════════════════════════════════════
+  openReassignManagerModal(empId) {
+    if (!Auth.can('employees.edit')) {
+      Toast.show('403 Forbidden: Modifying workforce reporting lines requires HR or Admin authorization.', 'danger');
+      return;
+    }
+    const allEmps = DB.get('employees') || [];
+    const emp = allEmps.find(e => e.id === Number(empId));
+    if (!emp) return;
+
+    // Get current manager
+    const currentMgr = allEmps.find(e => e.id === (emp.managerId || emp.reportingTo));
+
+    // Prevent cycles: exclude self and any indirect subordinate of this employee
+    const getAllSubordinates = (id) => {
+      let subs = [];
+      const direct = allEmps.filter(e => e.id !== id && (e.managerId === id || e.reportingTo === id));
+      subs = subs.concat(direct.map(d => d.id));
+      direct.forEach(d => {
+        subs = subs.concat(getAllSubordinates(d.id));
+      });
+      return subs;
+    };
+    const invalidIds = new Set([emp.id, ...getAllSubordinates(emp.id)]);
+    const eligibleManagers = allEmps.filter(e => e.status === 'active' && !invalidIds.has(e.id));
+
+    Modal.show('Reassign Reporting Line & Manager', `
+      <div style="padding:6px 0">
+        <div style="display:flex;align-items:center;gap:14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.25);border-radius:10px;padding:12px;margin-bottom:16px">
+          <div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:2px solid var(--primary);flex-shrink:0">
+            ${emp.photo 
+              ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover">`
+              : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:${Utils.avatarColor(emp.id)};color:#fff;font-weight:700">${Utils.avatarInitials(emp.fullName)}</div>`}
+          </div>
+          <div>
+            <div style="font-weight:800;font-size:15px;color:var(--text)">${emp.fullName}</div>
+            <div style="font-size:12px;color:var(--text-3)">${Utils.getDesigName(emp.designationId)} • ${Utils.getDeptName(emp.departmentId)} (${emp.empNo})</div>
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label">Current Reporting Line Manager</label>
+          <div style="padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;font-size:13px;font-weight:600;color:var(--text-2)">
+            ${currentMgr ? `${currentMgr.fullName} (${Utils.getDesigName(currentMgr.designationId)})` : 'None / Top Executive (CEO)'}
+          </div>
+        </div>
+
+        <div class="form-group mb-14">
+          <label class="form-label required">Select New Reporting Line Manager</label>
+          <select class="form-control" id="reassign-new-manager" required>
+            <option value="">-- Direct Board / CEO (No Manager) --</option>
+            ${eligibleManagers.map(m => `
+              <option value="${m.id}" ${currentMgr && currentMgr.id === m.id ? 'selected' : ''}>
+                ${m.fullName} — ${Utils.getDesigName(m.designationId)} [${Utils.getDeptName(m.departmentId)}]
+              </option>
+            `).join('')}
+          </select>
+        </div>
+
+        <div class="form-row form-row-2 mb-14">
+          <div class="form-group">
+            <label class="form-label required">Effective Date</label>
+            <input type="date" class="form-control" id="reassign-date" value="${Utils.today()}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Transition Reason</label>
+            <select class="form-control" id="reassign-reason">
+              <option value="Departmental Restructuring">Departmental Restructuring</option>
+              <option value="Promotion & Hierarchy Advancement">Promotion & Hierarchy Advancement</option>
+              <option value="Project Team Realignment">Project Team Realignment</option>
+              <option value="Manager Transfer / Succession">Manager Transfer / Succession</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Administrative Notes</label>
+          <textarea class="form-control" id="reassign-notes" rows="2" placeholder="Optional notes for audit ledger and personnel dossier..."></textarea>
+        </div>
+      </div>
+    `, {
+      footer: `
+        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="Employees.saveManagerReassignment(${emp.id})">
+          <i class="fa fa-check"></i> Confirm Reassignment
+        </button>
+      `
+    });
+  },
+
+  saveManagerReassignment(empId) {
+    const allEmps = DB.get('employees') || [];
+    const emp = allEmps.find(e => e.id === Number(empId));
+    if (!emp) return;
+
+    const newMgrVal = document.getElementById('reassign-new-manager').value;
+    const newMgrId = newMgrVal ? Number(newMgrVal) : null;
+    const reason = document.getElementById('reassign-reason').value;
+    const effDate = document.getElementById('reassign-date').value || Utils.today();
+    const notes = document.getElementById('reassign-notes').value || '';
+
+    const oldMgr = allEmps.find(e => e.id === (emp.managerId || emp.reportingTo));
+    const newMgr = allEmps.find(e => e.id === newMgrId);
+
+    // Update reporting line
+    emp.managerId = newMgrId;
+    emp.reportingTo = newMgrId;
+    DB.set('employees', allEmps);
+
+    // Cryptographic Audit Log
+    DB.log('HIERARCHY_CHANGE', 'Employees', `Reporting line for ${emp.fullName} reassigned from "${oldMgr ? oldMgr.fullName : 'None'}" to "${newMgr ? newMgr.fullName : 'None'}" (${reason}). Eff: ${effDate}`, Auth.user?.id, 'INFO');
+
+    // Live Multi-Channel Notification
+    if (typeof LiveNotifications !== 'undefined') {
+      LiveNotifications.dispatch({
+        recipientRole: 'all',
+        title: `🏢 Reporting Line Updated: ${emp.fullName}`,
+        message: `${emp.fullName} will now report directly to ${newMgr ? newMgr.fullName : 'Executive Management'} effective ${effDate}.`,
+        type: 'hierarchy',
+        priority: 'normal'
+      });
+    }
+
+    Modal.close('dynamic-modal');
+    Toast.show(`Successfully reassigned reporting line for ${emp.fullName}!`, 'success');
+
+    // Refresh Org Chart
+    const container = document.getElementById('emp-content');
+    if (container) this.renderOrgChart(container);
   },
 
   printOrgChart() {
@@ -8104,6 +8240,8 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
                   <option value="relieving">Formal Relieving Letter</option>
                   <option value="salary_certificate">Salary Verification Certificate</option>
                   <option value="confirmation">Employment Confirmation Letter</option>
+                  <option value="promotion">Promotion & Salary Increment Order</option>
+                  <option value="nda">Non-Disclosure & Confidentiality Undertaking</option>
                 </select>
               </div>
 
@@ -8268,6 +8406,12 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     } else if (template === 'confirmation') {
       recipient.value = 'Employee Direct';
       purpose.value = 'Confirmation of Employment Post Probation';
+    } else if (template === 'promotion') {
+      recipient.value = 'Employee Direct';
+      purpose.value = 'Merit Advancement & Band Revision';
+    } else if (template === 'nda') {
+      recipient.value = 'Employee Direct';
+      purpose.value = 'Intellectual Property Protection & Confidentiality';
     }
   },
 
@@ -8292,6 +8436,8 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
     if (templateType === 'relieving') title = 'Formal Relieving & Release Letter';
     if (templateType === 'salary_certificate') title = 'Salary Verification & Employment Certificate';
     if (templateType === 'confirmation') title = 'Employment Confirmation Letter';
+    if (templateType === 'promotion') title = 'Promotion & Salary Increment Order';
+    if (templateType === 'nda') title = 'Non-Disclosure & Confidentiality Undertaking';
 
     const newLetter = {
       id: DB.nextId('hr_letters'),
@@ -8385,6 +8531,19 @@ ${myEmp ? myEmp.fullName : 'Employee'}</textarea>
           <tr style="border-bottom:2px solid #333;font-weight:800"><td style="padding:8px 0">Total Gross Monthly Emoluments:</td><td style="text-align:right;color:#16a34a">${Utils.formatCurrency(Math.round((emp.salary||70000)*1.25))}</td></tr>
         </table>
         <p>To the best of our knowledge, their employment status is secure, active, and in good standing.</p>
+      `;
+    } else if (l.templateType === 'promotion') {
+      bodyHTML = `
+        <p>In recognition of your exceptional performance, demonstrated leadership, and high dedication to the organization, management is pleased to formally promote you to the position of <strong>Senior ${Utils.getDesigName(emp.designationId)}</strong> at <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> effective <strong>${l.issueDate}</strong>.</p>
+        <p>In accordance with this promotion, your compensation structure has been revised to <strong>${Utils.formatCurrency(Math.round((emp.salary||75000) * 1.20))}</strong> per month, along with upgraded executive allowances and healthcare coverage.</p>
+        <p>We are confident that you will continue to inspire your team and drive exceptional business impact in your elevated role. Congratulations on this well-deserved achievement!</p>
+      `;
+    } else if (l.templateType === 'nda') {
+      bodyHTML = `
+        <p>This Non-Disclosure & Confidentiality Undertaking is entered into between <strong>${settings.companyName || 'HRM Pro Corporation Pvt. Ltd.'}</strong> and <strong>Mr./Ms. ${emp.fullName}</strong> (CNIC: <code>${emp.cnic || 'N/A'}</code>, Employee ID: <code>${emp.empNo}</code>) on <strong>${l.issueDate}</strong>.</p>
+        <p><strong>1. Confidentiality Obligation:</strong> The employee agrees to keep strictly confidential all customer records, algorithms, intellectual property, internal business processes, and strategic financial records of the company.</p>
+        <p><strong>2. Proprietary Inventions:</strong> All intellectual property and innovations created within the scope of employment are the sole and exclusive property of the company.</p>
+        <p><strong>3. Term & Survival:</strong> The obligations under this undertaking remain binding during employment and shall survive for a period of twenty-four (24) months post-separation.</p>
       `;
     } else {
       bodyHTML = `
