@@ -3,9 +3,16 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 
-const chatUploadsDir = path.join(__dirname, '../../uploads/chat');
-if (!fs.existsSync(chatUploadsDir)) {
-  fs.mkdirSync(chatUploadsDir, { recursive: true });
+const os = require('os');
+
+let chatUploadsDir = path.join(__dirname, '../../uploads/chat');
+try {
+  if (!fs.existsSync(chatUploadsDir)) {
+    fs.mkdirSync(chatUploadsDir, { recursive: true });
+  }
+} catch (e) {
+  chatUploadsDir = path.join(os.tmpdir(), 'hrm_uploads_chat');
+  try { if (!fs.existsSync(chatUploadsDir)) fs.mkdirSync(chatUploadsDir, { recursive: true }); } catch (err) {}
 }
 
 // In-memory store initialized with enterprise collaboration seed data

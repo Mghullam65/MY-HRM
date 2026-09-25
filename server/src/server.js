@@ -81,7 +81,9 @@ app.use('/api', jobsRoutes);
 
 // Serve uploaded files (CVs, documents)
 const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+} catch (e) {}
 app.use('/uploads', express.static(uploadsDir));
 
 // Serve static frontend files directly from the parent directory

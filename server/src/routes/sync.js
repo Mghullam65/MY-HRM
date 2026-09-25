@@ -67,9 +67,16 @@ router.post('/batch', (req, res) => {
 const fs = require('fs');
 const path = require('path');
 
-const cvUploadsDir = path.join(__dirname, '../../uploads/cv');
-if (!fs.existsSync(cvUploadsDir)) {
-  fs.mkdirSync(cvUploadsDir, { recursive: true });
+const os = require('os');
+
+let cvUploadsDir = path.join(__dirname, '../../uploads/cv');
+try {
+  if (!fs.existsSync(cvUploadsDir)) {
+    fs.mkdirSync(cvUploadsDir, { recursive: true });
+  }
+} catch (e) {
+  cvUploadsDir = path.join(os.tmpdir(), 'hrm_uploads_cv');
+  try { if (!fs.existsSync(cvUploadsDir)) fs.mkdirSync(cvUploadsDir, { recursive: true }); } catch (err) {}
 }
 
 function generateCompliantPdf(candidate) {
