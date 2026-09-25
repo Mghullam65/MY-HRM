@@ -41,11 +41,9 @@ const App = {
             document.documentElement.style.setProperty('--primary-dark', s.accentColor);
             document.documentElement.style.setProperty('--primary-glow', s.accentColor + '33');
           }
-
           const appEl = document.getElementById('app');
-          if (appEl && s.sidebarPosition === 'right') {
-            appEl.style.flexDirection = 'row-reverse';
-          }
+          const navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'left';
+          this.setNavPosition(navPos, false);
         }
 
       // Initialize Browser Back/Forward navigation router
@@ -449,6 +447,11 @@ const App = {
         <!-- Table Density Toggle Button -->
         <button class="topbar-btn" id="density-toggle-btn" onclick="App.toggleTableDensity()" title="Table Row Density: ${currentDensity === 'compact' ? 'Compact (Click for Spacious)' : 'Spacious (Click for Compact)'}">
           <i class="fa ${currentDensity === 'compact' ? 'fa-compress' : 'fa-expand'}"></i>
+        </button>
+
+        <!-- Navigation Layout Toggle (Left Sidebar / Top Navbar) -->
+        <button class="topbar-btn" id="nav-layout-toggle-btn" onclick="App.toggleNavPosition()" title="${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'Switch to Left Sidebar' : 'Move Navigation to Top'}">
+          <i class="fa ${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'fa-table-columns' : 'fa-bars-progress'}"></i>
         </button>
 
         <!-- Brand Accent Color Picker -->
@@ -960,6 +963,67 @@ const App = {
     if (typeof Settings !== 'undefined' && Settings.currentSection === 'appearance') {
       Settings.renderSection();
     }
+  },
+
+  toggleNavPosition() {
+    const current = (document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'top' : 'left';
+    const next = current === 'top' ? 'left' : 'top';
+    this.setNavPosition(next, true);
+  },
+
+  setNavPosition(pos, notify = false) {
+    pos = pos || 'left';
+    localStorage.setItem('hrm_nav_position', pos);
+
+    // Persist to settings
+    if (typeof DB !== 'undefined' && DB.getObj && DB.set) {
+      const s = DB.getObj('settings') || {};
+      s.sidebarPosition = pos;
+      DB.set('settings', s);
+      if (DB.flushServerPush) DB.flushServerPush();
+    }
+
+    const appEl = document.getElementById('app');
+
+    if (pos === 'top') {
+      document.body.classList.add('nav-pos-top');
+      document.body.classList.remove('sidebar-pos-right');
+      if (appEl) {
+        appEl.classList.add('nav-pos-top');
+        appEl.setAttribute('data-sidebar-pos', 'top');
+        appEl.style.flexDirection = 'column';
+      }
+      if (notify && typeof Toast !== 'undefined') Toast.show('Navigation moved to Top Horizontal Navbar', 'info');
+    } else if (pos === 'right') {
+      document.body.classList.remove('nav-pos-top');
+      document.body.classList.add('sidebar-pos-right');
+      if (appEl) {
+        appEl.classList.remove('nav-pos-top');
+        appEl.setAttribute('data-sidebar-pos', 'right');
+        appEl.style.flexDirection = 'row-reverse';
+      }
+      if (notify && typeof Toast !== 'undefined') Toast.show('Navigation docked to Right Sidebar', 'info');
+    } else {
+      document.body.classList.remove('nav-pos-top');
+      document.body.classList.remove('sidebar-pos-right');
+      if (appEl) {
+        appEl.classList.remove('nav-pos-top');
+        appEl.setAttribute('data-sidebar-pos', 'left');
+        appEl.style.flexDirection = 'row';
+      }
+      if (notify && typeof Toast !== 'undefined') Toast.show('Navigation docked to Left Sidebar', 'info');
+    }
+
+    // Synchronize Topbar layout button icon & title
+    const btn = document.getElementById('nav-layout-toggle-btn');
+    if (btn) {
+      btn.innerHTML = `<i class="fa ${pos === 'top' ? 'fa-table-columns' : 'fa-bars-progress'}"></i>`;
+      btn.title = pos === 'top' ? 'Switch to Left Sidebar' : 'Move Navigation to Top';
+    }
+
+    // Synchronize Settings dropdown if open
+    const sel = document.getElementById('s-sidebar-pos');
+    if (sel) sel.value = pos;
   },
 
   openMobileSidebar() {

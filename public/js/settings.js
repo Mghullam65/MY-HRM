@@ -2388,11 +2388,11 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
 
       ${this._settingRow('Sidebar Position',
         `<div style="display:flex;flex-direction:column;gap:6px">
-          <select class="form-control" id="s-sidebar-pos" onchange="Settings.previewSidebar(this.value)" style="max-width:200px;font-weight:600">
             <option value="left" ${sidebarPosition === 'left' ? 'selected' : ''}>Left (Standard)</option>
+            <option value="top" ${sidebarPosition === 'top' ? 'selected' : ''}>Top (Horizontal Navbar)</option>
             <option value="right" ${sidebarPosition === 'right' ? 'selected' : ''}>Right (RTL / Flipped)</option>
           </select>
-          <div style="font-size:11.5px;color:var(--text-3)">Dock main navigation menu on the left or right side of the screen.</div>
+          <div style="font-size:11.5px;color:var(--text-3)">Dock navigation menu on the left, top horizontal navbar, or right side.</div>
         </div>`, '')}
 
       ${this._settingRow('Compact Density Mode',
@@ -2406,8 +2406,20 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         'Reduces table padding, margin heights, and nav item gaps for dense high-volume display')}
     `, `
       <button type="button" class="btn btn-secondary" onclick="Settings.resetAppearanceDefaults()" style="margin-right:8px"><i class="fa fa-rotate-left"></i> Reset Defaults</button>
-      <button type="button" class="btn btn-primary" onclick="Settings.saveAppearance()"><i class="fa fa-save"></i> Apply & Save</button>
     `);
+  },
+
+  previewSidebar(pos) {
+    if (typeof App !== 'undefined' && App.setNavPosition) {
+      App.setNavPosition(pos, false);
+    }
+  },
+
+  previewCompact(checked) {
+    document.body.classList.toggle('compact-mode', checked);
+    document.documentElement.classList.toggle('compact-mode', checked);
+    const label = document.getElementById('s-compact-status');
+    if (label) label.textContent = checked ? 'Enabled (High Density)' : 'Standard Spacing';
   },
 
   previewAccent(hex) {
@@ -2499,13 +2511,23 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     const sidebarPos = settings.sidebarPosition || 'left';
     const appEl = document.getElementById('app');
     if (appEl) {
-      if (sidebarPos === 'right') {
+      if (sidebarPos === 'top') {
+        appEl.style.flexDirection = 'column';
+        appEl.setAttribute('data-sidebar-pos', 'top');
+        document.body.classList.remove('sidebar-pos-right');
+        document.body.classList.add('nav-pos-top');
+        appEl.classList.add('nav-pos-top');
+      } else if (sidebarPos === 'right') {
         appEl.style.flexDirection = 'row-reverse';
         appEl.setAttribute('data-sidebar-pos', 'right');
+        document.body.classList.remove('nav-pos-top');
+        appEl.classList.remove('nav-pos-top');
         document.body.classList.add('sidebar-pos-right');
       } else {
         appEl.style.flexDirection = 'row';
         appEl.setAttribute('data-sidebar-pos', 'left');
+        document.body.classList.remove('nav-pos-top');
+        appEl.classList.remove('nav-pos-top');
         document.body.classList.remove('sidebar-pos-right');
       }
     }

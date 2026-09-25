@@ -42,8 +42,6 @@ const Recruitment = {
     } else if (!this.structureDeptId && myDeptId) {
       this.structureDeptId = myDeptId;
     }
-
-    const content = document.getElementById('page-content');
     const jobs = DB.get('recruitment') || [];
     const apps = DB.get('applications') || [];
     const offers = DB.get('offer_letters') || [];

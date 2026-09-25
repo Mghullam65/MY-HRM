@@ -393,6 +393,8 @@ const Reports = {
       else if (years <= 3) oneToThree++;
       else if (years <= 5) threeToFive++;
       else overFive++;
+    });
+
     // ════════════════════════════════════════════════════════════
     // AI HR Health Index & Predictive Flight Risk Modeling
     // ════════════════════════════════════════════════════════════

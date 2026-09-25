@@ -235,7 +235,7 @@ const Attendance = {
               ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBiometricTerminal()"><i class="fa fa-fingerprint"></i> Biometric Simulator</button>` : ''}
               ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBulkAttendance()"><i class="fa fa-users-line"></i> Bulk Mark</button>` : ''}
               <button class="btn btn-primary btn-sm" onclick="Attendance.showMarkAttendance()"><i class="fa fa-plus"></i> Mark Attendance</button>
-            `}
+            ` : ''}
           </div>
         </div>
 

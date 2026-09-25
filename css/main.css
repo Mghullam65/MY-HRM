@@ -11049,6 +11049,157 @@ body.sidebar-pos-right .sidebar {
   border-left: 1px solid var(--sidebar-border) !important;
 }
 
+/* ── TOP HORIZONTAL NAVBAR LAYOUT ── */
+#app[data-sidebar-pos="top"],
+#app.nav-pos-top,
+body.nav-pos-top #app {
+  flex-direction: column !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+
+body.nav-pos-top .sidebar,
+#app[data-sidebar-pos="top"] .sidebar {
+  width: 100% !important;
+  min-width: 100% !important;
+  max-width: 100% !important;
+  height: 52px !important;
+  min-height: 52px !important;
+  max-height: 52px !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  border-right: none !important;
+  border-bottom: 1px solid var(--sidebar-border) !important;
+  padding: 0 16px !important;
+  background: var(--sidebar-bg) !important;
+  z-index: 101 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  scrollbar-width: none !important;
+  position: relative !important;
+}
+
+body.nav-pos-top .sidebar::-webkit-scrollbar,
+#app[data-sidebar-pos="top"] .sidebar::-webkit-scrollbar {
+  display: none !important;
+}
+
+body.nav-pos-top .sidebar-logo,
+#app[data-sidebar-pos="top"] .sidebar-logo {
+  padding: 0 16px 0 0 !important;
+  border-bottom: none !important;
+  border-right: 1px solid var(--sidebar-border) !important;
+  min-height: 52px !important;
+  height: 52px !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+body.nav-pos-top .sidebar-logo .sidebar-toggle,
+#app[data-sidebar-pos="top"] .sidebar-logo .sidebar-toggle {
+  display: none !important;
+}
+
+body.nav-pos-top .sidebar-user,
+#app[data-sidebar-pos="top"] .sidebar-user {
+  display: none !important;
+}
+
+body.nav-pos-top .sidebar-nav,
+#app[data-sidebar-pos="top"] .sidebar-nav {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 4px !important;
+  padding: 0 12px !important;
+  flex: 1 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  white-space: nowrap !important;
+  scrollbar-width: none !important;
+  height: 52px !important;
+}
+
+body.nav-pos-top .sidebar-nav::-webkit-scrollbar,
+#app[data-sidebar-pos="top"] .sidebar-nav::-webkit-scrollbar {
+  display: none !important;
+}
+
+body.nav-pos-top .nav-section-label,
+#app[data-sidebar-pos="top"] .nav-section-label {
+  display: none !important;
+}
+
+body.nav-pos-top .nav-item,
+#app[data-sidebar-pos="top"] .nav-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 6px 12px !important;
+  margin: 0 !important;
+  border-radius: 8px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  flex-shrink: 0 !important;
+}
+
+body.nav-pos-top .nav-item i,
+#app[data-sidebar-pos="top"] .nav-item i {
+  font-size: 13px !important;
+}
+
+body.nav-pos-top .sidebar-footer,
+#app[data-sidebar-pos="top"] .sidebar-footer {
+  border-top: none !important;
+  padding: 0 0 0 12px !important;
+  margin-left: auto !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+body.nav-pos-top .sidebar-footer .logout-btn,
+#app[data-sidebar-pos="top"] .sidebar-footer .logout-btn {
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+}
+
+body.nav-pos-top .main-content,
+#app[data-sidebar-pos="top"] .main-content {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  height: calc(100vh - 52px) !important;
+  width: 100% !important;
+}
+
+body.nav-pos-top .topbar,
+#app[data-sidebar-pos="top"] .topbar {
+  border-bottom: 1px solid var(--border) !important;
+  min-height: 48px !important;
+  height: 48px !important;
+  padding: 0 16px !important;
+}
+
+body.nav-pos-top .topbar .mobile-menu-btn,
+#app[data-sidebar-pos="top"] .topbar .mobile-menu-btn {
+  display: none !important;
+}
+
+body.nav-pos-top .page-content,
+#app[data-sidebar-pos="top"] .page-content {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 20px 24px !important;
+  height: calc(100vh - 100px) !important;
+}
+
 /* Appearance Presets & Live Previews */
 .theme-select-card {
   user-select: none;

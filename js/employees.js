@@ -305,6 +305,126 @@ const Employees = {
       return;
     }
 
+    const emps = this.getFiltered();
+
+    if (this.currentView === 'directory') {
+      const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+      container.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
+          ${emps.map(e => {
+            const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
+            return `
+              <div class="emp-card" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" style="cursor:pointer"` : `style="cursor:default"`}>
+                <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto;overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
+                <div class="name">${e.fullName}</div>
+                <div class="desig">${Utils.getDesigName(e.designationId)}</div>
+                <div class="dept">${Utils.getDeptName(e.departmentId)}</div>
+                <div style="font-size:10px;color:var(--text-3);margin-top:2px;font-family:monospace">${e.empNo}</div>
+                ${e.status === 'inactive' ? `<span class="badge badge-danger" style="font-size:10px;margin-top:4px"><i class="fa fa-user-slash"></i> Ex-Employee</span>` : Utils.statusBadge(e.status)}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+      return;
+    }
+
+    const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+
+    container.innerHTML = `
+      <div class="card" style="padding:0">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <span style="font-size:13px;color:var(--text-3)">${emps.length} employee${emps.length!==1?'s':''} found</span>
+        </div>
+        <div class="table-wrapper" style="border:none;border-radius:0">
+          <table>
+            <thead><tr>
+              <th style="width:36px;text-align:center"><input type="checkbox" id="master-table-select" class="tbl-checkbox" onclick="App.toggleSelectAllRows(this, '.tbl-emp-checkbox')" title="Select all rows"></th>
+              <th>Employee</th>
+              <th>Emp #</th>
+              <th>Department</th>
+              <th>Designation</th>
+              <th>Contact</th>
+              <th>Join Date</th>
+              <th>Role & Status</th>
+              <th style="text-align:right">Actions</th>
+            </tr></thead>
+            <tbody>
+              ${emps.length === 0 ? `<tr><td colspan="9"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => {
+                const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
+                return `
+                <tr>
+                  <td style="text-align:center">
+                    <input type="checkbox" class="tbl-checkbox tbl-emp-checkbox" data-id="${e.id}" onclick="App.toggleRowSelect(this, ${e.id})" title="Select record">
+                  </td>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;${canViewProfile ? 'cursor:pointer' : 'cursor:default'}" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" title="View Profile"` : ''}>
+                        ${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}
+                      </div>
+                      <div>
+                        ${canViewProfile ? `
+                          <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${e.id})" title="View Profile">${e.fullName}</div>
+                        ` : `
+                          <div style="font-weight:600;font-size:13px;color:var(--text);cursor:default">${e.fullName}</div>
+                        `}
+                        <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${e.email}</div>
+                        <div style="font-size:10.5px;color:var(--text-2);margin-top:2px">
+                          <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin (CEO)' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span style="font-family:monospace;font-size:12px;color:var(--primary)">${e.empNo}</span></td>
+                  <td>${Utils.getDeptName(e.departmentId)}</td>
+                  <td>${Utils.getDesigName(e.designationId)}</td>
+                  <td style="font-size:12px">${e.phone}</td>
+                  <td style="font-size:12px">${Utils.formatDate(e.joiningDate)}</td>
+                  <td>
+                    ${e.status === 'inactive' 
+                      ? `<span class="badge badge-danger" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-user-slash"></i> Ex-Employee</span>`
+                      : (() => {
+                          const activeExit = (DB.get('exit_clearances')||[]).find(c => c.employeeId === e.id && (c.status === 'in_progress' || c.status === 'pending_review'));
+                          if (activeExit) {
+                            return activeExit.status === 'pending_review'
+                              ? `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-envelope"></i> Resign Pending</span>`
+                              : `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-clock"></i> In Notice</span>`;
+                          }
+                          return e.role === 'onboarding' 
+                            ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
+                            : `<span class="badge badge-success" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-check-circle"></i> Active</span>`;
+                        })()}
+                    <div style="margin-top:3px"><span class="chip" style="font-size:10.5px">${e.role || 'employee'}</span></div>
+                  </td>
+                  <td style="text-align:right">
+                    <div class="tbl-actions" style="justify-content:flex-end">
+                      <button class="btn btn-ghost btn-icon btn-sm" onclick="App.openInspectDrawer('employee', ${e.id})" title="Quick Peek Inspector (Side Drawer)"><i class="fa fa-magnifying-glass" style="color:var(--info)"></i></button>
+                      ${(isHROrAdmin || Auth.employee?.id === e.id) ? `
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
+                      ` : ''}
+                      ${canViewProfile ? `
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
+                      ` : ''}
+                      ${isHROrAdmin ? `
+                        ${e.role === 'onboarding' ? `
+                          <button class="btn btn-warning btn-xs" onclick="Employees.showOnboardingApprovalModal(${e.id})" title="Review Onboarding & Assign Role">
+                            <i class="fa fa-user-check"></i> Assign Role
+                          </button>
+                        ` : ''}
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showEditForm(${e.id})" title="Edit Profile & Role"><i class="fa fa-pen"></i></button>
+                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.toggleStatus(${e.id})" title="${e.status==='active'?'Deactivate':'Activate'}" style="color:${e.status==='active'?'var(--danger)':'var(--success)'}"><i class="fa fa-${e.status==='active'?'ban':'circle-check'}"></i></button>
+                      ` : ''}
+                    </div>
+                  </td>
+                </tr>
+              `}).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
   renderOrgChart(container) {
     const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const depts = DB.get('departments') || [];
@@ -429,7 +549,7 @@ const Employees = {
   },
 
   downloadSampleCSV() {
-    const csv = "FullName,Email,Phone,CNIC,Department,Designation,Salary,JoinDate,EmploymentType\\nZahid Malik,zahid.malik@apex.com,0300-1234567,42101-1234567-1,Information Technology,Software Engineer,120000,2026-09-01,Permanent\\nSana Riaz,sana.riaz@apex.com,0321-7654321,42201-9876543-2,Human Resources,HR Executive,75000,2026-09-10,Permanent\\nKamran Butt,kamran.butt@apex.com,0333-5554443,42301-4445556-3,Finance & Accounting,Accountant,85000,2026-09-15,Permanent";
+    const csv = "FullName,Email,Phone,CNIC,Department,Designation,Salary,JoinDate,EmploymentType\nZahid Malik,zahid.malik@apex.com,0300-1234567,42101-1234567-1,Information Technology,Software Engineer,120000,2026-09-01,Permanent\nSana Riaz,sana.riaz@apex.com,0321-7654321,42201-9876543-2,Human Resources,HR Executive,75000,2026-09-10,Permanent\nKamran Butt,kamran.butt@apex.com,0333-5554443,42301-4445556-3,Finance & Accounting,Accountant,85000,2026-09-15,Permanent";
     Utils.downloadCSV(csv, "employee_onboarding_template.csv");
   },
 
@@ -448,7 +568,7 @@ const Employees = {
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
-      const lines = text.split(/\\r?\\n/).map(l => l.trim()).filter(Boolean);
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) {
         Toast.show('CSV file is empty or missing data rows', 'warning');
         return;
@@ -517,126 +637,6 @@ const Employees = {
     Toast.show(`Successfully onboarded & imported ${count} new employees!`, 'success');
     Modal.close();
     this.render();
-  },
-
-    const emps = this.getFiltered();
-
-    if (this.currentView === 'directory') {
-      const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-      container.innerHTML = `
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
-          ${emps.map(e => {
-            const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
-            return `
-              <div class="emp-card" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" style="cursor:pointer"` : `style="cursor:default"`}>
-                <div class="avatar avatar-lg mx-auto" style="background:${Utils.avatarColor(e.id)};margin:0 auto;overflow:hidden">${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}</div>
-                <div class="name">${e.fullName}</div>
-                <div class="desig">${Utils.getDesigName(e.designationId)}</div>
-                <div class="dept">${Utils.getDeptName(e.departmentId)}</div>
-                <div style="font-size:10px;color:var(--text-3);margin-top:2px;font-family:monospace">${e.empNo}</div>
-                ${e.status === 'inactive' ? `<span class="badge badge-danger" style="font-size:10px;margin-top:4px"><i class="fa fa-user-slash"></i> Ex-Employee</span>` : Utils.statusBadge(e.status)}
-              </div>
-            `;
-          }).join('')}
-        </div>
-      `;
-      return;
-    }
-
-    const isHROrAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-
-    container.innerHTML = `
-      <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:13px;color:var(--text-3)">${emps.length} employee${emps.length!==1?'s':''} found</span>
-        </div>
-        <div class="table-wrapper" style="border:none;border-radius:0">
-          <table>
-            <thead><tr>
-              <th style="width:36px;text-align:center"><input type="checkbox" id="master-table-select" class="tbl-checkbox" onclick="App.toggleSelectAllRows(this, '.tbl-emp-checkbox')" title="Select all rows"></th>
-              <th>Employee</th>
-              <th>Emp #</th>
-              <th>Department</th>
-              <th>Designation</th>
-              <th>Contact</th>
-              <th>Join Date</th>
-              <th>Role & Status</th>
-              <th style="text-align:right">Actions</th>
-            </tr></thead>
-            <tbody>
-              ${emps.length === 0 ? `<tr><td colspan="9"><div class="empty-state"><i class="fa fa-users-slash"></i><h3>No employees found</h3></div></td></tr>` : emps.map(e => {
-                const canViewProfile = isHROrAdmin || (Auth.employee?.id === e.id);
-                return `
-                <tr>
-                  <td style="text-align:center">
-                    <input type="checkbox" class="tbl-checkbox tbl-emp-checkbox" data-id="${e.id}" onclick="App.toggleRowSelect(this, ${e.id})" title="Select record">
-                  </td>
-                  <td>
-                    <div style="display:flex;align-items:center;gap:10px">
-                      <div class="avatar avatar-sm" style="background:${Utils.avatarColor(e.id)};overflow:hidden;${canViewProfile ? 'cursor:pointer' : 'cursor:default'}" ${canViewProfile ? `onclick="Employees.renderProfile(${e.id})" title="View Profile"` : ''}>
-                        ${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}
-                      </div>
-                      <div>
-                        ${canViewProfile ? `
-                          <div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--primary)" onclick="Employees.renderProfile(${e.id})" title="View Profile">${e.fullName}</div>
-                        ` : `
-                          <div style="font-weight:600;font-size:13px;color:var(--text);cursor:default">${e.fullName}</div>
-                        `}
-                        <div style="font-size:11px;color:var(--text-3)">${Utils.getDesigName(e.designationId)} • ${e.email}</div>
-                        <div style="font-size:10.5px;color:var(--text-2);margin-top:2px">
-                          <i class="fa fa-user-tie" style="color:var(--primary);font-size:9.5px"></i> Report-to: <span style="font-weight:600;color:var(--text)">${e.id === 1 ? 'Board / CEO' : e.id === 2 ? 'Admin (CEO)' : e.id === 3 ? 'Admin & HR' : (Utils.getEmpName(e.managerId || 3) || 'Deputy Manager')}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span style="font-family:monospace;font-size:12px;color:var(--primary)">${e.empNo}</span></td>
-                  <td>${Utils.getDeptName(e.departmentId)}</td>
-                  <td>${Utils.getDesigName(e.designationId)}</td>
-                  <td style="font-size:12px">${e.phone}</td>
-                  <td style="font-size:12px">${Utils.formatDate(e.joiningDate)}</td>
-                  <td>
-                    ${e.status === 'inactive' 
-                      ? `<span class="badge badge-danger" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-user-slash"></i> Ex-Employee</span>`
-                      : (() => {
-                          const activeExit = (DB.get('exit_clearances')||[]).find(c => c.employeeId === e.id && (c.status === 'in_progress' || c.status === 'pending_review'));
-                          if (activeExit) {
-                            return activeExit.status === 'pending_review'
-                              ? `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-envelope"></i> Resign Pending</span>`
-                              : `<span class="badge badge-warning" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-clock"></i> In Notice</span>`;
-                          }
-                          return e.role === 'onboarding' 
-                            ? `<span class="badge badge-warning" style="font-size:10.5px"><i class="fa fa-user-clock"></i> Onboarding</span>` 
-                            : `<span class="badge badge-success" style="font-size:10.5px;padding:3px 8px"><i class="fa fa-check-circle"></i> Active</span>`;
-                        })()}
-                    <div style="margin-top:3px"><span class="chip" style="font-size:10.5px">${e.role || 'employee'}</span></div>
-                  </td>
-                  <td style="text-align:right">
-                    <div class="tbl-actions" style="justify-content:flex-end">
-                      <button class="btn btn-ghost btn-icon btn-sm" onclick="App.openInspectDrawer('employee', ${e.id})" title="Quick Peek Inspector (Side Drawer)"><i class="fa fa-magnifying-glass" style="color:var(--info)"></i></button>
-                      ${(isHROrAdmin || Auth.employee?.id === e.id) ? `
-                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showDigitalBadge(${e.id})" title="Digital Smart Badge (QR)"><i class="fa fa-id-card" style="color:var(--primary)"></i></button>
-                      ` : ''}
-                      ${canViewProfile ? `
-                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.renderProfile(${e.id})" title="View Profile"><i class="fa fa-eye"></i></button>
-                      ` : ''}
-                      ${isHROrAdmin ? `
-                        ${e.role === 'onboarding' ? `
-                          <button class="btn btn-warning btn-xs" onclick="Employees.showOnboardingApprovalModal(${e.id})" title="Review Onboarding & Assign Role">
-                            <i class="fa fa-user-check"></i> Assign Role
-                          </button>
-                        ` : ''}
-                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.showEditForm(${e.id})" title="Edit Profile & Role"><i class="fa fa-pen"></i></button>
-                        <button class="btn btn-ghost btn-icon btn-sm" onclick="Employees.toggleStatus(${e.id})" title="${e.status==='active'?'Deactivate':'Activate'}" style="color:${e.status==='active'?'var(--danger)':'var(--success)'}"><i class="fa fa-${e.status==='active'?'ban':'circle-check'}"></i></button>
-                      ` : ''}
-                    </div>
-                  </td>
-                </tr>
-              `}).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
   },
 
   renderProfile(empId, isMyProfile = false) {
