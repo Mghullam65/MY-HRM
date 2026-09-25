@@ -716,9 +716,22 @@ const Landing = {
     if (btn) btn.setAttribute('aria-expanded', 'false');
   },
 
+  toggleMobileNav(e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const drawer = document.getElementById('landing-mobile-drawer');
+    if (!drawer) return;
+    drawer.classList.toggle('open');
+  },
+
+  closeMobileNav() {
+    const drawer = document.getElementById('landing-mobile-drawer');
+    if (drawer) drawer.classList.remove('open');
+  },
+
   closeAllMenus() {
     this.closeModulesMenu();
     this.closeResourcesMenu();
+    this.closeMobileNav();
   },
 
   showModule(moduleId) {
@@ -1007,7 +1020,8 @@ const Landing = {
               </div>
             </a>
 
-            <nav class="landing-nav-links">
+            <!-- Desktop Nav Links -->
+            <nav class="landing-nav-links desktop-only">
               <a href="#" class="landing-nav-link" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">Home</a>
               <a href="#modules-section" class="landing-nav-link" onclick="Landing.scrollTo('modules-section');return false;">16 Modules</a>
               <a href="#why-us" class="landing-nav-link" onclick="Landing.scrollTo('why-us');return false;">Why Choose Us</a>
@@ -1015,17 +1029,39 @@ const Landing = {
               <a href="#workflow" class="landing-nav-link" onclick="Landing.scrollTo('workflow');return false;">Workflow</a>
               <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Calculator</a>
               <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQs</a>
-              <a href="#careers" class="landing-nav-link" onclick="Landing.scrollTo('careers');return false;">Careers <span class="landing-careers-nav-pill" style="background:#fff5f2;color:#e05638;border:1px solid rgba(224,86,56,0.3)">${openJobsCount}&nbsp;Open</span></a>
+              <a href="#careers" class="landing-nav-link" onclick="Landing.scrollTo('careers');return false;">Careers <span class="landing-careers-nav-pill" style="background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);border:1px solid var(--hrm-vermilion-border)">${openJobsCount}&nbsp;Open</span></a>
             </nav>
 
-            <div class="landing-nav-actions" style="display:flex;align-items:center;gap:12px">
-              <button class="landing-btn-signin" onclick="App.showLogin()" title="Sign in to HRM Portal">
+            <div class="landing-nav-actions">
+              <button class="landing-btn-signin desktop-only" onclick="App.showLogin()" title="Sign in to HRM Portal">
                 <i class="fa fa-right-to-bracket"></i>
                 <span>Sign In</span>
               </button>
               <button class="landing-btn-cta" onclick="Landing.scrollTo('quote-section')" title="Request Custom Proposal & Trial">
                 <span>Get Free Quote / Trial</span>
               </button>
+              <!-- Mobile Hamburger Toggle Button -->
+              <button class="landing-mobile-menu-btn" onclick="Landing.toggleMobileNav(event)" aria-label="Toggle navigation menu">
+                <i class="fa fa-bars"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile Nav Drawer -->
+          <div class="landing-mobile-drawer" id="landing-mobile-drawer">
+            <div class="landing-mobile-drawer-inner">
+              <a href="#" class="landing-mobile-link" onclick="Landing.closeMobileNav();window.scrollTo({top:0,behavior:'smooth'});return false;"><i class="fa fa-house"></i> Home</a>
+              <a href="#modules-section" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('modules-section');return false;"><i class="fa fa-cubes"></i> 16 Enterprise Modules</a>
+              <a href="#why-us" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('why-us');return false;"><i class="fa fa-award"></i> Why Choose Us</a>
+              <a href="#capabilities" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('capabilities');return false;"><i class="fa fa-gem"></i> Premium Capabilities</a>
+              <a href="#workflow" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('workflow');return false;"><i class="fa fa-arrows-split-up-and-left"></i> Lifecycle Workflow</a>
+              <a href="#tax-calc" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('tax-calc');return false;"><i class="fa fa-calculator"></i> Tax Calculator</a>
+              <a href="#faq" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('faq');return false;"><i class="fa fa-circle-question"></i> FAQs</a>
+              <a href="#careers" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('careers');return false;"><i class="fa fa-briefcase"></i> Careers (${openJobsCount} Open)</a>
+              <div class="landing-mobile-actions">
+                <button class="landing-btn-signin" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()"><i class="fa fa-right-to-bracket"></i> Sign In to Portal</button>
+                <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();Landing.scrollTo('quote-section')">Request Free Proposal</button>
+              </div>
             </div>
           </div>
         </header>
@@ -1093,7 +1129,7 @@ const Landing = {
               <div class="hero-3d-wrapper">
                 <!-- Floating Metric 1: Biometric Attendance Rate -->
                 <div class="hero-3d-badge-floating badge-pos-att" onclick="Landing.showModule('attendance')" style="cursor:pointer" title="Click to view Attendance Module">
-                  <div style="width:36px;height:36px;border-radius:8px;background:#fff5f2;color:#e05638;display:flex;align-items:center;justify-content:center;font-size:18px">
+                  <div style="width:36px;height:36px;border-radius:8px;background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);display:flex;align-items:center;justify-content:center;font-size:18px">
                     <i class="fa fa-fingerprint"></i>
                   </div>
                   <div>
@@ -1349,7 +1385,7 @@ const Landing = {
           <div class="quote-demo-grid">
             <!-- Left Mockup Visual -->
             <div class="quote-visual-card">
-              <div style="width:52px;height:52px;border-radius:12px;background:#fff5f2;color:#e05638;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:18px">
+              <div style="width:52px;height:52px;border-radius:12px;background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:18px">
                 <i class="fa fa-shield-halved"></i>
               </div>
               <h3 style="font-size:24px;font-weight:900;color:#111827;margin-bottom:10px">Enterprise HRM Pro Suite</h3>
@@ -1359,13 +1395,13 @@ const Landing = {
               
               <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
                 <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:#e05638"></i> 14-Day Full Access Enterprise Trial
+                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> 14-Day Full Access Enterprise Trial
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:#e05638"></i> Zero Setup Fee &amp; Assisted Data Migration
+                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> Zero Setup Fee &amp; Assisted Data Migration
                 </div>
                 <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:#e05638"></i> 24/7 Priority Support &amp; Dedicated Account Lead
+                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> 24/7 Priority Support &amp; Dedicated Account Lead
                 </div>
               </div>
 
@@ -1533,7 +1569,7 @@ const Landing = {
                   <div class="career-job-card" data-dept="${job.departmentId}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:20px">
                     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
                       <div>
-                        <span style="font-size:11px;font-weight:700;color:var(--hrm-coral);background:#fff5f2;padding:3px 8px;border-radius:6px">${dept?.name || 'General Operations'}</span>
+                        <span style="font-size:11px;font-weight:700;color:var(--hrm-coral);background:var(--hrm-vermilion-light);padding:3px 8px;border-radius:6px">${dept?.name || 'General Operations'}</span>
                         <h3 style="font-size:16px;font-weight:800;color:#111827;margin-top:6px">${job.title}</h3>
                       </div>
                       <span style="font-size:11px;color:#16a34a;font-weight:700"><i class="fa fa-circle" style="font-size:8px"></i> Open</span>
@@ -2594,21 +2630,21 @@ const Landing = {
         title: 'Enterprise Proposal Request Confirmed',
         body: `
           <div style="text-align:center;padding:24px 12px">
-            <div style="width:64px;height:64px;border-radius:50%;background:#fff5f2;color:#e05638;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px auto">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 16px auto">
               <i class="fa fa-circle-check"></i>
             </div>
             <h3 style="font-size:20px;font-weight:900;color:#111827;margin-bottom:8px">Proposal Request Received!</h3>
             <p style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:18px">
               Thank you, <strong>${name}</strong>. Your customized enterprise deployment quote for <strong>${company || 'your organization'}</strong> has been registered.
             </p>
-            <div style="background:#f9fafb;border:1px dashed #e05638;border-radius:10px;padding:12px;margin-bottom:20px">
+            <div style="background:#f9fafb;border:1px dashed var(--hrm-vermilion);border-radius:10px;padding:12px;margin-bottom:20px">
               <div style="font-size:12px;color:#6b7280">Reference Tracking Number:</div>
-              <div style="font-size:18px;font-weight:900;color:#e05638;letter-spacing:1px">${newQuote.refNo}</div>
+              <div style="font-size:18px;font-weight:900;color:var(--hrm-vermilion);letter-spacing:1px">${newQuote.refNo}</div>
             </div>
             <p style="font-size:13px;color:#4b5563;margin-bottom:24px">
               A dedicated HR Solutions Specialist will reach out to <strong>${email}</strong> within 2 business hours.
             </p>
-            <button class="btn btn-primary" style="background:#e05638;border-color:#e05638;border-radius:9999px;padding:10px 28px;font-weight:800" onclick="Modal.closeAll()">
+            <button class="btn btn-primary" style="background:var(--hrm-vermilion);border-color:var(--hrm-vermilion);border-radius:9999px;padding:10px 28px;font-weight:800" onclick="Modal.closeAll()">
               Done
             </button>
           </div>
@@ -2658,20 +2694,20 @@ const Landing = {
 
   renderPremiumFinishesGrid() {
     const finishes = [
-      { title: 'Digital Signatures & Seals', icon: 'fa-stamp', badge: 'Cryptographic Seals' },
-      { title: 'Multi-Tier Approvals', icon: 'fa-users-gear', badge: 'Hierarchical Workflows' },
-      { title: 'FBR Tax & Gratuity Engine', icon: 'fa-scale-balanced', badge: 'Statutory 30/26 & Tax' },
-      { title: 'QR Verification Badges', icon: 'fa-qrcode', badge: 'Tamper-Proof Verification' },
-      { title: 'Crontab PDF Reports', icon: 'fa-file-pdf', badge: 'Automated Dispatches' },
-      { title: 'Biometric Gateway', icon: 'fa-fingerprint', badge: 'Hardware Socket Sync' },
-      { title: 'Multi-Company Scoping', icon: 'fa-building-shield', badge: 'Holding Structures' },
-      { title: 'Asset Barcode & Audit', icon: 'fa-barcode', badge: 'Hardware Custody Tracking' }
+      { title: 'Gold Foil Cryptographic Seal', icon: 'fa-stamp', bg: 'radial-gradient(ellipse at center, #272218 0%, #0d0c0a 100%)', color: '#fbbf24', shadow: 'rgba(251,191,36,0.45)' },
+      { title: 'Silver Multi-Tier Stamp', icon: 'fa-users-gear', bg: 'linear-gradient(135deg, #262629 0%, #0e0e11 100%)', color: '#e4e4e7', shadow: 'rgba(228,228,231,0.35)' },
+      { title: 'Embossed Gratuity Relief', icon: 'fa-scale-balanced', bg: '#1c1917', color: '#d6d3d1', shadow: 'rgba(214,211,209,0.3)' },
+      { title: 'Debossed QR Verification', icon: 'fa-qrcode', bg: '#18181b', color: '#a1a1aa', shadow: 'rgba(161,161,170,0.3)' },
+      { title: 'Holographic Crontab Dispatch', icon: 'fa-file-pdf', bg: 'linear-gradient(135deg, #09090b 0%, #1e1b4b 50%, #0c0a09 100%)', color: '#38bdf8', shadow: 'rgba(56,189,248,0.45)' },
+      { title: 'Spot UV Biometric Gateway', icon: 'fa-fingerprint', bg: '#09090b', color: '#22c55e', shadow: 'rgba(34,197,94,0.4)' },
+      { title: 'Matte Corporate Scoping', icon: 'fa-building-shield', bg: '#18181b', color: '#f97316', shadow: 'rgba(249,115,22,0.4)' },
+      { title: 'Soft-Touch Asset Custody', icon: 'fa-barcode', bg: '#1c1917', color: '#f43f5e', shadow: 'rgba(244,63,94,0.4)' }
     ];
 
     return finishes.map(f => `
       <div class="premium-card">
-        <div class="premium-card-preview">
-          <i class="fa ${f.icon}"></i>
+        <div class="premium-card-preview" style="background:${f.bg};color:${f.color}">
+          <i class="fa ${f.icon}" style="filter:drop-shadow(0 2px 10px ${f.shadow})"></i>
         </div>
         <div class="premium-card-badge">
           <i class="fa fa-circle-check"></i>
