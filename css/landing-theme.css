@@ -15,6 +15,9 @@
   --hrm-vermilion-border: #e8ded9;
   --hrm-vermilion-shadow: rgba(197, 58, 36, 0.14);
 
+  /* CRITICAL: --hrm-coral alias (referenced in JS templates) */
+  --hrm-coral: #c53a24;
+
   /* Architectural Stone Neutral System */
   --hrm-black: #141211;
   --hrm-stone-900: #1c1917;
@@ -1414,3 +1417,376 @@
 .landing-agent-launcher:hover {
   background: var(--hrm-vermilion-hover) !important;
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   CRITICAL CONTRAST & VISIBILITY OVERRIDES (PREVENT MAIN.CSS LEAKS)
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 1. Testimonial Card: Pure Crisp White Text on Heritage Red */
+#landing-page .testimonial-coral-card,
+#landing-page [data-theme="light"] .testimonial-coral-card,
+[data-theme="light"] #landing-page .testimonial-coral-card,
+body .landing-wrapper .testimonial-coral-card,
+.testimonial-coral-card {
+  background: #c53a24 !important;
+  color: #ffffff !important;
+  border-radius: 18px !important;
+  padding: clamp(24px, 4vw, 40px) !important;
+  position: relative !important;
+  box-shadow: 0 16px 36px rgba(197, 58, 36, 0.28) !important;
+}
+
+#landing-page .testimonial-coral-card *,
+body .landing-wrapper .testimonial-coral-card *,
+.testimonial-coral-card * {
+  color: #ffffff !important;
+}
+
+#landing-page .testimonial-coral-card .testimonial-quote-icon,
+body .landing-wrapper .testimonial-coral-card .testimonial-quote-icon,
+.testimonial-coral-card .testimonial-quote-icon {
+  color: rgba(255, 255, 255, 0.75) !important;
+  font-size: 34px !important;
+  margin-bottom: 14px !important;
+  display: block !important;
+  opacity: 1 !important;
+}
+
+#landing-page .testimonial-coral-card .testimonial-quote-text,
+[data-theme="dark"] #landing-page .testimonial-coral-card .testimonial-quote-text,
+[data-theme="dark"] .testimonial-coral-card .testimonial-quote-text,
+[data-theme="dark"] .testimonial-coral-card *,
+body .landing-wrapper .testimonial-coral-card .testimonial-quote-text,
+.testimonial-coral-card .testimonial-quote-text,
+.testimonial-quote-text {
+  color: #ffffff !important;
+  font-size: clamp(16px, 1.3vw, 18px) !important;
+  line-height: 1.68 !important;
+  font-weight: 500 !important;
+  font-style: italic !important;
+  margin-bottom: 24px !important;
+  opacity: 1 !important;
+  display: block !important;
+}
+
+#landing-page .testimonial-coral-card .testimonial-author-name,
+body .landing-wrapper .testimonial-coral-card .testimonial-author-name,
+.testimonial-coral-card .testimonial-author-name {
+  color: #ffffff !important;
+  font-size: 17px !important;
+  font-weight: 800 !important;
+}
+
+#landing-page .testimonial-coral-card .testimonial-author-role,
+body .landing-wrapper .testimonial-coral-card .testimonial-author-role,
+.testimonial-coral-card .testimonial-author-role {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 13.5px !important;
+}
+
+/* 2. Section Pill Badges: Crisp High Contrast */
+#landing-page .landing-pill-badge,
+body .landing-wrapper .landing-pill-badge,
+.landing-pill-badge {
+  background: #fdf6f4 !important;
+  border: 1px solid rgba(197, 58, 36, 0.28) !important;
+  color: #c53a24 !important;
+  font-weight: 750 !important;
+  font-size: 13px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 14px !important;
+  border-radius: 9999px !important;
+}
+
+#landing-page .landing-pill-badge i,
+.landing-pill-badge i {
+  color: #c53a24 !important;
+}
+
+/* 3. Interactive FAQ Accordion: Robust Expansion & Clear Text */
+#landing-page .landing-faq-item,
+body .landing-wrapper .landing-faq-item,
+.landing-faq-item {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  margin-bottom: 14px !important;
+  padding: 18px 22px !important;
+  cursor: pointer !important;
+  transition: all 0.22s ease !important;
+  user-select: none;
+}
+
+#landing-page .landing-faq-item:hover,
+.landing-faq-item:hover {
+  border-color: #c53a24 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+}
+
+#landing-page .landing-faq-item.active,
+body .landing-wrapper .landing-faq-item.active,
+.landing-faq-item.active {
+  border-color: #c53a24 !important;
+  background: #ffffff !important;
+  box-shadow: 0 6px 20px rgba(197, 58, 36, 0.08) !important;
+}
+
+#landing-page .landing-faq-question,
+.landing-faq-question {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-weight: 750 !important;
+  font-size: 16px !important;
+  color: #111827 !important;
+  gap: 12px;
+}
+
+#landing-page .landing-faq-question span,
+.landing-faq-question span {
+  color: #111827 !important;
+}
+
+#landing-page .landing-faq-question i.fa-chevron-down,
+.landing-faq-question i.fa-chevron-down {
+  color: #c53a24 !important;
+  font-size: 14px !important;
+  transition: transform 0.25s ease !important;
+  flex-shrink: 0;
+}
+
+#landing-page .landing-faq-item.active .landing-faq-question i.fa-chevron-down,
+.landing-faq-item.active .landing-faq-question i.fa-chevron-down {
+  transform: rotate(180deg) !important;
+}
+
+/* FAQ Answer - default hidden */
+#landing-page .landing-faq-answer,
+body .landing-wrapper .landing-faq-answer,
+.landing-faq-answer {
+  display: none !important;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 14.5px;
+  color: #4b5563;
+  line-height: 1.68;
+  font-weight: 400;
+}
+
+/* FAQ Answer - visible when active OR when inline style sets display:block */
+#landing-page .landing-faq-item.active .landing-faq-answer,
+body .landing-wrapper .landing-faq-item.active .landing-faq-answer,
+.landing-faq-item.active .landing-faq-answer {
+  display: block !important;
+  margin-top: 14px !important;
+  padding-top: 14px !important;
+  border-top: 1px solid #f1f5f9 !important;
+  font-size: 14.5px !important;
+  color: #4b5563 !important;
+  line-height: 1.68 !important;
+  font-weight: 400 !important;
+}
+
+/* 4. High-Contrast Premium Finishes Cards */
+#landing-page .premium-card,
+body .landing-wrapper .premium-card,
+.premium-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  transition: all 0.22s ease !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+#landing-page .premium-card:hover,
+.premium-card:hover {
+  border-color: #c53a24 !important;
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08) !important;
+}
+
+#landing-page .premium-card-preview,
+.premium-card-preview {
+  height: 130px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 36px !important;
+  position: relative !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+#landing-page .premium-card-badge,
+#landing-page .premium-card-badge span,
+body .landing-wrapper .premium-card-badge,
+body .landing-wrapper .premium-card-badge span,
+.premium-card-badge,
+.premium-card-badge span {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  padding: 12px 14px;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  letter-spacing: -0.2px !important;
+  border-top: 1px solid #eef2f6 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+}
+
+#landing-page .premium-card-badge i,
+body .landing-wrapper .premium-card-badge i,
+.premium-card-badge i {
+  color: #c53a24 !important;
+  font-size: 13px !important;
+}
+
+/* 5. Landing Page Global Text Overrides (prevent dark theme body leaks) */
+#landing-page .landing-wrapper,
+#landing-page .landing-wrapper * {
+  color: inherit;
+}
+
+#landing-page .landing-section-title,
+body .landing-wrapper .landing-section-title {
+  color: #111827 !important;
+}
+
+#landing-page .landing-section-sub,
+body .landing-wrapper .landing-section-sub {
+  color: #57534e !important;
+}
+
+#landing-page .landing-hero-title,
+body .landing-wrapper .landing-hero-title {
+  color: #1c1917 !important;
+}
+
+#landing-page .landing-hero-sub,
+body .landing-wrapper .landing-hero-sub {
+  color: #44403c !important;
+}
+
+/* 6. Tax Calculator Section Overrides */
+#landing-page .tax-calc-title,
+body .landing-wrapper .tax-calc-title {
+  color: #111827 !important;
+}
+
+#landing-page .tax-calc-desc,
+body .landing-wrapper .tax-calc-desc {
+  color: #64748b !important;
+}
+
+#landing-page .tax-calc-label,
+body .landing-wrapper .tax-calc-label {
+  color: #374151 !important;
+}
+
+#landing-page .tax-row-label,
+body .landing-wrapper .tax-row-label {
+  color: #4b5563 !important;
+  font-size: 14px !important;
+}
+
+#landing-page .tax-row-val,
+body .landing-wrapper .tax-row-val {
+  color: #111827 !important;
+}
+
+#landing-page .tax-calc-input,
+body .landing-wrapper .tax-calc-input {
+  background: #f9fafb !important;
+  border: 1.5px solid #d1d5db !important;
+  color: #111827 !important;
+}
+
+#landing-page .tax-calc-input:focus,
+body .landing-wrapper .tax-calc-input:focus {
+  border-color: var(--hrm-vermilion) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(197, 58, 36, 0.12) !important;
+}
+
+/* 7. Careers Section Text Visibility */
+#landing-page .career-job-card h3,
+body .landing-wrapper .career-job-card h3 {
+  color: #111827 !important;
+}
+
+/* 8. Quote Form Text Overrides */
+#landing-page .quote-form-title,
+body .landing-wrapper .quote-form-title {
+  color: #111827 !important;
+}
+
+#landing-page .quote-form-sub,
+body .landing-wrapper .quote-form-sub {
+  color: #57534e !important;
+}
+
+#landing-page .quote-input-field,
+body .landing-wrapper .quote-input-field {
+  color: #111827 !important;
+  background: #f9fafb !important;
+}
+
+/* 9. Mobile Responsive Fixes */
+@media (max-width: 768px) {
+  #landing-page .landing-hero-title {
+    font-size: 28px !important;
+    line-height: 1.2 !important;
+  }
+  
+  #landing-page .landing-section-title {
+    font-size: 22px !important;
+  }
+  
+  #landing-page .landing-faq-question {
+    font-size: 14px !important;
+  }
+  
+  #landing-page .landing-faq-item.active .landing-faq-answer {
+    font-size: 13.5px !important;
+  }
+  
+  #landing-page .testimonial-coral-card .testimonial-quote-text {
+    font-size: 15px !important;
+  }
+  
+  #landing-page .quote-demo-grid {
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  #landing-page .landing-hero-title {
+    font-size: 24px !important;
+    letter-spacing: -0.5px !important;
+  }
+  
+  #landing-page .landing-section-title {
+    font-size: 20px !important;
+  }
+  
+  #landing-page .landing-faq-item {
+    padding: 14px 16px !important;
+  }
+  
+  #landing-page .landing-faq-question {
+    font-size: 13.5px !important;
+  }
+  
+  #landing-page .landing-trust-badges {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+}
+

@@ -170,6 +170,7 @@ const Leaves = {
     const emps = DB.get('employees');
     const types = DB.get('leave_types');
 
+    const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
     const isDeptMgr = Auth.role === 'dept_manager';
     const isHRorAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     const canCreate = Auth.can('leaves.create') && Auth.canSeeFeature('leaves.apply_form');

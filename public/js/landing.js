@@ -937,7 +937,7 @@ const Landing = {
 
 
   toggleTheme() {
-    const currentTheme = localStorage.getItem('hrm_landing_theme') || 'dark';
+    const currentTheme = localStorage.getItem('hrm_landing_theme') || 'light';
     const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
     localStorage.setItem('hrm_landing_theme', newTheme);
     this.applyTheme(newTheme);
@@ -1338,42 +1338,42 @@ const Landing = {
           </div>
 
           <div class="landing-faq-container" style="max-width:860px;margin:0 auto">
-            <div class="landing-faq-item" id="faq-item-1" onclick="Landing.toggleFaq(1)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
+            <div class="landing-faq-item" id="faq-item-1" onclick="Landing.toggleFaq(1, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
+              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
                 <span>How does HRM Pro automate statutory tax and EOBI calculations?</span>
-                <i class="fa fa-chevron-down" style="color:var(--hrm-coral)"></i>
+                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
               </div>
-              <div class="landing-faq-answer" style="display:none;margin-top:12px;font-size:14px;color:#64748b;line-height:1.6">
+              <div class="landing-faq-answer faq-answer">
                 HRM Pro embeds official Pakistan FBR salary tax brackets (Finance Act 2024-2025). The system automatically calculates taxable income, applies progressive slab rates, deducts statutory EOBI employee contributions, and computes Provident Fund contributions seamlessly on each salary run.
               </div>
             </div>
 
-            <div class="landing-faq-item" id="faq-item-2" onclick="Landing.toggleFaq(2)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
+            <div class="landing-faq-item" id="faq-item-2" onclick="Landing.toggleFaq(2, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
+              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
                 <span>Can biometric attendance integrate across multiple physical offices?</span>
-                <i class="fa fa-chevron-down" style="color:var(--hrm-coral)"></i>
+                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
               </div>
-              <div class="landing-faq-answer" style="display:none;margin-top:12px;font-size:14px;color:#64748b;line-height:1.6">
+              <div class="landing-faq-answer faq-answer">
                 Yes. HRM Pro features a real-time hardware gateway supporting physical fingerprint and facial scanners across multiple branches. Punches synchronize with cloud database records instantly, calculating arrival grace buffers, late-coming penalties, and approved overtime tokens.
               </div>
             </div>
 
-            <div class="landing-faq-item" id="faq-item-3" onclick="Landing.toggleFaq(3)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
+            <div class="landing-faq-item" id="faq-item-3" onclick="Landing.toggleFaq(3, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
+              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
                 <span>How do granular partial permissions work in the Leave and Payroll modules?</span>
-                <i class="fa fa-chevron-down" style="color:var(--hrm-coral)"></i>
+                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
               </div>
-              <div class="landing-faq-answer" style="display:none;margin-top:12px;font-size:14px;color:#64748b;line-height:1.6">
+              <div class="landing-faq-answer faq-answer">
                 Through our multi-tier RBAC engine, administrators can grant view-only, apply-only, or approve-only rights to specific roles. For example, a Department Manager can be granted leave approval authority without gaining permission to modify leave quota allocations or edit employee records.
               </div>
             </div>
 
-            <div class="landing-faq-item" id="faq-item-4" onclick="Landing.toggleFaq(4)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
+            <div class="landing-faq-item" id="faq-item-4" onclick="Landing.toggleFaq(4, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
+              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
                 <span>How does automated scheduled PDF report dispatching operate?</span>
-                <i class="fa fa-chevron-down" style="color:var(--hrm-coral)"></i>
+                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
               </div>
-              <div class="landing-faq-answer" style="display:none;margin-top:12px;font-size:14px;color:#64748b;line-height:1.6">
+              <div class="landing-faq-answer faq-answer">
                 HRM Pro includes an integrated background job scheduler. You can configure daily attendance briefs, weekly department summaries, and monthly payroll audit packages to be compiled into PDF/CSV formats and dispatched automatically to management emails at designated times.
               </div>
             </div>
@@ -1476,18 +1476,18 @@ const Landing = {
         <section class="testimonials-section" id="testimonials">
           <div class="testimonials-grid">
             <!-- Left Terracotta Feature Quote Card -->
-            <div class="testimonial-coral-card">
-              <div class="testimonial-quote-icon">
-                <i class="fa fa-quote-left"></i>
+            <div class="testimonial-coral-card" style="background:#c53a24 !important;color:#ffffff !important;border-radius:18px !important;padding:36px !important;box-shadow:0 16px 36px rgba(197,58,36,0.28) !important;position:relative !important">
+              <div class="testimonial-quote-icon" style="color:rgba(255,255,255,0.85) !important;font-size:32px !important;margin-bottom:16px !important;display:block !important">
+                <i class="fa fa-quote-left" style="color:rgba(255,255,255,0.85) !important"></i>
               </div>
-              <p class="testimonial-quote-text">
+              <p class="testimonial-quote-text" style="color:#ffffff !important;font-size:17.5px !important;line-height:1.68 !important;font-weight:500 !important;font-style:italic !important;margin-bottom:24px !important;opacity:1 !important;display:block !important">
                 "Transitioning our 450+ multi-branch workforce to HRM Pro reduced our payroll closing cycle from 6 days to under 4 hours. The automated FBR tax engine and biometric integration are completely dependable."
               </p>
-              <div class="testimonial-author-row">
-                <img src="assets/avatars/tariq_hussain.jpg" alt="Tariq Hussain" class="testimonial-author-avatar" onerror="this.src='public/assets/avatars/tariq_hussain.jpg'">
+              <div class="testimonial-author-row" style="display:flex;align-items:center;gap:14px">
+                <img src="assets/avatars/tariq_hussain.jpg" alt="Tariq Hussain" class="testimonial-author-avatar" onerror="this.src='public/assets/avatars/tariq_hussain.jpg'" style="width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover">
                 <div>
-                  <div class="testimonial-author-name">Tariq Hussain</div>
-                  <div class="testimonial-author-role">Chief Human Resources Officer, Apex Global</div>
+                  <div class="testimonial-author-name" style="color:#ffffff !important;font-size:17px !important;font-weight:800 !important">Tariq Hussain</div>
+                  <div class="testimonial-author-role" style="color:rgba(255,255,255,0.92) !important;font-size:13.5px !important">Chief Human Resources Officer, Apex Global</div>
                 </div>
               </div>
             </div>
@@ -2150,13 +2150,39 @@ const Landing = {
     }
   },
 
-  toggleFaq(index) {
+  toggleFaq(index, evt) {
+    // Prevent the wrapper's closeAllMenus from interfering
+    if (!evt && typeof window !== 'undefined' && window.event) evt = window.event;
+    if (evt && evt.stopPropagation) evt.stopPropagation();
+
     const item = document.getElementById(`faq-item-${index}`);
     if (!item) return;
-    const wasActive = item.classList.contains('active');
-    document.querySelectorAll('.landing-faq-item').forEach(el => el.classList.remove('active'));
-    if (!wasActive) {
+    const wasOpen = item.classList.contains('active');
+
+    // Close all other FAQ items
+    document.querySelectorAll('.landing-faq-item').forEach(el => {
+      el.classList.remove('active');
+      const ans = el.querySelector('.landing-faq-answer, .faq-answer');
+      if (ans) {
+        ans.style.setProperty('display', 'none', 'important');
+      }
+      const chevron = el.querySelector('i.fa-chevron-down, .faq-chevron');
+      if (chevron) {
+        chevron.style.transform = 'rotate(0deg)';
+      }
+    });
+
+    // Toggle targeted FAQ item
+    if (!wasOpen) {
       item.classList.add('active');
+      const ans = item.querySelector('.landing-faq-answer, .faq-answer');
+      if (ans) {
+        ans.style.setProperty('display', 'block', 'important');
+      }
+      const chevron = item.querySelector('i.fa-chevron-down, .faq-chevron');
+      if (chevron) {
+        chevron.style.transform = 'rotate(180deg)';
+      }
     }
   },
 
@@ -2694,20 +2720,20 @@ const Landing = {
 
   renderPremiumFinishesGrid() {
     const finishes = [
-      { title: 'Gold Foil Cryptographic Seal', icon: 'fa-stamp', bg: 'radial-gradient(ellipse at center, #272218 0%, #0d0c0a 100%)', color: '#fbbf24', shadow: 'rgba(251,191,36,0.45)' },
-      { title: 'Silver Multi-Tier Stamp', icon: 'fa-users-gear', bg: 'linear-gradient(135deg, #262629 0%, #0e0e11 100%)', color: '#e4e4e7', shadow: 'rgba(228,228,231,0.35)' },
-      { title: 'Embossed Gratuity Relief', icon: 'fa-scale-balanced', bg: '#1c1917', color: '#d6d3d1', shadow: 'rgba(214,211,209,0.3)' },
-      { title: 'Debossed QR Verification', icon: 'fa-qrcode', bg: '#18181b', color: '#a1a1aa', shadow: 'rgba(161,161,170,0.3)' },
-      { title: 'Holographic Crontab Dispatch', icon: 'fa-file-pdf', bg: 'linear-gradient(135deg, #09090b 0%, #1e1b4b 50%, #0c0a09 100%)', color: '#38bdf8', shadow: 'rgba(56,189,248,0.45)' },
-      { title: 'Spot UV Biometric Gateway', icon: 'fa-fingerprint', bg: '#09090b', color: '#22c55e', shadow: 'rgba(34,197,94,0.4)' },
-      { title: 'Matte Corporate Scoping', icon: 'fa-building-shield', bg: '#18181b', color: '#f97316', shadow: 'rgba(249,115,22,0.4)' },
-      { title: 'Soft-Touch Asset Custody', icon: 'fa-barcode', bg: '#1c1917', color: '#f43f5e', shadow: 'rgba(244,63,94,0.4)' }
+      { title: 'Gold Foil Cryptographic Seal', icon: 'fa-stamp', bg: 'radial-gradient(ellipse at center, #fffbeb 0%, #fef3c7 100%)', color: '#b45309', border: '#fde68a' },
+      { title: 'Silver Multi-Tier Stamp', icon: 'fa-users-gear', bg: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', color: '#475569', border: '#cbd5e1' },
+      { title: 'Embossed Gratuity Relief', icon: 'fa-scale-balanced', bg: '#fbfbfa', color: '#334155', border: '#e7e5e4' },
+      { title: 'Debossed QR Verification', icon: 'fa-qrcode', bg: '#f8fafc', color: '#0f172a', border: '#e2e8f0' },
+      { title: 'Holographic Crontab Dispatch', icon: 'fa-file-pdf', bg: 'linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 50%, #faf5ff 100%)', color: '#0284c7', border: '#bae6fd' },
+      { title: 'Spot UV Biometric Gateway', icon: 'fa-fingerprint', bg: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)', color: '#16a34a', border: '#bbf7d0' },
+      { title: 'Matte Corporate Scoping', icon: 'fa-building-shield', bg: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)', color: '#ea580c', border: '#fed7aa' },
+      { title: 'Soft-Touch Asset Custody', icon: 'fa-barcode', bg: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)', color: '#e11d48', border: '#fecdd3' }
     ];
 
     return finishes.map(f => `
       <div class="premium-card">
-        <div class="premium-card-preview" style="background:${f.bg};color:${f.color}">
-          <i class="fa ${f.icon}" style="filter:drop-shadow(0 2px 10px ${f.shadow})"></i>
+        <div class="premium-card-preview" style="background:${f.bg};color:${f.color};border-bottom:1px solid ${f.border}">
+          <i class="fa ${f.icon}"></i>
         </div>
         <div class="premium-card-badge">
           <i class="fa fa-circle-check"></i>
