@@ -9,7 +9,8 @@
     "prisma:generate": "prisma generate --schema=server/prisma/schema.prisma",
     "prisma:push": "prisma db push --schema=server/prisma/schema.prisma --accept-data-loss",
     "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
-    "seed": "node server/prisma/seed.js"
+    "seed": "node server/prisma/seed.js",
+    "test": "node scripts/simulate-e2e-lifecycle.js && node scripts/system-wide-health-audit.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

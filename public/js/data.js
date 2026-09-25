@@ -7215,6 +7215,18 @@ const attendanceCorrections = [
 
 // Utility functions
 const Utils = {
+  copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(textarea);
+    }
+  },
   formatDate(dateStr) {
     if (!dateStr) return '—';
     const d = new Date(dateStr);

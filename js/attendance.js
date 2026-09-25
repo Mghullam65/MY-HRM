@@ -229,9 +229,10 @@ const Attendance = {
               <button class="btn btn-ghost btn-sm" onclick="Attendance.exportMyAttendance()"><i class="fa fa-file-export"></i> Export My Records</button>
             ` : isManager ? `
               <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
-            ` : `
               ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="Attendance.showTimeInWindowConfig()"><i class="fa fa-clock"></i> Time-In Windows</button>` : ''}
               <button class="btn btn-ghost btn-sm" onclick="Attendance.exportAttendance()"><i class="fa fa-file-export"></i> Export CSV</button>
+              ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBulkImportModal()"><i class="fa fa-file-excel"></i> Import CSV</button>` : ''}
+              ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBiometricTerminal()"><i class="fa fa-fingerprint"></i> Biometric Simulator</button>` : ''}
               ${isAdmin ? `<button class="btn btn-secondary btn-sm" onclick="Attendance.showBulkAttendance()"><i class="fa fa-users-line"></i> Bulk Mark</button>` : ''}
               <button class="btn btn-primary btn-sm" onclick="Attendance.showMarkAttendance()"><i class="fa fa-plus"></i> Mark Attendance</button>
             `}
@@ -6081,6 +6082,307 @@ const Attendance = {
     const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
     Utils.downloadCSV(csvContent, `biometric_machine_logs_${selectedDate}.csv`);
     Toast.show(`Exported ${dayLogs.length} machine punch records!`, 'success');
+  },
+
+  showBiometricTerminal() {
+    const emps = this.getScopedEmployees();
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const dateStr = Utils.today ? Utils.today() : now.toISOString().slice(0, 10);
+
+    const html = `
+      <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);color:white;border-radius:12px;padding:24px;border:1px solid rgba(255,255,255,0.15)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(99,102,241,0.2);display:flex;align-items:center;justify-content:center;color:#818cf8;font-size:22px">
+              <i class="fa fa-fingerprint"></i>
+            </div>
+            <div>
+              <div style="font-weight:800;font-size:16px;letter-spacing:0.5px">ZKTeco SilkBio-101 Pro</div>
+              <div style="font-size:11px;color:#94a3b8">Biometric Terminal Simulator • IP: 192.168.10.45 • ADMS Online</div>
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div id="bio-live-clock" style="font-family:monospace;font-size:20px;font-weight:800;color:#38bdf8">${timeStr}</div>
+            <div style="font-size:11px;color:#94a3b8">${dateStr}</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Select Employee</label>
+            <select id="bio-sim-emp" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
+              ${emps.map(e => `<option value="${e.id}">[${e.empNo || 'EMP-' + e.id}] ${e.fullName} (${e.department || 'Staff'})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Terminal Gate / Location</label>
+            <select id="bio-sim-device" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
+              <option value="Main Gate Turnstile 01">Main Gate Turnstile 01 (Head Office)</option>
+              <option value="IT Wing Glass Door Scanner">IT Wing Glass Door Scanner</option>
+              <option value="Factory Floor Entrance A">Factory Floor Entrance A</option>
+              <option value="Executive Suites Turnstile">Executive Suites Turnstile</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Punch Mode</label>
+            <select id="bio-sim-punch-type" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
+              <option value="Check-In">🟢 Check-In (Time In)</option>
+              <option value="Check-Out">🔴 Check-Out (Time Out)</option>
+              <option value="Break-Out">☕ Break-Out</option>
+              <option value="Break-In">🥪 Break-In</option>
+              <option value="Overtime-In">⏱️ Overtime-In</option>
+              <option value="Overtime-Out">🏁 Overtime-Out</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Verification Sensor</label>
+            <select id="bio-sim-mode" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
+              <option value="Fingerprint (SilkID Optical)">Fingerprint (SilkID Optical)</option>
+              <option value="Facial Recognition 3D">Facial Recognition 3D</option>
+              <option value="RFID Proximity Card (Mifare)">RFID Proximity Card (Mifare)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;margin-bottom:20px">
+          <div id="bio-scan-indicator" style="font-size:42px;color:#818cf8;margin-bottom:8px">
+            <i class="fa fa-fingerprint"></i>
+          </div>
+          <div id="bio-scan-status" style="font-size:13px;font-weight:600;color:#94a3b8">Ready for optical or proximity scan</div>
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:flex-end">
+          <button class="btn btn-ghost" onclick="Modal.close()" style="color:#cbd5e1">Dismiss</button>
+          <button class="btn btn-primary" onclick="Attendance.triggerBiometricScan()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:10px 24px;font-weight:700">
+            <i class="fa fa-bolt"></i> Scan & Punch Now
+          </button>
+        </div>
+      </div>
+    `;
+
+    Modal.show('Virtual Hardware Biometric Ingestion Terminal', html);
+  },
+
+  triggerBiometricScan() {
+    const empId = Number(document.getElementById('bio-sim-emp')?.value);
+    const device = document.getElementById('bio-sim-device')?.value || 'Main Gate Turnstile 01';
+    const punchType = document.getElementById('bio-sim-punch-type')?.value || 'Check-In';
+    const verifyMode = document.getElementById('bio-sim-mode')?.value || 'Fingerprint';
+
+    const indicator = document.getElementById('bio-scan-indicator');
+    const statusText = document.getElementById('bio-scan-status');
+
+    if (indicator) {
+      indicator.innerHTML = '<i class="fa fa-spinner fa-spin" style="color:#38bdf8"></i>';
+    }
+    if (statusText) statusText.innerText = 'Scanning biometric template...';
+
+    setTimeout(() => {
+      this.processBiometricPunch(empId, punchType, device, verifyMode);
+      if (indicator) indicator.innerHTML = '<i class="fa fa-circle-check" style="color:#10b981"></i>';
+      if (statusText) statusText.innerText = 'Verified! Punch recorded successfully.';
+      setTimeout(() => Modal.close(), 800);
+    }, 500);
+  },
+
+  processBiometricPunch(empId, punchType, device, verifyMode) {
+    const emp = DB.find('employees', empId);
+    if (!emp) return;
+
+    const now = new Date();
+    const dateStr = Utils.today ? Utils.today() : now.toISOString().slice(0, 10);
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    // 1. Record raw machine punch
+    const machineLogs = DB.get('machine_attendance_logs') || [];
+    const newLog = {
+      id: Date.now(),
+      date: dateStr,
+      time: timeStr,
+      employeeId: empId,
+      punchType: punchType,
+      punchLabel: punchType,
+      punchNumber: machineLogs.filter(l => l.employeeId === empId && l.date === dateStr).length + 1,
+      device: device,
+      deviceIp: '192.168.10.45',
+      verifyMode: verifyMode,
+      syncStatus: 'synced',
+      createdAt: now.toISOString()
+    };
+    machineLogs.unshift(newLog);
+    DB.save('machine_attendance_logs', machineLogs);
+
+    // 2. Synchronize into Attendance Register
+    const allAtt = DB.get('attendance') || [];
+    let att = allAtt.find(a => a.employeeId === empId && a.date === dateStr);
+
+    if (punchType.includes('In') || !att) {
+      if (!att) {
+        att = {
+          id: Date.now() + 1,
+          employeeId: empId,
+          date: dateStr,
+          clockIn: timeStr,
+          clockOut: null,
+          status: timeStr > '10:00' ? 'late' : 'present',
+          overtime: 0,
+          notes: `Punch via ${device} (${verifyMode})`
+        };
+        allAtt.push(att);
+      } else if (!att.clockIn) {
+        att.clockIn = timeStr;
+      }
+    } else if (punchType.includes('Out')) {
+      if (att) {
+        att.clockOut = timeStr;
+        if (att.clockIn) {
+          const [inH, inM] = att.clockIn.split(':').map(Number);
+          const [outH, outM] = timeStr.split(':').map(Number);
+          const diffHours = (outH + outM / 60) - (inH + inM / 60);
+          if (diffHours > 8.5) {
+            att.overtime = Math.round((diffHours - 8) * 10) / 10;
+          }
+        }
+      }
+    }
+    DB.save('attendance', allAtt);
+
+    // 3. Broadcast real-time event
+    if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.send) {
+      HRMWebSocket.send({
+        type: 'attendance:punch',
+        employeeId: empId,
+        employeeName: emp.fullName,
+        punchType,
+        device,
+        time: timeStr
+      });
+    }
+
+    Toast.show(`Biometric ${punchType} recorded for ${emp.fullName} (${timeStr})`, 'success');
+    this.render();
+  },
+
+  showBulkImportModal() {
+    const html = `
+      <div style="padding:10px 0">
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px">Download Sample CSV Template</div>
+            <div style="font-size:12px;color:var(--text-3)">Standard attendance format (EmployeeID, Date, ClockIn, ClockOut, Status)</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="Attendance.downloadSampleCSV()"><i class="fa fa-download"></i> Sample CSV</button>
+        </div>
+
+        <div style="border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;background:var(--surface);margin-bottom:16px"
+             ondragover="event.preventDefault();this.style.borderColor='var(--primary)';"
+             ondragleave="this.style.borderColor='var(--border)';"
+             ondrop="event.preventDefault();Attendance.handleCSVFileDrop(event);">
+          <i class="fa fa-file-csv" style="font-size:36px;color:var(--primary);margin-bottom:8px"></i>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">Drag & Drop Attendance CSV Here</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">or click to browse your files</div>
+          <input type="file" id="att-csv-input" accept=".csv" style="display:none" onchange="Attendance.handleCSVFileSelect(this)" />
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('att-csv-input').click()"><i class="fa fa-folder-open"></i> Select File</button>
+        </div>
+
+        <div id="att-import-preview" style="display:none">
+          <div style="font-weight:700;font-size:13px;margin-bottom:8px">Preview Data to Import:</div>
+          <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:16px">
+            <table class="table" style="font-size:11.5px;margin:0">
+              <thead><tr><th>Emp ID</th><th>Date</th><th>Clock In</th><th>Clock Out</th><th>Status</th></tr></thead>
+              <tbody id="att-import-tbody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="Attendance.confirmCSVImport()"><i class="fa fa-check"></i> Commit & Import All Records</button>
+        </div>
+      </div>
+    `;
+
+    Modal.show('Bulk Import Attendance Logs (CSV / Machine Sheet)', html);
+  },
+
+  downloadSampleCSV() {
+    const csv = "EmployeeID,Date,ClockIn,ClockOut,Status,Notes\n1,2026-09-25,09:00,18:00,present,Regular on-time\n2,2026-09-25,09:15,18:05,present,Morning shift\n3,2026-09-25,10:35,18:30,late,Morning traffic\n4,2026-09-25,09:00,13:30,half_day,Doctor appointment";
+    Utils.downloadCSV(csv, "attendance_sample_template.csv");
+  },
+
+  handleCSVFileSelect(input) {
+    if (!input.files || !input.files[0]) return;
+    this.parseCSVFile(input.files[0]);
+  },
+
+  handleCSVFileDrop(e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      this.parseCSVFile(e.dataTransfer.files[0]);
+    }
+  },
+
+  parseCSVFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        Toast.show('CSV file is empty or missing data rows', 'warning');
+        return;
+      }
+      this._parsedRows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          this._parsedRows.push({
+            employeeId: Number(parts[0]),
+            date: parts[1],
+            clockIn: parts[2] || '09:00',
+            clockOut: parts[3] || '18:00',
+            status: parts[4] || 'present',
+            notes: parts[5] || 'Bulk CSV Import'
+          });
+        }
+      }
+
+      const previewDiv = document.getElementById('att-import-preview');
+      const tbody = document.getElementById('att-import-tbody');
+      if (previewDiv && tbody) {
+        tbody.innerHTML = this._parsedRows.slice(0, 5).map(r => `
+          <tr>
+            <td>${r.employeeId}</td>
+            <td>${r.date}</td>
+            <td>${r.clockIn}</td>
+            <td>${r.clockOut}</td>
+            <td><span class="badge badge-success">${r.status}</span></td>
+          </tr>
+        `).join('');
+        previewDiv.style.display = 'block';
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  confirmCSVImport() {
+    if (!this._parsedRows || !this._parsedRows.length) return;
+    const allAtt = DB.get('attendance') || [];
+    let count = 0;
+    this._parsedRows.forEach(r => {
+      const existing = allAtt.find(a => a.employeeId === r.employeeId && a.date === r.date);
+      if (existing) {
+        existing.clockIn = r.clockIn;
+        existing.clockOut = r.clockOut;
+        existing.status = r.status;
+        existing.notes = r.notes;
+      } else {
+        allAtt.push({ id: Date.now() + Math.random(), ...r });
+      }
+      count++;
+    });
+    DB.save('attendance', allAtt);
+    Toast.show(`Successfully imported ${count} attendance records!`, 'success');
+    Modal.close();
+    this.render();
   }
 
 };

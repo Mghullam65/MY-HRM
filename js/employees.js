@@ -117,6 +117,7 @@ const Employees = {
               </button>
               <button class="btn btn-sm ${this.currentView==='orgchart'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('orgchart')">
                 <i class="fa fa-sitemap"></i> Organization Chart
+              </button>
               <button class="btn btn-sm ${this.currentView==='career_moves'?'btn-primary':'btn-ghost'}" onclick="Employees.switchView('career_moves')">
                 <i class="fa fa-route"></i> Career Moves (Promotions &amp; Transfers)
               </button>
@@ -195,6 +196,9 @@ const Employees = {
               <option value="Contract">Contract</option>
             </select>
             ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
+              <button class="btn btn-secondary" onclick="Employees.showBulkImportModal()">
+                <i class="fa fa-file-excel"></i> Import CSV
+              </button>
               <button class="btn btn-primary" onclick="Employees.showAddForm()">
                 <i class="fa fa-plus"></i> Add Employee
               </button>
@@ -300,6 +304,220 @@ const Employees = {
       this.renderProbationWorkspace(container);
       return;
     }
+
+  renderOrgChart(container) {
+    const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
+    const depts = DB.get('departments') || [];
+
+    const cLevel = emps.filter(e => (e.designation || '').toLowerCase().includes('ceo') || (e.designation || '').toLowerCase().includes('director') || e.id === 1);
+    const deptHeads = emps.filter(e => !cLevel.includes(e) && ((e.designation || '').toLowerCase().includes('head') || (e.designation || '').toLowerCase().includes('lead') || depts.some(d => d.head === e.fullName)));
+    const managers = emps.filter(e => !cLevel.includes(e) && !deptHeads.includes(e) && ((e.designation || '').toLowerCase().includes('manager') || (e.designation || '').toLowerCase().includes('senior')));
+    const staff = emps.filter(e => !cLevel.includes(e) && !deptHeads.includes(e) && !managers.includes(e));
+
+    const renderCard = (e, roleTag, badgeClass) => {
+      const directReports = emps.filter(sub => sub.managerId === e.id || sub.reportingTo === e.id).length;
+      return `
+        <div class="org-node-card" style="background:var(--card);border:1px solid var(--border);border-top:3px solid var(--primary);border-radius:12px;padding:16px;width:240px;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,0.06);transition:transform .2s">
+          <div style="position:relative;display:inline-block;margin-bottom:8px">
+            <div class="avatar avatar-md mx-auto" style="background:${Utils.avatarColor(e.id)};overflow:hidden">
+              ${e.photo ? `<img src="${e.photo}" style="width:100%;height:100%;object-fit:cover" alt="${e.fullName}">` : Utils.avatarInitials(e.fullName)}
+            </div>
+            <span style="position:absolute;bottom:0;right:0;width:10px;height:10px;border-radius:50%;background:#10b981;border:2px solid var(--card)"></span>
+          </div>
+          <div style="font-weight:700;font-size:14px;color:var(--text);margin-bottom:2px">${e.fullName}</div>
+          <div style="font-size:11.5px;color:var(--primary);font-weight:600;margin-bottom:4px">${Utils.getDesigName ? Utils.getDesigName(e.designationId) : (e.designation || 'Specialist')}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:8px">
+            <span class="badge ${badgeClass}" style="font-size:10px">${Utils.getDeptName ? Utils.getDeptName(e.departmentId) : (e.department || 'Staff')}</span>
+            ${directReports > 0 ? `<span class="badge badge-secondary" style="font-size:10px">${directReports} Reports</span>` : ''}
+          </div>
+          <button class="btn btn-ghost btn-xs btn-block" onclick="Employees.renderProfile(${e.id})" style="font-size:11px">
+            <i class="fa fa-user"></i> View Profile
+          </button>
+        </div>
+      `;
+    };
+
+    container.innerHTML = `
+      <div style="padding:16px 0">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div>
+            <h3 style="font-size:16px;font-weight:800;margin:0 0 4px">Corporate Organization Hierarchy</h3>
+            <p style="font-size:12px;color:var(--text-3);margin:0">Visual corporate reporting structure across ${depts.length} departments (${emps.length} active staff)</p>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="Employees.switchView('current')"><i class="fa fa-list"></i> Table Roster</button>
+            <button class="btn btn-ghost btn-sm" onclick="Employees.switchView('directory')"><i class="fa fa-id-card"></i> Directory Cards</button>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()"><i class="fa fa-print"></i> Print Chart</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;padding-bottom:30px;text-align:center">
+          <div style="margin-bottom:12px">
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase">Level 1 • Executive Leadership</span>
+          </div>
+          <div style="display:flex;justify-content:center;gap:24px;margin-bottom:32px;position:relative">
+            ${cLevel.length > 0 ? cLevel.map(e => renderCard(e, 'Executive', 'badge-warning')).join('') : renderCard(emps[0] || { id: 1, fullName: 'Ahmed Khan', designation: 'Chief Executive Officer', department: 'Executive' }, 'CEO', 'badge-warning')}
+          </div>
+
+          <div style="width:2px;height:24px;background:var(--border);margin:0 auto 12px"></div>
+
+          <div style="margin-bottom:12px">
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase">Level 2 • Department Heads &amp; Division Directors</span>
+          </div>
+          <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin-bottom:32px">
+            ${deptHeads.length > 0 ? deptHeads.map(e => renderCard(e, 'Head', 'badge-primary')).join('') : emps.slice(1, 4).map(e => renderCard(e, 'Head', 'badge-primary')).join('')}
+          </div>
+
+          <div style="width:2px;height:24px;background:var(--border);margin:0 auto 12px"></div>
+
+          <div style="margin-bottom:12px">
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase">Level 3 • Functional Managers &amp; Team Leads</span>
+          </div>
+          <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:20px;margin-bottom:32px">
+            ${managers.length > 0 ? managers.map(e => renderCard(e, 'Manager', 'badge-info')).join('') : emps.slice(4, 8).map(e => renderCard(e, 'Manager', 'badge-info')).join('')}
+          </div>
+
+          <div style="width:2px;height:24px;background:var(--border);margin:0 auto 12px"></div>
+
+          <div style="margin-bottom:12px">
+            <span style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:1px;text-transform:uppercase">Level 4 • Operations &amp; Technical Staff (${staff.length} Members)</span>
+          </div>
+          <div style="display:flex;justify-content:center;flex-wrap:wrap;gap:16px">
+            ${staff.slice(0, 10).map(e => renderCard(e, 'Specialist', 'badge-secondary')).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  showBulkImportModal() {
+    const html = `
+      <div style="padding:10px 0">
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700;font-size:13px">Download Employee CSV Template</div>
+            <div style="font-size:12px;color:var(--text-3)">Standard employee onboarding schema (FullName, Email, Phone, CNIC, Department, Designation, Salary, JoinDate)</div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="Employees.downloadSampleCSV()"><i class="fa fa-download"></i> Sample CSV</button>
+        </div>
+
+        <div style="border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;background:var(--surface);margin-bottom:16px"
+             ondragover="event.preventDefault();this.style.borderColor='var(--primary)';"
+             ondragleave="this.style.borderColor='var(--border)';"
+             ondrop="event.preventDefault();Employees.handleCSVFileDrop(event);">
+          <i class="fa fa-file-csv" style="font-size:36px;color:var(--primary);margin-bottom:8px"></i>
+          <div style="font-weight:700;font-size:14px;margin-bottom:4px">Drag & Drop Employee CSV / Excel File</div>
+          <div style="font-size:12px;color:var(--text-3);margin-bottom:12px">or click to browse your computer</div>
+          <input type="file" id="emp-csv-input" accept=".csv" style="display:none" onchange="Employees.handleCSVFileSelect(this)" />
+          <button class="btn btn-outline btn-sm" onclick="document.getElementById('emp-csv-input').click()"><i class="fa fa-folder-open"></i> Select CSV File</button>
+        </div>
+
+        <div id="emp-import-preview" style="display:none">
+          <div style="font-weight:700;font-size:13px;margin-bottom:8px">Data Validation Preview:</div>
+          <div style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:16px">
+            <table class="table" style="font-size:11.5px;margin:0">
+              <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Designation</th><th>Salary</th><th>Validation</th></tr></thead>
+              <tbody id="emp-import-tbody"></tbody>
+            </table>
+          </div>
+          <button class="btn btn-primary btn-block" onclick="Employees.confirmCSVImport()"><i class="fa fa-user-check"></i> Onboard & Import All Valid Employees</button>
+        </div>
+      </div>
+    `;
+
+    Modal.show('Bulk Onboard Employees (CSV / Excel Import)', html);
+  },
+
+  downloadSampleCSV() {
+    const csv = "FullName,Email,Phone,CNIC,Department,Designation,Salary,JoinDate,EmploymentType\\nZahid Malik,zahid.malik@apex.com,0300-1234567,42101-1234567-1,Information Technology,Software Engineer,120000,2026-09-01,Permanent\\nSana Riaz,sana.riaz@apex.com,0321-7654321,42201-9876543-2,Human Resources,HR Executive,75000,2026-09-10,Permanent\\nKamran Butt,kamran.butt@apex.com,0333-5554443,42301-4445556-3,Finance & Accounting,Accountant,85000,2026-09-15,Permanent";
+    Utils.downloadCSV(csv, "employee_onboarding_template.csv");
+  },
+
+  handleCSVFileSelect(input) {
+    if (!input.files || !input.files[0]) return;
+    this.parseCSVFile(input.files[0]);
+  },
+
+  handleCSVFileDrop(e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      this.parseCSVFile(e.dataTransfer.files[0]);
+    }
+  },
+
+  parseCSVFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const lines = text.split(/\\r?\\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length < 2) {
+        Toast.show('CSV file is empty or missing data rows', 'warning');
+        return;
+      }
+      this._parsedEmpRows = [];
+      const depts = DB.get('departments') || [];
+      const desigs = DB.get('designations') || [];
+
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          const deptMatch = depts.find(d => d.name.toLowerCase() === (parts[4] || '').toLowerCase()) || depts[0];
+          const desigMatch = desigs.find(d => d.title.toLowerCase() === (parts[5] || '').toLowerCase()) || desigs[0];
+
+          this._parsedEmpRows.push({
+            fullName: parts[0],
+            email: parts[1],
+            phone: parts[2] || '0300-0000000',
+            cnic: parts[3] || '42101-0000000-0',
+            departmentId: deptMatch ? deptMatch.id : 1,
+            department: deptMatch ? deptMatch.name : (parts[4] || 'Staff'),
+            designationId: desigMatch ? desigMatch.id : 1,
+            designation: desigMatch ? desigMatch.title : (parts[5] || 'Specialist'),
+            salary: Number(parts[6]) || 65000,
+            joinDate: parts[7] || (Utils.today ? Utils.today() : '2026-09-01'),
+            employmentType: parts[8] || 'Permanent',
+            status: 'active'
+          });
+        }
+      }
+
+      const previewDiv = document.getElementById('emp-import-preview');
+      const tbody = document.getElementById('emp-import-tbody');
+      if (previewDiv && tbody) {
+        tbody.innerHTML = this._parsedEmpRows.slice(0, 5).map(r => `
+          <tr>
+            <td><strong>${r.fullName}</strong></td>
+            <td>${r.email}</td>
+            <td>${r.department}</td>
+            <td>${r.designation}</td>
+            <td>PKR ${r.salary.toLocaleString()}</td>
+            <td><span class="badge badge-success"><i class="fa fa-check"></i> Valid</span></td>
+          </tr>
+        `).join('');
+        previewDiv.style.display = 'block';
+      }
+    };
+    reader.readAsText(file);
+  },
+
+  confirmCSVImport() {
+    if (!this._parsedEmpRows || !this._parsedEmpRows.length) return;
+    const emps = DB.get('employees') || [];
+    let count = 0;
+    this._parsedEmpRows.forEach(r => {
+      const nextId = emps.length ? Math.max(...emps.map(e => e.id)) + 1 : 1;
+      const empNo = `EMP-${String(nextId).padStart(3, '0')}`;
+      emps.push({
+        id: nextId,
+        empNo,
+        ...r
+      });
+      count++;
+    });
+    DB.save('employees', emps);
+    Toast.show(`Successfully onboarded & imported ${count} new employees!`, 'success');
+    Modal.close();
+    this.render();
+  },
 
     const emps = this.getFiltered();
 

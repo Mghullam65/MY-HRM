@@ -38,7 +38,8 @@ const STATIC_ASSETS = [
   './js/helpdesk.js',
   './js/reports.js',
   './js/administration.js',
-  './js/settings.js'
+  './js/settings.js',
+  './js/hrAssistant.js'
 ];
 
 self.addEventListener('install', (event) => {
