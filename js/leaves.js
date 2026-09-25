@@ -38,11 +38,40 @@ const Leaves = {
 
   render() {
     const content = document.getElementById('page-content');
+    if (!content) return;
+
+    if (!Auth.can('leaves.view')) {
+      content.innerHTML = `
+        <div class="empty-state animate-fade-in" style="padding:60px 20px;text-align:center">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+            <i class="fa fa-lock"></i>
+          </div>
+          <h3 style="font-weight:800;color:var(--text);margin-bottom:8px">403 Access Restricted</h3>
+          <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view the Leave module. Contact your administrator to adjust role permissions in Settings &gt; Roles &amp; Permissions.</p>
+        </div>
+      `;
+      return;
+    }
+
     const leaves = this.getScopedLeaves();
     const pending = leaves.filter(l => l.status === 'pending').length;
     const approved = leaves.filter(l => l.status === 'approved').length;
     const rejected = leaves.filter(l => l.status === 'rejected').length;
     const mgrApproved = leaves.filter(l => l.status === 'manager_approved').length;
+
+    // Filter available tabs based on granular permissions
+    const canManagePolicy = Auth.can('leaves.edit') || Auth.can('leaves.approve') || ['superadmin', 'hr_manager', 'dept_manager'].includes(Auth.role);
+    const availableTabs = [
+      { id:'requests',   label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null, allowed: true },
+      { id:'calendar',   label:'Leave & Holiday Calendar',   icon:'fa-calendar-days', allowed: true },
+      { id:'quota',      label:'Leave Quotas & Policies',    icon:'fa-scale-balanced', allowed: canManagePolicy },
+      { id:'tokens',     label:'Comp-Off & TOIL Bank',       icon:'fa-coins', allowed: true },
+      { id:'encashment', label:'Leave Encashment',           icon:'fa-hand-holding-dollar', allowed: true },
+    ].filter(t => t.allowed);
+
+    if (!availableTabs.some(t => this.isTabActive(t.id))) {
+      this.currentView = availableTabs[0]?.id || 'requests';
+    }
 
     content.innerHTML = `
       <div class="animate-fade-in">
@@ -66,13 +95,7 @@ const Leaves = {
 
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
         <div class="module-stage-tabs">
-          ${[
-            { id:'requests',   label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null },
-            { id:'calendar',   label:'Leave & Holiday Calendar',   icon:'fa-calendar-days' },
-            { id:'quota',      label:'Leave Quotas & Policies',    icon:'fa-scale-balanced' },
-            { id:'tokens',     label:'Comp-Off & TOIL Bank',       icon:'fa-coins' },
-            { id:'encashment', label:'Leave Encashment',           icon:'fa-hand-holding-dollar' },
-          ].map(t => `
+          ${availableTabs.map(t => `
             <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Leaves.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label} ${t.badge ? `<span class="badge badge-warning" style="margin-left:5px;font-size:10px;padding:2px 6px">${t.badge}</span>` : ''}
             </button>
@@ -150,15 +173,18 @@ const Leaves = {
     const isDeptMgr = Auth.role === 'dept_manager';
     const isHRorAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     const isEmployee = Auth.role === 'employee';
+    const canCreate = Auth.can('leaves.create');
+    const canApprove = Auth.can('leaves.approve');
+    const canDelete = Auth.can('leaves.delete');
 
     container.innerHTML = `
       <div class="card" style="padding:0">
-        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <div>
             <span style="font-weight:600">${isEmployee ? 'My Leave Requests' : isDeptMgr ? 'Team Leave Requests (Direct Reportees)' : 'All Leave Requests'}</span>
-            ${isDeptMgr ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-info-circle" style="color:var(--warning)"></i> View & approval only — Contact HR to apply or edit leaves on behalf of employees</div>` : ''}
+            ${!canApprove ? `<div style="font-size:11.5px;color:var(--text-3);margin-top:2px"><i class="fa fa-eye" style="color:var(--primary)"></i> View only mode — Approval authority restricted</div>` : ''}
           </div>
-          ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
+          ${canCreate ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
         </div>
         <div class="table-wrapper" style="border:none;border-radius:0">
           <table>
@@ -177,6 +203,7 @@ const Leaves = {
               leaves.map(leave => {
                 const emp = emps.find(e => e.id === leave.employeeId);
                 const type = types.find(t => t.id === leave.typeId);
+                const isSelf = Auth.employee?.id === leave.employeeId;
                 return `<tr>
                   <td><div style="display:flex;align-items:center;gap:10px">
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(leave.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
@@ -203,15 +230,15 @@ const Leaves = {
                   <td>
                     <div class="tbl-actions" style="flex-wrap:nowrap;gap:4px">
                       <button class="btn btn-ghost btn-icon btn-xs" onclick="Leaves.viewDetail(${leave.id})" title="View Details"><i class="fa fa-eye"></i></button>
-                      ${(isDeptMgr && leave.status === 'pending') ? `
-                        <button class="btn btn-primary btn-xs" onclick="Leaves.approve(${leave.id})" title="Manager Endorse / Approve">
-                          <i class="fa fa-user-check"></i> Mgr
+                      ${(canApprove && leave.status === 'pending') ? `
+                        <button class="btn ${isHRorAdmin ? 'btn-success' : 'btn-primary'} btn-xs" onclick="Leaves.approve(${leave.id})" title="${isHRorAdmin ? 'Final Corporate Approval' : 'Manager Endorse / Approve'}">
+                          <i class="fa ${isHRorAdmin ? 'fa-check-double' : 'fa-check'}"></i> ${isHRorAdmin ? 'Approve' : 'Endorse'}
                         </button>
                         <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.reject(${leave.id})" title="Reject">
                           <i class="fa fa-times"></i>
                         </button>
                       ` : ''}
-                      ${(isHRorAdmin && (leave.status === 'pending' || leave.status === 'manager_approved')) ? `
+                      ${(canApprove && isHRorAdmin && leave.status === 'manager_approved') ? `
                         <button class="btn btn-success btn-xs" onclick="Leaves.approve(${leave.id})" title="Final Corporate Approval">
                           <i class="fa fa-check-double"></i> Final
                         </button>
@@ -219,7 +246,7 @@ const Leaves = {
                           <i class="fa fa-times"></i>
                         </button>
                       ` : ''}
-                      ${isEmployee && leave.status === 'pending' ? `
+                      ${((isSelf && leave.status === 'pending') || canDelete) ? `
                         <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.cancelLeave(${leave.id})" title="Cancel"><i class="fa fa-ban"></i></button>
                       ` : ''}
                     </div>
@@ -344,7 +371,7 @@ const Leaves = {
             <i class="fa fa-umbrella-beach"></i> Corporate Holidays (${holidays.length})
           </button>
         </div>
-        ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
+        ${Auth.can('leaves.create') ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
       </div>
 
       <div class="card" style="padding:20px">
@@ -393,7 +420,7 @@ const Leaves = {
               <input type="text" class="form-control" placeholder="Search staff..." style="width:140px;font-size:12px;padding:6px 10px;height:34px" value="${this.calEmpSearch || ''}" oninput="Leaves.setCalEmpSearch(this.value)">
             ` : ''}
 
-            ${isMyMode ? `
+            ${Auth.can('leaves.create') ? (isMyMode ? `
               <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'my')">
                 <i class="fa fa-calendar-plus" style="margin-right:6px"></i> Apply for My Leave
               </button>
@@ -401,7 +428,7 @@ const Leaves = {
               <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'employee')">
                 <i class="fa fa-user-plus" style="margin-right:6px"></i> Mark Employee Leave
               </button>
-            `}
+            `) : ''}
           </div>
         </div>
 
@@ -444,16 +471,19 @@ const Leaves = {
             const dayLeaves = displayLeaves.filter(l => l.from <= dateStr && l.to >= dateStr);
             const dayHol = holidays.find(h => h.date === dateStr);
 
+            const canApply = Auth.can('leaves.create');
             return `
               <div class="leave-cal-day ${isToday ? 'today' : ''}" 
                    style="${isWeekend ? 'background:rgba(255,255,255,0.015);' : ''}${dayHol ? 'border-color:rgba(239,68,68,0.4);' : ''}"
-                   onclick="Leaves.onCalendarDateClick('${dateStr}', '${isMyMode ? 'my' : 'employee'}')"
-                   title="${isMyMode ? `Click to apply for your leave on ${dateStr}` : `Click to mark leave for an employee on ${dateStr}`}">
+                   ${canApply ? `onclick="Leaves.onCalendarDateClick('${dateStr}', '${isMyMode ? 'my' : 'employee'}')"` : ''}
+                   title="${canApply ? (isMyMode ? `Click to apply for your leave on ${dateStr}` : `Click to mark leave for an employee on ${dateStr}`) : `Leave calendar for ${dateStr}`}">
                 <div class="leave-cal-header">
                   <span class="cal-day-num" style="${isWeekend ? 'color:var(--danger);' : ''}${isToday ? 'background:var(--primary);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;' : ''}">${d}</span>
-                  <span class="cal-quick-apply">
-                    <i class="fa ${isMyMode ? 'fa-plus' : 'fa-user-plus'}"></i> ${isMyMode ? 'Apply' : 'Mark'}
-                  </span>
+                  ${canApply ? `
+                    <span class="cal-quick-apply">
+                      <i class="fa ${isMyMode ? 'fa-plus' : 'fa-user-plus'}"></i> ${isMyMode ? 'Apply' : 'Mark'}
+                    </span>
+                  ` : ''}
                 </div>
 
                 ${dayHol ? `
@@ -536,7 +566,7 @@ const Leaves = {
             <i class="fa fa-umbrella-beach"></i> Corporate Holidays (${holidays.length})
           </button>
         </div>
-        ${!isDeptMgr ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
+        ${Auth.can('leaves.create') ? `<button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-plus"></i> Apply Leave</button>` : ''}
       </div>
 
       <div class="card" style="padding:22px">
@@ -587,7 +617,7 @@ const Leaves = {
               <input type="text" class="form-control" placeholder="Search staff..." style="width:140px;font-size:12px;padding:6px 10px;height:34px" value="${this.calEmpSearch || ''}" oninput="Leaves.setCalEmpSearch(this.value)">
             ` : ''}
 
-            ${isMyMode ? `
+            ${Auth.can('leaves.create') ? (isMyMode ? `
               <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'my')">
                 <i class="fa fa-calendar-plus" style="margin-right:6px"></i> Apply for Leave
               </button>
@@ -595,7 +625,7 @@ const Leaves = {
               <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm(null, 'employee')">
                 <i class="fa fa-user-plus" style="margin-right:6px"></i> Mark Employee Leave
               </button>
-            `}
+            `) : ''}
           </div>
         </div>
 
@@ -886,6 +916,7 @@ const Leaves = {
   },
 
   renderQuotaMatrixTable(displayedRows, isEmployeeView, isHrOrAdmin) {
+    const canEdit = !isEmployeeView && Auth.can('leaves.edit');
     const sumQAnnual = displayedRows.reduce((s, r) => s + r.qAnnual, 0);
     const sumQSickCasual = displayedRows.reduce((s, r) => s + r.qSickCasual, 0);
     const sumQComp = displayedRows.reduce((s, r) => s + r.qComp, 0);
@@ -943,7 +974,7 @@ const Leaves = {
                 Other Leave
               </th>
 
-              ${!isEmployeeView && isHrOrAdmin ? `
+              ${canEdit ? `
                 <th rowspan="2" style="background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd;padding:9px 8px;text-align:right;font-weight:700">
                   Action
                 </th>
@@ -981,7 +1012,7 @@ const Leaves = {
           <tbody>
             ${displayedRows.length === 0 ? `
               <tr>
-                <td colspan="${!isEmployeeView && isHrOrAdmin ? 21 : 20}" style="padding:32px;text-align:center;color:var(--text-muted)">
+                <td colspan="${canEdit ? 21 : 20}" style="padding:32px;text-align:center;color:var(--text-muted)">
                   <i class="fa fa-scale-balanced" style="font-size:24px;margin-bottom:8px"></i>
                   <div>No employee quota records match the selected filters.</div>
                 </td>
@@ -1020,7 +1051,7 @@ const Leaves = {
                 <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.otherUnpaid>0?'var(--danger)':'var(--text-3)'}">${r.otherUnpaid}</td>
                 <td style="border:1px solid #e0f2fe;padding:7px 6px;text-align:center;color:${r.otherToken>0?'#a855f7':'var(--text-3)'}">${r.otherToken}</td>
 
-                ${!isEmployeeView && isHrOrAdmin ? `
+                ${canEdit ? `
                   <td style="border:1px solid #e0f2fe;padding:7px 8px;text-align:right">
                     <button class="btn btn-ghost btn-sm" onclick="Leaves.showSetQuotaModal(${r.empId})" title="Edit Leave Quotas for ${r.fullName}" style="padding:3px 8px">
                       <i class="fa fa-pen" style="font-size:11px"></i>
@@ -1053,7 +1084,7 @@ const Leaves = {
                 <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center;font-weight:900;background:#dbeafe;color:#047857">${sumRemTotal}</td>
                 <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumOtherUnpaid}</td>
                 <td style="border:1px solid #bae6fd;padding:9px 6px;text-align:center">${sumOtherToken}</td>
-                ${!isEmployeeView && isHrOrAdmin ? '<td style="border:1px solid #bae6fd"></td>' : ''}
+                ${canEdit ? '<td style="border:1px solid #bae6fd"></td>' : ''}
               </tr>
             </tfoot>
           ` : ''}
@@ -1063,6 +1094,10 @@ const Leaves = {
   },
 
   exportQuotaMatrixCSV() {
+    if (!Auth.can('leaves.export')) {
+      Toast.show('Permission denied: You do not have permission to export leave records.', 'warning');
+      return;
+    }
     const activeEmps = this.getScopedEmployees();
     const rows = activeEmps.map(emp => this.getEmployeeLeaveQuotaMetrics(emp, this.quotaYear || 2026));
     
@@ -1199,7 +1234,9 @@ const Leaves = {
               <div style="font-size:12.5px;color:var(--text-3)">${Utils.getDeptName(myEmp.departmentId)} • ${Utils.getDesigName(myEmp.designationId)} • Emp #: ${myEmp.empNo}</div>
             </div>
             <div>
-              <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-calendar-plus"></i> Apply for Leave</button>
+              ${Auth.can('leaves.create') ? `
+                <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyForm()"><i class="fa fa-calendar-plus"></i> Apply for Leave</button>
+              ` : ''}
             </div>
           </div>
 
@@ -1225,9 +1262,11 @@ const Leaves = {
               <div style="font-size:15px;font-weight:800;color:var(--text)">
                 <i class="fa fa-table-cells" style="color:var(--primary);margin-right:6px"></i> My Leave Quota &amp; Balance Breakdown (2026)
               </div>
-              <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()">
-                <i class="fa fa-download"></i> Download My Ledger
-              </button>
+              ${Auth.can('leaves.export') ? `
+                <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()">
+                  <i class="fa fa-download"></i> Download My Ledger
+                </button>
+              ` : ''}
             </div>
             ${this.renderQuotaMatrixTable([myRow], true, false)}
           </div>
@@ -1349,10 +1388,12 @@ const Leaves = {
                 <i class="fa fa-tags" style="margin-right:6px"></i>Leave Types &amp; Policy (${types.length})
               </button>
             </div>
-            <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()" title="Export complete matrix to CSV">
-              <i class="fa fa-file-export"></i> Export CSV
-            </button>
-            ${isHrOrAdmin ? `
+            ${Auth.can('leaves.export') ? `
+              <button class="btn btn-ghost btn-sm" onclick="Leaves.exportQuotaMatrixCSV()" title="Export complete matrix to CSV">
+                <i class="fa fa-file-export"></i> Export CSV
+              </button>
+            ` : ''}
+            ${Auth.can('leaves.edit') ? `
               <button class="btn btn-ghost btn-sm" onclick="Leaves.bulkAllocateQuotas()"><i class="fa fa-wand-magic-sparkles"></i> Bulk Allocate 2026 Quotas</button>
               <button class="btn btn-primary btn-sm" onclick="Leaves.showSetQuotaModal()"><i class="fa fa-plus"></i> Set / Allocate Quota</button>
             ` : ''}
@@ -1443,8 +1484,8 @@ const Leaves = {
   },
 
   showSetQuotaModal(preselectEmpId) {
-    if (Auth.role === 'employee') {
-      Toast.show('Access restricted: Employees cannot allocate quotas.', 'error');
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Access restricted: You do not have permission to allocate or edit quotas.', 'error');
       return;
     }
     const emps = DB.get('employees').filter(e => e.status === 'active');
@@ -1502,7 +1543,7 @@ const Leaves = {
   },
 
   saveQuota() {
-    if (Auth.role === 'employee') { Toast.show('Permission denied.', 'error'); return; }
+    if (!Auth.can('leaves.edit')) { Toast.show('Permission denied: Cannot save quota.', 'error'); return; }
     const empId = parseInt(document.getElementById('sq-emp').value);
     const year = parseInt(document.getElementById('sq-year').value) || 2026;
     if (!empId) return;
@@ -1544,7 +1585,7 @@ const Leaves = {
   },
 
   bulkAllocateQuotas() {
-    if (Auth.role === 'employee') { Toast.show('Permission denied.', 'error'); return; }
+    if (!Auth.can('leaves.edit')) { Toast.show('Permission denied: Cannot bulk allocate quotas.', 'error'); return; }
     const emps = DB.get('employees').filter(e => e.status === 'active');
     const types = DB.get('leave_types') || [];
     const balances = DB.get('leave_balances') || [];
@@ -1689,15 +1730,15 @@ const Leaves = {
                 <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);margin-top:auto">
                   <span style="font-size:11px;color:var(--text-muted)">ID: #${t.id}</span>
                   <div style="display:flex;gap:6px">
-                    ${isHrOrAdmin ? `
+                    ${Auth.can('leaves.edit') ? `
                       <button class="btn btn-ghost btn-xs" onclick="Leaves.showEditType(${t.id})" title="Edit leave type policy" style="padding:4px 8px">
                         <i class="fa fa-pen"></i> Edit
                       </button>
-                      ${t.id > 7 ? `
-                        <button class="btn btn-ghost btn-xs" onclick="Leaves.deleteType(${t.id})" title="Delete custom type" style="padding:4px 8px;color:var(--danger)">
-                          <i class="fa fa-trash"></i>
-                        </button>
-                      ` : ''}
+                    ` : ''}
+                    ${Auth.can('leaves.delete') && t.id > 7 ? `
+                      <button class="btn btn-ghost btn-xs" onclick="Leaves.deleteType(${t.id})" title="Delete custom type" style="padding:4px 8px;color:var(--danger)">
+                        <i class="fa fa-trash"></i>
+                      </button>
                     ` : ''}
                     <button class="btn btn-outline btn-xs" onclick="Leaves.setQuotaSubView('matrix')" title="View in employee quota matrix" style="padding:4px 8px">
                       <i class="fa fa-table-cells"></i> Quotas
@@ -1713,8 +1754,8 @@ const Leaves = {
   },
 
   showAddType() {
-    if (Auth.role === 'employee') {
-      Toast.show('Permission denied: Employees cannot add leave types.', 'error');
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You cannot add leave types.', 'error');
       return;
     }
     Modal.show('Add Leave Type', `
@@ -1752,8 +1793,8 @@ const Leaves = {
   },
 
   showEditType(id) {
-    if (Auth.role === 'employee' || Auth.role === 'onboarding') {
-      Toast.show('Permission denied: Employees cannot edit leave types.', 'error');
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to edit leave types.', 'error');
       return;
     }
     const type = DB.find('leave_types', id);
@@ -1783,7 +1824,7 @@ const Leaves = {
   },
 
   updateType(id) {
-    if (Auth.role === 'employee' || Auth.role === 'onboarding') { Toast.show('Permission denied.', 'error'); return; }
+    if (!Auth.can('leaves.edit')) { Toast.show('Permission denied.', 'error'); return; }
     const name = document.getElementById('lt-edit-name').value.trim();
     const code = document.getElementById('lt-edit-code').value.trim();
     if (!name || !code) { Toast.show('Name and code required', 'error'); return; }
@@ -1800,8 +1841,8 @@ const Leaves = {
   },
 
   deleteType(id) {
-    if (Auth.role !== 'superadmin' && Auth.role !== 'hr_manager') {
-      Toast.show('Permission denied: Only Administrators and HR can delete leave types.', 'error');
+    if (!Auth.can('leaves.delete')) {
+      Toast.show('Permission denied: You do not have permission to delete leave types.', 'error');
       return;
     }
     const type = DB.find('leave_types', id);
@@ -1855,6 +1896,10 @@ const Leaves = {
   },
 
   onCalendarDateClick(dateStr, mode) {
+    if (!Auth.can('leaves.create')) {
+      Toast.show('Permission denied: You do not have permission to apply for leave.', 'warning');
+      return;
+    }
     this.showApplyForm(dateStr, mode || this.calMode);
   },
 
@@ -1871,6 +1916,10 @@ const Leaves = {
   },
 
   showApplyForm(prefillDate, targetMode) {
+    if (!Auth.can('leaves.create')) {
+      Toast.show('Permission denied: You do not have permission to submit or mark leave applications.', 'warning');
+      return;
+    }
     const types = DB.get('leave_types') || [];
     const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const role = Auth.role;
@@ -2484,6 +2533,10 @@ const Leaves = {
 
 
   approve(leaveId) {
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve leaves.', 'error');
+      return;
+    }
     const leave = DB.find('leave_requests', leaveId);
     if (!leave) return;
 
@@ -2557,6 +2610,10 @@ const Leaves = {
 
 
   reject(leaveId) {
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to reject leaves.', 'error');
+      return;
+    }
     const _rejectLeave = DB.find('leave_requests', leaveId);
     DB.update('leave_requests', leaveId, { status: 'rejected', approvedOn: Utils.today(), comments: 'Rejected' });
     DB.flushServerPush();
@@ -2589,6 +2646,12 @@ const Leaves = {
 
 
   cancelLeave(leaveId) {
+    const leave = DB.find('leave_requests', leaveId);
+    const isSelf = Auth.employee && leave && leave.employeeId === Auth.employee.id;
+    if (!isSelf && !Auth.can('leaves.delete')) {
+      Toast.show('Permission denied: You do not have permission to cancel this leave request.', 'error');
+      return;
+    }
     Modal.confirm('Cancel Leave', 'Are you sure you want to cancel this leave request?', () => {
       DB.delete('leave_requests', leaveId);
       DB.flushServerPush();
@@ -2634,8 +2697,8 @@ const Leaves = {
   nextMonth() { if (this.calMonth === 11) { this.calMonth = 0; this.calYear++; } else this.calMonth++; this.renderView(); },
 
   showAddHoliday() {
-    if (Auth.role === 'employee') {
-      Toast.show('Permission denied: Employees cannot add holidays.', 'error');
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to add holidays.', 'error');
       return;
     }
     Modal.show('Add Holiday', `
@@ -2661,7 +2724,7 @@ const Leaves = {
     });
   },
   saveHoliday() {
-    if (Auth.role === 'employee') { Toast.show('Permission denied.', 'error'); return; }
+    if (!Auth.can('leaves.edit')) { Toast.show('Permission denied: Cannot save holiday.', 'error'); return; }
     const name = document.getElementById('hl-name').value.trim();
     const date = document.getElementById('hl-date').value;
     if (!name || !date) { Toast.show('Name and date are required', 'error'); return; }
@@ -2874,12 +2937,14 @@ const Leaves = {
                         </td>
                         <td style="font-size:11.5px;color:var(--text-3)">${t.appliedOn}</td>
                         <td style="text-align:center;white-space:nowrap">
-                          <button class="btn btn-success btn-sm" style="margin-right:6px" onclick="Leaves.approveOvertimeToken(${t.id})" title="Approve token claim if work was assigned">
-                            <i class="fa fa-check"></i> Approve
-                          </button>
-                          <button class="btn btn-danger btn-sm" onclick="Leaves.rejectOvertimeToken(${t.id})" title="Reject token claim">
-                            <i class="fa fa-times"></i> Reject
-                          </button>
+                          ${Auth.can('leaves.approve') ? `
+                            <button class="btn btn-success btn-sm" style="margin-right:6px" onclick="Leaves.approveOvertimeToken(${t.id})" title="Approve token claim if work was assigned">
+                              <i class="fa fa-check"></i> Approve
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="Leaves.rejectOvertimeToken(${t.id})" title="Reject token claim">
+                              <i class="fa fa-times"></i> Reject
+                            </button>
+                          ` : `<span class="badge badge-secondary">Pending Approval</span>`}
                         </td>
                       </tr>
                     `;
@@ -4140,6 +4205,10 @@ const Leaves = {
   },
 
   approveOvertimeToken(tokenId) {
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve overtime tokens.', 'error');
+      return;
+    }
     const tokens = DB.get('overtime_tokens') || [];
     const token = tokens.find(t => t.id === tokenId);
     if (!token) { Toast.show('Token not found', 'error'); return; }
@@ -4170,6 +4239,10 @@ const Leaves = {
   },
 
   rejectOvertimeToken(tokenId) {
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to reject overtime tokens.', 'error');
+      return;
+    }
     const tokens = DB.get('overtime_tokens') || [];
     const token = tokens.find(t => t.id === tokenId);
     if (!token) { Toast.show('Token not found', 'error'); return; }
@@ -4239,10 +4312,12 @@ const Leaves = {
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button class="btn btn-primary" onclick="Leaves.showApplyLeaveEncashmentModal()">
-                <i class="fa fa-plus-circle"></i> Apply Leave Encashment
-              </button>
-              ${isHRorAdmin ? `
+              ${Auth.can('leaves.create') ? `
+                <button class="btn btn-primary" onclick="Leaves.showApplyLeaveEncashmentModal()">
+                  <i class="fa fa-plus-circle"></i> Apply Leave Encashment
+                </button>
+              ` : ''}
+              ${Auth.can('leaves.edit') ? `
                 <button class="btn btn-outline" onclick="Leaves.showBulkEncashmentModal()">
                   <i class="fa fa-users-gear"></i> Annual Bulk Encashment Run
                 </button>
@@ -4306,9 +4381,11 @@ const Leaves = {
               </div>
             </div>
             <div style="display:flex;gap:8px">
-              <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyLeaveEncashmentModal()">
-                <i class="fa fa-plus"></i> New Application
-              </button>
+              ${Auth.can('leaves.create') ? `
+                <button class="btn btn-primary btn-sm" onclick="Leaves.showApplyLeaveEncashmentModal()">
+                  <i class="fa fa-plus"></i> New Application
+                </button>
+              ` : ''}
             </div>
           </div>
 
@@ -4370,7 +4447,7 @@ const Leaves = {
                         <button class="btn btn-outline btn-xs" style="margin-right:4px" onclick="Leaves.showEncashmentSlipModal(${e.id})" title="View / Print Encashment Certificate">
                           <i class="fa fa-file-invoice-dollar"></i> Slip
                         </button>
-                        ${isHRorAdmin && isPending ? `
+                        ${Auth.can('leaves.approve') && isPending ? `
                           <button class="btn btn-success btn-xs" style="margin-right:4px" onclick="Leaves.approveLeaveEncashment(${e.id})" title="Approve & Schedule for Payroll">
                             <i class="fa fa-check"></i>
                           </button>
@@ -4391,6 +4468,10 @@ const Leaves = {
   },
 
   showApplyLeaveEncashmentModal(prefillEmpId) {
+    if (!Auth.can('leaves.create')) {
+      Toast.show('Permission denied: You do not have permission to apply for leave encashment.', 'error');
+      return;
+    }
     const allEmps = (DB.get('employees') || []).filter(e => e.status === 'active');
     const myEmpId = Auth.employee?.id || 1;
     const isHRorAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
@@ -4596,8 +4677,8 @@ const Leaves = {
   },
 
   approveLeaveEncashment(id) {
-    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
-      Toast.show('Permission denied', 'error');
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve leave encashments.', 'error');
       return;
     }
     const encashments = DB.get('leave_encashments') || [];
@@ -4644,8 +4725,8 @@ const Leaves = {
   },
 
   rejectLeaveEncashment(id) {
-    if (!['superadmin', 'hr_manager'].includes(Auth.role)) {
-      Toast.show('Permission denied', 'error');
+    if (!Auth.can('leaves.approve')) {
+      Toast.show('Permission denied: You do not have permission to reject leave encashments.', 'error');
       return;
     }
     const encashments = DB.get('leave_encashments') || [];
@@ -4742,6 +4823,10 @@ const Leaves = {
   },
 
   showBulkEncashmentModal() {
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to run bulk encashment.', 'error');
+      return;
+    }
     const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
     const balances = DB.get('leave_balances') || [];
 
@@ -4815,6 +4900,10 @@ const Leaves = {
   },
 
   processBulkEncashmentBatch() {
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to execute bulk encashment.', 'error');
+      return;
+    }
     const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
     const balances = DB.get('leave_balances') || [];
     const encashments = DB.get('leave_encashments') || [];
@@ -4863,6 +4952,10 @@ const Leaves = {
   },
 
   showYearEndCarryForwardModal() {
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to access year-end carry-forward.', 'error');
+      return;
+    }
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
     const employees = (DB.get('employees') || []).filter(e => e.status === 'active');
@@ -4973,6 +5066,10 @@ const Leaves = {
   },
 
   executeYearEndCarryForward() {
+    if (!Auth.can('leaves.edit')) {
+      Toast.show('Permission denied: You do not have permission to execute carry forward.', 'error');
+      return;
+    }
     const currentYear = new Date().getFullYear();
     const nextYear = currentYear + 1;
     const employees = (DB.get('employees') || []).filter(e => e.status === 'active');

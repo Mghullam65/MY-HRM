@@ -42,6 +42,20 @@ const Attendance = {
 
   render() {
     const content = document.getElementById('page-content');
+    if (!Auth.can('attendance.view')) {
+      if (content) {
+        content.innerHTML = `
+          <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+            <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+              <i class="fa fa-ban"></i>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+            <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Attendance records.</p>
+          </div>
+        `;
+      }
+      return;
+    }
     const isEmployee = Auth.role === 'employee' || Auth.role === 'onboarding';
     const isManager = Auth.role === 'dept_manager';
     const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
@@ -911,6 +925,10 @@ const Attendance = {
   },
 
   exportMyEmpAttendance() {
+    if (!Auth.can('attendance.export')) {
+      Toast.show('Permission denied: You do not have permission to export attendance data.', 'error');
+      return;
+    }
     const emps = this.getScopedEmployees();
     const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
     let deptFiltered = emps;
@@ -1603,6 +1621,10 @@ const Attendance = {
   },
 
   exportMyAttendance() {
+    if (!Auth.can('attendance.export')) {
+      Toast.show('Permission denied: You do not have permission to export attendance data.', 'error');
+      return;
+    }
     const myEmp = Auth.employee || DB.find('employees', 4);
     const myEmpId = myEmp?.id || 4;
     const allAtt = DB.get('attendance') || [];
@@ -3146,6 +3168,10 @@ const Attendance = {
   },
 
   exportAttendance() {
+    if (!Auth.can('attendance.export')) {
+      Toast.show('Permission denied: You do not have permission to export attendance data.', 'error');
+      return;
+    }
     if (this.currentView === 'my_employees') {
       this.exportMyEmpAttendance();
       return;
@@ -3335,6 +3361,10 @@ const Attendance = {
   },
 
   approveCorrection(corrId, tier) {
+    if (!Auth.can('attendance.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve attendance corrections.', 'error');
+      return;
+    }
     let corrections = DB.get('attendance_corrections') || [];
     const item = corrections.find(c => c.id === corrId);
     if (!item) return;
@@ -3423,6 +3453,10 @@ const Attendance = {
 
 
   rejectCorrection(corrId) {
+    if (!Auth.can('attendance.approve')) {
+      Toast.show('Permission denied: You do not have permission to reject attendance corrections.', 'error');
+      return;
+    }
     Modal.confirm('Reject Attendance Correction', 'Are you sure you want to reject this request?', () => {
       let corrections = DB.get('attendance_corrections') || [];
       const item = corrections.find(c => c.id === corrId);
@@ -4430,6 +4464,10 @@ const Attendance = {
   },
 
   managerApproveShiftSwap(swapId, action) {
+    if (!Auth.can('attendance.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve/reject shift swaps.', 'error');
+      return;
+    }
     let swaps = DB.get('shift_swaps') || [];
     const swap = swaps.find(s => s.id === swapId);
     if (!swap) return;
@@ -4463,6 +4501,10 @@ const Attendance = {
   },
 
   exportRosterCSV() {
+    if (!Auth.can('attendance.export')) {
+      Toast.show('Permission denied: You do not have permission to export shift roster.', 'error');
+      return;
+    }
     const emps = this.getScopedEmployees();
     const days = this.getRosterDays();
     const shifts = DB.get('shifts') || [];

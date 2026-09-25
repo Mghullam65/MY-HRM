@@ -12,6 +12,19 @@ const Expenses = {
     const container = document.getElementById('page-content');
     if (!container) return;
 
+    if (!Auth.can('travel_expenses.view')) {
+      container.innerHTML = `
+        <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+            <i class="fa fa-ban"></i>
+          </div>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Expense Claims & Reimbursements.</p>
+        </div>
+      `;
+      return;
+    }
+
     const role = Auth.role;
     const isEmp = role === 'employee';
     const isMgr = role === 'dept_manager';
@@ -57,15 +70,17 @@ const Expenses = {
         </div>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="Expenses.exportCSV()">
-            <i class="fa fa-file-csv"></i> Export Claims
-          </button>
-          ${isAdmin ? `
+          ${Auth.can('travel_expenses.export') ? `
+            <button class="btn btn-outline btn-sm" onclick="Expenses.exportCSV()">
+              <i class="fa fa-file-csv"></i> Export Claims
+            </button>
+          ` : ''}
+          ${Auth.can('travel_expenses.approve') || isAdmin ? `
             <button class="btn btn-outline btn-sm" style="color:var(--primary)" onclick="Expenses.syncApprovedToPayroll()">
               <i class="fa fa-money-bill-transfer"></i> 1-Click Sync to Payroll
             </button>
           ` : ''}
-          ${this.activeTab === 'travel_requests' ? `
+          ${Auth.can('travel_expenses.create') ? (this.activeTab === 'travel_requests' ? `
             <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateTravelModal()">
               <i class="fa fa-plane-departure"></i> New Travel Requisition
             </button>
@@ -73,7 +88,7 @@ const Expenses = {
             <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateModal()">
               <i class="fa fa-plus"></i> Submit Expense Claim
             </button>
-          `}
+          `) : ''}
         </div>
       </div>
 
@@ -235,9 +250,9 @@ const Expenses = {
             <tbody>
               ${claims.map(c => {
                 const emp = allEmps.find(e => e.id === c.employeeId);
-                const isClaimant = c.employeeId === myEmpId;
-                const canApproveManager = (role === 'dept_manager' || role === 'superadmin' || role === 'hr_manager') && c.status === 'pending_manager' && !isClaimant;
-                const canApproveFinance = (role === 'superadmin' || role === 'hr_manager') && c.status === 'pending_finance';
+                const canApprove = Auth.can('travel_expenses.approve');
+                const canApproveManager = canApprove && (role === 'dept_manager' || role === 'superadmin' || role === 'hr_manager') && c.status === 'pending_manager' && !isClaimant;
+                const canApproveFinance = canApprove && (role === 'superadmin' || role === 'hr_manager') && c.status === 'pending_finance';
 
                 return `
                   <tr>
@@ -511,6 +526,10 @@ const Expenses = {
   },
 
   processDecision(claimId, stage, approved) {
+    if (!Auth.can('travel_expenses.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve/reject claims.', 'error');
+      return;
+    }
     const remarks = document.getElementById('review-remarks')?.value.trim() || (approved ? 'Approved in full' : 'Claim rejected after audit');
     const claims = DB.get('expense_claims') || [];
     const claim = claims.find(c => c.id === claimId);
@@ -554,6 +573,10 @@ const Expenses = {
   },
 
   syncApprovedToPayroll() {
+    if (!Auth.can('travel_expenses.approve') && !['superadmin', 'hr_manager'].includes(Auth.role)) {
+      Toast.show('Permission denied: You do not have permission to sync claims to payroll.', 'error');
+      return;
+    }
     const claims = DB.get('expense_claims') || [];
     const approvedClaims = claims.filter(c => c.status === 'approved');
 
@@ -700,6 +723,10 @@ const Expenses = {
   },
 
   exportCSV() {
+    if (!Auth.can('travel_expenses.export')) {
+      Toast.show('Permission denied: You do not have permission to export expense claims.', 'error');
+      return;
+    }
     const claims = DB.get('expense_claims') || [];
     const emps = DB.get('employees') || [];
 
@@ -1007,6 +1034,10 @@ const Expenses = {
   },
 
   approveTravelRequest(id) {
+    if (!Auth.can('travel_expenses.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve travel requisitions.', 'error');
+      return;
+    }
     let list = DB.get('travel_requests') || [];
     const req = list.find(t => t.id === id);
     if (!req) return;

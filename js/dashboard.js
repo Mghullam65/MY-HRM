@@ -800,10 +800,12 @@ const Dashboard = {
                         ${l.status==='manager_approved'?'<span class="badge badge-info" style="margin-left:6px;margin-right:12px">Mgr Approved</span>':''}
                       </div>
                     </div>
+                    ${Auth.can('leaves.approve') ? `
                     <div class="pi-actions" style="display:flex;gap:6px;margin-left:14px;flex-shrink:0">
                       <button class="btn btn-success btn-sm" onclick="Leaves.approve(${l.id});setTimeout(()=>App.navigate('dashboard'),200)" title="Approve Leave"><i class="fa fa-check"></i></button>
                       <button class="btn btn-danger btn-sm" onclick="Leaves.reject(${l.id});setTimeout(()=>App.navigate('dashboard'),200)" title="Reject Leave"><i class="fa fa-times"></i></button>
                     </div>
+                    ` : ''}
                   </div>
                 `;
               }).join('');
@@ -956,10 +958,10 @@ const Dashboard = {
           color: 'var(--warning)',
           title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
           sub: `${l.from} → ${l.to} • "${l.reason || 'Personal emergency'}"`,
-          actions: `
+          actions: Auth.can('leaves.approve') ? `
             <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Approve</button>
             <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
-          `
+          ` : `<span class="badge badge-secondary">Pending Approval</span>`
         });
       });
     } else if (isAdmin) {
@@ -972,10 +974,10 @@ const Dashboard = {
           color: l.status === 'manager_approved' ? 'var(--info)' : 'var(--warning)',
           title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
           sub: `${l.from} → ${l.to} ${l.status === 'manager_approved' ? '(Endorsed by Dept Manager)' : ''}`,
-          actions: `
+          actions: Auth.can('leaves.approve') ? `
             <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Final Approve</button>
             <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
-          `
+          ` : `<span class="badge badge-secondary">Pending Corporate Signoff</span>`
         });
       });
     }

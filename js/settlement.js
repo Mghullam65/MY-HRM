@@ -11,7 +11,7 @@ const Settlement = {
   filterDept: 'all',
 
   isAdmin() {
-    return typeof Auth !== 'undefined' && (Auth.role === 'superadmin' || Auth.role === 'hr_manager');
+    return typeof Auth !== 'undefined' && (Auth.can('settlement.create') || Auth.can('settlement.edit') || Auth.can('settlement.approve') || Auth.role === 'superadmin' || Auth.role === 'hr_manager');
   },
 
   isDeptManager() {
@@ -28,6 +28,19 @@ const Settlement = {
       }
     }
     if (!content) return;
+
+    if (!Auth.can('settlement.view')) {
+      content.innerHTML = `
+        <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+            <i class="fa fa-ban"></i>
+          </div>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Final Settlement records.</p>
+        </div>
+      `;
+      return;
+    }
 
     const isAdmin = this.isAdmin();
     const isDeptMgr = this.isDeptManager();
@@ -67,10 +80,12 @@ const Settlement = {
           </div>
 
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <button class="btn btn-secondary btn-sm" onclick="Settlement.exportCSV()" title="Export Settlements Register as CSV">
-              <i class="fa fa-download"></i> Export CSV
-            </button>
-            ${isAdmin ? `
+            ${Auth.can('settlement.export') ? `
+              <button class="btn btn-secondary btn-sm" onclick="Settlement.exportCSV()" title="Export Settlements Register as CSV">
+                <i class="fa fa-download"></i> Export CSV
+              </button>
+            ` : ''}
+            ${Auth.can('settlement.create') ? `
               <button class="btn btn-primary btn-sm" onclick="Settlement.openAddModal()" style="font-weight:700">
                 <i class="fa fa-plus"></i> + New Settlement
               </button>
@@ -259,14 +274,18 @@ const Settlement = {
               <button class="btn btn-ghost btn-xs" onclick="Settlement.viewVoucher('${s.id}')" title="View & Print Official Settlement Voucher">
                 <i class="fa fa-print"></i>
               </button>
-              ${isAdmin ? `
+              ${Auth.can('settlement.approve') || isAdmin ? `
                 <button class="btn btn-ghost btn-xs" onclick="Settlement.openClearanceModal('${s.id}')" title="Manage Clearance Gates">
                   <i class="fa fa-tasks"></i>
                 </button>
-                <button class="btn btn-ghost btn-xs" onclick="Settlement.openEditModal('${s.id}')" title="Edit Settlement Details (Admin Only)">
+              ` : ''}
+              ${Auth.can('settlement.edit') || isAdmin ? `
+                <button class="btn btn-ghost btn-xs" onclick="Settlement.openEditModal('${s.id}')" title="Edit Settlement Details">
                   <i class="fa fa-pen"></i>
                 </button>
-                <button class="btn btn-ghost btn-xs text-danger" onclick="Settlement.confirmDelete('${s.id}')" title="Delete Settlement (Admin Only)">
+              ` : ''}
+              ${Auth.can('settlement.delete') || isAdmin ? `
+                <button class="btn btn-ghost btn-xs text-danger" onclick="Settlement.confirmDelete('${s.id}')" title="Delete Settlement">
                   <i class="fa fa-trash"></i>
                 </button>
               ` : ''}
@@ -447,8 +466,8 @@ const Settlement = {
   // ADMIN ACTIONS: ADD SETTLEMENT MODAL
   // ────────────────────────────────────────────────────────────
   openAddModal() {
-    if (!this.isAdmin()) {
-      Toast.show('403 Forbidden: Creating settlements requires Administrator rights.', 'error');
+    if (!Auth.can('settlement.create') && !this.isAdmin()) {
+      Toast.show('403 Forbidden: Creating settlements requires Create permission.', 'error');
       return;
     }
 
@@ -731,8 +750,8 @@ const Settlement = {
   // ADMIN ACTIONS: EDIT SETTLEMENT MODAL
   // ────────────────────────────────────────────────────────────
   openEditModal(settlementId) {
-    if (!this.isAdmin()) {
-      Toast.show('403 Forbidden: Editing settlements requires Administrator rights.', 'error');
+    if (!Auth.can('settlement.edit') && !this.isAdmin()) {
+      Toast.show('403 Forbidden: Editing settlements requires Edit permission.', 'error');
       return;
     }
 
@@ -1007,8 +1026,8 @@ const Settlement = {
   // ADMIN ACTIONS: DELETE SETTLEMENT MODAL
   // ────────────────────────────────────────────────────────────
   confirmDelete(settlementId) {
-    if (!this.isAdmin()) {
-      Toast.show('403 Forbidden: Deleting settlements requires Administrator rights.', 'error');
+    if (!Auth.can('settlement.delete') && !this.isAdmin()) {
+      Toast.show('403 Forbidden: Deleting settlements requires Delete permission.', 'error');
       return;
     }
 
@@ -1096,7 +1115,7 @@ const Settlement = {
         </div>
 
         <div>
-          ${isAdmin ? `
+          ${Auth.can('settlement.approve') || isAdmin ? `
             <button class="btn btn-xs ${isApproved ? 'btn-secondary' : 'btn-primary'}" onclick="Settlement.toggleGate('${settlementId}', '${gateKey}')">
               ${isApproved ? '<i class="fa fa-undo"></i> Revoke' : '<i class="fa fa-check"></i> Approve Gate'}
             </button>
@@ -1109,8 +1128,8 @@ const Settlement = {
   },
 
   toggleGate(settlementId, gateKey) {
-    if (!this.isAdmin()) {
-      Toast.show('403 Forbidden: Administrator rights required to sign off gates.', 'error');
+    if (!Auth.can('settlement.approve') && !this.isAdmin()) {
+      Toast.show('403 Forbidden: Approver rights required to sign off gates.', 'error');
       return;
     }
 
@@ -1374,6 +1393,10 @@ const Settlement = {
   // CSV EXPORT
   // ────────────────────────────────────────────────────────────
   exportCSV() {
+    if (!Auth.can('settlement.export')) {
+      Toast.show('Permission denied: You do not have permission to export settlement records.', 'error');
+      return;
+    }
     const settlements = DB.get('settlements') || [];
     if (settlements.length === 0) {
       Toast.show('No settlements available to export.', 'warning');

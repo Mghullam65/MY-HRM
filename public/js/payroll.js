@@ -9,7 +9,24 @@ const Payroll = {
   render() {
     this.ensurePFData();
     const content = document.getElementById('page-content');
-    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    if (!Auth.can('payroll.view')) {
+      content.innerHTML = `
+        <div class="card animate-fade-in" style="text-align:center;padding:60px 20px;margin-top:20px">
+          <div style="font-size:48px;color:var(--danger);margin-bottom:16px"><i class="fa fa-ban"></i></div>
+          <h3 style="font-size:20px;font-weight:700">Access Restricted</h3>
+          <p style="color:var(--text-3);max-width:440px;margin:8px auto 20px">
+            You do not have permission to view the Payroll module. Contact your corporate administrator to configure role permissions.
+          </p>
+          <div>
+            <button class="btn btn-secondary btn-sm" onclick="App.navigate('dashboard')">
+              <i class="fa fa-arrow-left"></i> Return to Dashboard
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager'].includes(Auth.role);
     const isEmp = !isHrOrAdmin; // Managers, employees, and onboarding only see their personal finances
 
     // Auto-scope personal users to slips if on an admin view
@@ -91,7 +108,7 @@ const Payroll = {
       App.navigate('settlement');
       return;
     }
-    const isHrOrAdmin = ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager'].includes(Auth.role);
     const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures', 'budget'];
     if (!isHrOrAdmin && adminOnlyViews.includes(view)) {
       Toast.show('Access Denied: This payroll section is restricted to HR & Admin.', 'error');
@@ -176,7 +193,7 @@ const Payroll = {
         <select class="filter-select" onchange="Payroll.currentMonth=this.value;Payroll.renderView()" style="width:190px">
           ${allMonths.map(m => `<option value="${m}" ${m===this.currentMonth?'selected':''}>${new Date(m+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
         </select>
-        ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
+        ${Auth.can('payroll.create') || Auth.can('payroll.edit') ? `
           <button class="btn btn-warning btn-sm" style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;font-weight:700;box-shadow:0 2px 6px rgba(245,158,11,0.3)" onclick="Payroll.syncAttendanceToPayroll('${this.currentMonth}')" title="Scan attendance logs to auto-calculate LOP deductions, late check-in penalties, overtime bonuses, and compute genuine FBR tax">
             <i class="fa fa-bolt"></i> 1-Click Sync Attendance & Deductions
           </button>
@@ -216,7 +233,7 @@ const Payroll = {
                     <td colspan="6" style="color:var(--text-muted);font-size:12px">Salary not yet processed for this month</td>
                     <td><span class="badge badge-secondary">Not Processed</span></td>
                     <td>
-                      ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
+                      ${Auth.can('payroll.create') || Auth.can('payroll.edit') ? `
                         <button class="btn btn-primary btn-sm" onclick="Payroll.showGenerateSlipModal(${emp.id},'${this.currentMonth}')"><i class="fa fa-cogs"></i> Generate</button>
                       ` : '—'}
                     </td>
@@ -253,7 +270,7 @@ const Payroll = {
     const allowances = DB.get('allowances');
     container.innerHTML = `
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `<button class="btn btn-primary btn-sm" onclick="Payroll.showAddAllowance()"><i class="fa fa-plus"></i> Add Allowance</button>` : ''}
+        ${Auth.can('payroll.create') || Auth.can('payroll.edit') ? `<button class="btn btn-primary btn-sm" onclick="Payroll.showAddAllowance()"><i class="fa fa-plus"></i> Add Allowance</button>` : ''}
       </div>
       <div class="card" style="padding:0">
         <div class="table-wrapper" style="border:none;border-radius:0">
@@ -377,7 +394,7 @@ const Payroll = {
     const deductions = DB.get('deductions');
     container.innerHTML = `
       <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
-        ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `<button class="btn btn-primary btn-sm" onclick="Payroll.showAddDeduction()"><i class="fa fa-plus"></i> Add Deduction</button>` : ''}
+        ${Auth.can('payroll.create') || Auth.can('payroll.edit') ? `<button class="btn btn-primary btn-sm" onclick="Payroll.showAddDeduction()"><i class="fa fa-plus"></i> Add Deduction</button>` : ''}
       </div>
       <div class="card" style="padding:0">
         <div class="table-wrapper" style="border:none;border-radius:0">
@@ -637,7 +654,7 @@ const Payroll = {
                     </td>
                     <td>
                       <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap">
-                        ${l.status === 'pending_approval' && isHrOrAdmin ? `
+                        ${l.status === 'pending_approval' && Auth.can('payroll.approve') ? `
                           <button class="btn btn-success btn-xs" onclick="Payroll.approveLoan(${l.id})" title="Authorize Loan"><i class="fa fa-check"></i> Approve</button>
                           <button class="btn btn-danger btn-xs" onclick="Payroll.rejectLoan(${l.id})" title="Reject Request"><i class="fa fa-times"></i> Reject</button>
                         ` : ''}
@@ -832,6 +849,10 @@ const Payroll = {
   },
 
   approveLoan(id) {
+    if (!Auth.can('payroll.approve')) {
+      Toast.show('Permission denied: You do not have permission to approve loans.', 'error');
+      return;
+    }
     const loan = DB.find('loans', id);
     if (!loan) return;
     Modal.confirm('Authorize Loan Application', `Approve loan of <strong>${Utils.formatCurrency(loan.amount)}</strong> for <strong>${Utils.getEmpName(loan.employeeId)}</strong>? Monthly salary deduction of ${Utils.formatCurrency(loan.monthlyDeduction)} will be activated.`, () => {
@@ -846,6 +867,10 @@ const Payroll = {
   },
 
   rejectLoan(id) {
+    if (!Auth.can('payroll.approve')) {
+      Toast.show('Permission denied: You do not have permission to reject loans.', 'error');
+      return;
+    }
     const loan = DB.find('loans', id);
     if (!loan) return;
     Modal.confirm('Reject Loan Application', `Reject loan request for <strong>${Utils.getEmpName(loan.employeeId)}</strong>?`, () => {
@@ -985,6 +1010,10 @@ const Payroll = {
   },
 
   exportLoansCSV() {
+    if (!Auth.can('payroll.export')) {
+      Toast.show('Permission denied: You do not have permission to export loan data.', 'error');
+      return;
+    }
     const loans = DB.get('loans') || [];
     const headers = ['Loan ID', 'Employee ID', 'Employee Name', 'Department', 'Loan Type', 'Principal Amount', 'Monthly Deduction', 'Installments Total', 'Remaining Installments', 'Start Date', 'Status'];
     const rows = loans.map(l => {
@@ -2157,6 +2186,10 @@ const Payroll = {
   },
 
   exportPayrollSheetCSV(targetMonth = this.currentMonth) {
+    if (!Auth.can('payroll.export')) {
+      Toast.show('Permission denied: You do not have permission to export payroll sheets.', 'error');
+      return;
+    }
     const salaries = (DB.get('salary') || []).filter(s => s.month === targetMonth);
     if (salaries.length === 0) {
       Toast.show(`No payroll records found for ${targetMonth}`, 'warning');
@@ -2206,6 +2239,10 @@ const Payroll = {
   },
 
   exportBankTransferCSV(targetMonth = this.currentMonth) {
+    if (!Auth.can('payroll.export')) {
+      Toast.show('Permission denied: You do not have permission to export bank transfer files.', 'error');
+      return;
+    }
     const salaries = (DB.get('salary') || []).filter(s => s.month === targetMonth);
     if (salaries.length === 0) {
       Toast.show(`No payroll records found for ${targetMonth}`, 'warning');
@@ -2231,6 +2268,10 @@ const Payroll = {
   },
 
   exportCashRemittanceCSV(targetMonth = this.currentMonth) {
+    if (!Auth.can('payroll.export')) {
+      Toast.show('Permission denied: You do not have permission to export cash remittance sheets.', 'error');
+      return;
+    }
     const salaries = (DB.get('salary') || []).filter(s => s.month === targetMonth && (Number(s.cash_remittances || s.cashRemittances || 0) > 0));
     if (salaries.length === 0) {
       Toast.show(`No employees with cash remittances found for ${targetMonth} (All within splitter threshold)`, 'info');

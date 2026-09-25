@@ -12,10 +12,25 @@ const Recruitment = {
   dashboardFilter: { period: '90' }, // days lookback
 
   isHROrAdmin() {
-    return Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    return Auth.can('recruitment.approve') || Auth.can('recruitment.edit') || Auth.role === 'superadmin' || Auth.role === 'hr_manager';
   },
 
   render() {
+    const content = document.getElementById('page-content');
+    if (!Auth.can('recruitment.view')) {
+      if (content) {
+        content.innerHTML = `
+          <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+            <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+              <i class="fa fa-ban"></i>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+            <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Recruitment & Applicant tracking.</p>
+          </div>
+        `;
+      }
+      return;
+    }
     const isHR = this.isHROrAdmin();
     const isDeptMgr = Auth.role === 'dept_manager';
     const myDeptId = Auth.employee?.departmentId || 1;

@@ -217,9 +217,20 @@ const Auth = {
     return [];
   },
 
-  can(permission) {
+  can(permOrAction, maybeMod) {
     if (!this.role) return false;
     if (this.role === 'superadmin') return true;
+
+    // Support both Auth.can('leaves.create') and Auth.can('create', 'leaves') or Auth.can('leaves', 'create')
+    let permission = permOrAction;
+    if (maybeMod) {
+      const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+      if (actions.includes(permOrAction.toLowerCase())) {
+        permission = `${maybeMod}.${permOrAction}`;
+      } else {
+        permission = `${permOrAction}.${maybeMod}`;
+      }
+    }
 
     // Direct scope-based granular permission checks
     if (permission.endsWith('_self') || permission.endsWith('.self') || permission.endsWith('.own')) {
@@ -232,7 +243,53 @@ const Auth = {
       return ['superadmin', 'hr_manager'].includes(this.role);
     }
 
-    // Role-specific action prohibitions
+    // 1. PRIMARY CHECK: Dynamic DB role_permissions from the Permissions Matrix
+    try {
+      if (typeof DB !== 'undefined' && DB.get) {
+        const roles = DB.get('roles') || [];
+        const currentRoleObj = roles.find(r => r.code === this.role);
+        if (currentRoleObj) {
+          if (currentRoleObj.code === 'superadmin') return true;
+
+          const perms = DB.get('permissions') || [];
+          const rolePerms = DB.get('role_permissions') || [];
+          
+          let cleanPerm = permission.toLowerCase().trim();
+          // Normalize action synonyms
+          cleanPerm = cleanPerm.replace(/\.add$/, '.create');
+          cleanPerm = cleanPerm.replace(/\.apply$/, '.create');
+          cleanPerm = cleanPerm.replace(/\.manage$/, '.edit');
+          cleanPerm = cleanPerm.replace(/\.update$/, '.edit');
+          cleanPerm = cleanPerm.replace(/\.remove$/, '.delete');
+          cleanPerm = cleanPerm.replace(/\.cancel$/, '.delete');
+          cleanPerm = cleanPerm.replace(/\.endorse$/, '.approve');
+          cleanPerm = cleanPerm.replace(/\.reject$/, '.approve');
+
+          const candidateCodes = [
+            cleanPerm,
+            permission,
+            cleanPerm.replace(/^expenses\./, 'travel_expenses.'),
+            cleanPerm.replace(/^travel_expenses\./, 'expenses.'),
+            cleanPerm.replace(/^company\./, 'companies.'),
+            cleanPerm.replace(/^companies\./, 'company.'),
+            cleanPerm.replace(/^lms\./, 'training.'),
+            cleanPerm.replace(/^edms\./, 'documents.')
+          ];
+
+          const matchedPerm = perms.find(p => candidateCodes.some(c => p.code === c || p.code.startsWith(c + '.') || c.startsWith(p.code)));
+          if (matchedPerm) {
+            const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === matchedPerm.id);
+            if (binding !== undefined) {
+              return !!binding.isGranted;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Fall through to fallback rules
+    }
+
+    // 2. FALLBACK CHECK: Role-specific action prohibitions if DB permission not defined
     if (this.role === 'employee' || this.role === 'onboarding') {
       const prohibitedForEmployee = [
         'employee.create', 'employee.add', 'employees.add', 'employee.edit', 'employee.delete',
@@ -257,42 +314,6 @@ const Auth = {
       if (prohibitedForDeptManager.some(p => permission === p || permission.startsWith(p + '.'))) {
         return false;
       }
-    }
-
-    // Check dynamic DB role_permissions first if available
-    try {
-      if (typeof DB !== 'undefined' && DB.get) {
-        const roles = DB.get('roles') || [];
-        const currentRoleObj = roles.find(r => r.code === this.role);
-        if (currentRoleObj) {
-          // Superadmin has universal grant
-          if (currentRoleObj.code === 'superadmin') return true;
-
-          const perms = DB.get('permissions') || [];
-          const rolePerms = DB.get('role_permissions') || [];
-          
-          // Alias normalizers for full feature interoperability
-          const candidateCodes = [
-            permission,
-            permission.replace(/^expenses\./, 'travel_expenses.'),
-            permission.replace(/^travel_expenses\./, 'expenses.'),
-            permission.replace(/^company\./, 'companies.'),
-            permission.replace(/^companies\./, 'company.'),
-            permission.replace(/^lms\./, 'training.'),
-            permission.replace(/^edms\./, 'documents.')
-          ];
-
-          const matchedPerm = perms.find(p => candidateCodes.some(c => p.code === c || p.code.startsWith(c + '.') || c.startsWith(p.code)));
-          if (matchedPerm) {
-            const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === matchedPerm.id);
-            if (binding !== undefined) {
-              return !!binding.isGranted;
-            }
-          }
-        }
-      }
-    } catch (e) {
-      // Fall through to static permissions
     }
 
     const perms = (typeof permissions !== 'undefined' && permissions[this.role]) ? permissions[this.role] : [];

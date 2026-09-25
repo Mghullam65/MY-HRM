@@ -32,6 +32,19 @@ const Assets = {
     const container = document.getElementById('page-content');
     if (!container) return;
 
+    if (!Auth.can('assets.view')) {
+      container.innerHTML = `
+        <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+          <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+            <i class="fa fa-ban"></i>
+          </div>
+          <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+          <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Company Assets & Inventory.</p>
+        </div>
+      `;
+      return;
+    }
+
     const role = Auth.role;
     const isEmp = role === 'employee';
     const allAssets = DB.get('assets') || [];
@@ -92,15 +105,21 @@ const Assets = {
 
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           ${!isEmp ? `
-            <button class="btn btn-outline btn-sm" onclick="Assets.exportCSV()">
-              <i class="fa fa-file-csv"></i> Export Inventory
-            </button>
-            <button class="btn btn-outline btn-sm" onclick="Assets.showAssignModal()">
-              <i class="fa fa-arrow-right-arrow-left"></i> Check-out / Assign
-            </button>
-            <button class="btn btn-primary btn-sm" onclick="Assets.showRegisterModal()">
-              <i class="fa fa-plus"></i> Register New Asset
-            </button>
+            ${Auth.can('assets.export') ? `
+              <button class="btn btn-outline btn-sm" onclick="Assets.exportCSV()">
+                <i class="fa fa-file-csv"></i> Export Inventory
+              </button>
+            ` : ''}
+            ${Auth.can('assets.edit') ? `
+              <button class="btn btn-outline btn-sm" onclick="Assets.showAssignModal()">
+                <i class="fa fa-arrow-right-arrow-left"></i> Check-out / Assign
+              </button>
+            ` : ''}
+            ${Auth.can('assets.create') ? `
+              <button class="btn btn-primary btn-sm" onclick="Assets.showRegisterModal()">
+                <i class="fa fa-plus"></i> Register New Asset
+              </button>
+            ` : ''}
           ` : `
             <button class="btn btn-primary btn-sm" onclick="Helpdesk.showCreateModal('facilities', 'Equipment Replacement / Upgrade Request')">
               <i class="fa fa-wrench"></i> Request Hardware Upgrade
@@ -855,6 +874,10 @@ const Assets = {
   },
 
   exportCSV() {
+    if (!Auth.can('assets.export')) {
+      Toast.show('Permission denied: You do not have permission to export asset inventory.', 'error');
+      return;
+    }
     const assets = DB.get('assets') || [];
     const emps = DB.get('employees') || [];
 

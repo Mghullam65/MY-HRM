@@ -43,6 +43,20 @@ const Performance = {
 
   render() {
     const content = document.getElementById('page-content');
+    if (!Auth.can('performance.view')) {
+      if (content) {
+        content.innerHTML = `
+          <div class="empty-state card" style="text-align:center;padding:48px 24px;margin-top:24px">
+            <div style="width:64px;height:64px;border-radius:50%;background:rgba(239,68,68,0.1);color:var(--danger);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px">
+              <i class="fa fa-ban"></i>
+            </div>
+            <h3 style="font-size:18px;font-weight:700;margin-bottom:8px">Access Restricted</h3>
+            <p style="color:var(--text-3);max-width:440px;margin:0 auto">You do not have permission to view Performance reviews and KPIs.</p>
+          </div>
+        `;
+      }
+      return;
+    }
     const reviews = this.getScopedReviews();
     const kpis = DB.get('kpis');
 
@@ -90,7 +104,7 @@ const Performance = {
                 <i class="fa fa-bullseye"></i> KPI Metrics Catalog
               </button>
             </div>
-            ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
+            ${Auth.can('performance.create') ? `
               <button class="btn btn-primary btn-sm" onclick="Performance.showAddCycleModal()">
                 <i class="fa fa-plus"></i> New Cycle
               </button>
@@ -109,19 +123,18 @@ const Performance = {
                 <i class="fa fa-arrow-trend-up"></i> Merit Increment Matrix
               </button>
             </div>
-            ${Auth.role === 'superadmin' || Auth.role === 'hr_manager' ? `
-              <div style="display:flex;gap:8px">
-                ${this.currentView==='merit' ? `
-                  <button class="btn btn-success btn-sm" onclick="Performance.applyAllMeritIncrements()">
-                    <i class="fa fa-check-double"></i> Batch Commit Revisions
-                  </button>
-                ` : `
-                  <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
-                    <i class="fa fa-plus"></i> Initiate Review
-                  </button>
-                `}
-              </div>
-            ` : ''}
+            <div style="display:flex;gap:8px">
+              ${this.currentView==='merit' && Auth.can('performance.approve') ? `
+                <button class="btn btn-success btn-sm" onclick="Performance.applyAllMeritIncrements()">
+                  <i class="fa fa-check-double"></i> Batch Commit Revisions
+                </button>
+              ` : ''}
+              ${this.currentView!=='merit' && Auth.can('performance.create') ? `
+                <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
+                  <i class="fa fa-plus"></i> Initiate Review
+                </button>
+              ` : ''}
+            </div>
           </div>
         ` : ''}
 
