@@ -37,21 +37,21 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Auto-seed if database is freshly created and empty
+// Auto-seed if database is freshly created, online, and empty
 let isSeeded = false;
 app.use(async (req, res, next) => {
-  if (!isSeeded && req.path.startsWith('/api')) {
+  const hasDb = Boolean(process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL);
+  if (!isSeeded && hasDb && req.path.startsWith('/api') && req.path !== '/api/health') {
     try {
-      const count = await prisma.department.count().catch(() => 0);
+      const count = await prisma.department.count().catch(() => -1);
       if (count === 0) {
         console.log('Database empty on Vercel, auto-seeding...');
         await seedDatabase(prisma);
-        isSeeded = true;
-      } else {
-        isSeeded = true;
       }
+      isSeeded = true;
     } catch (e) {
-      console.warn('Auto-seed check notice:', e.message);
+      console.warn('Auto-seed check notice (continuing without auto-seed):', e.message);
+      isSeeded = true;
     }
   }
   next();
@@ -60,11 +60,17 @@ app.use(async (req, res, next) => {
 // Health check endpoint
 app.get('/api/health', async (req, res) => {
   let dbStatus = 'disconnected';
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    dbStatus = 'connected';
-  } catch (err) {
-    dbStatus = `error: ${err.message}`;
+  const hasDb = Boolean(process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || process.env.POSTGRES_URL);
+
+  if (!hasDb) {
+    dbStatus = 'unconfigured (DATABASE_URL not set in cloud environment)';
+  } else {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      dbStatus = 'connected';
+    } catch (err) {
+      dbStatus = `unreachable: ${err.message}`;
+    }
   }
 
   res.json({
@@ -100,5 +106,15 @@ app.use('/api/jobs', jobsRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api', jobsRoutes);
+
+// Global Error Handler for Serverless
+app.use((err, req, res, next) => {
+  console.error('[API Serverless Error]', err.message);
+  res.status(500).json({
+    status: 'error',
+    message: err.message || 'Internal server error',
+    timestamp: new Date().toISOString()
+  });
+});
 
 module.exports = app;

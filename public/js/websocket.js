@@ -5,7 +5,7 @@
 const HRMWebSocket = {
   socket: null,
   reconnectAttempts: 0,
-  maxReconnectAttempts: 10,
+  maxReconnectAttempts: 5,
   reconnectDelay: 1500,
   isConnected: false,
   isAuthenticated: false,
@@ -13,9 +13,17 @@ const HRMWebSocket = {
   listeners: {},
   pingTimer: null,
   activeUserId: null,
+  channel: null,
 
   init() {
-    this.connect();
+    this.initBroadcastChannel();
+
+    // In serverless hosting without custom WS URL, rely on cross-tab BroadcastChannel
+    if (this.isServerlessHost() && !window.HRM_WS_URL) {
+      console.log('%c⚡ HRM Real-Time: Cloud Serverless mode active (Cross-tab sync ready via BroadcastChannel).', 'color:#6366f1;font-weight:700');
+    } else {
+      this.connect();
+    }
 
     // Re-auth when Auth session changes
     window.addEventListener('hrm:auth_change', (e) => {
@@ -30,7 +38,36 @@ const HRMWebSocket = {
     console.log('%c⚡ HRMWebSocket client initialized', 'color:#6366f1;font-weight:700');
   },
 
+  initBroadcastChannel() {
+    if (typeof BroadcastChannel !== 'undefined' && !this.channel) {
+      try {
+        this.channel = new BroadcastChannel('hrm_realtime_bus');
+        this.channel.onmessage = (event) => {
+          if (event && event.data) {
+            this.handleIncoming(event.data);
+          }
+        };
+      } catch (e) {
+        // BroadcastChannel unsupported
+      }
+    }
+  },
+
+  broadcastLocal(payload) {
+    if (this.channel) {
+      try {
+        this.channel.postMessage(payload);
+      } catch (e) {}
+    }
+  },
+
+  isServerlessHost() {
+    return typeof window !== 'undefined' && 
+      (window.location.hostname.endsWith('vercel.app') || window.location.hostname.endsWith('.now.sh'));
+  },
+
   getWebSocketUrl() {
+    if (window.HRM_WS_URL) return window.HRM_WS_URL;
     const isHttps = window.location.protocol === 'https:';
     const proto = isHttps ? 'wss:' : 'ws:';
     let host = window.location.host;
@@ -221,6 +258,9 @@ const HRMWebSocket = {
   },
 
   send(payload) {
+    // Broadcast locally across browser tabs
+    this.broadcastLocal(payload);
+
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify(payload));
       return true;

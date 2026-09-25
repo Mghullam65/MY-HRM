@@ -33,6 +33,12 @@ if (!fs.existsSync(publicDir)) {
 }
 try {
   fs.copyFileSync(path.join(__dirname, '../index.html'), path.join(publicDir, 'index.html'));
+  if (fs.existsSync(path.join(__dirname, '../sw.js'))) {
+    fs.copyFileSync(path.join(__dirname, '../sw.js'), path.join(publicDir, 'sw.js'));
+  }
+  if (fs.existsSync(path.join(__dirname, '../manifest.json'))) {
+    fs.copyFileSync(path.join(__dirname, '../manifest.json'), path.join(publicDir, 'manifest.json'));
+  }
   const dirsToCopy = ['css', 'js', 'img', 'assets'];
   for (const d of dirsToCopy) {
     const src = path.join(__dirname, '..', d);
@@ -41,7 +47,7 @@ try {
       fs.cpSync(src, dest, { recursive: true, force: true });
     }
   }
-  console.log('✅ [Build] Static assets mirrored to public/ directory for Vercel.');
+  console.log('✅ [Build] Static assets (index.html, sw.js, manifest.json, css, js, assets) mirrored to public/ directory for Vercel.');
 } catch (e) {
   console.warn('⚠️ [Build] Notice on copying assets to public/:', e.message);
 }
