@@ -80,12 +80,12 @@ const Settlement = {
           </div>
 
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            ${Auth.can('settlement.export') ? `
+            ${Auth.can('settlement.export') && Auth.canSeeFeature('settlement.export') ? `
               <button class="btn btn-secondary btn-sm" onclick="Settlement.exportCSV()" title="Export Settlements Register as CSV">
                 <i class="fa fa-download"></i> Export CSV
               </button>
             ` : ''}
-            ${Auth.can('settlement.create') ? `
+            ${Auth.can('settlement.create') && Auth.canSeeFeature('settlement.initiate') ? `
               <button class="btn btn-primary btn-sm" onclick="Settlement.openAddModal()" style="font-weight:700">
                 <i class="fa fa-plus"></i> + New Settlement
               </button>

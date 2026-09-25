@@ -136,6 +136,19 @@ const Attendance = {
       ];
     }
 
+    // Filter tabs based on feature visibility
+    tabs = tabs.filter(t => {
+      if (t.id === 'my_attendance') return Auth.canSeeFeature('attendance.clock_in') || Auth.canSeeFeature('attendance.daily');
+      if (t.id === 'my_employees') return Auth.canSeeFeature('attendance.daily');
+      if (t.id === 'roster') return Auth.canSeeFeature('attendance.shifts');
+      if (t.id === 'machine') return Auth.canSeeFeature('attendance.biometric');
+      if (t.id === 'corrections') return Auth.canSeeFeature('attendance.corrections');
+      return true;
+    });
+    if (!tabs.some(t => t.id === this.currentView) && tabs.length > 0) {
+      this.currentView = tabs[0].id;
+    }
+
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Top Metrics Header -->

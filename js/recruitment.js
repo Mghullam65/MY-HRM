@@ -139,28 +139,36 @@ const Recruitment = {
           <div style="margin-bottom:20px">
             <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:12px;width:100%;overflow-x:auto;scrollbar-width:none">
               <!-- Stage 1: Overview & Requisitions -->
-              <button class="tab-toggle-btn ${(this.currentView==='requisitions'||this.currentView==='dashboard')?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative;flex:1;text-align:center" title="Stage 1: Headcount Planning, Quotas & Requisitions">
-                <i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Overview &amp; Requisitions
-                ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${pendingReqs} pending</span>` : ''}
-              </button>
+              ${Auth.canSeeFeature('recruitment.requisitions') ? `
+                <button class="tab-toggle-btn ${(this.currentView==='requisitions'||this.currentView==='dashboard')?'active':''}" onclick="Recruitment.switchView('requisitions')" style="position:relative;flex:1;text-align:center" title="Stage 1: Headcount Planning, Quotas & Requisitions">
+                  <i class="fa fa-file-invoice-dollar" style="margin-right:6px"></i>Overview &amp; Requisitions
+                  ${pendingReqs ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px;padding:2px 6px">${pendingReqs} pending</span>` : ''}
+                </button>
+              ` : ''}
 
               <!-- Stage 2: Job Postings -->
-              <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')" style="position:relative;flex:1;text-align:center" title="Stage 2: Job Openings & Career Portal Postings">
-                <i class="fa fa-briefcase" style="margin-right:6px"></i>Job Openings
-                <span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px">${jobs.filter(j=>j.status==='open').length} open</span>
-              </button>
+              ${Auth.canSeeFeature('recruitment.jobs') ? `
+                <button class="tab-toggle-btn ${this.currentView==='jobs'?'active':''}" onclick="Recruitment.switchView('jobs')" style="position:relative;flex:1;text-align:center" title="Stage 2: Job Openings & Career Portal Postings">
+                  <i class="fa fa-briefcase" style="margin-right:6px"></i>Job Openings
+                  <span class="badge badge-primary" style="margin-left:6px;font-size:10px;padding:2px 6px">${jobs.filter(j=>j.status==='open').length} open</span>
+                </button>
+              ` : ''}
 
               <!-- Stage 3: Candidate Pipeline & Evaluation -->
-              <button class="tab-toggle-btn ${(this.currentView==='pipeline'||this.currentView==='interviews'||this.currentView==='assessment_sheets')?'active':''}" onclick="Recruitment.switchView('pipeline')" style="position:relative;flex:1;text-align:center" title="Stage 3: ATS Screening, Interviews & 10-Criteria Rubrics">
-                <i class="fa fa-users-gear" style="margin-right:6px"></i>Candidate Pipeline &amp; Evaluation
-                <span class="badge badge-info" style="margin-left:6px;font-size:10px;padding:2px 6px">${apps.length} applicants</span>
-              </button>
+              ${Auth.canSeeFeature('recruitment.pipeline') || Auth.canSeeFeature('recruitment.assessments') ? `
+                <button class="tab-toggle-btn ${(this.currentView==='pipeline'||this.currentView==='interviews'||this.currentView==='assessment_sheets')?'active':''}" onclick="Recruitment.switchView('pipeline')" style="position:relative;flex:1;text-align:center" title="Stage 3: ATS Screening, Interviews & 10-Criteria Rubrics">
+                  <i class="fa fa-users-gear" style="margin-right:6px"></i>Candidate Pipeline &amp; Evaluation
+                  <span class="badge badge-info" style="margin-left:6px;font-size:10px;padding:2px 6px">${apps.length} applicants</span>
+                </button>
+              ` : ''}
 
               <!-- Stage 4: Offers & Onboarding -->
-              <button class="tab-toggle-btn ${(this.currentView==='offers'||this.currentView==='onboarding')?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative;flex:1;text-align:center" title="Stage 4: Formal Offer Letters, P1/P2 Cascade & Onboarding">
-                <i class="fa fa-file-signature" style="margin-right:6px"></i>Offers &amp; Onboarding
-                <span class="badge badge-success" style="margin-left:6px;font-size:10px;padding:2px 6px">${offers.length} offers</span>
-              </button>
+              ${Auth.canSeeFeature('recruitment.offers') ? `
+                <button class="tab-toggle-btn ${(this.currentView==='offers'||this.currentView==='onboarding')?'active':''}" onclick="Recruitment.switchView('offers')" style="position:relative;flex:1;text-align:center" title="Stage 4: Formal Offer Letters, P1/P2 Cascade & Onboarding">
+                  <i class="fa fa-file-signature" style="margin-right:6px"></i>Offers &amp; Onboarding
+                  <span class="badge badge-success" style="margin-left:6px;font-size:10px;padding:2px 6px">${offers.length} offers</span>
+                </button>
+              ` : ''}
             </div>
           </div>
         ` : `

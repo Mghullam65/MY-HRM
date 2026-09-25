@@ -70,17 +70,17 @@ const Expenses = {
         </div>
 
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          ${Auth.can('travel_expenses.export') ? `
+          ${Auth.can('travel_expenses.export') && Auth.canSeeFeature('expenses.export') ? `
             <button class="btn btn-outline btn-sm" onclick="Expenses.exportCSV()">
               <i class="fa fa-file-csv"></i> Export Claims
             </button>
           ` : ''}
-          ${Auth.can('travel_expenses.approve') || isAdmin ? `
+          ${(Auth.can('travel_expenses.approve') || isAdmin) && Auth.canSeeFeature('expenses.payroll_sync') ? `
             <button class="btn btn-outline btn-sm" style="color:var(--primary)" onclick="Expenses.syncApprovedToPayroll()">
               <i class="fa fa-money-bill-transfer"></i> 1-Click Sync to Payroll
             </button>
           ` : ''}
-          ${Auth.can('travel_expenses.create') ? (this.activeTab === 'travel_requests' ? `
+          ${Auth.can('travel_expenses.create') && Auth.canSeeFeature('expenses.submit') ? (this.activeTab === 'travel_requests' ? `
             <button class="btn btn-primary btn-sm" onclick="Expenses.showCreateTravelModal()">
               <i class="fa fa-plane-departure"></i> New Travel Requisition
             </button>
@@ -121,26 +121,30 @@ const Expenses = {
 
       <!-- Navigation Tabs -->
       <div style="display:flex;gap:6px;background:var(--surface);padding:4px;border-radius:10px;width:fit-content;margin-bottom:20px;flex-wrap:wrap">
-        <button class="tab-toggle-btn ${this.activeTab==='my_claims'?'active':''}" onclick="Expenses.switchTab('my_claims')">
-          <i class="fa fa-user" style="margin-right:6px"></i>My Claims (${accessibleClaims.filter(c => c.employeeId === myEmpId).length})
-        </button>
+        ${Auth.canSeeFeature('expenses.claims_list') ? `
+          <button class="tab-toggle-btn ${this.activeTab==='my_claims'?'active':''}" onclick="Expenses.switchTab('my_claims')">
+            <i class="fa fa-user" style="margin-right:6px"></i>My Claims (${accessibleClaims.filter(c => c.employeeId === myEmpId).length})
+          </button>
+        ` : ''}
 
-        ${!isEmp ? `
+        ${!isEmp && Auth.canSeeFeature('expenses.approvals') ? `
           <button class="tab-toggle-btn ${this.activeTab==='approvals_queue'?'active':''}" onclick="Expenses.switchTab('approvals_queue')">
             <i class="fa fa-clipboard-check" style="margin-right:6px"></i>Approvals Queue
             ${pendingApprovalCount > 0 ? `<span class="badge badge-warning" style="margin-left:6px;font-size:10px">${pendingApprovalCount}</span>` : ''}
           </button>
         ` : ''}
 
-        ${isAdmin ? `
+        ${isAdmin && Auth.canSeeFeature('expenses.claims_list') ? `
           <button class="tab-toggle-btn ${this.activeTab==='all_claims'?'active':''}" onclick="Expenses.switchTab('all_claims')">
             <i class="fa fa-list-check" style="margin-right:6px"></i>Universal Ledger (${allClaims.length})
           </button>
         ` : ''}
 
-        <button class="tab-toggle-btn ${this.activeTab==='travel_requests'?'active':''}" onclick="Expenses.switchTab('travel_requests')">
-          <i class="fa fa-plane-departure" style="margin-right:6px"></i>Business Travel (${(DB.get('travel_requests')||[]).length})
-        </button>
+        ${Auth.canSeeFeature('expenses.travel_requests') ? `
+          <button class="tab-toggle-btn ${this.activeTab==='travel_requests'?'active':''}" onclick="Expenses.switchTab('travel_requests')">
+            <i class="fa fa-plane-departure" style="margin-right:6px"></i>Business Travel (${(DB.get('travel_requests')||[]).length})
+          </button>
+        ` : ''}
       </div>
 
       <!-- Filter Toolbar -->

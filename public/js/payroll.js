@@ -67,6 +67,17 @@ const Payroll = {
       { id:'budget', label:'Budget vs Actual', icon:'fa-chart-pie' },
     ];
 
+    let visibleTabs = tabs.filter(t => {
+      if (t.id === 'salary') return Auth.canSeeFeature('payroll.run') || Auth.canSeeFeature('payroll.register');
+      if (t.id === 'slips') return Auth.canSeeFeature('payroll.payslips');
+      if (t.id === 'tax') return Auth.canSeeFeature('payroll.tax_slabs');
+      if (t.id === 'bank_advice') return Auth.canSeeFeature('payroll.bank_formats');
+      return true;
+    });
+    if (!visibleTabs.some(t => t.id === this.currentView) && visibleTabs.length > 0) {
+      this.currentView = visibleTabs[0].id;
+    }
+
     content.innerHTML = `
       <div class="animate-fade-in">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
@@ -84,7 +95,7 @@ const Payroll = {
         </div>
 
         <div class="module-stage-tabs">
-          ${tabs.map(t => `
+          ${visibleTabs.map(t => `
             <button class="tab-toggle-btn ${this.currentView===t.id?'active':''}" onclick="Payroll.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
             </button>

@@ -607,6 +607,46 @@ Auth.FEATURE_CATALOG = [
       { key: 'reports.leave_utilization', name: 'Leave Utilization & Liability Reports', desc: 'Annual leave consumption patterns and financial liability analysis', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
       { key: 'reports.export', name: 'Export Executive Reports (PDF/CSV)', desc: 'Download printable executive dashboards and analytical raw data', defaultRoles: ['superadmin', 'hr_manager'] }
     ]
+  },
+  {
+    moduleCode: 'dashboard',
+    moduleName: 'Executive Dashboard & Quick Stats',
+    moduleIcon: 'fa-gauge-high',
+    features: [
+      { key: 'dashboard.kpi_cards', name: 'Executive Workforce KPI Metric Cards', desc: 'Real-time counters for headcount, active workforce, and department breakdown', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'dashboard.attendance_widget', name: 'Daily Attendance Punch & Status Widget', desc: 'Clock-in card, shift countdown timer, and daily punctuality stats', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'dashboard.leaves_widget', name: 'Available Leave Balances Radar', desc: 'Casual, annual, and medical leave quota summary meters', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'dashboard.announcements', name: 'Corporate Broadcasts & Announcements', desc: 'Company-wide bulletin board notices and circulars', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] }
+    ]
+  },
+  {
+    moduleCode: 'companies',
+    moduleName: 'Corporate Entities & Subsidiaries',
+    moduleIcon: 'fa-building-shield',
+    features: [
+      { key: 'companies.view', name: 'Corporate Entities Directory Tab', desc: 'View registered legal corporate entities, NTNs, and branches', defaultRoles: ['superadmin'] },
+      { key: 'companies.create', name: 'Add Corporate Entity Button & Form', desc: 'Register new corporate subsidiary or regional company', defaultRoles: ['superadmin'] },
+      { key: 'companies.export', name: 'Export Legal Entities Data', desc: 'Export corporate registry to CSV spreadsheet', defaultRoles: ['superadmin'] }
+    ]
+  },
+  {
+    moduleCode: 'chat',
+    moduleName: 'Enterprise Team Chat & Channels',
+    moduleIcon: 'fa-comments',
+    features: [
+      { key: 'chat.messaging', name: 'Direct & Channel Chat Messaging', desc: 'Real-time peer messaging and department collaboration channels', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'chat.attachments', name: 'File & Document Sharing in Chat', desc: 'Allow uploading and sending documents/images in chat rooms', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] }
+    ]
+  },
+  {
+    moduleCode: 'administration',
+    moduleName: 'System Administration & Governance',
+    moduleIcon: 'fa-gear',
+    features: [
+      { key: 'administration.users', name: 'User Management & Provisioning', desc: 'Create, lock, and manage employee login credentials and passwords', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'administration.audit_logs', name: 'System Security Audit Trail Logs', desc: 'Review immutable compliance logs of system mutations and logins', defaultRoles: ['superadmin'] },
+      { key: 'administration.db_backup', name: 'Database Maintenance & Snapshots', desc: 'Download system backups and run database integrity health checks', defaultRoles: ['superadmin'] }
+    ]
   }
 ];
 

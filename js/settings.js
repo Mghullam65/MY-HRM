@@ -11,7 +11,6 @@ const Settings = {
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
       { id: 'roles_permissions', label: 'Roles & Permissions', icon: 'fa-user-shield' },
-      { id: 'feature_visibility', label: 'Feature & Option Access', icon: 'fa-eye' },
       { id: 'attendance_rules', label: 'Attendance Rules', icon: 'fa-clock' },
       { id: 'biometric_network', label: 'Biometric & Network IPs', icon: 'fa-network-wired' },
       { id: 'leave_policy', label: 'Leave Policy', icon: 'fa-calendar-xmark' },
@@ -55,7 +54,11 @@ const Settings = {
       case 'company':            this.renderCompany(c); break;
       case 'general':            this.renderGeneral(c); break;
       case 'roles_permissions':  this.renderRolesPermissions(c); break;
-      case 'feature_visibility': this.renderFeatureVisibility(c); break;
+      case 'feature_visibility': 
+        this.currentSection = 'roles_permissions';
+        this.rolesPermissionsTab = 'features';
+        this.renderRolesPermissions(c); 
+        break;
       case 'attendance_rules':   this.renderAttendanceRules(c); break;
       case 'biometric_network':  this.renderBiometricNetwork(c); break;
       case 'leave_policy':       this.renderLeavePolicy(c); break;
@@ -2769,12 +2772,27 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     `);
   },
 
-  // ─── Roles & Granular Permissions Matrix (Phase 2 RBAC) ────
+  // ─── Roles & Granular Permissions Matrix (Unified RBAC) ────
   selectedRoleId: 2, // Default to HR Manager for easy viewing & toggling
   rbacSearchTerm: '',
   rbacCategoryFilter: 'all',
+  rolesPermissionsTab: 'features', // 'features' | 'matrix'
+
+  switchRolesPermissionsTab(tab) {
+    this.rolesPermissionsTab = tab;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderRolesPermissions(c);
+  },
 
   renderRolesPermissions(c) {
+    if (this.rolesPermissionsTab === 'features') {
+      this.renderFeatureVisibility(c);
+    } else {
+      this.renderActionPermissionsMatrix(c);
+    }
+  },
+
+  renderActionPermissionsMatrix(c) {
     if (typeof DB.ensureRBACData === 'function') DB.ensureRBACData();
     const roles = DB.get('roles') || [];
     const modules = DB.get('system_modules') || [];
@@ -2813,13 +2831,19 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     };
 
     c.innerHTML = `
-      <!-- Sub-Tabs: Permissions Matrix vs Feature Visibility -->
-      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-primary" onclick="Settings.switchSection('roles_permissions')">
-          <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD)
-        </button>
-        <button class="btn btn-sm btn-outline" onclick="Settings.switchSection('feature_visibility')">
-          <i class="fa fa-eye"></i> Feature &amp; Option Visibility (Show/Hide per Login)
+      <!-- Unified Header: Roles & Permissions and Feature Visibility in ONE -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px">
+          <button class="btn btn-sm ${this.rolesPermissionsTab === 'features' ? 'btn-primary' : 'btn-ghost'}" onclick="Settings.switchRolesPermissionsTab('features')" style="font-size:12.5px;padding:6px 14px">
+            <i class="fa fa-eye"></i> Feature &amp; Sub-Option Visibility (Show / Hide per Login &amp; Role)
+          </button>
+          <button class="btn btn-sm ${this.rolesPermissionsTab === 'matrix' ? 'btn-primary' : 'btn-ghost'}" onclick="Settings.switchRolesPermissionsTab('matrix')" style="font-size:12.5px;padding:6px 14px">
+            <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD &amp; Approvals)
+          </button>
+        </div>
+
+        <button class="btn btn-primary btn-sm" onclick="Settings.showAddCustomRoleModal()">
+          <i class="fa fa-plus"></i> Create Custom Role
         </button>
       </div>
 
@@ -2835,10 +2859,6 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
             Comprehensive RBAC Matrix governing all ${modules.length} enterprise modules &amp; subfeatures (View, Create, Edit, Delete, Approve, Export)
           </div>
         </div>
-
-        <button class="btn btn-primary btn-sm" onclick="Settings.showAddCustomRoleModal()">
-          <i class="fa fa-plus"></i> Create Custom Role
-        </button>
       </div>
 
       <!-- KPI Summary Cards -->
@@ -3482,14 +3502,16 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     }).filter(Boolean);
 
     c.innerHTML = `
-      <!-- Sub-Tabs: Permissions Matrix vs Feature Visibility -->
-      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap">
-        <button class="btn btn-sm btn-outline" onclick="Settings.switchSection('roles_permissions')">
-          <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD)
-        </button>
-        <button class="btn btn-sm btn-primary" onclick="Settings.switchSection('feature_visibility')">
-          <i class="fa fa-eye"></i> Feature &amp; Option Visibility (Show/Hide per Login)
-        </button>
+      <!-- Unified Header: Roles & Permissions and Feature Visibility in ONE -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px">
+          <button class="btn btn-sm ${this.rolesPermissionsTab === 'features' ? 'btn-primary' : 'btn-ghost'}" onclick="Settings.switchRolesPermissionsTab('features')" style="font-size:12.5px;padding:6px 14px">
+            <i class="fa fa-eye"></i> Feature &amp; Sub-Option Visibility (Show / Hide per Login &amp; Role)
+          </button>
+          <button class="btn btn-sm ${this.rolesPermissionsTab === 'matrix' ? 'btn-primary' : 'btn-ghost'}" onclick="Settings.switchRolesPermissionsTab('matrix')" style="font-size:12.5px;padding:6px 14px">
+            <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD &amp; Approvals)
+          </button>
+        </div>
       </div>
 
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">

@@ -79,11 +79,11 @@ const Performance = {
         <!-- View Tabs: 4 Clean Lifecycle Stages -->
         <div class="module-stage-tabs">
           ${[
-            { id:'cycles',     label:'Goals, KPIs & Appraisal Cycles', icon:'fa-bullseye' },
-            { id:'reviews',    label:'Reviews & 360° Feedback', icon:'fa-clipboard-list' },
-            { id:'succession', label:'9-Box Grid & Succession Planning', icon:'fa-sitemap' },
-            { id:'lms',        label:'LMS & Competency Skill Matrix', icon:'fa-graduation-cap' },
-          ].map(t => `
+            { id:'cycles',     label:'Goals, KPIs & Appraisal Cycles', icon:'fa-bullseye', visible: Auth.canSeeFeature('performance.cycles') || Auth.canSeeFeature('performance.goals') || Auth.canSeeFeature('performance.kpi') },
+            { id:'reviews',    label:'Reviews & 360° Feedback', icon:'fa-clipboard-list', visible: Auth.canSeeFeature('performance.reviews') || Auth.canSeeFeature('performance.feedback360') || Auth.canSeeFeature('performance.merit') },
+            { id:'succession', label:'9-Box Grid & Succession Planning', icon:'fa-sitemap', visible: Auth.canSeeFeature('performance.succession') },
+            { id:'lms',        label:'LMS & Competency Skill Matrix', icon:'fa-graduation-cap', visible: Auth.canSeeFeature('performance.lms') },
+          ].filter(t => t.visible).map(t => `
             <button class="tab-toggle-btn ${this.isTabActive(t.id)?'active':''}" data-tab="${t.id}" onclick="Performance.switchView('${t.id}')">
               <i class="fa ${t.icon}" style="margin-right:6px"></i>${t.label}
             </button>
@@ -94,17 +94,23 @@ const Performance = {
         ${this.getActiveStage() === 'cycles' ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
             <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
-              <button class="btn btn-sm ${this.currentView==='cycles'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('cycles')">
-                <i class="fa fa-rotate"></i> Appraisal Cycles &amp; Setup
-              </button>
-              <button class="btn btn-sm ${this.currentView==='goals'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('goals')">
-                <i class="fa fa-flag"></i> Goals &amp; OKRs
-              </button>
-              <button class="btn btn-sm ${this.currentView==='kpi'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('kpi')">
-                <i class="fa fa-bullseye"></i> KPI Metrics Catalog
-              </button>
+              ${Auth.canSeeFeature('performance.cycles') ? `
+                <button class="btn btn-sm ${this.currentView==='cycles'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('cycles')">
+                  <i class="fa fa-rotate"></i> Appraisal Cycles &amp; Setup
+                </button>
+              ` : ''}
+              ${Auth.canSeeFeature('performance.goals') ? `
+                <button class="btn btn-sm ${this.currentView==='goals'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('goals')">
+                  <i class="fa fa-flag"></i> Goals &amp; OKRs
+                </button>
+              ` : ''}
+              ${Auth.canSeeFeature('performance.kpi') ? `
+                <button class="btn btn-sm ${this.currentView==='kpi'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('kpi')">
+                  <i class="fa fa-bullseye"></i> KPI Metrics Catalog
+                </button>
+              ` : ''}
             </div>
-            ${Auth.can('performance.create') ? `
+            ${Auth.can('performance.create') && Auth.canSeeFeature('performance.cycles') ? `
               <button class="btn btn-primary btn-sm" onclick="Performance.showAddCycleModal()">
                 <i class="fa fa-plus"></i> New Cycle
               </button>
@@ -113,23 +119,29 @@ const Performance = {
         ` : this.getActiveStage() === 'reviews' ? `
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px">
             <div style="display:flex;gap:6px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:10px">
-              <button class="btn btn-sm ${this.currentView==='reviews'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('reviews')">
-                <i class="fa fa-clipboard-list"></i> Performance Reviews
-              </button>
-              <button class="btn btn-sm ${this.currentView==='feedback360'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('feedback360')">
-                <i class="fa fa-arrows-spin"></i> 360° Peer Feedback
-              </button>
-              <button class="btn btn-sm ${this.currentView==='merit'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('merit')">
-                <i class="fa fa-arrow-trend-up"></i> Merit Increment Matrix
-              </button>
+              ${Auth.canSeeFeature('performance.reviews') ? `
+                <button class="btn btn-sm ${this.currentView==='reviews'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('reviews')">
+                  <i class="fa fa-clipboard-list"></i> Performance Reviews
+                </button>
+              ` : ''}
+              ${Auth.canSeeFeature('performance.feedback360') ? `
+                <button class="btn btn-sm ${this.currentView==='feedback360'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('feedback360')">
+                  <i class="fa fa-arrows-spin"></i> 360° Peer Feedback
+                </button>
+              ` : ''}
+              ${Auth.canSeeFeature('performance.merit') ? `
+                <button class="btn btn-sm ${this.currentView==='merit'?'btn-primary':'btn-ghost'}" onclick="Performance.switchView('merit')">
+                  <i class="fa fa-arrow-trend-up"></i> Merit Increment Matrix
+                </button>
+              ` : ''}
             </div>
             <div style="display:flex;gap:8px">
-              ${this.currentView==='merit' && Auth.can('performance.approve') ? `
+              ${this.currentView==='merit' && Auth.can('performance.approve') && Auth.canSeeFeature('performance.merit') ? `
                 <button class="btn btn-success btn-sm" onclick="Performance.applyAllMeritIncrements()">
                   <i class="fa fa-check-double"></i> Batch Commit Revisions
                 </button>
               ` : ''}
-              ${this.currentView!=='merit' && Auth.can('performance.create') ? `
+              ${this.currentView!=='merit' && Auth.can('performance.create') && Auth.canSeeFeature('performance.reviews') ? `
                 <button class="btn btn-primary btn-sm" onclick="Performance.showAddReview()">
                   <i class="fa fa-plus"></i> Initiate Review
                 </button>
