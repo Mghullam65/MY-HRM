@@ -19,7 +19,7 @@
   ],
   "functions": {
     "api/index.js": {
-      "includeFiles": "server/**"
+      "includeFiles": "server/**,js/**,data/**"
     }
   },
   "rewrites": [

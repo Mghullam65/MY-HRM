@@ -1,10 +1,30 @@
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const vm = require('vm');
+
+function resolveStoreDir() {
+  const localDir = path.join(__dirname, '../../data');
+  try {
+    if (!fs.existsSync(localDir)) {
+      fs.mkdirSync(localDir, { recursive: true });
+    }
+    const testFile = path.join(localDir, '.write_test');
+    fs.writeFileSync(testFile, '1');
+    fs.unlinkSync(testFile);
+    return localDir;
+  } catch (e) {
+    const tmpDir = path.join(os.tmpdir(), 'hrm_store_data');
+    if (!fs.existsSync(tmpDir)) {
+      try { fs.mkdirSync(tmpDir, { recursive: true }); } catch (err) {}
+    }
+    return tmpDir;
+  }
+}
 
 class StoreService {
   constructor() {
-    this.dataDir = path.join(__dirname, '../../data');
+    this.dataDir = resolveStoreDir();
     this.storePath = path.join(this.dataDir, 'hrm_store.json');
     this.metaPath = path.join(this.dataDir, 'hrm_meta.json');
     this.store = {};
@@ -17,9 +37,11 @@ class StoreService {
 
   init() {
     if (this.isInitialized) return;
-    if (!fs.existsSync(this.dataDir)) {
-      fs.mkdirSync(this.dataDir, { recursive: true });
-    }
+    try {
+      if (!fs.existsSync(this.dataDir)) {
+        fs.mkdirSync(this.dataDir, { recursive: true });
+      }
+    } catch (e) {}
 
     if (fs.existsSync(this.storePath)) {
       try {
@@ -45,9 +67,17 @@ class StoreService {
 
   seedFromDataJs() {
     try {
-      const dataJsPath = path.join(__dirname, '../../../js/data.js');
-      if (!fs.existsSync(dataJsPath)) {
-        throw new Error(`Master data file not found at ${dataJsPath}`);
+      const candidates = [
+        path.join(__dirname, '../../../js/data.js'),
+        path.join(process.cwd(), 'js/data.js'),
+        path.join(process.cwd(), 'public/js/data.js'),
+        path.join(__dirname, '../../data.js')
+      ];
+      let dataJsPath = candidates.find(p => fs.existsSync(p));
+      if (!dataJsPath) {
+        console.warn(`[StoreService] Master data file not found in candidates, starting with empty store.`);
+        this.store = {};
+        return;
       }
 
       const mockStorage = {};
