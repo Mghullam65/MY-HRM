@@ -59,14 +59,14 @@ const Leaves = {
     const rejected = leaves.filter(l => l.status === 'rejected').length;
     const mgrApproved = leaves.filter(l => l.status === 'manager_approved').length;
 
-    // Filter available tabs based on granular permissions
+    // Filter available tabs based on granular permissions AND feature visibility
     const canManagePolicy = Auth.can('leaves.edit') || Auth.can('leaves.approve') || ['superadmin', 'hr_manager', 'dept_manager'].includes(Auth.role);
     const availableTabs = [
-      { id:'requests',   label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null, allowed: true },
-      { id:'calendar',   label:'Leave & Holiday Calendar',   icon:'fa-calendar-days', allowed: true },
-      { id:'quota',      label:'Leave Quotas & Policies',    icon:'fa-scale-balanced', allowed: canManagePolicy },
-      { id:'tokens',     label:'Comp-Off & TOIL Bank',       icon:'fa-coins', allowed: true },
-      { id:'encashment', label:'Leave Encashment',           icon:'fa-hand-holding-dollar', allowed: true },
+      { id:'requests',   label:'Leave Requests & Approvals', icon:'fa-calendar-check', badge: pending > 0 ? pending : null, allowed: Auth.canSeeFeature('leaves.requests') },
+      { id:'calendar',   label:'Leave & Holiday Calendar',   icon:'fa-calendar-days', allowed: Auth.canSeeFeature('leaves.calendar') },
+      { id:'quota',      label:'Leave Quotas & Policies',    icon:'fa-scale-balanced', allowed: canManagePolicy && Auth.canSeeFeature('leaves.quota') },
+      { id:'tokens',     label:'Comp-Off & TOIL Bank',       icon:'fa-coins', allowed: Auth.canSeeFeature('leaves.tokens') },
+      { id:'encashment', label:'Leave Encashment',           icon:'fa-hand-holding-dollar', allowed: Auth.canSeeFeature('leaves.encashment') },
     ].filter(t => t.allowed);
 
     if (!availableTabs.some(t => this.isTabActive(t.id))) {
@@ -172,9 +172,8 @@ const Leaves = {
 
     const isDeptMgr = Auth.role === 'dept_manager';
     const isHRorAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
-    const isEmployee = Auth.role === 'employee';
-    const canCreate = Auth.can('leaves.create');
-    const canApprove = Auth.can('leaves.approve');
+    const canCreate = Auth.can('leaves.create') && Auth.canSeeFeature('leaves.apply_form');
+    const canApprove = Auth.can('leaves.approve') && Auth.canSeeFeature('leaves.approvals');
     const canDelete = Auth.can('leaves.delete');
 
     container.innerHTML = `
@@ -1094,7 +1093,7 @@ const Leaves = {
   },
 
   exportQuotaMatrixCSV() {
-    if (!Auth.can('leaves.export')) {
+    if (!Auth.can('leaves.export') || !Auth.canSeeFeature('leaves.export')) {
       Toast.show('Permission denied: You do not have permission to export leave records.', 'warning');
       return;
     }
@@ -1916,7 +1915,7 @@ const Leaves = {
   },
 
   showApplyForm(prefillDate, targetMode) {
-    if (!Auth.can('leaves.create')) {
+    if (!Auth.can('leaves.create') || !Auth.canSeeFeature('leaves.apply_form')) {
       Toast.show('Permission denied: You do not have permission to submit or mark leave applications.', 'warning');
       return;
     }
@@ -2533,7 +2532,7 @@ const Leaves = {
 
 
   approve(leaveId) {
-    if (!Auth.can('leaves.approve')) {
+    if (!Auth.can('leaves.approve') || !Auth.canSeeFeature('leaves.approvals')) {
       Toast.show('Permission denied: You do not have permission to approve leaves.', 'error');
       return;
     }
@@ -2610,7 +2609,7 @@ const Leaves = {
 
 
   reject(leaveId) {
-    if (!Auth.can('leaves.approve')) {
+    if (!Auth.can('leaves.approve') || !Auth.canSeeFeature('leaves.approvals')) {
       Toast.show('Permission denied: You do not have permission to reject leaves.', 'error');
       return;
     }

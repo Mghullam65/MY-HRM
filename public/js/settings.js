@@ -11,6 +11,7 @@ const Settings = {
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
       { id: 'roles_permissions', label: 'Roles & Permissions', icon: 'fa-user-shield' },
+      { id: 'feature_visibility', label: 'Feature & Option Access', icon: 'fa-eye' },
       { id: 'attendance_rules', label: 'Attendance Rules', icon: 'fa-clock' },
       { id: 'biometric_network', label: 'Biometric & Network IPs', icon: 'fa-network-wired' },
       { id: 'leave_policy', label: 'Leave Policy', icon: 'fa-calendar-xmark' },
@@ -54,6 +55,7 @@ const Settings = {
       case 'company':            this.renderCompany(c); break;
       case 'general':            this.renderGeneral(c); break;
       case 'roles_permissions':  this.renderRolesPermissions(c); break;
+      case 'feature_visibility': this.renderFeatureVisibility(c); break;
       case 'attendance_rules':   this.renderAttendanceRules(c); break;
       case 'biometric_network':  this.renderBiometricNetwork(c); break;
       case 'leave_policy':       this.renderLeavePolicy(c); break;
@@ -2811,6 +2813,16 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     };
 
     c.innerHTML = `
+      <!-- Sub-Tabs: Permissions Matrix vs Feature Visibility -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-primary" onclick="Settings.switchSection('roles_permissions')">
+          <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD)
+        </button>
+        <button class="btn btn-sm btn-outline" onclick="Settings.switchSection('feature_visibility')">
+          <i class="fa fa-eye"></i> Feature &amp; Option Visibility (Show/Hide per Login)
+        </button>
+      </div>
+
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
         <div>
           <h3 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
@@ -3277,6 +3289,411 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     this.selectedRoleId = newRole.id;
     const c = document.getElementById('settings-content');
     if (c) this.renderRolesPermissions(c);
+  },
+
+  // ─── Feature & Option Visibility Manager (Per Role & Login) ────
+  featureScopeMode: 'role', // 'role' | 'user'
+  selectedFeatureRoleId: 2, // Default: HR Manager
+  selectedFeatureUserId: 1,
+  featureSearchTerm: '',
+  featureModuleFilter: 'all',
+
+  switchFeatureScope(mode) {
+    this.featureScopeMode = mode;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderFeatureVisibility(c);
+  },
+
+  selectFeatureRole(roleId) {
+    this.selectedFeatureRoleId = roleId;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderFeatureVisibility(c);
+  },
+
+  selectFeatureUser(userId) {
+    this.selectedFeatureUserId = userId;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderFeatureVisibility(c);
+  },
+
+  isFeatureVisible(scopeType, targetId, featureKey, defaultRoles = []) {
+    const roles = DB.get('roles') || [];
+    const users = DB.get('users') || [];
+
+    if (scopeType === 'role') {
+      const role = roles.find(r => r.id === targetId);
+      if (!role) return true;
+      if (role.code === 'superadmin') return true;
+
+      const roleRules = DB.get('role_feature_access') || [];
+      const rule = roleRules.find(r => (r.roleId === role.id || r.role === role.code) && r.featureKey === featureKey);
+      if (rule && typeof rule.visible === 'boolean') {
+        return rule.visible;
+      }
+      return defaultRoles.includes(role.code);
+    } else {
+      const user = users.find(u => u.id === targetId);
+      if (!user) return true;
+      if (user.role === 'superadmin' || user.role === 'Super Admin') return true;
+
+      const userRules = DB.get('user_feature_access') || [];
+      const userRule = userRules.find(r => r.userId === user.id && r.featureKey === featureKey);
+      if (userRule && typeof userRule.visible === 'boolean') {
+        return userRule.visible;
+      }
+
+      // Fallback to user's assigned role
+      const role = roles.find(r => r.code === user.role || r.id === user.roleId) || { code: user.role };
+      const roleRules = DB.get('role_feature_access') || [];
+      const roleRule = roleRules.find(r => (r.roleId === role.id || r.role === role.code) && r.featureKey === featureKey);
+      if (roleRule && typeof roleRule.visible === 'boolean') {
+        return roleRule.visible;
+      }
+      return defaultRoles.includes(role.code);
+    }
+  },
+
+  toggleFeatureVisibility(scopeType, targetId, featureKey, visible) {
+    const roles = DB.get('roles') || [];
+    const users = DB.get('users') || [];
+
+    if (scopeType === 'role') {
+      const role = roles.find(r => r.id === targetId);
+      if (!role) return;
+      if (role.code === 'superadmin') {
+        Toast.show('Super Administrator permissions are sovereign and immutable.', 'warning');
+        return;
+      }
+
+      let roleRules = DB.get('role_feature_access') || [];
+      let rule = roleRules.find(r => (r.roleId === role.id || r.role === role.code) && r.featureKey === featureKey);
+      if (rule) {
+        rule.visible = visible;
+        rule.updatedAt = new Date().toISOString();
+      } else {
+        roleRules.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          roleId: role.id,
+          role: role.code,
+          featureKey: featureKey,
+          visible: visible,
+          updatedAt: new Date().toISOString()
+        });
+      }
+      DB.set('role_feature_access', roleRules);
+      DB.log('UPDATE', 'Settings', `${visible ? 'Enabled' : 'Hidden'} feature '${featureKey}' for role '${role.name}'`, Auth.user?.id);
+      Toast.show(`Feature ${visible ? 'enabled' : 'hidden'} for ${role.name}!`, 'success');
+    } else {
+      const user = users.find(u => u.id === targetId);
+      if (!user) return;
+      if (user.role === 'superadmin') {
+        Toast.show('Super Administrator permissions are sovereign and immutable.', 'warning');
+        return;
+      }
+
+      let userRules = DB.get('user_feature_access') || [];
+      let rule = userRules.find(r => r.userId === user.id && r.featureKey === featureKey);
+      if (rule) {
+        rule.visible = visible;
+        rule.updatedAt = new Date().toISOString();
+      } else {
+        userRules.push({
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          userId: user.id,
+          username: user.username,
+          featureKey: featureKey,
+          visible: visible,
+          updatedAt: new Date().toISOString()
+        });
+      }
+      DB.set('user_feature_access', userRules);
+      DB.log('UPDATE', 'Settings', `${visible ? 'Enabled' : 'Hidden'} feature '${featureKey}' for login '${user.username}' (${user.fullName})`, Auth.user?.id);
+      Toast.show(`Feature ${visible ? 'enabled' : 'hidden'} for login ${user.fullName || user.username}!`, 'success');
+    }
+
+    const c = document.getElementById('settings-content');
+    if (c) this.renderFeatureVisibility(c);
+  },
+
+  batchToggleModuleFeatures(scopeType, targetId, moduleCode, visible) {
+    const catalog = (typeof Auth !== 'undefined' && Auth.FEATURE_CATALOG) || window.FEATURE_CATALOG || [];
+    const mod = catalog.find(m => m.moduleCode === moduleCode);
+    if (!mod) return;
+
+    mod.features.forEach(f => {
+      this.toggleFeatureVisibility(scopeType, targetId, f.key, visible);
+    });
+    Toast.show(`All options in ${mod.moduleName} set to ${visible ? 'VISIBLE' : 'HIDDEN'}!`, 'success');
+    const c = document.getElementById('settings-content');
+    if (c) this.renderFeatureVisibility(c);
+  },
+
+  renderFeatureVisibility(c) {
+    const roles = DB.get('roles') || [];
+    const users = DB.get('users') || [];
+    const catalog = (typeof Auth !== 'undefined' && Auth.FEATURE_CATALOG) || window.FEATURE_CATALOG || [];
+
+    if (!roles.find(r => r.id === this.selectedFeatureRoleId)) {
+      this.selectedFeatureRoleId = (roles.find(r => r.code === 'hr_manager') || roles[0])?.id || 1;
+    }
+    if (!users.find(u => u.id === this.selectedFeatureUserId)) {
+      this.selectedFeatureUserId = users[0]?.id || 1;
+    }
+
+    const activeRole = roles.find(r => r.id === this.selectedFeatureRoleId) || roles[0];
+    const activeUser = users.find(u => u.id === this.selectedFeatureUserId) || users[0];
+    const isSuperAdminTarget = (this.featureScopeMode === 'role' && activeRole.code === 'superadmin') ||
+                               (this.featureScopeMode === 'user' && (activeUser?.role === 'superadmin' || activeUser?.role === 'Super Admin'));
+
+    // Calculate analytics
+    let totalFeaturesCount = 0;
+    let visibleFeaturesCount = 0;
+
+    catalog.forEach(m => {
+      m.features.forEach(f => {
+        totalFeaturesCount++;
+        const isVis = this.isFeatureVisible(
+          this.featureScopeMode,
+          this.featureScopeMode === 'role' ? activeRole.id : activeUser.id,
+          f.key,
+          f.defaultRoles
+        );
+        if (isVis) visibleFeaturesCount++;
+      });
+    });
+
+    const hiddenFeaturesCount = totalFeaturesCount - visibleFeaturesCount;
+
+    // Filter catalog based on search & module filter
+    const q = (this.featureSearchTerm || '').trim().toLowerCase();
+    const filteredCatalog = catalog.map(m => {
+      if (this.featureModuleFilter !== 'all' && m.moduleCode !== this.featureModuleFilter) {
+        return null;
+      }
+      const matchingFeatures = m.features.filter(f => {
+        if (!q) return true;
+        return f.name.toLowerCase().includes(q) ||
+               f.desc.toLowerCase().includes(q) ||
+               f.key.toLowerCase().includes(q) ||
+               m.moduleName.toLowerCase().includes(q);
+      });
+      if (matchingFeatures.length === 0) return null;
+      return { ...m, features: matchingFeatures };
+    }).filter(Boolean);
+
+    c.innerHTML = `
+      <!-- Sub-Tabs: Permissions Matrix vs Feature Visibility -->
+      <div style="display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:14px;flex-wrap:wrap">
+        <button class="btn btn-sm btn-outline" onclick="Settings.switchSection('roles_permissions')">
+          <i class="fa fa-user-shield"></i> Action Permissions Matrix (CRUD)
+        </button>
+        <button class="btn btn-sm btn-primary" onclick="Settings.switchSection('feature_visibility')">
+          <i class="fa fa-eye"></i> Feature &amp; Option Visibility (Show/Hide per Login)
+        </button>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap;gap:14px">
+        <div>
+          <h3 style="font-size:18px;font-weight:800;color:var(--text);margin:0;display:flex;align-items:center;gap:10px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:rgba(20,184,166,0.12);color:var(--secondary)">
+              <i class="fa fa-eye"></i>
+            </span>
+            Feature &amp; Sub-Option Visibility Manager
+          </h3>
+          <div style="font-size:13px;color:var(--text-3);margin-top:4px">
+            Configure exactly which tabs, forms, buttons, and sub-features are visible or hidden for each Role or individual Login account.
+          </div>
+        </div>
+
+        <div style="display:flex;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:3px">
+          <button class="btn btn-sm ${this.featureScopeMode==='role'?'btn-primary':'btn-ghost'}" style="font-size:12px;padding:5px 12px" onclick="Settings.switchFeatureScope('role')">
+            <i class="fa fa-users-gear"></i> By Role Profile
+          </button>
+          <button class="btn btn-sm ${this.featureScopeMode==='user'?'btn-primary':'btn-ghost'}" style="font-size:12px;padding:5px 12px" onclick="Settings.switchFeatureScope('user')">
+            <i class="fa fa-user-check"></i> By Individual Login / User
+          </button>
+        </div>
+      </div>
+
+      <!-- Target Selection Card -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;margin-bottom:20px">
+        ${this.featureScopeMode === 'role' ? `
+          <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:10px">
+            Select Role Profile to Configure:
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${roles.map(r => {
+              const isActive = r.id === activeRole.id;
+              return `
+                <button class="btn btn-sm ${isActive ? 'btn-primary' : 'btn-outline'}"
+                  onclick="Settings.selectFeatureRole(${r.id})"
+                  style="display:flex;align-items:center;gap:6px;font-size:12px">
+                  <i class="fa ${r.code === 'superadmin' ? 'fa-crown' : r.code === 'hr_manager' ? 'fa-user-tie' : r.code === 'dept_manager' ? 'fa-users-gear' : 'fa-user'}"></i>
+                  ${r.name}
+                  ${r.code === 'superadmin' ? '<span class="badge badge-warning" style="font-size:9px;margin-left:4px">Sovereign</span>' : ''}
+                </button>
+              `;
+            }).join('')}
+          </div>
+        ` : `
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text-3);text-transform:uppercase;margin-bottom:6px">
+                Select Specific Login / User Account:
+              </div>
+              <div style="font-size:13px;color:var(--text-muted)">
+                Changes applied here will override the default role visibility specifically for this login.
+              </div>
+            </div>
+            <select class="form-control" style="width:280px;height:36px;font-size:13px;font-weight:600" onchange="Settings.selectFeatureUser(parseInt(this.value))">
+              ${users.map(u => `
+                <option value="${u.id}" ${u.id === activeUser.id ? 'selected' : ''}>
+                  ${u.fullName || u.username} (${u.role || 'employee'}) - @${u.username}
+                </option>
+              `).join('')}
+            </select>
+          </div>
+        `}
+      </div>
+
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase">Target Profile</div>
+          <div style="font-size:17px;font-weight:800;color:var(--text);margin-top:4px">
+            ${this.featureScopeMode === 'role' ? activeRole.name : (activeUser.fullName || activeUser.username)}
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">
+            ${this.featureScopeMode === 'role' ? `Code: ${activeRole.code}` : `Role: ${activeUser.role || 'employee'}`}
+          </div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase">Visible Features</div>
+          <div style="font-size:20px;font-weight:800;color:var(--success);margin-top:4px">
+            ${visibleFeaturesCount} Options Visible
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Accessible on screen</div>
+        </div>
+
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase">Hidden Features</div>
+          <div style="font-size:20px;font-weight:800;color:${hiddenFeaturesCount > 0 ? 'var(--danger)' : 'var(--text-muted)'};margin-top:4px">
+            ${hiddenFeaturesCount} Options Hidden
+          </div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">Completely removed from view</div>
+        </div>
+      </div>
+
+      <!-- Filter & Search Toolbar -->
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <div style="flex:1;min-width:240px;position:relative">
+          <i class="fa fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
+          <input type="text" class="form-control" style="padding-left:34px;height:36px;font-size:13px"
+            placeholder="Search features (e.g. calendar, quota, apply, tax slabs, bank format)..."
+            value="${this.featureSearchTerm}"
+            oninput="Settings.featureSearchTerm=this.value.trim().toLowerCase();Settings.renderFeatureVisibility(document.getElementById('settings-content'))">
+        </div>
+        <select class="form-control" style="width:220px;height:36px;font-size:13px"
+          onchange="Settings.featureModuleFilter=this.value;Settings.renderFeatureVisibility(document.getElementById('settings-content'))">
+          <option value="all" ${this.featureModuleFilter==='all'?'selected':''}>All Modules (${catalog.length})</option>
+          ${catalog.map(m => `
+            <option value="${m.moduleCode}" ${this.featureModuleFilter===m.moduleCode?'selected':''}>${m.moduleName}</option>
+          `).join('')}
+        </select>
+      </div>
+
+      <!-- Feature Catalog Cards -->
+      <div style="display:flex;flex-direction:column;gap:18px">
+        ${filteredCatalog.length === 0 ? `
+          <div class="empty-state card" style="text-align:center;padding:48px 24px">
+            <i class="fa fa-search" style="font-size:32px;color:var(--text-muted);margin-bottom:12px"></i>
+            <div style="font-size:16px;font-weight:700">No matching features found</div>
+            <div style="font-size:13px;color:var(--text-muted);margin-top:4px">Try clearing your search query.</div>
+          </div>
+        ` : filteredCatalog.map(m => {
+          const targetId = this.featureScopeMode === 'role' ? activeRole.id : activeUser.id;
+          const visibleCountInModule = m.features.filter(f => this.isFeatureVisible(this.featureScopeMode, targetId, f.key, f.defaultRoles)).length;
+
+          return `
+            <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+              <!-- Module Header -->
+              <div style="padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,0.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px">
+                    <i class="fa ${m.moduleIcon}"></i>
+                  </div>
+                  <div>
+                    <div style="font-size:15px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+                      <span>${m.moduleName}</span>
+                      <span class="badge ${visibleCountInModule === m.features.length ? 'badge-success' : visibleCountInModule === 0 ? 'badge-danger' : 'badge-primary'}" style="font-size:11px">
+                        ${visibleCountInModule} of ${m.features.length} Visible
+                      </span>
+                    </div>
+                    <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">
+                      Module Code: <code>${m.moduleCode}</code>
+                    </div>
+                  </div>
+                </div>
+
+                ${!isSuperAdminTarget ? `
+                  <div style="display:flex;gap:6px">
+                    <button class="btn btn-outline btn-xs" style="font-size:11px;padding:3px 8px" onclick="Settings.batchToggleModuleFeatures('${this.featureScopeMode}', ${targetId}, '${m.moduleCode}', true)">
+                      <i class="fa fa-check text-success"></i> Show All
+                    </button>
+                    <button class="btn btn-outline btn-xs" style="font-size:11px;padding:3px 8px" onclick="Settings.batchToggleModuleFeatures('${this.featureScopeMode}', ${targetId}, '${m.moduleCode}', false)">
+                      <i class="fa fa-times text-danger"></i> Hide All
+                    </button>
+                  </div>
+                ` : `
+                  <span class="badge badge-success" style="font-size:11px"><i class="fa fa-lock"></i> Sovereign (Always Visible)</span>
+                `}
+              </div>
+
+              <!-- Module Features Grid -->
+              <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px">
+                ${m.features.map(f => {
+                  const isVis = this.isFeatureVisible(this.featureScopeMode, targetId, f.key, f.defaultRoles);
+                  return `
+                    <div style="background:var(--surface);border:1px solid ${isVis ? 'var(--border)' : 'rgba(239,68,68,0.25)'};border-radius:10px;padding:14px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;transition:all 0.2s">
+                      <div style="flex:1">
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                          <span style="font-size:13px;font-weight:700;color:var(--text)">${f.name}</span>
+                          <span style="font-size:9.5px;padding:1px 5px;border-radius:4px;background:var(--card);color:var(--text-muted);font-family:monospace;border:1px solid var(--border)">
+                            ${f.key}
+                          </span>
+                        </div>
+                        <div style="font-size:12px;color:var(--text-3);margin-top:4px;line-height:1.4">
+                          ${f.desc}
+                        </div>
+                        <div style="margin-top:8px">
+                          <span class="badge ${isVis ? 'badge-success' : 'badge-danger'}" style="font-size:10px;padding:2px 6px">
+                            <i class="fa ${isVis ? 'fa-eye' : 'fa-eye-slash'}"></i> ${isVis ? 'Visible on Screen' : 'Hidden from View'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label style="position:relative;display:inline-block;width:38px;height:22px;margin:0;cursor:${isSuperAdminTarget ? 'default' : 'pointer'}">
+                          <input type="checkbox"
+                            ${isVis ? 'checked' : ''}
+                            ${isSuperAdminTarget ? 'disabled' : ''}
+                            onchange="Settings.toggleFeatureVisibility('${this.featureScopeMode}', ${targetId}, '${f.key}', this.checked)"
+                            style="opacity:0;width:0;height:0">
+                          <span style="position:absolute;cursor:${isSuperAdminTarget ? 'default' : 'pointer'};top:0;left:0;right:0;bottom:0;background-color:${isVis ? 'var(--success)' : '#cbd5e1'};border-radius:22px;transition:0.3s;display:block">
+                            <span style="position:absolute;content:'';height:16px;width:16px;left:${isVis ? '19px' : '3px'};bottom:3px;background-color:white;border-radius:50%;transition:0.3s;display:block;box-shadow:0 1px 3px rgba(0,0,0,0.2)"></span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
   }
 ,
 
@@ -4097,3 +4514,5 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
   }
 
 };
+
+window.Settings = Settings;

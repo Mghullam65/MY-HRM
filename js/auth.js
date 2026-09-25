@@ -401,7 +401,214 @@ const Auth = {
       { username: 'usman.baig', password: 'mgr123', role: 'Dept Manager', name: 'Usman Baig', icon: 'fa-users-gear', color: '#14b8a6' },
       { username: 'fatima.raza', password: 'emp123', role: 'Employee', name: 'Fatima Raza', icon: 'fa-user', color: '#ec4899' },
     ];
+  },
+
+  // ─── Dynamic Feature & Option Visibility Engine ───
+  canSeeFeature(featureKey, fallbackModule = null) {
+    if (this.role === 'superadmin') return true;
+
+    try {
+      if (typeof DB !== 'undefined' && DB.get) {
+        // 1. Direct User / Login Override
+        const userId = this.user?.id;
+        if (userId) {
+          const userOverrides = DB.get('user_feature_access') || [];
+          const userRule = userOverrides.find(r => r.userId === userId && r.featureKey === featureKey);
+          if (userRule && typeof userRule.visible === 'boolean') {
+            return userRule.visible;
+          }
+        }
+
+        // 2. Role-based Feature Access
+        const roleOverrides = DB.get('role_feature_access') || [];
+        const roleRule = roleOverrides.find(r => (r.role === this.role || r.roleId === this.user?.roleId) && r.featureKey === featureKey);
+        if (roleRule && typeof roleRule.visible === 'boolean') {
+          return roleRule.visible;
+        }
+
+        // 3. Fallback to FEATURE_CATALOG defaultRoles
+        const catalog = Auth.FEATURE_CATALOG || window.FEATURE_CATALOG || [];
+        for (const m of catalog) {
+          const f = m.features.find(feat => feat.key === featureKey);
+          if (f && Array.isArray(f.defaultRoles)) {
+            return f.defaultRoles.includes(this.role);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Feature visibility lookup error:', e);
+    }
+
+    // 4. Fallback to Action-based Auth.can
+    if (featureKey && featureKey.includes('.')) {
+      const parts = featureKey.split('.');
+      const mod = parts[0];
+      const feat = parts[1];
+      if (['create', 'apply_form', 'submit'].includes(feat)) return this.can(mod, 'create');
+      if (['approve', 'approvals'].includes(feat)) return this.can(mod, 'approve');
+      if (['export'].includes(feat)) return this.can(mod, 'export');
+      if (['delete'].includes(feat)) return this.can(mod, 'delete');
+    }
+
+    return true;
   }
 };
 
+Auth.FEATURE_CATALOG = [
+  {
+    moduleCode: 'leaves',
+    moduleName: 'Leave Management',
+    moduleIcon: 'fa-calendar-xmark',
+    features: [
+      { key: 'leaves.requests', name: 'Leave Requests & History Ledger', desc: 'View submitted leave applications and personal/team leave status', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'leaves.apply_form', name: 'Apply Leave Button & Form', desc: 'Display "Apply Leave" button and allow submitting leave applications', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'leaves.approvals', name: 'Approval & Rejection Actions', desc: 'Show Approve/Reject buttons on leave requests and permit decision-making', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'leaves.calendar', name: 'Team Leave Calendar Tab', desc: 'Display interactive team absence schedule and holiday dates', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'leaves.quota', name: 'Annual Quota & Balances Matrix Tab', desc: 'Display employee leave quotas, annual entitlements, and balance allocations', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'leaves.tokens', name: 'Short Leave & Emergency Tokens Tab', desc: 'Allow employees and managers to request and track hourly emergency tokens', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'leaves.encashment', name: 'Leave Encashment & Cashouts Tab', desc: 'Permit unutilized leave encashment calculations and payout claims', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'leaves.export', name: 'Export Quotas & History (CSV)', desc: 'Show CSV/Excel export buttons for leave data', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'attendance',
+    moduleName: 'Attendance & Rostering',
+    moduleIcon: 'fa-clock',
+    features: [
+      { key: 'attendance.clock_in', name: 'Web Clock-In / Clock-Out Punch', desc: 'Display interactive punch in/out buttons for logging work hours', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'attendance.daily', name: 'Daily Attendance Register Tab', desc: 'Show real-time daily team attendance register and status cards', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'attendance.monthly', name: 'Monthly Timesheets & Overtime Tab', desc: 'Display monthly time cards, late arrivals, and overtime calculations', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'attendance.shifts', name: 'Shift Rostering & Swaps Tab', desc: 'Display shift scheduling calendar and team shift swap requests', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'attendance.corrections', name: 'Attendance Correction Requests Tab', desc: 'Permit submitting and approving missed punch correction requests', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'attendance.biometric', name: 'Biometric Machine Logs & Telemetry Tab', desc: 'View raw device punch logs and biometric terminal statuses', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'attendance.export', name: 'Export Attendance & Rosters (CSV)', desc: 'Show Export buttons for attendance registers and roster schedules', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'payroll',
+    moduleName: 'Payroll & Compensation',
+    moduleIcon: 'fa-money-bill-wave',
+    features: [
+      { key: 'payroll.run', name: 'Run & Process Payroll Wizard', desc: 'Execute monthly payroll batch runs and gross-to-net calculations', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'payroll.register', name: 'Payroll Register & Salary Sheets Tab', desc: 'View complete company salary breakdowns and disbursement status', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'payroll.tax_slabs', name: 'Statutory Income Tax Slabs Tab', desc: 'Access progressive tax brackets, exemptions, and tax calculation formulas', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'payroll.bank_formats', name: 'Bank Transfer File Generator Tab', desc: 'Generate bank-specific direct transfer files (HBL, MCB, UBL, Meezan)', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'payroll.payslips', name: 'My Payslips & PDF Viewer Tab', desc: 'Permit employee to view, download, and print salary payslips', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'payroll.export', name: 'Export Payroll & Tax Reports (CSV)', desc: 'Export salary registers, bank sheets, and tax deductions to CSV', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'expenses',
+    moduleName: 'Travel & Expense Reimbursements',
+    moduleIcon: 'fa-plane-departure',
+    features: [
+      { key: 'expenses.submit', name: 'Submit Expense Claim Button & Modal', desc: 'Allow user to upload receipts and submit out-of-pocket expenses', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'expenses.claims_list', name: 'Expense Claims History Tab', desc: 'View personal or departmental submitted expense claims', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'expenses.approvals', name: 'Approvals & Audit Queue Tab', desc: 'Show manager/finance review queue to approve or reject vouchers', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'expenses.travel_requests', name: 'Travel Requisitions & Advance Tab', desc: 'Permit filing and approving business travel travel requests', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'expenses.payroll_sync', name: '1-Click Sync to Payroll', desc: 'Allow pushing approved claims into payroll disbursement ledger', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'expenses.export', name: 'Export Expense Vouchers (CSV)', desc: 'Export claim audit sheets and disbursement files', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'performance',
+    moduleName: 'Performance & Appraisal',
+    moduleIcon: 'fa-chart-line',
+    features: [
+      { key: 'performance.cycles', name: 'Appraisal Cycles Setup Tab', desc: 'Create and configure organizational appraisal cycles and deadlines', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'performance.goals', name: 'Goals & OKRs Management Tab', desc: 'Set, track, and align individual and departmental OKR targets', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'performance.kpi', name: 'KPI Metrics Catalog Tab', desc: 'View and manage organizational key performance indicator library', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'performance.reviews', name: 'Performance Reviews & Sign-offs Tab', desc: 'Conduct manager evaluations and employee self-assessments', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'performance.feedback360', name: '360° Peer Feedback Tab', desc: 'Gather anonymous peer reviews and cross-functional feedback', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'performance.merit', name: 'Merit Increment Matrix Tab', desc: 'Calculate merit salary increases based on appraisal scores', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'performance.succession', name: '9-Box Grid & Succession Planning Tab', desc: 'Access 9-box performance vs potential talent mapping', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'performance.lms', name: 'LMS & Competency Skill Matrix Tab', desc: 'Track employee training certifications and skill competencies', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] }
+    ]
+  },
+  {
+    moduleCode: 'recruitment',
+    moduleName: 'Recruitment & ATS',
+    moduleIcon: 'fa-briefcase',
+    features: [
+      { key: 'recruitment.jobs', name: 'Job Openings & Postings Tab', desc: 'Create and manage active career postings and descriptions', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'recruitment.pipeline', name: 'Applicant Pipeline & Kanban Tab', desc: 'View candidate applications across interview pipeline stages', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'recruitment.requisitions', name: 'Headcount Requisitions Tab', desc: 'Submit and approve new hiring headcount requests', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'recruitment.assessments', name: 'Screening & Interview Scorecards Tab', desc: 'Score candidates and record structured interview feedback', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'recruitment.offers', name: 'Offer Letters & Onboarding Tab', desc: 'Generate and send official compensation offer letters', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'recruitment.export', name: 'Export Candidate Data (CSV)', desc: 'Export applicant rosters and recruitment metrics', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'assets',
+    moduleName: 'Corporate Asset Inventory',
+    moduleIcon: 'fa-laptop-file',
+    features: [
+      { key: 'assets.register', name: 'Register Asset Button & Form', desc: 'Add new hardware devices, laptops, and equipment to the register', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'assets.catalog', name: 'Hardware Register & Catalog Tab', desc: 'Browse full company inventory with serials, specs, and status', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'assets.custody', name: 'Custody & Handover Ledger Tab', desc: 'Check-out equipment and record signed employee custody undertakings', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'assets.maintenance', name: 'Maintenance & Warranty Radar Tab', desc: 'Track repair service tickets and expiring hardware warranties', defaultRoles: ['superadmin', 'hr_manager', 'employee'] },
+      { key: 'assets.returns', name: 'Return Clearances & Depreciation Tab', desc: 'Process exit asset handovers and calculate asset depreciation', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'assets.export', name: 'Export Asset Inventory (CSV)', desc: 'Export full hardware asset register to CSV spreadsheet', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'settlement',
+    moduleName: 'Exit & Settlements (F&F)',
+    moduleIcon: 'fa-handshake-simple',
+    features: [
+      { key: 'settlement.register', name: 'Settlement Register & Status Tab', desc: 'View active separation cases and full-and-final settlement status', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'settlement.initiate', name: 'Initiate Settlement Button & Modal', desc: 'Submit resignation notice or initiate administrative separation', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'settlement.clearances', name: 'Multi-Gate Department Clearances Tab', desc: 'Departmental sign-offs (HR, IT, Finance, Admin) before final payout', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'settlement.gratuity', name: 'Statutory Gratuity & Encashment Engine', desc: 'Calculate legal gratuity (30/26 formula), notice pay, and deductions', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'settlement.export', name: 'Export Settlement Vouchers (CSV)', desc: 'Export final discharge vouchers and payment advice sheets', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'helpdesk',
+    moduleName: 'Helpdesk & Grievance Redressal',
+    moduleIcon: 'fa-headset',
+    features: [
+      { key: 'helpdesk.tickets', name: 'Support Tickets Ledger Tab', desc: 'View internal support tickets and status updates', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'helpdesk.create', name: 'Open Support Ticket Button', desc: 'Permit submitting IT support, HR inquiry, or facility tickets', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'helpdesk.grievance', name: 'File Confidential Grievance Button', desc: 'Submit protected anonymous whistleblower or harassment complaints', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'helpdesk.kb', name: 'Knowledge Base & FAQs Tab', desc: 'Browse company policies, IT setup guides, and self-help articles', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] }
+    ]
+  },
+  {
+    moduleCode: 'employees',
+    moduleName: 'Personnel & Employee Dossiers',
+    moduleIcon: 'fa-users',
+    features: [
+      { key: 'employees.directory', name: 'Employee Directory & Cards', desc: 'Search and browse active personnel rosters and contact cards', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'employees.create', name: 'Add New Employee Button & Wizard', desc: 'Onboard new hire and create digital personnel file', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'employees.org_chart', name: 'Visual Org Chart & Reporting Line Tab', desc: 'Interactive hierarchical tree and departmental reporting structure', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'employees.documents', name: 'Digital Document Vault (e-DMS) Tab', desc: 'Manage CNIC, degrees, contracts, and employment letters', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'employees.export', name: 'Export Personnel Directory (CSV)', desc: 'Export complete employee master data file to CSV', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  },
+  {
+    moduleCode: 'events',
+    moduleName: 'Company Events & Holidays',
+    moduleIcon: 'fa-calendar-days',
+    features: [
+      { key: 'events.calendar', name: 'Events Calendar View', desc: 'View corporate events, town halls, trainings, and team outings', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] },
+      { key: 'events.create', name: 'Create Event Button & Modal', desc: 'Schedule and publish company-wide or departmental events', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'events.holidays', name: 'Public & Gazetted Holidays List', desc: 'View official recognized public and religious holiday list', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager', 'employee'] }
+    ]
+  },
+  {
+    moduleCode: 'reports',
+    moduleName: 'Executive Analytics & Reports',
+    moduleIcon: 'fa-file-chart-column',
+    features: [
+      { key: 'reports.headcount', name: 'Headcount & Turnover Analytics', desc: 'Executive demographic graphs, attrition rates, and hiring velocity', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'reports.attendance_summary', name: 'Attendance & Punctuality Reports', desc: 'Monthly punctuality trends, late minutes, and absenteeism radar', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'reports.payroll_summary', name: 'Payroll & Cost Center Analytics', desc: 'Departmental salary expenditure, tax withholdings, and overtime costs', defaultRoles: ['superadmin', 'hr_manager'] },
+      { key: 'reports.leave_utilization', name: 'Leave Utilization & Liability Reports', desc: 'Annual leave consumption patterns and financial liability analysis', defaultRoles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { key: 'reports.export', name: 'Export Executive Reports (PDF/CSV)', desc: 'Download printable executive dashboards and analytical raw data', defaultRoles: ['superadmin', 'hr_manager'] }
+    ]
+  }
+];
+
 window.Auth = Auth;
+window.FEATURE_CATALOG = Auth.FEATURE_CATALOG;
