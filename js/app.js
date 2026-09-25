@@ -394,6 +394,40 @@ const App = {
 
       <div class="topbar-actions">
         ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
+        
+        <!-- Quick Persona & Demo Role Switcher -->
+        <div style="position:relative;display:inline-block">
+          <button class="topbar-btn" id="persona-btn" onclick="App.togglePersonaDropdown(event)" title="Quick Persona & Demo Role Switcher" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer">
+            <i class="fa fa-user-gear"></i>
+            <span style="max-width:115px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Auth.user?.role || 'Persona'}</span>
+            <i class="fa fa-chevron-down" style="font-size:9px"></i>
+          </button>
+          <div class="persona-dropdown" id="persona-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:6px;width:330px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.3);z-index:9999;padding:12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+              <div style="font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.5px">
+                <i class="fa fa-users-gear" style="color:var(--primary);margin-right:4px"></i> Switch Demo Persona
+              </div>
+              <span class="badge badge-primary" style="font-size:10px">1-Click Test</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;padding-right:2px">
+              ${(typeof Auth !== 'undefined' && Auth.DEMO_PERSONAS ? Auth.DEMO_PERSONAS : []).map(p => `
+                <div class="persona-item ${Auth.user?.username === p.username ? 'active' : ''}" onclick="Auth.switchPersona('${p.username}')" style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:${Auth.user?.username === p.username ? 'rgba(99,102,241,0.12)' : 'var(--surface)'};border:1px solid ${Auth.user?.username === p.username ? 'var(--primary)' : 'var(--border)'};transition:all 0.15s ease">
+                  <div style="width:28px;height:28px;border-radius:8px;background:${p.color}22;color:${p.color};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px">
+                    <i class="fa ${p.icon}"></i>
+                  </div>
+                  <div style="flex:1;min-width:0">
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                      <span style="font-size:12px;font-weight:700;color:var(--text)">${p.name}</span>
+                      <span class="badge" style="font-size:9.5px;padding:1px 6px;background:${p.color}22;color:${p.color}">${p.badge}</span>
+                    </div>
+                    <div style="font-size:10.5px;color:var(--text-3);margin-top:2px;line-height:1.3">${p.description}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
         ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
           <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:4px">
             <i class="fa fa-cubes"></i>
@@ -502,7 +536,20 @@ const App = {
       if (!e.target.closest('#topbar-search-wrap')) {
         document.getElementById('search-dropdown')?.classList.remove('open');
       }
+      if (!e.target.closest('#persona-btn') && !e.target.closest('#persona-dropdown')) {
+        const pDd = document.getElementById('persona-dropdown');
+        if (pDd) pDd.style.display = 'none';
+      }
     });
+  },
+
+  togglePersonaDropdown(e) {
+    if (e) e.stopPropagation();
+    const dd = document.getElementById('persona-dropdown');
+    if (!dd) return;
+    const isHidden = dd.style.display === 'none' || !dd.style.display;
+    document.querySelectorAll('.accent-picker-dropdown, .notif-dropdown').forEach(el => el.style.display = 'none');
+    dd.style.display = isHidden ? 'block' : 'none';
   },
 
   refreshNotifications() {
@@ -2246,6 +2293,16 @@ const Login = {
       scope: 'Digital Onboarding • Profile Completion, e-DMS Uploads & Induction Checklist',
       avatar: 'assets/avatars/omar_farhan.jpg',
       badgeColor: '#f59e0b'
+    },
+    junior_hr: {
+      name: 'Zain Ali',
+      role: 'Junior HR (Restricted)',
+      email: 'junior.hr',
+      pass: 'hr123',
+      portal: 'Junior HR Restricted Portal',
+      scope: 'Partial Permissions • Leaves & Attendance view/apply, Approvals & Salary restricted',
+      avatar: 'assets/avatars/omar_farhan.jpg',
+      badgeColor: '#ec4899'
     }
   },
 
@@ -2419,6 +2476,7 @@ const Login = {
                 <button type="button" class="split-account-chip ${this.activeAccount==='manager'?'active':''}" data-role="manager" onclick="Login.selectAccount('manager')">Dept Manager</button>
                 <button type="button" class="split-account-chip ${this.activeAccount==='employee'?'active':''}" data-role="employee" onclick="Login.selectAccount('employee')">Employee</button>
                 <button type="button" class="split-account-chip ${this.activeAccount==='onboarding'?'active':''}" data-role="onboarding" onclick="Login.selectAccount('onboarding')">Onboarding</button>
+                <button type="button" class="split-account-chip ${this.activeAccount==='junior_hr'?'active':''}" data-role="junior_hr" onclick="Login.selectAccount('junior_hr')">Junior HR (Partial)</button>
               </div>
             </div>
 

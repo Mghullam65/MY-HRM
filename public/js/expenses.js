@@ -299,7 +299,10 @@ const Expenses = {
                         <i class="fa fa-paperclip" style="color:var(--primary)"></i> View Slip
                       </button>
                     </td>
-                    <td>${this.getStatusBadge(c.status)}</td>
+                    <td>
+                      ${this.getStatusBadge(c.status)}
+                      ${typeof WorkflowEngine !== 'undefined' ? `<div style="margin-top:4px">${WorkflowEngine.renderStepperHTML(c, 'expenses')}</div>` : ''}
+                    </td>
                     <td style="text-align:right">
                       <div style="display:inline-flex;gap:4px">
                         <button class="btn btn-ghost btn-xs" onclick="Expenses.printVoucher(${c.id})" title="Print Formal Reimbursement Voucher">

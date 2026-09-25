@@ -467,6 +467,28 @@ const LiveNotifications = {
       API.createNotification(notif).catch(() => {});
     }
 
+    // 3.5 Outbound SMTP Email Telemetry & Webhook Triggering
+    try {
+      const emp = notif.recipientEmpId ? DB.find('employees', notif.recipientEmpId) : null;
+      const targetEmail = emp?.email || `${(notif.recipientRole || 'staff')}@company.com`;
+      const emailLogs = DB.get('email_logs') || [];
+      emailLogs.unshift({
+        id: DB.nextId('email_logs'),
+        recipientEmail: targetEmail,
+        recipientName: emp?.fullName || notif.recipientRole,
+        subject: `[HRM Pro Alert] ${notif.title}`,
+        body: notif.message,
+        status: 'delivered',
+        sentAt: new Date().toISOString()
+      });
+      if (emailLogs.length > 200) emailLogs.pop();
+      DB.set('email_logs', emailLogs);
+
+      if (typeof Settings !== 'undefined' && Settings.triggerWebhooks) {
+        Settings.triggerWebhooks(notif.type || 'notifications', notif.title, notif);
+      }
+    } catch(e) {}
+
     // 4. Update UI
     if (typeof App !== 'undefined' && App.refreshNotifications) {
       App.refreshNotifications();
@@ -516,3 +538,4 @@ const LiveNotifications = {
 };
 
 window.LiveNotifications = LiveNotifications;
+window.Notifications = LiveNotifications;

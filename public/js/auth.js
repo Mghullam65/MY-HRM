@@ -127,6 +127,47 @@ const Auth = {
           Toast.show(`Role Updated: Your access role is now "${newRole}".`, 'info');
         }
       }
+  },
+
+  DEMO_PERSONAS: [
+    { id: 1, username: 'admin', role: 'superadmin', name: 'Super Administrator', roleLabel: 'Super Admin', icon: 'fa-shield-halved', color: '#6366f1', badge: 'Full Sovereign', description: 'Master administrator with unrestricted access to all 16 modules, master configurations, and cloud databases.' },
+    { id: 2, username: 'sara.malik', role: 'hr_manager', name: 'Sara Malik', roleLabel: 'HR Manager', icon: 'fa-user-tie', color: '#10b981', badge: 'HR Operations', description: 'Enterprise HR leadership: payroll processing, lifecycle approvals, quotas, and employee records.' },
+    { id: 3, username: 'usman.baig', role: 'dept_manager', name: 'Usman Baig', roleLabel: 'Dept Manager', icon: 'fa-users-gear', color: '#0ea5e9', badge: 'Team Scope', description: 'Department head: team attendance, shift roster swaps, claim endorsements, and headcount requisitions.' },
+    { id: 4, username: 'fatima.raza', role: 'employee', name: 'Fatima Raza', roleLabel: 'Regular Employee', icon: 'fa-user', color: '#f59e0b', badge: 'Self-Service', description: 'Standard employee: personal punch clock, leave requests, expense claim lodging, and payslip downloads.' },
+    { id: 5, username: 'saad.ibrahim', role: 'onboarding', name: 'Saad Ibrahim', roleLabel: 'Onboarding Hire', icon: 'fa-user-plus', color: '#8b5cf6', badge: 'Induction', description: 'New recruit: onboarding checklists, document uploads, and company handbook verification.' },
+    { id: 6, username: 'junior.hr', role: 'hr_manager', name: 'Zain Ali', roleLabel: 'Junior HR (Restricted)', icon: 'fa-user-lock', color: '#ec4899', badge: 'Partial Permissions', description: 'Restricted Junior HR: Can view & apply leaves/attendance, but approvals, salary processing, and quota adjustments are revoked.' },
+  ],
+
+  switchPersona(target) {
+    const users = DB.get('users') || [];
+    const matched = users.find(u => u.username === target || u.id === Number(target) || u.email === target) 
+      || this.DEMO_PERSONAS.find(p => p.username === target || p.id === Number(target));
+    if (!matched) {
+      if (typeof Toast !== 'undefined') Toast.show('Persona not found', 'error');
+      return;
+    }
+    const userInDb = users.find(u => u.username === matched.username || u.id === matched.id) || matched;
+    const employee = DB.find('employees', userInDb.employeeId) || { id: userInDb.employeeId || 1, fullName: userInDb.fullName || userInDb.username, role: userInDb.role };
+    
+    const safeUser = { ...userInDb };
+    delete safeUser.password;
+    this._user = safeUser;
+    this._employee = employee;
+    sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee }));
+    
+    DB.log('SWITCH_PERSONA', 'Auth', `Switched active session to persona '${safeUser.username}' (${safeUser.role})`, safeUser.id);
+    
+    if (typeof Toast !== 'undefined') {
+      Toast.show(`Switched to Persona: ${safeUser.fullName || safeUser.username} (${safeUser.role})`, 'success');
+    }
+
+    const dd = document.getElementById('persona-dropdown');
+    if (dd) dd.style.display = 'none';
+
+    if (typeof App !== 'undefined') {
+      App.renderTopbar();
+      App.renderSidebar();
+      App.navigate(App.currentModule || 'dashboard');
     }
   },
 

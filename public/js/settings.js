@@ -11,6 +11,8 @@ const Settings = {
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
       { id: 'roles_permissions', label: 'Roles & Permissions', icon: 'fa-user-shield' },
+      { id: 'workflows', label: 'Approval Workflows', icon: 'fa-diagram-project' },
+      { id: 'audit_trail', label: 'Audit Trail & Logs', icon: 'fa-shield-halved' },
       { id: 'attendance_rules', label: 'Attendance Rules', icon: 'fa-clock' },
       { id: 'biometric_network', label: 'Biometric & Network IPs', icon: 'fa-network-wired' },
       { id: 'leave_policy', label: 'Leave Policy', icon: 'fa-calendar-xmark' },
@@ -54,6 +56,8 @@ const Settings = {
       case 'company':            this.renderCompany(c); break;
       case 'general':            this.renderGeneral(c); break;
       case 'roles_permissions':  this.renderRolesPermissions(c); break;
+      case 'workflows':          this.renderWorkflows(c); break;
+      case 'audit_trail':        this.renderAuditTrail(c); break;
       case 'feature_visibility': 
         this.currentSection = 'roles_permissions';
         this.rolesPermissionsTab = 'features';
@@ -1331,7 +1335,8 @@ const Settings = {
         `<label class="toggle-switch"><input type="checkbox" id="s-${key}" ${s(key)!==false?'checked':''}><span class="toggle-slider"></span></label>`,
         help
       )).join('')}
-    `, `<button class="btn btn-primary" onclick="Settings.saveNotifications()"><i class="fa fa-save"></i> Save Preferences</button>`) + `
+    `, `<button class="btn btn-primary" onclick="Settings.saveNotifications()"><i class="fa fa-save"></i> Save Preferences</button>
+        <button class="btn btn-secondary" onclick="LiveNotifications.sendTestAlert()" style="margin-left:8px"><i class="fa fa-paper-plane"></i> Dispatch Live Multi-Channel Test</button>`) + `
       <style>
         .toggle-switch { position:relative;display:inline-block;width:44px;height:24px }
         .toggle-switch input { opacity:0;width:0;height:0 }
@@ -4533,6 +4538,443 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     Toast.show(`Exported biometric machine mapping for ${emps.length} employees!`, 'success');
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ─── Approval Workflows Configuration Engine ────────────────
+  // ════════════════════════════════════════════════════════════
+  selectedWorkflowModule: 'leaves',
+
+  renderWorkflows(c) {
+    if (typeof WorkflowEngine === 'undefined') {
+      c.innerHTML = `<div class="alert alert-warning">WorkflowEngine is initializing...</div>`;
+      return;
+    }
+
+    const currentMod = this.selectedWorkflowModule || 'leaves';
+    const chain = WorkflowEngine.getChain(currentMod);
+    const roles = DB.get('roles') || [];
+
+    c.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:20px" class="animate-fade-in">
+        <!-- Header -->
+        <div class="card" style="padding:20px 24px;background:linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(168,85,247,0.06) 100%);border:1px solid rgba(99,102,241,0.2);border-radius:12px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg, #6366f1, #8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 4px 12px rgba(99,102,241,0.3)">
+                <i class="fa fa-diagram-project"></i>
+              </div>
+              <div>
+                <h3 style="margin:0;font-size:18px;font-weight:800;color:var(--text)">Configurable Multi-Tier Approval Chains</h3>
+                <p style="margin:3px 0 0;font-size:12.5px;color:var(--text-3)">Design 1-Tier, 2-Tier, and 3-Tier sign-off chains with threshold escalations & automated notifications.</p>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge badge-success" style="font-size:11px"><i class="fa fa-check-circle"></i> Engine Active</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Module Selector Tabs -->
+        <div style="display:flex;gap:10px;border-bottom:1px solid var(--border);padding-bottom:12px;flex-wrap:wrap">
+          <button class="btn ${currentMod === 'leaves' ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="Settings.switchWorkflowModule('leaves')">
+            <i class="fa fa-calendar-xmark"></i> Leave Allocations & Requests
+          </button>
+          <button class="btn ${currentMod === 'expenses' ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="Settings.switchWorkflowModule('expenses')">
+            <i class="fa fa-plane-departure"></i> Travel & Expense Claims
+          </button>
+          <button class="btn ${currentMod === 'settlement' ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="Settings.switchWorkflowModule('settlement')">
+            <i class="fa fa-handshake-simple"></i> Exit & Full-Final (F&F)
+          </button>
+        </div>
+
+        <!-- Chain Configuration Card -->
+        <div class="card" style="padding:22px;border:1px solid var(--border);border-radius:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+            <div>
+              <h4 style="margin:0;font-size:16px;font-weight:700;color:var(--text)">${chain.name}</h4>
+              <div style="font-size:12px;color:var(--text-3);margin-top:2px">Configure how many approval gates are required before corporate authorization.</div>
+            </div>
+
+            <!-- Tier Count Segmented Switcher -->
+            <div style="display:inline-flex;align-items:center;background:var(--surface);padding:4px;border-radius:10px;border:1px solid var(--border)">
+              <span style="font-size:11.5px;font-weight:700;color:var(--text-3);margin:0 10px">Workflow Depth:</span>
+              <button class="btn ${chain.tierCount === 1 ? 'btn-primary' : 'btn-ghost'} btn-xs" onclick="Settings.updateWorkflowTierCount('${currentMod}', 1)" style="border-radius:6px">1-Tier (Fast)</button>
+              <button class="btn ${chain.tierCount === 2 ? 'btn-primary' : 'btn-ghost'} btn-xs" onclick="Settings.updateWorkflowTierCount('${currentMod}', 2)" style="border-radius:6px">2-Tier (Standard)</button>
+              <button class="btn ${chain.tierCount === 3 ? 'btn-primary' : 'btn-ghost'} btn-xs" onclick="Settings.updateWorkflowTierCount('${currentMod}', 3)" style="border-radius:6px">3-Tier (Executive)</button>
+            </div>
+          </div>
+
+          <!-- Tiers Cards -->
+          <div style="display:flex;flex-direction:column;gap:16px">
+            ${chain.tiers.map((t, idx) => {
+              const isIncluded = idx < chain.tierCount;
+              return `
+                <div class="card" style="padding:16px 20px;border-left:4px solid ${isIncluded ? 'var(--primary)' : 'var(--border)'};background:${isIncluded ? 'var(--card)' : 'var(--surface)'};opacity:${isIncluded ? '1' : '0.55'};transition:all 0.2s">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+                    <div style="display:flex;align-items:center;gap:12px">
+                      <div style="width:34px;height:34px;border-radius:8px;background:${isIncluded ? 'var(--primary)' : 'var(--border)'};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px">
+                        T${t.tier}
+                      </div>
+                      <div>
+                        <div style="font-weight:700;font-size:14px;color:var(--text)">Tier ${t.tier}: ${t.label}</div>
+                        <div style="font-size:11.5px;color:var(--text-3)">${isIncluded ? 'Active Gate • Required for progression' : 'Disabled for current 1 or 2 tier configuration'}</div>
+                      </div>
+                    </div>
+
+                    <div style="display:flex;align-items:center;gap:10px">
+                      <label style="font-size:12px;font-weight:600;color:var(--text-2);margin:0">Assigned Approver Role:</label>
+                      <select class="input input-sm" style="width:180px" onchange="Settings.updateTierRole('${currentMod}', ${t.tier}, this.value)" ${!isIncluded ? 'disabled' : ''}>
+                        ${roles.map(r => `
+                          <option value="${r.code}" ${r.code === t.role ? 'selected' : ''}>${r.name}</option>
+                        `).join('')}
+                      </select>
+                    </div>
+                  </div>
+
+                  ${t.thresholdField ? `
+                    <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text-2)">
+                      <i class="fa fa-arrow-up-right-dots" style="color:var(--warning)"></i>
+                      <span><strong>Escalation Condition:</strong> Triggers Tier 3 whenever <code>${t.thresholdField}</code> is greater than or equal to:</span>
+                      <input type="number" class="input input-sm" value="${t.thresholdValue || 5}" style="width:90px" onchange="Settings.updateTierThreshold('${currentMod}', ${t.tier}, this.value)" ${!isIncluded ? 'disabled' : ''}>
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Save Button -->
+          <div style="margin-top:24px;display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;color:var(--text-3)">
+              <i class="fa fa-info-circle"></i> Workflows update instantly for all ongoing requests and sync to PostgreSQL cloud database.
+            </div>
+            <button class="btn btn-primary" onclick="Settings.saveWorkflowChain('${currentMod}')" style="font-weight:700">
+              <i class="fa fa-floppy-disk"></i> Save ${currentMod.toUpperCase()} Approval Chain
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  switchWorkflowModule(mod) {
+    this.selectedWorkflowModule = mod;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderWorkflows(c);
+  },
+
+  updateWorkflowTierCount(mod, count) {
+    if (typeof WorkflowEngine === 'undefined') return;
+    const chain = WorkflowEngine.getChain(mod);
+    chain.tierCount = count;
+    WorkflowEngine.saveChain(mod, chain);
+    const c = document.getElementById('settings-content');
+    if (c) this.renderWorkflows(c);
+  },
+
+  updateTierRole(mod, tierNum, roleCode) {
+    if (typeof WorkflowEngine === 'undefined') return;
+    const chain = WorkflowEngine.getChain(mod);
+    const targetTier = chain.tiers.find(t => t.tier === tierNum);
+    if (targetTier) {
+      targetTier.role = roleCode;
+      const roles = DB.get('roles') || [];
+      targetTier.roleName = roles.find(r => r.code === roleCode)?.name || roleCode;
+      WorkflowEngine.saveChain(mod, chain);
+    }
+  },
+
+  updateTierThreshold(mod, tierNum, val) {
+    if (typeof WorkflowEngine === 'undefined') return;
+    const chain = WorkflowEngine.getChain(mod);
+    const targetTier = chain.tiers.find(t => t.tier === tierNum);
+    if (targetTier) {
+      targetTier.thresholdValue = Number(val);
+      WorkflowEngine.saveChain(mod, chain);
+    }
+  },
+
+  saveWorkflowChain(mod) {
+    if (typeof WorkflowEngine === 'undefined') return;
+    const chain = WorkflowEngine.getChain(mod);
+    WorkflowEngine.saveChain(mod, chain);
+    Toast.show(`Multi-tier workflow for ${mod.toUpperCase()} successfully saved!`, 'success');
+  },
+
+  // ════════════════════════════════════════════════════════════
+  // ─── Interactive Audit Trail & Security Logs Viewer ─────────
+  // ════════════════════════════════════════════════════════════
+  auditSearchTerm: '',
+  auditFilterModule: 'all',
+  auditFilterAction: 'all',
+  auditFilterSeverity: 'all',
+
+  renderAuditTrail(c) {
+    const rawLogs = DB.get('audit_logs') || [];
+    const users = DB.get('users') || [];
+    const emps = DB.get('employees') || [];
+
+    // Filter logs
+    const filtered = rawLogs.filter(log => {
+      if (this.auditFilterModule !== 'all' && log.module?.toLowerCase() !== this.auditFilterModule.toLowerCase()) return false;
+      if (this.auditFilterAction !== 'all' && log.action?.toUpperCase() !== this.auditFilterAction.toUpperCase()) return false;
+      if (this.auditFilterSeverity !== 'all' && log.severity?.toUpperCase() !== this.auditFilterSeverity.toUpperCase()) return false;
+      if (this.auditSearchTerm) {
+        const q = this.auditSearchTerm.toLowerCase();
+        const details = (log.details || '').toLowerCase();
+        const checksum = (log.checksum || '').toLowerCase();
+        const ip = (log.ip || '').toLowerCase();
+        return details.includes(q) || checksum.includes(q) || ip.includes(q);
+      }
+      return true;
+    });
+
+    const totalLogs = rawLogs.length;
+    const criticalLogs = rawLogs.filter(l => l.severity === 'CRITICAL').length;
+    const warnings = rawLogs.filter(l => l.severity === 'WARNING').length;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayLogs = rawLogs.filter(l => l.timestamp && l.timestamp.startsWith(todayStr)).length;
+
+    // Distinct modules and actions for filter dropdowns
+    const distinctModules = Array.from(new Set(rawLogs.map(l => l.module).filter(Boolean)));
+    const distinctActions = Array.from(new Set(rawLogs.map(l => l.action).filter(Boolean)));
+
+    c.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:18px" class="animate-fade-in">
+        <!-- Header & Stats Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:14px">
+          <div class="card" style="padding:16px;border-left:4px solid var(--primary)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Total Audit Trail</div>
+            <div style="font-size:22px;font-weight:800;color:var(--text);margin-top:2px">${totalLogs} Events</div>
+          </div>
+          <div class="card" style="padding:16px;border-left:4px solid var(--success)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Activity Today</div>
+            <div style="font-size:22px;font-weight:800;color:var(--success);margin-top:2px">${todayLogs} Actions</div>
+          </div>
+          <div class="card" style="padding:16px;border-left:4px solid var(--warning)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Policy / State Warnings</div>
+            <div style="font-size:22px;font-weight:800;color:var(--warning);margin-top:2px">${warnings} Events</div>
+          </div>
+          <div class="card" style="padding:16px;border-left:4px solid var(--danger)">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase">Critical Security Events</div>
+            <div style="font-size:22px;font-weight:800;color:var(--danger);margin-top:2px">${criticalLogs} Critical</div>
+          </div>
+        </div>
+
+        <!-- Filter & Search Toolbar -->
+        <div class="card" style="padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:280px;flex-wrap:wrap">
+            <div style="position:relative;flex:1;min-width:200px;max-width:320px">
+              <i class="fa fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:12px"></i>
+              <input type="text" class="input input-sm" placeholder="Search details, checksum, IP..."
+                value="${this.auditSearchTerm}" oninput="Settings.handleAuditSearch(this.value)"
+                style="padding-left:30px;width:100%">
+            </div>
+
+            <select class="input input-sm" style="width:140px" onchange="Settings.handleAuditModuleFilter(this.value)">
+              <option value="all" ${this.auditFilterModule === 'all' ? 'selected' : ''}>All Modules</option>
+              ${distinctModules.map(m => `
+                <option value="${m}" ${this.auditFilterModule === m ? 'selected' : ''}>${m}</option>
+              `).join('')}
+            </select>
+
+            <select class="input input-sm" style="width:140px" onchange="Settings.handleAuditActionFilter(this.value)">
+              <option value="all" ${this.auditFilterAction === 'all' ? 'selected' : ''}>All Actions</option>
+              ${distinctActions.map(a => `
+                <option value="${a}" ${this.auditFilterAction === a ? 'selected' : ''}>${a}</option>
+              `).join('')}
+            </select>
+
+            <select class="input input-sm" style="width:130px" onchange="Settings.handleAuditSeverityFilter(this.value)">
+              <option value="all" ${this.auditFilterSeverity === 'all' ? 'selected' : ''}>All Severities</option>
+              <option value="INFO" ${this.auditFilterSeverity === 'INFO' ? 'selected' : ''}>INFO</option>
+              <option value="WARNING" ${this.auditFilterSeverity === 'WARNING' ? 'selected' : ''}>WARNING</option>
+              <option value="CRITICAL" ${this.auditFilterSeverity === 'CRITICAL' ? 'selected' : ''}>CRITICAL</option>
+            </select>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-secondary btn-sm" onclick="Settings.exportAuditCSV()" title="Export Filtered Audit Log to CSV">
+              <i class="fa fa-download"></i> Export CSV
+            </button>
+            ${Auth.role === 'superadmin' ? `
+              <button class="btn btn-danger btn-sm" onclick="Settings.clearAuditLogs()" title="Purge Historical Logs">
+                <i class="fa fa-trash"></i> Clear Logs
+              </button>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="card" style="padding:0;overflow:hidden;border:1px solid var(--border)">
+          <div class="table-responsive" style="max-height:550px;overflow-y:auto">
+            <table class="table" style="margin:0">
+              <thead style="position:sticky;top:0;background:var(--surface);z-index:2">
+                <tr>
+                  <th style="width:140px">Timestamp</th>
+                  <th style="width:90px">Severity</th>
+                  <th style="width:110px">Module</th>
+                  <th style="width:120px">Action</th>
+                  <th>Actor / User</th>
+                  <th>Operation Details</th>
+                  <th style="width:120px">Client IP</th>
+                  <th style="text-align:right;width:80px">Inspect</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filtered.length === 0 ? `
+                  <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-3)">No matching audit logs found.</td></tr>
+                ` : filtered.slice(0, 100).map(log => {
+                  const user = users.find(u => u.id === log.userId);
+                  const emp = emps.find(e => e.id === user?.employeeId);
+                  const sevColor = log.severity === 'CRITICAL' ? 'var(--danger)' : (log.severity === 'WARNING' ? 'var(--warning)' : 'var(--primary)');
+                  const sevBg = log.severity === 'CRITICAL' ? 'rgba(239,68,68,0.12)' : (log.severity === 'WARNING' ? 'rgba(245,158,11,0.12)' : 'rgba(99,102,241,0.12)');
+
+                  return `
+                    <tr>
+                      <td style="font-size:11.5px;font-family:monospace;white-space:nowrap">${log.timestamp ? Utils.formatDateTime(log.timestamp) : '—'}</td>
+                      <td>
+                        <span class="badge" style="background:${sevBg};color:${sevColor};font-size:10px;font-weight:800;padding:2px 6px">
+                          ${log.severity || 'INFO'}
+                        </span>
+                      </td>
+                      <td>
+                        <span style="font-weight:700;font-size:11.5px;color:var(--text)">${log.module || 'System'}</span>
+                      </td>
+                      <td>
+                        <span class="badge" style="background:var(--surface);color:var(--text);border:1px solid var(--border);font-family:monospace;font-size:11px">
+                          ${log.action || 'OP'}
+                        </span>
+                      </td>
+                      <td>
+                        <div style="font-weight:600;font-size:12px;color:var(--text)">${emp?.fullName || user?.username || 'System User'}</div>
+                        <div style="font-size:10.5px;color:var(--text-3)">${user?.role || 'Service'}</div>
+                      </td>
+                      <td style="font-size:12px;color:var(--text-2);max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${log.details || ''}">
+                        ${log.details || '—'}
+                      </td>
+                      <td style="font-size:11.5px;font-family:monospace;color:var(--text-3)">${log.ip || '127.0.0.1'}</td>
+                      <td style="text-align:right">
+                        <button class="btn btn-ghost btn-xs btn-icon" onclick="Settings.inspectAuditLog(${log.id})" title="Forensic Inspection">
+                          <i class="fa fa-eye"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  handleAuditSearch(val) {
+    this.auditSearchTerm = val;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderAuditTrail(c);
+  },
+
+  handleAuditModuleFilter(val) {
+    this.auditFilterModule = val;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderAuditTrail(c);
+  },
+
+  handleAuditActionFilter(val) {
+    this.auditFilterAction = val;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderAuditTrail(c);
+  },
+
+  handleAuditSeverityFilter(val) {
+    this.auditFilterSeverity = val;
+    const c = document.getElementById('settings-content');
+    if (c) this.renderAuditTrail(c);
+  },
+
+  inspectAuditLog(id) {
+    const logs = DB.get('audit_logs') || [];
+    const log = logs.find(l => l.id === Number(id));
+    if (!log) return;
+
+    Modal.show(`
+      <div style="padding:10px">
+        <h3 style="margin-top:0;font-size:18px;font-weight:800;display:flex;align-items:center;gap:10px">
+          <i class="fa fa-fingerprint" style="color:var(--primary)"></i> Forensic Event Inspection #${log.id}
+        </h3>
+        <p style="color:var(--text-3);font-size:12px;margin:4px 0 16px">Cryptographic audit log sealed with immutable SHA256 checksum.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+          <div class="card" style="padding:12px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700">ACTION TYPE</div>
+            <div style="font-weight:800;color:var(--text);font-size:14px;margin-top:2px">${log.action} (${log.severity})</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700">MODULE</div>
+            <div style="font-weight:800;color:var(--primary);font-size:14px;margin-top:2px">${log.module}</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700">TIMESTAMP</div>
+            <div style="font-weight:700;font-size:12.5px;margin-top:2px">${log.timestamp}</div>
+          </div>
+          <div class="card" style="padding:12px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700">CLIENT IP & CHECKSUM</div>
+            <div style="font-weight:700;font-size:12px;font-family:monospace;margin-top:2px">${log.ip} • ${log.checksum || 'N/A'}</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--text-2);margin-bottom:6px">EVENT DETAILS / PAYLOAD:</div>
+        <pre style="background:var(--surface);padding:14px;border-radius:8px;font-size:12px;color:var(--text);border:1px solid var(--border);white-space:pre-wrap;word-break:break-all">${log.details || 'No payload recorded'}</pre>
+      </div>
+    `, {
+      footer: `<button class="btn btn-primary" onclick="Modal.close('dynamic-modal')">Close Inspection</button>`
+    });
+  },
+
+  exportAuditCSV() {
+    const rawLogs = DB.get('audit_logs') || [];
+    const users = DB.get('users') || [];
+    const headers = ['ID', 'Timestamp', 'Severity', 'Module', 'Action', 'User ID', 'Username', 'Client IP', 'Checksum', 'Details'];
+    const rows = rawLogs.map(l => {
+      const u = users.find(x => x.id === l.userId);
+      return [
+        l.id,
+        `"${l.timestamp || ''}"`,
+        `"${l.severity || 'INFO'}"`,
+        `"${l.module || ''}"`,
+        `"${l.action || ''}"`,
+        l.userId || 1,
+        `"${u?.username || 'system'}"`,
+        `"${l.ip || ''}"`,
+        `"${l.checksum || ''}"`,
+        `"${(l.details || '').replace(/"/g, '""')}"`
+      ].join(',');
+    });
+
+    const csvContent = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hrm_audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    Toast.show(`Exported ${rawLogs.length} audit trail events!`, 'success');
+  },
+
+  clearAuditLogs() {
+    Modal.confirm('Are you sure you want to purge historical audit logs? This action will be permanently recorded in the system master audit trail.', () => {
+      DB.set('audit_logs', []);
+      DB.log('PURGE', 'Audit', 'Historical audit logs purged by Super Administrator', Auth.user?.id, 'CRITICAL');
+      Toast.show('Audit logs cleared.', 'warning');
+      const c = document.getElementById('settings-content');
+      if (c) this.renderAuditTrail(c);
+    });
   }
 
 };

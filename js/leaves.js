@@ -225,7 +225,10 @@ const Leaves = {
                   <td>${Utils.formatDate(leave.to)}</td>
                   <td><strong>${leave.days} day${leave.days!==1?'s':''}</strong></td>
                   <td style="font-size:12px">${Utils.formatDate(leave.appliedOn)}</td>
-                  <td>${Utils.statusBadge(leave.status)}</td>
+                  <td>
+                    ${Utils.statusBadge(leave.status)}
+                    ${typeof WorkflowEngine !== 'undefined' ? `<div style="margin-top:4px">${WorkflowEngine.renderStepperHTML(leave, 'leaves')}</div>` : ''}
+                  </td>
                   <td>
                     <div class="tbl-actions" style="flex-wrap:nowrap;gap:4px">
                       <button class="btn btn-ghost btn-icon btn-xs" onclick="Leaves.viewDetail(${leave.id})" title="View Details"><i class="fa fa-eye"></i></button>
@@ -2539,8 +2542,25 @@ const Leaves = {
     const leave = DB.find('leave_requests', leaveId);
     if (!leave) return;
 
+    // Execute multi-tier workflow step
+    if (typeof WorkflowEngine !== 'undefined') {
+      const wf = WorkflowEngine.advanceApproval(leave, 'leaves', Auth.user);
+      if (!wf.isFinalTier) {
+        DB.update('leave_requests', leaveId, {
+          ...wf.updates,
+          managerStatus: 'approved',
+          managerApprovedAt: new Date().toISOString()
+        });
+        DB.flushServerPush();
+        DB.log('APPROVE', 'Leaves', `Tier ${wf.nextTierNum - 1} endorsed for leave #${leaveId} by ${Auth.user?.username}`, Auth.user?.id);
+        Toast.show(`Tier ${wf.nextTierNum - 1} Endorsed!`, 'info', `Forwarded to Tier ${wf.nextTierNum} for final authorization.`);
+        this.render();
+        return;
+      }
+    }
+
     if (Auth.role === 'dept_manager') {
-      // First tier approval: Reporting manager endorses request
+      // First tier approval fallback: Reporting manager endorses request
       DB.update('leave_requests', leaveId, {
         status: 'manager_approved',
         managerStatus: 'approved',

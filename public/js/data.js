@@ -314,6 +314,29 @@ const DB = {
       this.set('users', users);
     }
 
+    if (!users.some(u => u.username === 'junior.hr')) {
+      users.push({
+        id: 6, employeeId: 6, username: 'junior.hr', password: 'hr123',
+        fullName: 'Zain Ali (Restricted HR)', email: 'juniorhr@company.com',
+        role: 'hr_manager', status: 'active', lastLogin: null
+      });
+      this.set('users', users);
+    }
+
+    // Ensure initial restricted user feature rules for junior.hr demo
+    let userRules = this.get('user_feature_access') || [];
+    if (!userRules.some(r => r.userId === 6)) {
+      userRules.push(
+        { id: Date.now() + 1, userId: 6, username: 'junior.hr', featureKey: 'leaves.approvals', visible: false, updatedAt: new Date().toISOString() },
+        { id: Date.now() + 2, userId: 6, username: 'junior.hr', featureKey: 'leaves.quota_adjustment', visible: false, updatedAt: new Date().toISOString() },
+        { id: Date.now() + 3, userId: 6, username: 'junior.hr', featureKey: 'payroll.run', visible: false, updatedAt: new Date().toISOString() },
+        { id: Date.now() + 4, userId: 6, username: 'junior.hr', featureKey: 'payroll.register', visible: false, updatedAt: new Date().toISOString() },
+        { id: Date.now() + 5, userId: 6, username: 'junior.hr', featureKey: 'expenses.approvals', visible: false, updatedAt: new Date().toISOString() },
+        { id: Date.now() + 6, userId: 6, username: 'junior.hr', featureKey: 'expenses.payroll_sync', visible: false, updatedAt: new Date().toISOString() }
+      );
+      this.set('user_feature_access', userRules);
+    }
+
     // Ensure seed documents for Saad Ibrahim
     const docs = this.get('documents') || [];
     if (!docs.some(d => d.employeeId === 26)) {
