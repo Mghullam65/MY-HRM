@@ -539,19 +539,27 @@ const Dashboard = {
 
     content.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Logged-in Person Profile Card (Matches Uploaded Screenshot) -->
-        <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:20px;padding:14px 26px 14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:18px;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
-          <div class="avatar" style="width:78px;height:78px;min-width:78px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);border:2.5px solid #00a2e8">
-            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700">${curInitials}</div>`}
+        <!-- Profile Card + Headlines Ticker side-by-side row -->
+        <div style="display:flex;align-items:stretch;gap:14px;margin-bottom:18px;min-width:0">
+          <!-- Left: Logged-in Person Profile Card -->
+          <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:20px;padding:14px 26px 14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);flex-shrink:0;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
+            <div class="avatar" style="width:78px;height:78px;min-width:78px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);border:2.5px solid #00a2e8">
+              ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700">${curInitials}</div>`}
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.4">
+              <div style="font-size:18px;font-weight:700;color:#00a2e8;letter-spacing:-0.2px">${curFullName}</div>
+              <div style="font-size:14px;font-weight:500;color:#00a2e8;margin-top:3px">${curDesignation}</div>
+              <div style="font-size:13.5px;font-weight:500;color:#00a2e8;margin-top:1px">Employee ID: ${curEmpCode}</div>
+            </div>
           </div>
-          <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.4">
-            <div style="font-size:18px;font-weight:700;color:#00a2e8;letter-spacing:-0.2px">${curFullName}</div>
-            <div style="font-size:14px;font-weight:500;color:#00a2e8;margin-top:3px">${curDesignation}</div>
-            <div style="font-size:13.5px;font-weight:500;color:#00a2e8;margin-top:1px">Employee ID: ${curEmpCode}</div>
+
+          <!-- Right: Headlines Ticker fills remaining space -->
+          <div class="dash-ticker-embedded" style="flex:1;min-width:0;display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+            ${this.renderHeadlinesTicker(tickerItemsHtml)}
           </div>
         </div>
 
-        <!-- Top Bar: Overview Header & Actions -->
+        <!-- Dashboard Overview Header & Refresh -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -569,10 +577,6 @@ const Dashboard = {
           </div>
         </div>
 
-        <!-- ═══════════════════════════════════════════════
-             MOVING HEADLINES TICKER (Birthdays & Events)
-        ═══════════════════════════════════════════════ -->
-        ${this.renderHeadlinesTicker(tickerItemsHtml)}
 
         ${Auth.role === 'onboarding' ? `
           <!-- New Joiner Welcome & Induction Checklist Card -->
@@ -587,7 +591,7 @@ const Dashboard = {
                     <span class="badge badge-warning" style="font-size:11px"><i class="fa fa-sparkles"></i> Welcome to the Team</span>
                     <span class="badge badge-info" style="font-size:11px"><i class="fa fa-user-clock"></i> Induction Stage</span>
                   </div>
-                  <h2 style="font-size:19px;font-weight:800;color:var(--text);margin-top:4px">Complete Your Joining Onboarding & Document Upload</h2>
+                  <h2 style="font-size:19px;font-weight:800;color:var(--text);margin-top:4px">Complete Your Joining Onboarding &amp; Document Upload</h2>
                   <p style="font-size:12.5px;color:var(--text-2);margin-top:2px">
                     Your account is currently in <strong>New Joiner Onboarding</strong> mode. Please fill in your profile info and upload mandatory documents. Once submitted, HR will finalize your role.
                   </p>
@@ -604,6 +608,8 @@ const Dashboard = {
             </div>
           </div>
         ` : ''}
+
+
 
         <!-- ═══════════════════════════════════════════════
              EXECUTIVE APPROVALS & PRIORITY ACTION INBOX
