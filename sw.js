@@ -1,5 +1,5 @@
 // HRM Pro — Service Worker (Offline Shell & Asset Caching)
-const CACHE_NAME = 'hrm-pro-cache-v2.2.0';
+const CACHE_NAME = 'hrm-pro-cache-v3.0.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -74,25 +74,23 @@ self.addEventListener('fetch', (event) => {
   // Don't intercept live API calls
   if (event.request.url.includes('/api/')) return;
 
+  // Network-First with Cache Fallback for instant updates
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cached version but fetch update in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse.clone());
-            });
-          }
-        }).catch(() => {});
-        return cachedResponse;
-      }
-      return fetch(event.request).catch(() => {
-        // Fallback to offline index.html if navigating
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
+    fetch(event.request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
-      });
-    })
+        return networkResponse;
+      })
+      .catch(() => {
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
   );
 });

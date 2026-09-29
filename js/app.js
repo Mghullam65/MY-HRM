@@ -556,7 +556,7 @@ const App = {
       </div>
 
       <!-- Middle: Welcome User Greeting (Between Company Name and Search Box) -->
-      <div class="topbar-welcome-center" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px">
+      <div class="topbar-welcome-center" onclick="App.navigate('profile')" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px;cursor:pointer" title="View My Profile">
         <i class="fa fa-circle-user" style="color:var(--primary);font-size:14px"></i>
         <span style="color:var(--text-3);font-size:12px">Welcome,</span>
         <strong style="color:var(--text);font-weight:700" id="header-user-fullname">${fullName}</strong>
@@ -565,8 +565,11 @@ const App = {
 
       <!-- Right: User Info, Change Password, Logout & Search Row -->
       <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <!-- Top Row: Change Password + Logout -->
+        <!-- Top Row: My Profile + Change Password + Logout -->
         <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
+          <a href="javascript:void(0)" onclick="App.navigate('profile')" class="header-action-link link-profile" style="color:var(--text-2);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
+            <i class="fa fa-user" style="font-size:11px"></i> My Profile
+          </a>
           <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" class="header-action-link link-pwd" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             <i class="fa fa-key" style="font-size:11px"></i> Change Password
           </a>
@@ -638,13 +641,6 @@ const App = {
                 </div>
               </div>
             </div>
-
-            <!-- Profile Avatar Button -->
-            <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile" style="width:30px;height:30px;padding:0">
-              <div class="avatar avatar-sm" style="background:${Utils.avatarColor(Auth.employee?.id || 1)};width:26px;height:26px;font-size:10.5px;border-radius:50%;overflow:hidden">
-                ${Auth.employee?.photo ? `<img src="${Auth.employee.photo}" style="width:100%;height:100%;object-fit:cover" alt="${fullName}">` : Utils.avatarInitials(fullName)}
-              </div>
-            </button>
           </div>
         </div>
       </div>
