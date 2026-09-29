@@ -528,8 +528,32 @@ const Dashboard = {
       return;
     }
 
+    const curEmp = Auth.employee || {};
+    const curPhoto = curEmp.photo;
+    const curFullName = curEmp.fullName || Auth.user?.name || 'Ahmed Khan';
+    const curInitials = (typeof Utils !== 'undefined' && Utils.avatarInitials) ? Utils.avatarInitials(curFullName) : 'AK';
+    const curRoleLabel = Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Super Admin';
+    const curDepartment = curEmp.departmentId && typeof Utils !== 'undefined' && Utils.getDeptName ? Utils.getDeptName(curEmp.departmentId) : 'Executive Management';
+    const curDesignation = curEmp.designationId && typeof Utils !== 'undefined' && Utils.getDesigName ? Utils.getDesigName(curEmp.designationId) : 'System Administrator';
+
     content.innerHTML = `
       <div class="animate-fade-in">
+        <!-- Logged-in Person Profile Picture & Identity Bar (Above Dashboard Overview) -->
+        <div class="dash-user-identity-bar" style="display:inline-flex;align-items:center;gap:12px;padding:5px 16px 5px 6px;background:var(--surface);border:1px solid var(--border);border-radius:30px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:14px;cursor:pointer" onclick="App.navigate('profile')" title="View My Profile">
+          <div class="avatar" style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(Auth.employee?.id || 1) : '#00a2e8'};border:2px solid #00a2e8;box-shadow:0 2px 8px rgba(0,162,232,0.35);flex-shrink:0">
+            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : curInitials}
+          </div>
+          <div style="line-height:1.25">
+            <div style="display:flex;align-items:center;gap:8px">
+              <strong style="font-size:13.5px;color:var(--text);font-weight:800">${curFullName}</strong>
+              <span class="badge badge-primary" style="font-size:9.5px;padding:2px 7px;font-weight:700">${curRoleLabel}</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:2px">
+              ${curDesignation ? curDesignation + ' • ' : ''}${curDepartment} • Active Session
+            </div>
+          </div>
+        </div>
+
         <!-- Top Bar: Overview Header & Recent Activity Button (Right Corner) -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>

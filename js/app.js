@@ -555,15 +555,18 @@ const App = {
         </div>
       </div>
 
+      <!-- Middle: Welcome User Greeting (Between Company Name and Search Box) -->
+      <div class="topbar-welcome-center" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px">
+        <i class="fa fa-circle-user" style="color:var(--primary);font-size:14px"></i>
+        <span style="color:var(--text-3);font-size:12px">Welcome,</span>
+        <strong style="color:var(--text);font-weight:700" id="header-user-fullname">${fullName}</strong>
+        <span class="badge badge-primary" style="font-size:9.5px;padding:2px 7px;font-weight:700">${Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'User'}</span>
+      </div>
+
       <!-- Right: User Info, Change Password, Logout & Search Row -->
       <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <!-- Top Row: Welcome User + Change Password + Logout -->
+        <!-- Top Row: Change Password + Logout -->
         <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
-          <div class="welcome-user-tag" style="display:inline-flex;align-items:center;gap:6px;color:#555">
-            <i class="fa fa-user" style="color:#64748b;font-size:13px"></i>
-            <span style="color:#64748b">Welcome</span>
-            <strong style="color:#1e293b;font-weight:700" id="header-user-fullname">${fullName}</strong>
-          </div>
           <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" class="header-action-link link-pwd" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             <i class="fa fa-key" style="font-size:11px"></i> Change Password
           </a>
