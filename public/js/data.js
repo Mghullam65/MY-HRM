@@ -37,13 +37,52 @@ const DB = {
       this.pendingSyncQueue = new Map();
     }
 
+    // 0. Instant local bootstrap (0ms startup latency): ensure users and employees exist immediately
+    if (!localStorage.getItem('hrm_initialized') || !this.get('users')?.length) {
+      this.isInitializing = true;
+      this.seed({ skipServerPush: true });
+      localStorage.setItem('hrm_initialized', '1');
+    }
+
     // Initialize Supabase Client
     this.initSupabase();
 
-    // Flag to prevent any initialization routines from pushing to server
-    this.isInitializing = true;
+    // Run structural integrity checks without pushing to server
+    this.runIntegrityChecks();
+    this.isInitializing = false;
 
-    // 1. Authoritative Supabase Cloud Sync (PostgreSQL)
+    // Connect Real-time SSE stream & version polling
+    this.initRealtimeSync();
+
+    // Same-Browser Cross-Tab Instant Synchronization
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function' && !this.storageListenerAttached) {
+      this.storageListenerAttached = true;
+      window.addEventListener('storage', (e) => {
+        if (e.key && e.key.startsWith('hrm_')) {
+          const table = e.key.replace('hrm_', '');
+          if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
+            Auth?.refreshSession?.();
+          }
+          if (table === 'settings') {
+            I18n?.init?.();
+            const savedTheme = (DB.getObj('settings')?.theme) || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+          }
+          if (typeof App !== 'undefined' && App.onDataSync) {
+            App.onDataSync([table]);
+          }
+        }
+      });
+    }
+
+    // ─── Non-Blocking Asynchronous Cloud & REST Background Hydration ───
+    // Allows UI to render immediately with 0ms latency!
+    this.hydrateFromCloudAndServer().catch(err => {
+      console.warn('[DB] Background cloud hydration notice:', err.message);
+    });
+  },
+
+  async hydrateFromCloudAndServer() {
     let cloudHydrated = false;
     let cloudRows = null;
 
@@ -110,44 +149,6 @@ const DB = {
       } catch (err) {
         console.warn('[DB] Central server offline or unreachable during startup:', err.message);
       }
-    }
-
-    // 3. Offline / Fresh Fallback
-    if (!serverHydrated && !cloudHydrated) {
-      if (!localStorage.getItem('hrm_initialized')) {
-        console.log('[DB] No cloud/server data found, running initial seed...');
-        this.seed({ skipServerPush: true });
-        localStorage.setItem('hrm_initialized', '1');
-      }
-    }
-
-    // Run structural integrity checks without pushing to server
-    this.runIntegrityChecks();
-
-    this.isInitializing = false;
-
-    // 4. Connect Real-time SSE stream & version polling
-    this.initRealtimeSync();
-
-    // 5. Same-Browser Cross-Tab Instant Synchronization
-    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function' && !this.storageListenerAttached) {
-      this.storageListenerAttached = true;
-      window.addEventListener('storage', (e) => {
-        if (e.key && e.key.startsWith('hrm_')) {
-          const table = e.key.replace('hrm_', '');
-          if (['users', 'employees', 'roles', 'permissions'].includes(table)) {
-            Auth?.refreshSession?.();
-          }
-          if (table === 'settings') {
-            I18n?.init?.();
-            const savedTheme = (DB.getObj('settings')?.theme) || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-          }
-          if (typeof App !== 'undefined' && App.onDataSync) {
-            App.onDataSync([table]);
-          }
-        }
-      });
     }
 
     // If Supabase table was empty, seed all master tables into Supabase cloud
@@ -224,46 +225,55 @@ const DB = {
   },
 
   runIntegrityChecks() {
-    this.ensureAuditLogs();
-    this.ensureBirthday();
-    this.ensureOfferLetters();
-    this.ensureOnboardingData();
-    this.ensureAttendanceLeaveAuditData();
-    this.ensureHierarchyAndCorrections();
-    this.ensureDocumentExpiries();
-    this.ensureExitClearances();
-    this.ensureHRLetters();
-    this.ensureTaxAndStatutoryData();
-    this.ensureSPMSData();
-    this.ensureSettlementsData();
-    this.ensureCompaniesData();
-    this.ensureRosterAndGeofenceData();
-    this.ensureTalentAndLMSData();
-    this.ensureEngagementData();
-    this.ensureCompanyPolicies();
-    this.ensureLifeEventsAndDependents();
-    this.ensureWebhooksAndTemplates();
-    this.ensureBatch9Data();
-    this.ensureUserNotifications();
-    this.ensureDisciplinaryData();
-    this.ensureNormalizedProfileData();
-    this.ensureTrainingAndCertificates();
-    this.ensureRBACData();
-    this.ensureTravelAndExpenseData();
-    this.ensureSalaryStructureData();
-    this.ensureHierarchyData();
-    this.ensureExitLifecycleData();
-    this.ensureAssetCatalogData();
-    this.ensureTelemetryData();
-    this.ensureRecruitmentPipelineData();
-    this.ensurePerformanceAppraisalData();
-    this.ensureRosterAndAttendanceData();
-    this.ensureProfileMastersData();
-    this.ensureGovernanceMastersData();
-    this.ensureLoansData();
-    this.ensureNineModulesData();
-    this.ensureReportsSeedData();
-    this.ensureChatAndMeetingsData();
+    const checks = [
+      () => this.ensureAuditLogs(),
+      () => this.ensureBirthday(),
+      () => this.ensureOfferLetters(),
+      () => this.ensureOnboardingData(),
+      () => this.ensureAttendanceLeaveAuditData(),
+      () => this.ensureHierarchyAndCorrections(),
+      () => this.ensureDocumentExpiries(),
+      () => this.ensureExitClearances(),
+      () => this.ensureHRLetters(),
+      () => this.ensureTaxAndStatutoryData(),
+      () => this.ensureSPMSData(),
+      () => this.ensureSettlementsData(),
+      () => this.ensureCompaniesData(),
+      () => this.ensureRosterAndGeofenceData(),
+      () => this.ensureTalentAndLMSData(),
+      () => this.ensureEngagementData(),
+      () => this.ensureCompanyPolicies(),
+      () => this.ensureLifeEventsAndDependents(),
+      () => this.ensureWebhooksAndTemplates(),
+      () => this.ensureBatch9Data(),
+      () => this.ensureUserNotifications(),
+      () => this.ensureDisciplinaryData(),
+      () => this.ensureNormalizedProfileData(),
+      () => this.ensureTrainingAndCertificates(),
+      () => this.ensureRBACData(),
+      () => this.ensureTravelAndExpenseData(),
+      () => this.ensureSalaryStructureData(),
+      () => this.ensureHierarchyData(),
+      () => this.ensureExitLifecycleData(),
+      () => this.ensureAssetCatalogData(),
+      () => this.ensureTelemetryData(),
+      () => this.ensureRecruitmentPipelineData(),
+      () => this.ensurePerformanceAppraisalData(),
+      () => this.ensureRosterAndAttendanceData(),
+      () => this.ensureProfileMastersData(),
+      () => this.ensureGovernanceMastersData(),
+      () => this.ensureLoansData(),
+      () => this.ensureNineModulesData(),
+      () => this.ensureReportsSeedData(),
+      () => this.ensureChatAndMeetingsData()
+    ];
+    for (const check of checks) {
+      try {
+        check();
+      } catch (err) {
+        console.warn('[DB IntegrityCheck notice]:', err.message);
+      }
+    }
   },
 
   ensureAuditLogs() {
@@ -3725,7 +3735,8 @@ const DB = {
       { id: 21, code: 'settings', name: 'Governance, RBAC & Configurations', category: 'Administration', icon: 'fa-sliders', sortOrder: 21, isActive: true }
     ];
 
-    let modules = this.get('system_modules') || [];
+    let modules = this.get('system_modules');
+    if (!Array.isArray(modules)) modules = [];
     let modulesUpdated = false;
 
     // Synchronize full modules list seamlessly even if an older list is in localStorage
@@ -3733,9 +3744,9 @@ const DB = {
       modules = JSON.parse(JSON.stringify(fullSystemModules));
       modulesUpdated = true;
     } else {
-      let maxModId = modules.reduce((max, m) => Math.max(max, m.id || 0), 0);
+      let maxModId = modules.reduce((max, m) => Math.max(max, (m && m.id) || 0), 0);
       fullSystemModules.forEach(fm => {
-        let existing = modules.find(m => m.code === fm.code);
+        let existing = modules.find(m => m && m.code === fm.code);
         if (!existing) {
           modules.push({ ...fm, id: ++maxModId });
           modulesUpdated = true;
@@ -3749,13 +3760,13 @@ const DB = {
       });
     }
 
-    modules.sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
+    modules.sort((a, b) => ((a && a.sortOrder) || 99) - ((b && b.sortOrder) || 99));
     if (modulesUpdated || !this.get('system_modules')) {
       this.set('system_modules', modules);
     }
 
     let roles = this.get('roles');
-    if (!roles || !roles.length) {
+    if (!Array.isArray(roles) || !roles.length) {
       roles = [
         { id: 1, code: 'superadmin', name: 'Super Administrator', description: 'Full sovereign authorization across all enterprise models and configurations', isSystem: true, priority: 1 },
         { id: 2, code: 'hr_manager', name: 'HR Manager', description: 'Complete human capital administration, legal letters, inquiries, and recruitment', isSystem: true, priority: 2 },
@@ -3766,15 +3777,19 @@ const DB = {
       this.set('roles', roles);
     }
 
-    let permissions = this.get('permissions') || [];
+    let permissions = this.get('permissions');
+    if (!Array.isArray(permissions)) {
+      permissions = (permissions && typeof permissions === 'object') ? Object.values(permissions).filter(p => p && typeof p === 'object') : [];
+    }
     let permUpdated = false;
-    let maxPermId = permissions.reduce((max, p) => Math.max(max, p.id || 0), 0);
+    let maxPermId = permissions.reduce((max, p) => Math.max(max, (p && p.id) || 0), 0);
     const actions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
 
     modules.forEach(m => {
+      if (!m || !m.code) return;
       actions.forEach(a => {
         const pCode = `${m.code}.${a}`;
-        let existing = permissions.find(p => p.code === pCode || (p.moduleId === m.id && p.action === a));
+        let existing = permissions.find(p => p && (p.code === pCode || (p.moduleId === m.id && p.action === a)));
         if (!existing) {
           permissions.push({
             id: ++maxPermId,
@@ -3798,9 +3813,12 @@ const DB = {
     }
 
     // Role-Permission Bindings
-    let rolePermissions = this.get('role_permissions') || [];
+    let rolePermissions = this.get('role_permissions');
+    if (!Array.isArray(rolePermissions)) {
+      rolePermissions = (rolePermissions && typeof rolePermissions === 'object') ? Object.values(rolePermissions).filter(rp => rp && typeof rp === 'object') : [];
+    }
     let rpUpdated = false;
-    let maxRpId = rolePermissions.reduce((max, rp) => Math.max(max, rp.id || 0), 0);
+    let maxRpId = rolePermissions.reduce((max, rp) => Math.max(max, (rp && rp.id) || 0), 0);
 
     const computeDefaultGrant = (roleCode, permCode, action, modCode) => {
       // 1. Superadmin has 100% sovereign permissions

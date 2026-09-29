@@ -3,7 +3,7 @@
 // Supports 1-Tier, 2-Tier, and 3-Tier Chains for Leaves, Expenses, and Settlements
 // ============================================================
 
-const WorkflowEngine = {
+var WorkflowEngine = (typeof window !== 'undefined' && window.WorkflowEngine) || {
   DEFAULT_CHAINS: {
     leaves: {
       module: 'leaves',

@@ -4,7 +4,7 @@
 // for Leaves, Expense Claims, and Exit Settlements.
 // ============================================================
 
-const WorkflowEngine = {
+var WorkflowEngine = (typeof window !== 'undefined' && window.WorkflowEngine) || {
   // Default workflow configurations
   defaultChains: {
     leaves: {
