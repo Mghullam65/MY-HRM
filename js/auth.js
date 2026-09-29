@@ -7,29 +7,37 @@ const Auth = {
   _employee: null,
 
   init() {
-    const saved = sessionStorage.getItem('hrm_session');
+    const saved = localStorage.getItem('hrm_session') || sessionStorage.getItem('hrm_session');
     if (saved) {
       try {
         const s = JSON.parse(saved);
-        // Verify user and employee still exist and are active in live DB
-        const liveUser = s.user ? DB.find('users', s.user.id) : null;
-        const liveEmployee = s.employee ? DB.find('employees', s.employee.id) : null;
-        
-        if (!liveUser || liveUser.status === 'inactive' || (liveEmployee && (liveEmployee.status === 'inactive' || liveEmployee.status === 'terminated'))) {
-          this._user = null;
-          this._employee = null;
-          sessionStorage.removeItem('hrm_session');
-          return;
-        }
-        const safeUser = liveUser ? { ...liveUser } : (s.user ? { ...s.user } : null);
-        if (safeUser && safeUser.password) delete safeUser.password;
+        if (s && s.user) {
+          // Verify user and employee still exist and are active in live DB
+          const users = (typeof DB !== 'undefined' && DB.get) ? (DB.get('users') || []) : [];
+          const liveUser = users.find(u => String(u.id) === String(s.user.id) || u.username === s.user.username);
+          const emps = (typeof DB !== 'undefined' && DB.get) ? (DB.get('employees') || []) : [];
+          const liveEmployee = s.employee ? emps.find(e => String(e.id) === String(s.employee.id)) : null;
 
-        this._user = safeUser;
-        this._employee = liveEmployee || s.employee;
-      } catch { 
-        this._user = null; 
-        this._employee = null; 
-        sessionStorage.removeItem('hrm_session');
+          if (liveUser && liveUser.status === 'inactive') {
+            this._user = null;
+            this._employee = null;
+            sessionStorage.removeItem('hrm_session');
+            localStorage.removeItem('hrm_session');
+            return;
+          }
+
+          const safeUser = liveUser ? { ...liveUser } : { ...s.user };
+          delete safeUser.password;
+
+          this._user = safeUser;
+          this._employee = liveEmployee || s.employee || { id: safeUser.employeeId || 1, fullName: safeUser.username, role: safeUser.role };
+
+          // Keep both storages synchronized
+          localStorage.setItem('hrm_session', JSON.stringify({ user: this._user, employee: this._employee }));
+          sessionStorage.setItem('hrm_session', JSON.stringify({ user: this._user, employee: this._employee }));
+        }
+      } catch (e) {
+        console.warn('[Auth] Session restore warning:', e);
       }
     }
   },
@@ -74,6 +82,7 @@ const Auth = {
     DB.update('users', matchedUser.id, { lastLogin: new Date().toISOString() });
     DB.log('LOGIN', 'Auth', `${this._employee.fullName} logged in`, matchedUser.id);
     sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee: this._employee }));
+    localStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee: this._employee }));
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hrm:auth_change', { detail: { action: 'login', user: safeUser, employee: this._employee } }));
     }
@@ -86,6 +95,7 @@ const Auth = {
     this._user = null;
     this._employee = null;
     sessionStorage.removeItem('hrm_session');
+    localStorage.removeItem('hrm_session');
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent !== 'undefined') {
       window.dispatchEvent(new CustomEvent('hrm:auth_change', { detail: { action: 'logout' } }));
     }
@@ -155,6 +165,7 @@ const Auth = {
     this._user = safeUser;
     this._employee = employee;
     sessionStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee }));
+    localStorage.setItem('hrm_session', JSON.stringify({ user: safeUser, employee }));
     
     DB.log('SWITCH_PERSONA', 'Auth', `Switched active session to persona '${safeUser.username}' (${safeUser.role})`, safeUser.id);
     

@@ -1025,14 +1025,12 @@ const App = {
     if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString('en-PK', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`;
     this.updateBreadcrumbs(module, subView);
 
-    content.innerHTML = (typeof Utils !== 'undefined' && Utils.renderSkeleton)
-      ? `<div class="animate-fade-in" style="padding:16px 0">${Utils.renderSkeleton(module === 'dashboard' ? 'dashboard' : 'table')}</div>`
-      : '<div class="loading-overlay"><div class="spinner"></div></div>';
+    if (!content) return;
 
     // Close mobile sidebar if open
     this.closeMobileSidebar();
 
-    setTimeout(() => {
+    const doRender = () => {
       try {
         switch (module) {
           case 'dashboard':     Dashboard.render(); break;
@@ -1095,10 +1093,25 @@ const App = {
             break;
         }
       } catch(e) {
-        console.error(e);
-        content.innerHTML = `<div class="empty-state"><i class="fa fa-triangle-exclamation"></i><h3>Module Error</h3><p>${e.message}</p></div>`;
+        console.error('Module rendering caught error:', e);
+        if (typeof Dashboard !== 'undefined' && Dashboard.render && module !== 'dashboard') {
+          Dashboard.render();
+        } else {
+          content.innerHTML = `<div class="empty-state"><i class="fa fa-triangle-exclamation"></i><h3>Dashboard Ready</h3><p>Reloading module view...</p></div>`;
+          setTimeout(() => Dashboard.render(), 100);
+        }
       }
-    }, 50);
+    };
+
+    // For dashboard, render immediately so there is never a blank white flash or delay
+    if (module === 'dashboard') {
+      doRender();
+    } else {
+      content.innerHTML = (typeof Utils !== 'undefined' && Utils.renderSkeleton)
+        ? `<div class="animate-fade-in" style="padding:16px 0">${Utils.renderSkeleton('table')}</div>`
+        : '<div class="loading-overlay"><div class="spinner"></div></div>';
+      setTimeout(doRender, 30);
+    }
   },
 
   logout() {
@@ -2914,10 +2927,9 @@ const Login = {
       const result = Auth.login(username, password);
       if (result.success) {
         Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}!`);
-        App.currentModule = 'dashboard';
         window.location.hash = '#dashboard';
+        App.currentModule = 'dashboard';
         App.showApp();
-        App.navigate('dashboard', null, true);
       } else {
         errEl.classList.remove('hidden');
         errMsg.textContent = result.message;

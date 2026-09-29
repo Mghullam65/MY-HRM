@@ -340,15 +340,16 @@ const Dashboard = {
 
   render() {
     const content = document.getElementById('page-content');
-    const att = DB.get('attendance');
-    const emps = DB.get('employees');
-    const leaves = DB.get('leave_requests');
-    const salary = DB.get('salary');
-    const reviews = DB.get('performance_reviews');
-    const holidays = DB.get('holidays');
-    const companies = DB.get('companies') || [];
-    const activeCompanyId = DB.getActiveCompanyId ? DB.getActiveCompanyId() : 'all';
-    const today = Utils.today();
+    if (!content) return;
+    const att = (typeof DB !== 'undefined' && DB.get ? (DB.get('attendance') || []) : []);
+    const emps = (typeof DB !== 'undefined' && DB.get ? (DB.get('employees') || []) : []);
+    const leaves = (typeof DB !== 'undefined' && DB.get ? (DB.get('leave_requests') || DB.get('leaves') || []) : []);
+    const salary = (typeof DB !== 'undefined' && DB.get ? (DB.get('salary') || []) : []);
+    const reviews = (typeof DB !== 'undefined' && DB.get ? (DB.get('performance_reviews') || []) : []);
+    const holidays = (typeof DB !== 'undefined' && DB.get ? (DB.get('holidays') || []) : []);
+    const companies = (typeof DB !== 'undefined' && DB.get ? (DB.get('companies') || []) : []);
+    const activeCompanyId = (typeof DB !== 'undefined' && DB.getActiveCompanyId) ? DB.getActiveCompanyId() : 'all';
+    const today = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : new Date().toISOString().slice(0, 10);
 
     // Ensure all employees have clean companyId assigned
     let hasMissingCompany = false;
@@ -362,7 +363,7 @@ const Dashboard = {
       DB.set('employees', emps);
     }
 
-    let scopedEmps = Auth.getScopedEmployees(emps);
+    let scopedEmps = (typeof Auth !== 'undefined' && Auth.getScopedEmployees) ? (Auth.getScopedEmployees(emps) || emps) : emps;
     const scopedIds = scopedEmps.map(e => e.id);
 
     const totalEmps = scopedEmps.filter(e => e.status === 'active').length;

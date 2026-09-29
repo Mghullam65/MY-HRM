@@ -11056,17 +11056,18 @@ body.sidebar-pos-right .sidebar {
   body.nav-pos-top #app {
     display: flex !important;
     flex-direction: column !important;
-    height: 100vh !important;
-    overflow: hidden !important;
+    min-height: 100vh !important;
+    height: auto !important;
+    overflow: visible !important;
   }
 
-  /* Tier 1: Brand & User Top Header Bar (Permanently Frozen at Top) */
+  /* Tier 1: Brand & User Top Header Bar (Natural Scroll Flow) */
   .topbar,
   body.nav-pos-top .topbar,
   #app[data-sidebar-pos="top"] .topbar {
     order: 1 !important;
-    position: sticky !important;
-    top: 0 !important;
+    position: relative !important;
+    top: auto !important;
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
@@ -11079,7 +11080,7 @@ body.sidebar-pos-right .sidebar {
     display: flex !important;
     align-items: center !important;
     justify-content: space-between !important;
-    z-index: 1005 !important;
+    z-index: 100 !important;
     flex-shrink: 0 !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05) !important;
   }
@@ -11109,13 +11110,13 @@ body.sidebar-pos-right .sidebar {
     display: none !important;
   }
 
-  /* Tier 2: Dark Slate Horizontal Navigation Menu Bar (Permanently Frozen at Top) */
+  /* Tier 2: Dark Slate Horizontal Navigation Menu Bar (Natural Scroll Flow) */
   .sidebar,
   body.nav-pos-top .sidebar,
   #app[data-sidebar-pos="top"] .sidebar {
     order: 2 !important;
-    position: sticky !important;
-    top: 68px !important;
+    position: relative !important;
+    top: auto !important;
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
@@ -11132,7 +11133,7 @@ body.sidebar-pos-right .sidebar {
     align-items: stretch !important;
     padding: 0 !important;
     margin: 0 !important;
-    z-index: 1004 !important;
+    z-index: 99 !important;
     flex-shrink: 0 !important;
     overflow-x: auto !important;
     overflow-y: hidden !important;
@@ -11231,15 +11232,16 @@ body.sidebar-pos-right .sidebar {
     display: none !important;
   }
 
-  /* Tier 3: Main Page Content */
+  /* Tier 3: Main Page Content (Natural Page Scroll Flow) */
   body.nav-pos-top .main-content,
   #app[data-sidebar-pos="top"] .main-content {
     order: 3 !important;
     flex: 1 !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
-    height: calc(100vh - 108px) !important;
+    overflow: visible !important;
+    min-height: calc(100vh - 108px) !important;
+    height: auto !important;
     width: 100% !important;
     margin: 0 !important;
   }
@@ -11247,19 +11249,17 @@ body.sidebar-pos-right .sidebar {
   body.nav-pos-top .page-content,
   #app[data-sidebar-pos="top"] .page-content {
     flex: 1 !important;
-    overflow-y: auto !important;
+    overflow: visible !important;
     padding: 20px 24px !important;
-    height: calc(100vh - 108px) !important;
+    height: auto !important;
   }
 
-  /* Sub-Categories Horizontal Navbars on Top (Sticky within module view) */
+  /* Sub-Categories Horizontal Navbars on Top */
   .admin-subnav-bar,
   .settings-subnav-bar {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 99 !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+    position: relative !important;
+    top: auto !important;
+    z-index: 10 !important;
   }
 }
 
