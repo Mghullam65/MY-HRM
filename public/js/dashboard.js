@@ -533,24 +533,21 @@ const Dashboard = {
     const curFullName = curEmp.fullName || Auth.user?.name || 'Ahmed Khan';
     const curInitials = (typeof Utils !== 'undefined' && Utils.avatarInitials) ? Utils.avatarInitials(curFullName) : 'AK';
     const curRoleLabel = Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Super Admin';
-    const curDepartment = curEmp.departmentId && typeof Utils !== 'undefined' && Utils.getDeptName ? Utils.getDeptName(curEmp.departmentId) : 'Executive Management';
-    const curDesignation = curEmp.designationId && typeof Utils !== 'undefined' && Utils.getDesigName ? Utils.getDesigName(curEmp.designationId) : 'System Administrator';
+    const curDesignation = curEmp.designationId && typeof Utils !== 'undefined' && Utils.getDesigName ? Utils.getDesigName(curEmp.designationId) : curRoleLabel;
+    const rawCode = curEmp.employeeId || curEmp.code || (curEmp.id ? String(curEmp.id).padStart(5, '0') : '00063');
+    const curEmpCode = String(rawCode).startsWith('EMP-') ? String(rawCode).replace('EMP-', '').padStart(5, '0') : String(rawCode).padStart(5, '0');
 
     content.innerHTML = `
       <div class="animate-fade-in">
-        <!-- Logged-in Person Profile Picture & Identity Bar (Above Dashboard Overview) -->
-        <div class="dash-user-identity-bar" style="display:inline-flex;align-items:center;gap:12px;padding:5px 16px 5px 6px;background:var(--surface);border:1px solid var(--border);border-radius:30px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:14px;cursor:pointer" onclick="App.navigate('profile')" title="View My Profile">
-          <div class="avatar" style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(Auth.employee?.id || 1) : '#00a2e8'};border:2px solid #00a2e8;box-shadow:0 2px 8px rgba(0,162,232,0.35);flex-shrink:0">
-            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : curInitials}
+        <!-- Logged-in Person Profile Card (Matches Uploaded Screenshot) -->
+        <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:18px;padding:12px 22px 12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
+          <div class="avatar" style="width:60px;height:60px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.12)">
+            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700">${curInitials}</div>`}
           </div>
-          <div style="line-height:1.25">
-            <div style="display:flex;align-items:center;gap:8px">
-              <strong style="font-size:13.5px;color:var(--text);font-weight:800">${curFullName}</strong>
-              <span class="badge badge-primary" style="font-size:9.5px;padding:2px 7px;font-weight:700">${curRoleLabel}</span>
-            </div>
-            <div style="font-size:11px;color:var(--text-3);margin-top:2px">
-              ${curDesignation ? curDesignation + ' • ' : ''}${curDepartment} • Active Session
-            </div>
+          <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.35">
+            <div style="font-size:16.5px;font-weight:700;color:#00a2e8;letter-spacing:-0.2px">${curFullName}</div>
+            <div style="font-size:13.5px;font-weight:500;color:#00a2e8;margin-top:3px">${curDesignation}</div>
+            <div style="font-size:13px;font-weight:500;color:#00a2e8;margin-top:1px">Employee ID: ${curEmpCode}</div>
           </div>
         </div>
 
