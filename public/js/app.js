@@ -465,45 +465,6 @@ const App = {
           <div class="topbar-actions" style="display:inline-flex;align-items:center;gap:6px">
             ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
 
-            <!-- Quick Persona Switcher -->
-            <div style="position:relative;display:inline-block">
-              <button class="topbar-btn" id="persona-btn" onclick="App.togglePersonaDropdown(event)" title="Quick Persona & Demo Role Switcher" style="height:30px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:5px">
-                <i class="fa fa-user-gear"></i>
-                <span style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Auth.user?.role || 'Persona'}</span>
-              </button>
-              <div class="persona-dropdown" id="persona-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:6px;width:320px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.3);z-index:9999;padding:12px">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-                  <div style="font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.5px">
-                    <i class="fa fa-users-gear" style="color:var(--primary);margin-right:4px"></i> Switch Demo Persona
-                  </div>
-                  <span class="badge badge-primary" style="font-size:10px">1-Click Test</span>
-                </div>
-                <div style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;padding-right:2px">
-                  ${(typeof Auth !== 'undefined' && Auth.DEMO_PERSONAS ? Auth.DEMO_PERSONAS : []).map(p => `
-                    <div class="persona-item ${Auth.user?.username === p.username ? 'active' : ''}" onclick="Auth.switchPersona('${p.username}')" style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:${Auth.user?.username === p.username ? 'rgba(99,102,241,0.12)' : 'var(--surface)'};border:1px solid ${Auth.user?.username === p.username ? 'var(--primary)' : 'var(--border)'};transition:all 0.15s ease">
-                      <div style="width:26px;height:26px;border-radius:6px;background:${p.color}22;color:${p.color};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:2px">
-                        <i class="fa ${p.icon}"></i>
-                      </div>
-                      <div style="flex:1;min-width:0">
-                        <div style="display:flex;justify-content:space-between;align-items:center">
-                          <span style="font-size:12px;font-weight:700;color:var(--text)">${p.name}</span>
-                          <span class="badge" style="font-size:9px;padding:1px 5px;background:${p.color}22;color:${p.color}">${p.badge}</span>
-                        </div>
-                        <div style="font-size:10px;color:var(--text-3);margin-top:2px;line-height:1.3">${p.description}</div>
-                      </div>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
-            </div>
-
-            ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
-              <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="height:30px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px">
-                <i class="fa fa-cubes"></i>
-                <span>103 Models</span>
-              </button>
-            ` : ''}
-
             <!-- Shortcuts Modal -->
             <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)" style="width:30px;height:30px">
               <i class="fa fa-keyboard"></i>
@@ -512,11 +473,6 @@ const App = {
             <!-- Table Density Toggle -->
             <button class="topbar-btn" id="density-toggle-btn" onclick="App.toggleTableDensity()" title="Table Row Density: ${currentDensity === 'compact' ? 'Compact' : 'Spacious'}" style="width:30px;height:30px">
               <i class="fa ${currentDensity === 'compact' ? 'fa-compress' : 'fa-expand'}"></i>
-            </button>
-
-            <!-- Navigation Layout Toggle -->
-            <button class="topbar-btn" id="nav-layout-toggle-btn" onclick="App.toggleNavPosition()" title="${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'Switch to Left Sidebar' : 'Move Navigation to Top'}" style="width:30px;height:30px">
-              <i class="fa ${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'fa-table-columns' : 'fa-bars-progress'}"></i>
             </button>
 
             <!-- Theme Toggle -->
@@ -2368,76 +2324,16 @@ const App = {
   },
 
   // ════════════════════════════════════════════════════════════
-  // ─── Floating Live Persona & Role Switcher Dock ─────────────
+  // ─── Floating Live Persona & Role Switcher Dock (Disabled) ──
   // ════════════════════════════════════════════════════════════
   renderPersonaDock() {
-    if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) {
-      const existing = document.getElementById('persona-floating-bar');
-      if (existing) existing.remove();
-      return;
-    }
-    let bar = document.getElementById('persona-floating-bar');
-    if (!bar) {
-      bar = document.createElement('div');
-      bar.id = 'persona-floating-bar';
-      document.body.appendChild(bar);
-    }
-
-    const personas = Auth.DEMO_PERSONAS || [];
-    const currentUser = Auth.user?.username || 'admin';
-    const isMin = localStorage.getItem('hrm_persona_dock_min') === 'true';
-
-    if (isMin) {
-      const activePersona = personas.find(p => p.username === currentUser) || personas[0];
-      bar.innerHTML = `
-        <div class="persona-dock-pill-min animate-fade-in" onclick="App.togglePersonaDock(false)" title="Click to Expand Demo Role Switcher" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;padding:6px 14px;background:rgba(15,23,42,0.85);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.15);border-radius:30px;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,0.35);font-size:12px;font-weight:700">
-          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981"></span>
-          <i class="fa ${activePersona.icon}" style="color:${activePersona.color}"></i>
-          <span>${activePersona.name} (${activePersona.roleLabel})</span>
-          <i class="fa fa-chevron-up" style="font-size:10px;opacity:0.7"></i>
-        </div>
-      `;
-      bar.style.cssText = 'position:fixed;bottom:16px;right:24px;z-index:9990;';
-      return;
-    }
-
-    bar.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:9990;max-width:96vw;';
-
-    bar.innerHTML = `
-      <div class="persona-dock-container animate-fade-in" style="display:flex;align-items:center;gap:8px;padding:6px 12px;background:rgba(15,23,42,0.88);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.14);border-radius:40px;color:#fff;box-shadow:0 16px 36px rgba(0,0,0,0.45);font-size:12px">
-        <div style="display:flex;align-items:center;gap:7px;padding-right:8px;border-right:1px solid rgba(255,255,255,0.15);flex-shrink:0">
-          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;box-shadow:0 0 8px #10b981"></span>
-          <span style="font-size:11px;font-weight:800;letter-spacing:0.5px;color:#94a3b8;text-transform:uppercase">ROLE DOCK:</span>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none">
-          ${personas.map(p => {
-            const isActive = currentUser === p.username;
-            return `
-              <button onclick="Auth.switchPersona('${p.username}')" class="persona-dock-btn" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;border:${isActive ? '1.5px solid #fff' : '1px solid rgba(255,255,255,0.12)'};background:${isActive ? p.color : 'rgba(255,255,255,0.06)'};color:${isActive ? '#fff' : '#e2e8f0'};font-size:11.5px;font-weight:700;cursor:pointer;transition:all 0.15s ease;white-space:nowrap" title="${p.name} - ${p.description}">
-                <i class="fa ${p.icon}" style="font-size:11px"></i>
-                <span>${p.roleLabel}</span>
-                ${isActive ? '<i class="fa fa-check" style="font-size:9px"></i>' : ''}
-              </button>
-            `;
-          }).join('')}
-        </div>
-
-        <div style="display:flex;align-items:center;gap:6px;padding-left:8px;border-left:1px solid rgba(255,255,255,0.15);flex-shrink:0">
-          <button onclick="App.showPersonaLimitsModal()" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px" title="Inspect Active Role & Partial Permission Limits">
-            <i class="fa fa-circle-question" style="font-size:14px"></i>
-          </button>
-          <button onclick="App.togglePersonaDock(true)" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;padding:4px" title="Minimize Dock">
-            <i class="fa fa-chevron-down" style="font-size:12px"></i>
-          </button>
-        </div>
-      </div>
-    `;
+    const existing = document.getElementById('persona-floating-bar');
+    if (existing) existing.remove();
   },
 
   togglePersonaDock(minimized) {
-    localStorage.setItem('hrm_persona_dock_min', minimized ? 'true' : 'false');
-    this.renderPersonaDock();
+    const existing = document.getElementById('persona-floating-bar');
+    if (existing) existing.remove();
   },
 
   showPersonaLimitsModal() {
