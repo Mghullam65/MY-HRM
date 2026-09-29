@@ -168,8 +168,7 @@ const Auth = {
     if (typeof App !== 'undefined') {
       App.renderTopbar();
       App.renderSidebar();
-      App.renderPersonaDock?.();
-      App.navigate(App.currentModule || 'dashboard');
+      App.navigate('dashboard', null, true);
     }
   },
 
@@ -418,17 +417,13 @@ const Auth = {
       { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-handshake-simple', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'companies', label: 'Corporate Entities', icon: 'fa-building-shield', roles: ['superadmin'] },
       { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'events', label: 'Events & Calendar', icon: 'fa-calendar-days', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
       { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'administration', label: 'Administration', icon: 'fa-gear', roles: ['superadmin','hr_manager'] },
-      { id: 'settings', label: 'Settings', icon: 'fa-sliders', roles: ['superadmin'] },
     ];
     return all.filter(item => {
       // Must be allowed for role and have view access

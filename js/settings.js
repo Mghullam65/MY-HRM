@@ -5,10 +5,13 @@
 const Settings = {
   currentSection: 'company',
 
-  render() {
-    const content = document.getElementById('page-content');
+  render(targetEl = null) {
+    const content = targetEl || document.getElementById('page-content');
+    if (!content) return;
+
     const sections = [
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
+      { id: 'corporate_entities', label: 'Corporate Entities & Holdings', icon: 'fa-building-shield' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
       { id: 'roles_permissions', label: 'Roles & Permissions', icon: 'fa-user-shield' },
       { id: 'workflows', label: 'Approval Workflows', icon: 'fa-diagram-project' },
@@ -26,14 +29,21 @@ const Settings = {
     ];
 
     content.innerHTML = `
-      <div class="animate-fade-in" style="display:grid;grid-template-columns:220px 1fr;gap:20px">
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px;height:fit-content;position:sticky;top:0">
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:18px">
+        <!-- Top Sub-Categories Navigation Bar -->
+        <div class="settings-subnav-bar" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;-webkit-overflow-scrolling:touch;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
           ${sections.map(s => `
-            <div class="nav-item ${this.currentSection === s.id ? 'active' : ''}" onclick="Settings.switchSection('${s.id}')" data-label="${s.label}">
-              <i class="fa ${s.icon}"></i><span>${s.label}</span>
-            </div>
+            <button class="btn btn-sm ${this.currentSection === s.id ? 'btn-primary' : 'btn-ghost'}"
+              onclick="Settings.switchSection('${s.id}')"
+              data-section="${s.id}"
+              style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">
+              <i class="fa ${s.icon}"></i>
+              <span>${s.label}</span>
+            </button>
           `).join('')}
         </div>
+
+        <!-- Section Content Area -->
         <div id="settings-content"></div>
       </div>
     `;
@@ -42,9 +52,12 @@ const Settings = {
 
   switchSection(section) {
     this.currentSection = section;
-    document.querySelectorAll('[onclick*="Settings.switchSection"]').forEach(el => {
-      const m = el.getAttribute('onclick').match(/'(\w+)'/);
-      if (m) el.classList.toggle('active', m[1] === section);
+    document.querySelectorAll('.settings-subnav-bar [data-section]').forEach(el => {
+      const isAct = el.getAttribute('data-section') === section;
+      el.className = `btn btn-sm ${isAct ? 'btn-primary' : 'btn-ghost'}`;
+      if (isAct && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
     });
     this.renderSection();
   },
@@ -54,6 +67,7 @@ const Settings = {
     if (!c) return;
     switch (this.currentSection) {
       case 'company':            this.renderCompany(c); break;
+      case 'corporate_entities': if (typeof Company !== 'undefined') Company.render(c); break;
       case 'general':            this.renderGeneral(c); break;
       case 'roles_permissions':  this.renderRolesPermissions(c); break;
       case 'workflows':          this.renderWorkflows(c); break;

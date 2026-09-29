@@ -272,8 +272,8 @@ const Company = {
   // ────────────────────────────────────────────────────────────
   // CORPORATE ENTITIES COMMAND CENTER (MAIN VIEW)
   // ────────────────────────────────────────────────────────────
-  render() {
-    const content = document.getElementById('page-content');
+  render(targetEl = null) {
+    const content = targetEl || document.getElementById('page-content');
     if (!content) return;
 
     const isAdmin = this.isAdmin();

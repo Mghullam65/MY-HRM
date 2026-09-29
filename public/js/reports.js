@@ -231,6 +231,7 @@ const Reports = {
               { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
               { id: 'employee_stats', label: 'Employee Stats', icon: 'fa-chart-pie', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
               { id: 'office_layout', label: 'Office Layout', icon: 'fa-building', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+              { id: 'events_calendar', label: 'Events & Company Calendar', icon: 'fa-calendar-days', roles: ['superadmin', 'hr_manager', 'dept_manager', 'employee', 'onboarding'] },
               { id: 'employee_report', label: 'Employee Report Management', icon: 'fa-users-gear', roles: ['superadmin', 'hr_manager'] },
               { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up', roles: ['superadmin', 'hr_manager'] },
               { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar', roles: ['superadmin', 'hr_manager'] },
@@ -303,6 +304,8 @@ const Reports = {
       this.renderEmployeeStats(container);
     } else if (this.currentTab === 'office_layout') {
       this.renderOfficeLayout(container);
+    } else if (this.currentTab === 'events_calendar') {
+      if (typeof Events !== 'undefined') Events.render(container);
     } else if (this.currentTab === 'employee_report') {
       this.renderEmployeeReportManagement(container);
     } else if (this.currentTab === 'performance_report') {

@@ -987,7 +987,10 @@ const App = {
       }
     }
     // Update active nav item
-    const activeSidebarMod = (module === 'settlement') ? 'employees' : module;
+    const activeSidebarMod = (module === 'settlement') ? 'employees' 
+      : (module === 'settings' || module === 'companies') ? 'administration' 
+      : (module === 'events') ? 'reports' 
+      : module;
     document.querySelectorAll('.nav-item').forEach(el => {
       const isActive = el.dataset.module === activeSidebarMod;
       el.classList.toggle('active', isActive);
@@ -1047,16 +1050,41 @@ const App = {
               Settlement.render();
             }
             break;
-          case 'companies':     Company.render(); break;
+          case 'companies':
+            this.currentModule = 'administration';
+            if (typeof Administration !== 'undefined') {
+              Administration.currentSection = 'settings';
+              Administration.render();
+              setTimeout(() => { if (typeof Settings !== 'undefined') Settings.switchSection('corporate_entities'); }, 50);
+            } else if (typeof Company !== 'undefined') {
+              Company.render();
+            }
+            break;
           case 'performance':   Performance.render(); break;
           case 'recruitment':   Recruitment.render(); break;
           case 'assets':        Assets.render(); break;
           case 'expenses':      Expenses.render(); break;
           case 'helpdesk':      Helpdesk.render(); break;
-          case 'events':        Events.render(); break;
+          case 'events':
+            this.currentModule = 'reports';
+            if (typeof Reports !== 'undefined') {
+              Reports.currentTab = 'events_calendar';
+              Reports.render();
+            } else if (typeof Events !== 'undefined') {
+              Events.render();
+            }
+            break;
           case 'reports':       Reports.render(); break;
           case 'administration':Administration.render(); break;
-          case 'settings':      Settings.render(); break;
+          case 'settings':
+            this.currentModule = 'administration';
+            if (typeof Administration !== 'undefined') {
+              Administration.currentSection = 'settings';
+              Administration.render();
+            } else if (typeof Settings !== 'undefined') {
+              Settings.render();
+            }
+            break;
           case 'profile':       Employees.renderProfile(Auth.employee.id, true); break;
           default:
             if (typeof Dashboard !== 'undefined' && Dashboard.render) {
@@ -2886,6 +2914,8 @@ const Login = {
       const result = Auth.login(username, password);
       if (result.success) {
         Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}!`);
+        App.currentModule = 'dashboard';
+        window.location.hash = '#dashboard';
         App.showApp();
         App.navigate('dashboard', null, true);
       } else {

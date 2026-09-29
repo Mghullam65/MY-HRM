@@ -51,23 +51,27 @@ const Administration = {
       { id:'audit', label:'Audit Logs', icon:'fa-scroll' },
       { id:'holidays', label:'Holidays', icon:'fa-calendar-days' },
       { id:'governance', label:'Profile & Governance Masters', icon:'fa-sliders' },
+      { id:'settings', label:'System Settings & Holdings', icon:'fa-gear' },
       { id:'blueprint', label:'103-Model Blueprint Explorer', icon:'fa-diagram-project' },
     ];
 
     content.innerHTML = `
-      <div class="animate-fade-in" style="display:grid;grid-template-columns:230px 1fr;gap:20px">
-        <!-- Left Nav -->
-        <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px;height:fit-content;position:sticky;top:0">
+      <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:18px">
+        <!-- Top Sub-Categories Navigation Bar -->
+        <div class="admin-subnav-bar" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;-webkit-overflow-scrolling:touch;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
           ${sections.map(s => `
-            <div class="nav-item ${this.currentSection === s.id ? 'active' : ''}" onclick="Administration.switchSection('${s.id}')" data-label="${s.label}">
+            <button class="btn btn-sm ${this.currentSection === s.id ? 'btn-primary' : 'btn-ghost'}"
+              onclick="Administration.switchSection('${s.id}')"
+              data-section="${s.id}"
+              style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">
               <i class="fa ${s.icon}" ${s.id === 'discrepancies' && s.badge > 0 ? 'style="color:var(--danger)"' : ''}></i>
               <span>${s.label}</span>
-              ${s.badge ? `<span class="badge badge-danger" style="margin-left:auto;font-size:10px;padding:2px 7px;border-radius:10px">${s.badge}</span>` : ''}
-            </div>
+              ${s.badge ? `<span class="badge badge-danger" style="margin-left:4px;font-size:9.5px;padding:1px 6px;border-radius:10px">${s.badge}</span>` : ''}
+            </button>
           `).join('')}
         </div>
 
-        <!-- Right Content -->
+        <!-- Section Content Area -->
         <div id="admin-content"></div>
       </div>
     `;
@@ -81,9 +85,12 @@ const Administration = {
       return;
     }
     this.currentSection = section;
-    document.querySelectorAll('[onclick*="Administration.switchSection"]').forEach(el => {
-      const m = el.getAttribute('onclick').match(/'(\w+)'/);
-      if (m) el.classList.toggle('active', m[1] === section);
+    document.querySelectorAll('.admin-subnav-bar [data-section]').forEach(el => {
+      const isAct = el.getAttribute('data-section') === section;
+      el.className = `btn btn-sm ${isAct ? 'btn-primary' : 'btn-ghost'}`;
+      if (isAct && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
     });
     this.renderSection();
   },
@@ -111,6 +118,7 @@ const Administration = {
       case 'audit':          this.renderAuditLog(container); break;
       case 'holidays':       this.renderHolidays(container); break;
       case 'governance':     this.renderGovernanceMasters(container); break;
+      case 'settings':       if (typeof Settings !== 'undefined') Settings.render(container); break;
       case 'blueprint':      this.renderBlueprintExplorer(container); break;
       default:               container.innerHTML = '<div class="empty-state"><i class="fa fa-construction"></i><h3>Coming Soon</h3></div>';
     }

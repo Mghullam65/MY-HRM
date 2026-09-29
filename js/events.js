@@ -33,9 +33,9 @@ const Events = {
     }
   },
 
-  render() {
+  render(targetEl = null) {
     this.ensureTasks();
-    const content = document.getElementById('page-content');
+    const content = targetEl || document.getElementById('page-content');
     if (!content) return;
 
     content.innerHTML = `
