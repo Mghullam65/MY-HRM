@@ -540,33 +540,29 @@ const Dashboard = {
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Logged-in Person Profile Card (Matches Uploaded Screenshot) -->
-        <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:18px;padding:12px 22px 12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,0.06);margin-bottom:16px;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
-          <div class="avatar" style="width:60px;height:60px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,0.12)">
-            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700">${curInitials}</div>`}
+        <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:20px;padding:14px 26px 14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:18px;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
+          <div class="avatar" style="width:78px;height:78px;min-width:78px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);border:2.5px solid #00a2e8">
+            ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:26px;font-weight:700">${curInitials}</div>`}
           </div>
-          <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.35">
-            <div style="font-size:16.5px;font-weight:700;color:#00a2e8;letter-spacing:-0.2px">${curFullName}</div>
-            <div style="font-size:13.5px;font-weight:500;color:#00a2e8;margin-top:3px">${curDesignation}</div>
-            <div style="font-size:13px;font-weight:500;color:#00a2e8;margin-top:1px">Employee ID: ${curEmpCode}</div>
+          <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.4">
+            <div style="font-size:18px;font-weight:700;color:#00a2e8;letter-spacing:-0.2px">${curFullName}</div>
+            <div style="font-size:14px;font-weight:500;color:#00a2e8;margin-top:3px">${curDesignation}</div>
+            <div style="font-size:13.5px;font-weight:500;color:#00a2e8;margin-top:1px">Employee ID: ${curEmpCode}</div>
           </div>
         </div>
 
-        <!-- Top Bar: Overview Header & Recent Activity Button (Right Corner) -->
+        <!-- Top Bar: Overview Header & Actions -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
             <div style="display:flex;align-items:center;gap:10px">
               <h2 style="font-size:var(--font-2xl);font-weight:800;color:var(--text);letter-spacing:-0.5px">Dashboard Overview</h2>
               <span class="badge badge-subtle-success" style="font-size:var(--font-xs);padding:2px 8px;font-weight:500"><i class="fa fa-circle" style="font-size:6px;margin-right:5px;color:#10b981"></i>Live System</span>
             </div>
-            <div style="font-size:var(--font-xs);color:var(--text-3);margin-top:2px">
-              ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee?.firstName || Auth.employee?.fullName || 'User'}!
+            <div style="font-size:var(--font-xs);color:var(--text-3);margin-top:3px">
+              ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Real-Time Workforce Telemetry
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:10px">
-            <button class="btn btn-secondary btn-sm" onclick="App.openHistoryDrawer()" title="View browser-style activity history drawer (Ctrl+H)" style="box-shadow:0 2px 10px rgba(79,128,247,0.18)">
-              <i class="fa fa-clock-rotate-left"></i> Activity History
-              <span class="badge badge-primary" id="dash-history-badge" style="margin-left:6px">${auditLogs.length}</span>
-            </button>
             <button class="btn btn-ghost btn-sm" onclick="Dashboard.render()" title="Refresh Dashboard Data">
               <i class="fa fa-rotate"></i> Refresh
             </button>
