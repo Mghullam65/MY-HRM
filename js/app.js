@@ -49,19 +49,19 @@ const App = {
       // Initialize Browser Back/Forward navigation router
       this.setupHistoryRouter();
 
-      const hash = window.location.hash;
+      const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
       const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
       if (loggedIn) {
+        const initialModule = (rawHash && rawHash !== 'login' && rawHash !== 'trial' && !rawHash.startsWith('module-') && rawHash !== 'landing') ? rawHash : 'dashboard';
         this.showApp();
-        const initialModule = (hash && hash !== '#login' && hash !== '#trial' && !hash.startsWith('#module-') && hash !== '#landing') ? hash.replace('#', '') : 'dashboard';
         this.navigate(initialModule, null, false);
       } else {
-        if (hash === '#login') {
+        if (rawHash === 'login') {
           this.showLogin(false);
-        } else if (hash === '#trial') {
+        } else if (rawHash === 'trial') {
           this.showTrial('Pro', false);
-        } else if (hash.startsWith('#module-')) {
-          this.showModule(hash.replace('#module-', ''), false);
+        } else if (rawHash.startsWith('module-')) {
+          this.showModule(rawHash.replace('module-', ''), false);
         } else {
           this.showLanding(false);
         }
@@ -298,6 +298,11 @@ const App = {
         if (icon) icon.className = 'fa fa-chevron-right';
       }
     }
+
+    // Guarantee that active module is populated immediately (prevents blank screen)
+    const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+    const activeMod = this.currentModule || (rawHash && rawHash !== 'login' && rawHash !== 'trial' && !rawHash.startsWith('module-') && rawHash !== 'landing' ? rawHash : 'dashboard');
+    this.navigate(activeMod, null, false);
   },
 
   renderSidebar() {
@@ -306,20 +311,20 @@ const App = {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     const avatarColor = Utils.avatarColor(emp.id);
-    const initials = Utils.avatarInitials(emp.fullName || 'Ghulam Mustafa');
+    const initials = Utils.avatarInitials(emp.fullName || Auth.user?.name || 'User');
+    const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
+    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
+    const companyLogoText = activeCo?.logoText || 'AT';
 
     sidebar.innerHTML = `
       <div class="sidebar-logo">
-        <div class="applicon-brand-wrap" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="App.navigate('dashboard')">
-          <svg width="34" height="30" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 70 C 2 52, 6 28, 22 14 C 36 2, 62 1, 80 12 C 55 6, 26 15, 18 38 C 13 52, 19 64, 30 70 Z" fill="#ffffff"/>
-            <path d="M40 26 L58 72 L46 72 L42 62 L28 62 L35 44 Z" fill="#ff7a00"/>
-            <polygon points="31,58 39,58 35,46" fill="#ffffff"/>
-            <path d="M46 22 L54 22 L72 72 L60 72 Z" fill="#ff7a00"/>
-          </svg>
+        <div class="brand-wrap" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="App.navigate('dashboard')">
+          <div class="logo-icon" style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;box-shadow:0 3px 10px var(--primary-glow);flex-shrink:0">
+            ${companyLogoText}
+          </div>
           <div class="logo-text">
-            <div style="font-family:'Inter',sans-serif;font-size:16px;font-weight:900;color:#ff7a00;letter-spacing:1px">APPLICON SOFT</div>
-            <span style="font-size:10px;color:var(--text-3)">HR Management</span>
+            <h1 id="company-sidebar-name" style="margin:0;font-size:15px;font-weight:800;color:var(--text);font-family:'Inter',sans-serif">${companyName}</h1>
+            <span style="font-size:10px;color:var(--text-3);text-transform:uppercase">HR Management</span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -333,10 +338,10 @@ const App = {
       </div>
 
       <div class="sidebar-user">
-        <div class="user-avatar-sm avatar" style="background:${avatarColor};overflow:hidden">${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : initials}</div>
+        <div class="user-avatar-sm avatar" style="background:${avatarColor};overflow:hidden">${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName || 'User'}">` : initials}</div>
         <div class="user-info">
-          <div class="name">${emp.fullName || 'Ghulam Mustafa'}</div>
-          <div class="role-badge">${Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+          <div class="name">${emp.fullName || Auth.user?.name || 'User'}</div>
+          <div class="role-badge">${Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'User'}</div>
         </div>
       </div>
 
@@ -390,36 +395,25 @@ const App = {
     const currentDensity = document.body.getAttribute('data-table-density') || 'comfortable';
     const currentAccent = document.documentElement.getAttribute('data-accent') || 'blue';
     const emp = Auth.employee || {};
-    const fullName = emp.fullName || Auth.user?.name || 'Ghulam Mustafa';
+    const fullName = emp.fullName || Auth.user?.name || 'Ahmed Khan';
+    const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
+    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
+    const companyLogoText = activeCo?.logoText || 'AT';
 
     topbar.innerHTML = `
-      <!-- Left: Mobile Menu Toggle & Applicon Soft Brand Logo -->
+      <!-- Left: Mobile Menu Toggle & Dynamic Corporate Brand Logo -->
       <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0">
         <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="App.openMobileSidebar()" title="Toggle Menu">
           <i class="fa fa-bars"></i>
         </button>
 
-        <div class="applicon-brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:10px" title="Applicon Soft HRM">
-          <svg width="44" height="40" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
-            <!-- Outer swoosh crescent -->
-            <path d="M12 70 C 2 52, 6 28, 22 14 C 36 2, 62 1, 80 12 C 55 6, 26 15, 18 38 C 13 52, 19 64, 30 70 C 23 72, 15 72, 12 70 Z" fill="#1e293b"/>
-            <!-- Inner orange A -->
-            <path d="M40 26 L58 72 L46 72 L42 62 L28 62 L35 44 Z" fill="#ff7a00"/>
-            <polygon points="31,58 39,58 35,46" fill="#ffffff"/>
-            <path d="M46 22 L54 22 L72 72 L60 72 Z" fill="#ff7a00"/>
-            <path d="M26 63 L60 63 L57 70 L23 70 Z" fill="#1e293b"/>
-            <!-- Digital pixel cubes -->
-            <rect x="52" y="8" width="6.5" height="6.5" fill="#1e293b" rx="1"/>
-            <rect x="62" y="6" width="6.5" height="6.5" fill="#ff7a00" rx="1"/>
-            <rect x="60" y="15" width="6" height="6" fill="#1e293b" rx="1"/>
-            <rect x="70" y="14" width="6" height="6" fill="#ff7a00" rx="1"/>
-          </svg>
-          <div class="applicon-brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1">
-            <div style="font-family:'Inter',sans-serif;font-size:24px;font-weight:900;color:#ff7a00;letter-spacing:1px">APPLICON</div>
-            <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
-              <div style="flex:1;height:2.5px;background:#1e293b"></div>
-              <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:900;color:#1e293b;letter-spacing:3.5px;padding-left:4px">SOFT</div>
-            </div>
+        <div class="brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:12px" title="${companyName}">
+          <div class="logo-icon" id="topbar-logo-badge" style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:17px;box-shadow:0 4px 12px var(--primary-glow);flex-shrink:0">
+            ${companyLogoText}
+          </div>
+          <div class="brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1.2">
+            <h1 id="topbar-company-name" style="margin:0;font-size:18px;font-weight:900;letter-spacing:-0.3px;color:var(--text);font-family:'Inter',sans-serif">${companyName}</h1>
+            <span style="font-size:10.5px;font-weight:600;color:var(--primary);letter-spacing:0.5px;text-transform:uppercase">HR Management System</span>
           </div>
         </div>
 
@@ -435,7 +429,7 @@ const App = {
 
       <!-- Right: User Info, Change Password, Logout & Search Row -->
       <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <!-- Top Row: Welcome Ghulam Mustafa + Change Password + Logout -->
+        <!-- Top Row: Welcome User + Change Password + Logout -->
         <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
           <div class="welcome-user-tag" style="display:inline-flex;align-items:center;gap:6px;color:#555">
             <i class="fa fa-user" style="color:#64748b;font-size:13px"></i>
@@ -951,6 +945,10 @@ const App = {
   },
 
   navigate(module, subView, pushState = true) {
+    if (!module || typeof module !== 'string' || !module.trim()) {
+      module = 'dashboard';
+    }
+
     // Role-based module access guards
     if (module === 'administration' && !['superadmin', 'hr_manager'].includes(Auth.role)) {
       Toast.show('403 Forbidden: Access to Administration is restricted.', 'error');
@@ -1060,7 +1058,13 @@ const App = {
           case 'administration':Administration.render(); break;
           case 'settings':      Settings.render(); break;
           case 'profile':       Employees.renderProfile(Auth.employee.id, true); break;
-          default:              content.innerHTML = '<div class="empty-state"><i class="fa fa-construction"></i><h3>Coming Soon</h3><p>This module is under development.</p></div>';
+          default:
+            if (typeof Dashboard !== 'undefined' && Dashboard.render) {
+              Dashboard.render();
+            } else {
+              content.innerHTML = '<div class="empty-state"><i class="fa fa-triangle-exclamation"></i><h3>Module Not Found</h3><p>Navigating to Dashboard...</p></div>';
+            }
+            break;
         }
       } catch(e) {
         console.error(e);

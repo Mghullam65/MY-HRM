@@ -49,6 +49,10 @@ const Company = {
     if (nameEl) {
       nameEl.textContent = active.id === 'all' ? 'Apex Group' : (active.tradeName || active.name);
     }
+    const topNameEl = document.getElementById('topbar-company-name');
+    if (topNameEl) {
+      topNameEl.textContent = active.id === 'all' ? 'Apex Group' : (active.tradeName || active.name);
+    }
     const switcherLabel = document.getElementById('active-company-label');
     if (switcherLabel) {
       switcherLabel.textContent = active.id === 'all' ? 'Group (Consolidated)' : (active.tradeName || active.name);
@@ -57,6 +61,11 @@ const Company = {
     if (logoBadge) {
       logoBadge.textContent = active.logoText || 'AG';
       logoBadge.style.background = active.primaryColor || 'var(--primary)';
+    }
+    const topBadge = document.getElementById('topbar-logo-badge');
+    if (topBadge) {
+      topBadge.textContent = active.logoText || 'AT';
+      if (active.primaryColor) topBadge.style.background = active.primaryColor;
     }
   },
 
