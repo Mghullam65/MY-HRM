@@ -321,6 +321,120 @@ const App = {
     const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
     const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
     const companyLogoText = activeCo?.logoText || 'AT';
+    // Allowed modules lookup for active session
+    const allowed = new Set(items.map(i => i.id));
+    if (typeof Auth !== 'undefined') {
+      if (Auth.canAccessModule('settlement')) allowed.add('settlement');
+      if (Auth.canAccessModule('companies') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('companies');
+      if (Auth.canAccessModule('events')) allowed.add('events');
+      if (Auth.canAccessModule('administration') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('administration');
+    }
+
+    // 5 Executive Pillars (Option 1)
+    const pillars = [
+      {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: 'fa-gauge-high',
+        directModule: 'dashboard',
+        moduleIds: ['dashboard'],
+        items: []
+      },
+      {
+        id: 'people',
+        label: 'People & Talent',
+        icon: 'fa-users-gear',
+        moduleIds: ['employees', 'recruitment', 'performance', 'profile'],
+        items: [
+          { id: 'employees', label: 'Employees & e-DMS', icon: 'fa-users', sub: 'Directory, profiles & document vault' },
+          { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase', sub: 'Job pipelines, stages & applicants' },
+          { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line', sub: 'Appraisals, reviews & company goals' },
+          { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', sub: 'Personal records & induction checklist' }
+        ]
+      },
+      {
+        id: 'time',
+        label: 'Time & Attendance',
+        icon: 'fa-clock',
+        moduleIds: ['attendance', 'leaves', 'assets'],
+        items: [
+          { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', sub: 'Biometric logs, roster & overtime' },
+          { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', sub: 'Leave requests, quotas & approvals' },
+          { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', sub: 'IT hardware, equipment & custodians' }
+        ]
+      },
+      {
+        id: 'finance',
+        label: 'Finance & Payroll',
+        icon: 'fa-money-bill-wave',
+        moduleIds: ['payroll', 'expenses', 'settlement'],
+        items: [
+          { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', sub: 'FBR tax engine, payslips & salary sheets' },
+          { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', sub: 'Reimbursements, receipts & audit trails' },
+          { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-file-invoice-dollar', sub: 'Final clearance, gratuity & PF calculations' }
+        ]
+      },
+      {
+        id: 'operations',
+        label: 'Operations & Admin',
+        icon: 'fa-sliders',
+        moduleIds: ['helpdesk', 'reports', 'events', 'administration', 'companies'],
+        items: [
+          { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', sub: 'Internal support tickets & SLA resolution' },
+          { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', sub: 'Workforce telemetry, payroll & BI exports' },
+          { id: 'events', label: 'Events & Notices', icon: 'fa-bullhorn', sub: 'Company circulars, holidays & culture' },
+          { id: 'administration', label: 'Administration', icon: 'fa-gear', sub: 'Access control, roles & system security' },
+          { id: 'companies', label: 'Multi-Company Holdings', icon: 'fa-building-shield', sub: 'Subsidiaries, NTN portfolios & bank accounts' }
+        ]
+      }
+    ];
+
+    const currentMod = this.currentModule || 'dashboard';
+
+    const renderedPillars = pillars.map(p => {
+      if (p.directModule) {
+        if (!allowed.has(p.directModule) && p.directModule !== 'dashboard') return '';
+        const isActive = currentMod === p.directModule;
+        return `
+          <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-module="${p.directModule}" data-label="${p.label}"
+            onclick="App.navigate('${p.directModule}'); App.closeMobileSidebar();"
+            data-tooltip="${p.label}">
+            <i class="fa ${p.icon}"></i>
+            <span>${p.label.toUpperCase()}</span>
+          </div>
+        `;
+      }
+
+      // Filter sub-items by role permissions
+      const activeSubs = p.items.filter(item => allowed.has(item.id));
+      if (activeSubs.length === 0) return '';
+
+      const activeIds = activeSubs.map(s => s.id);
+      const isPillarActive = activeIds.includes(currentMod) || (currentMod === 'settings' && activeIds.includes('administration'));
+
+      return `
+        <div class="nav-item nav-tab-item nav-pillar-dropdown ${isPillarActive ? 'active' : ''}" data-pillar="${p.id}" data-modules="${activeIds.join(',')}" tabindex="0">
+          <div class="nav-pillar-trigger" onclick="App.toggleNavPillar(this, event)">
+            <span>${p.label.toUpperCase()}</span>
+            <i class="fa fa-chevron-down nav-pillar-arrow"></i>
+          </div>
+          <div class="nav-dropdown-menu">
+            ${activeSubs.map(sub => {
+              const isSubActive = currentMod === sub.id;
+              return `
+                <div class="nav-dropdown-subitem nav-item ${isSubActive ? 'active' : ''}" data-module="${sub.id}" onclick="App.navigate('${sub.id}'); App.closeNavPillars(); App.closeMobileSidebar(); event.stopPropagation();">
+                  <div class="nav-dropdown-subitem-icon"><i class="fa ${sub.icon}"></i></div>
+                  <div class="nav-dropdown-subitem-text">
+                    <div class="nav-dropdown-subitem-title">${sub.label}</div>
+                    <div class="nav-dropdown-subitem-desc">${sub.sub}</div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }).join('');
 
     sidebar.innerHTML = `
       <div class="sidebar-logo">
@@ -353,14 +467,7 @@ const App = {
 
       <nav class="sidebar-nav">
         <div class="nav-section-label">Main Menu</div>
-        ${items.map(item => `
-          <div class="nav-item nav-tab-item" data-module="${item.id}" data-label="${item.label}"
-            onclick="App.navigate('${item.id}'); App.closeMobileSidebar();"
-            data-tooltip="${item.label}">
-            <i class="fa ${item.icon}"></i>
-            <span>${item.label.toUpperCase()}</span>
-          </div>
-        `).join('')}
+        ${renderedPillars}
       </nav>
 
       <div class="sidebar-footer">
@@ -391,6 +498,21 @@ const App = {
         localStorage.setItem('hrm_sidebar_collapsed', isCollapsed ? '1' : '0');
       });
     }
+  },
+
+  toggleNavPillar(triggerEl, event) {
+    if (event) event.stopPropagation();
+    const dropdown = triggerEl.closest('.nav-pillar-dropdown');
+    if (!dropdown) return;
+    const wasOpen = dropdown.classList.contains('open');
+    this.closeNavPillars();
+    if (!wasOpen) {
+      dropdown.classList.add('open');
+    }
+  },
+
+  closeNavPillars() {
+    document.querySelectorAll('.nav-pillar-dropdown.open').forEach(el => el.classList.remove('open'));
   },
 
   renderTopbar() {
@@ -538,9 +660,8 @@ const App = {
       if (!e.target.closest('#topbar-search-wrap')) {
         document.getElementById('search-dropdown')?.classList.remove('open');
       }
-      if (!e.target.closest('#persona-btn') && !e.target.closest('#persona-dropdown')) {
-        const pDd = document.getElementById('persona-dropdown');
-        if (pDd) pDd.style.display = 'none';
+      if (!e.target.closest('.nav-pillar-dropdown')) {
+        App.closeNavPillars();
       }
     });
   },
@@ -948,15 +1069,15 @@ const App = {
         module = 'profile';
       }
     }
-    // Update active nav item
-    const activeSidebarMod = (module === 'settlement') ? 'employees' 
-      : (module === 'settings' || module === 'companies') ? 'administration' 
-      : (module === 'events') ? 'reports' 
-      : module;
+    // Update active nav item & parent pillars
+    const activeSidebarMod = (module === 'settings') ? 'administration' : module;
     document.querySelectorAll('.nav-item').forEach(el => {
-      const isActive = el.dataset.module === activeSidebarMod;
+      const isDirectMatch = el.dataset.module === activeSidebarMod || (el.dataset.module === 'employees' && activeSidebarMod === 'settlement');
+      const pillarModules = el.dataset.modules ? el.dataset.modules.split(',') : [];
+      const isPillarMatch = pillarModules.includes(activeSidebarMod);
+      const isActive = isDirectMatch || isPillarMatch;
       el.classList.toggle('active', isActive);
-      if (isActive && el.offsetParent !== null && typeof el.scrollIntoView === 'function') {
+      if (isActive && !isPillarMatch && el.offsetParent !== null && typeof el.scrollIntoView === 'function') {
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     });
