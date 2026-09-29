@@ -301,19 +301,25 @@ const App = {
   },
 
   renderSidebar() {
-    const emp = Auth.employee;
+    const emp = Auth.employee || {};
     const items = Auth.getSidebarItems();
     const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
     const avatarColor = Utils.avatarColor(emp.id);
-    const initials = Utils.avatarInitials(emp.fullName);
+    const initials = Utils.avatarInitials(emp.fullName || 'Ghulam Mustafa');
 
     sidebar.innerHTML = `
       <div class="sidebar-logo">
-        <div style="display:flex;align-items:center;gap:10px">
-          <div class="logo-icon">HR</div>
+        <div class="applicon-brand-wrap" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="App.navigate('dashboard')">
+          <svg width="34" height="30" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 70 C 2 52, 6 28, 22 14 C 36 2, 62 1, 80 12 C 55 6, 26 15, 18 38 C 13 52, 19 64, 30 70 Z" fill="#ffffff"/>
+            <path d="M40 26 L58 72 L46 72 L42 62 L28 62 L35 44 Z" fill="#ff7a00"/>
+            <polygon points="31,58 39,58 35,46" fill="#ffffff"/>
+            <path d="M46 22 L54 22 L72 72 L60 72 Z" fill="#ff7a00"/>
+          </svg>
           <div class="logo-text">
-            <h1 id="company-sidebar-name">${DB.getObj('settings')?.companyName || 'HRM Pro'}</h1>
-            <span>HR Management System</span>
+            <div style="font-family:'Inter',sans-serif;font-size:16px;font-weight:900;color:#ff7a00;letter-spacing:1px">APPLICON SOFT</div>
+            <span style="font-size:10px;color:var(--text-3)">HR Management</span>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
@@ -329,7 +335,7 @@ const App = {
       <div class="sidebar-user">
         <div class="user-avatar-sm avatar" style="background:${avatarColor};overflow:hidden">${emp.photo ? `<img src="${emp.photo}" style="width:100%;height:100%;object-fit:cover" alt="${emp.fullName}">` : initials}</div>
         <div class="user-info">
-          <div class="name">${emp.fullName}</div>
+          <div class="name">${emp.fullName || 'Ghulam Mustafa'}</div>
           <div class="role-badge">${Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
         </div>
       </div>
@@ -337,11 +343,11 @@ const App = {
       <nav class="sidebar-nav">
         <div class="nav-section-label">Main Menu</div>
         ${items.map(item => `
-          <div class="nav-item" data-module="${item.id}" data-label="${item.label}"
+          <div class="nav-item nav-tab-item" data-module="${item.id}" data-label="${item.label}"
             onclick="App.navigate('${item.id}'); App.closeMobileSidebar();"
             data-tooltip="${item.label}">
             <i class="fa ${item.icon}"></i>
-            <span>${item.label}</span>
+            <span>${item.label.toUpperCase()}</span>
           </div>
         `).join('')}
       </nav>
@@ -364,28 +370,60 @@ const App = {
       document.body.appendChild(overlay);
     }
 
-    document.getElementById('sidebar-toggle').addEventListener('click', () => {
-      sidebar.classList.toggle('collapsed');
-      const icon = document.querySelector('#sidebar-toggle i');
-      const isCollapsed = sidebar.classList.contains('collapsed');
-      icon.className = isCollapsed ? 'fa fa-chevron-right' : 'fa fa-chevron-left';
-      localStorage.setItem('hrm_sidebar_collapsed', isCollapsed ? '1' : '0');
-    });
+    const toggleBtn = document.getElementById('sidebar-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        sidebar.classList.toggle('collapsed');
+        const icon = document.querySelector('#sidebar-toggle i');
+        const isCollapsed = sidebar.classList.contains('collapsed');
+        if (icon) icon.className = isCollapsed ? 'fa fa-chevron-right' : 'fa fa-chevron-left';
+        localStorage.setItem('hrm_sidebar_collapsed', isCollapsed ? '1' : '0');
+      });
+    }
   },
 
   renderTopbar() {
     const topbar = document.getElementById('topbar');
+    if (!topbar) return;
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
     const isDark = currentTheme !== 'light';
     const currentDensity = document.body.getAttribute('data-table-density') || 'comfortable';
     const currentAccent = document.documentElement.getAttribute('data-accent') || 'blue';
+    const emp = Auth.employee || {};
+    const fullName = emp.fullName || Auth.user?.name || 'Ghulam Mustafa';
 
     topbar.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+      <!-- Left: Mobile Menu Toggle & Applicon Soft Brand Logo -->
+      <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0">
         <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="App.openMobileSidebar()" title="Toggle Menu">
           <i class="fa fa-bars"></i>
         </button>
-        <div class="topbar-breadcrumb-wrap">
+
+        <div class="applicon-brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:10px" title="Applicon Soft HRM">
+          <svg width="44" height="40" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0">
+            <!-- Outer swoosh crescent -->
+            <path d="M12 70 C 2 52, 6 28, 22 14 C 36 2, 62 1, 80 12 C 55 6, 26 15, 18 38 C 13 52, 19 64, 30 70 C 23 72, 15 72, 12 70 Z" fill="#1e293b"/>
+            <!-- Inner orange A -->
+            <path d="M40 26 L58 72 L46 72 L42 62 L28 62 L35 44 Z" fill="#ff7a00"/>
+            <polygon points="31,58 39,58 35,46" fill="#ffffff"/>
+            <path d="M46 22 L54 22 L72 72 L60 72 Z" fill="#ff7a00"/>
+            <path d="M26 63 L60 63 L57 70 L23 70 Z" fill="#1e293b"/>
+            <!-- Digital pixel cubes -->
+            <rect x="52" y="8" width="6.5" height="6.5" fill="#1e293b" rx="1"/>
+            <rect x="62" y="6" width="6.5" height="6.5" fill="#ff7a00" rx="1"/>
+            <rect x="60" y="15" width="6" height="6" fill="#1e293b" rx="1"/>
+            <rect x="70" y="14" width="6" height="6" fill="#ff7a00" rx="1"/>
+          </svg>
+          <div class="applicon-brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1">
+            <div style="font-family:'Inter',sans-serif;font-size:24px;font-weight:900;color:#ff7a00;letter-spacing:1px">APPLICON</div>
+            <div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+              <div style="flex:1;height:2.5px;background:#1e293b"></div>
+              <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:900;color:#1e293b;letter-spacing:3.5px;padding-left:4px">SOFT</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-breadcrumb-wrap" style="display:none">
           <div class="topbar-title" id="topbar-title">Dashboard</div>
           <div class="topbar-breadcrumbs" id="topbar-breadcrumbs">
             <span class="crumb-home" onclick="App.navigate('dashboard')"><i class="fa fa-home"></i> Home</span>
@@ -395,146 +433,139 @@ const App = {
         </div>
       </div>
 
-      <div class="topbar-search" id="topbar-search-wrap" onclick="App.openCommandPalette()" style="cursor:pointer" title="Click or press Ctrl+K to open Spotlight">
-        <i class="fa fa-terminal" style="color:var(--primary)"></i>
-        <input type="text" placeholder="Spotlight command search… (Ctrl+K)" id="global-search"
-          readonly style="cursor:pointer;pointer-events:none">
-        <span class="search-shortcut">Ctrl+K</span>
-      </div>
+      <!-- Right: User Info, Change Password, Logout & Search Row -->
+      <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+        <!-- Top Row: Welcome Ghulam Mustafa + Change Password + Logout -->
+        <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
+          <div class="welcome-user-tag" style="display:inline-flex;align-items:center;gap:6px;color:#555">
+            <i class="fa fa-user" style="color:#64748b;font-size:13px"></i>
+            <span style="color:#64748b">Welcome</span>
+            <strong style="color:#1e293b;font-weight:700" id="header-user-fullname">${fullName}</strong>
+          </div>
+          <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" class="header-action-link link-pwd" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
+            <i class="fa fa-key" style="font-size:11px"></i> Change Password
+          </a>
+          <a href="javascript:void(0)" onclick="App.logout()" class="header-action-link link-logout" style="color:#dc2626;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
+            <i class="fa fa-right-from-bracket" style="font-size:12px"></i> Logout
+          </a>
+        </div>
 
-      <div class="topbar-actions">
-        ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
-        
-        <!-- Quick Persona & Demo Role Switcher -->
-        <div style="position:relative;display:inline-block">
-          <button class="topbar-btn" id="persona-btn" onclick="App.togglePersonaDropdown(event)" title="Quick Persona & Demo Role Switcher" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer">
-            <i class="fa fa-user-gear"></i>
-            <span style="max-width:115px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Auth.user?.role || 'Persona'}</span>
-            <i class="fa fa-chevron-down" style="font-size:9px"></i>
-          </button>
-          <div class="persona-dropdown" id="persona-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:6px;width:330px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.3);z-index:9999;padding:12px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-              <div style="font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.5px">
-                <i class="fa fa-users-gear" style="color:var(--primary);margin-right:4px"></i> Switch Demo Persona
-              </div>
-              <span class="badge badge-primary" style="font-size:10px">1-Click Test</span>
-            </div>
-            <div style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;padding-right:2px">
-              ${(typeof Auth !== 'undefined' && Auth.DEMO_PERSONAS ? Auth.DEMO_PERSONAS : []).map(p => `
-                <div class="persona-item ${Auth.user?.username === p.username ? 'active' : ''}" onclick="Auth.switchPersona('${p.username}')" style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:${Auth.user?.username === p.username ? 'rgba(99,102,241,0.12)' : 'var(--surface)'};border:1px solid ${Auth.user?.username === p.username ? 'var(--primary)' : 'var(--border)'};transition:all 0.15s ease">
-                  <div style="width:28px;height:28px;border-radius:8px;background:${p.color}22;color:${p.color};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px">
-                    <i class="fa ${p.icon}"></i>
+        <!-- Bottom Row: Search Box & System Controls -->
+        <div class="topbar-controls-line" style="display:flex;align-items:center;gap:10px">
+          <div class="sample-search-box" id="topbar-search-wrap" style="position:relative;width:220px">
+            <input type="text" placeholder="Search Here..." id="global-search"
+              oninput="App.handleGlobalSearch(this.value)"
+              onclick="App.openCommandPalette()"
+              autocomplete="off"
+              style="width:100%;height:30px;background:#ffffff;border:1px solid #d1d5db;border-radius:4px;padding:0 28px 0 10px;font-size:12px;color:#1f2937;outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,0.04)">
+            <i class="fa fa-magnifying-glass" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:11.5px;pointer-events:none"></i>
+            <div class="search-dropdown" id="search-dropdown"></div>
+          </div>
+
+          <div class="topbar-actions" style="display:inline-flex;align-items:center;gap:6px">
+            ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
+
+            <!-- Quick Persona Switcher -->
+            <div style="position:relative;display:inline-block">
+              <button class="topbar-btn" id="persona-btn" onclick="App.togglePersonaDropdown(event)" title="Quick Persona & Demo Role Switcher" style="height:30px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:5px">
+                <i class="fa fa-user-gear"></i>
+                <span style="max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Auth.user?.role || 'Persona'}</span>
+              </button>
+              <div class="persona-dropdown" id="persona-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:6px;width:320px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,0.3);z-index:9999;padding:12px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+                  <div style="font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.5px">
+                    <i class="fa fa-users-gear" style="color:var(--primary);margin-right:4px"></i> Switch Demo Persona
                   </div>
-                  <div style="flex:1;min-width:0">
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                      <span style="font-size:12px;font-weight:700;color:var(--text)">${p.name}</span>
-                      <span class="badge" style="font-size:9.5px;padding:1px 6px;background:${p.color}22;color:${p.color}">${p.badge}</span>
+                  <span class="badge badge-primary" style="font-size:10px">1-Click Test</span>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;padding-right:2px">
+                  ${(typeof Auth !== 'undefined' && Auth.DEMO_PERSONAS ? Auth.DEMO_PERSONAS : []).map(p => `
+                    <div class="persona-item ${Auth.user?.username === p.username ? 'active' : ''}" onclick="Auth.switchPersona('${p.username}')" style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;background:${Auth.user?.username === p.username ? 'rgba(99,102,241,0.12)' : 'var(--surface)'};border:1px solid ${Auth.user?.username === p.username ? 'var(--primary)' : 'var(--border)'};transition:all 0.15s ease">
+                      <div style="width:26px;height:26px;border-radius:6px;background:${p.color}22;color:${p.color};display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;margin-top:2px">
+                        <i class="fa ${p.icon}"></i>
+                      </div>
+                      <div style="flex:1;min-width:0">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                          <span style="font-size:12px;font-weight:700;color:var(--text)">${p.name}</span>
+                          <span class="badge" style="font-size:9px;padding:1px 5px;background:${p.color}22;color:${p.color}">${p.badge}</span>
+                        </div>
+                        <div style="font-size:10px;color:var(--text-3);margin-top:2px;line-height:1.3">${p.description}</div>
+                      </div>
                     </div>
-                    <div style="font-size:10.5px;color:var(--text-3);margin-top:2px;line-height:1.3">${p.description}</div>
+                  `).join('')}
+                </div>
+              </div>
+            </div>
+
+            ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
+              <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="height:30px;padding:0 8px;font-size:11px;display:inline-flex;align-items:center;gap:4px">
+                <i class="fa fa-cubes"></i>
+                <span>103 Models</span>
+              </button>
+            ` : ''}
+
+            <!-- Shortcuts Modal -->
+            <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)" style="width:30px;height:30px">
+              <i class="fa fa-keyboard"></i>
+            </button>
+
+            <!-- Table Density Toggle -->
+            <button class="topbar-btn" id="density-toggle-btn" onclick="App.toggleTableDensity()" title="Table Row Density: ${currentDensity === 'compact' ? 'Compact' : 'Spacious'}" style="width:30px;height:30px">
+              <i class="fa ${currentDensity === 'compact' ? 'fa-compress' : 'fa-expand'}"></i>
+            </button>
+
+            <!-- Navigation Layout Toggle -->
+            <button class="topbar-btn" id="nav-layout-toggle-btn" onclick="App.toggleNavPosition()" title="${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'Switch to Left Sidebar' : 'Move Navigation to Top'}" style="width:30px;height:30px">
+              <i class="fa ${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'fa-table-columns' : 'fa-bars-progress'}"></i>
+            </button>
+
+            <!-- Theme Toggle -->
+            <button class="theme-toggle-btn topbar-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}" style="width:30px;height:30px">
+              <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+            </button>
+
+            <!-- Activity History Drawer -->
+            <button class="topbar-btn" id="history-btn" onclick="App.toggleHistoryDrawer()" title="Activity History (Ctrl+H)" style="width:30px;height:30px">
+              <i class="fa fa-clock-rotate-left"></i>
+            </button>
+
+            <!-- Notifications -->
+            <div style="position:relative">
+              <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative;width:30px;height:30px">
+                <i class="fa fa-bell"></i>
+                <span class="badge-dot" id="notif-badge-dot"></span>
+                <span id="notif-badge-pill" style="display:none;position:absolute;top:1px;right:1px;background:var(--danger);color:#ffffff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 4px;line-height:1.1"></span>
+              </button>
+              <div class="notif-dropdown" id="notif-dropdown" style="width:375px">
+                <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-weight:700">Notifications</span>
+                    <span class="badge badge-primary" id="notif-count" style="margin-left:2px">0</span>
+                    <span class="live-status-pill" title="Real-Time Synchronization Active"><span class="live-status-dot"></span> LIVE</span>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:4px">
+                    <button class="btn btn-ghost btn-xs" id="desktop-notif-btn" onclick="LiveNotifications.toggleDesktopPermission()" title="Enable Desktop Push Alerts" style="padding:2px 6px;font-size:11px">
+                      <i class="fa fa-bell"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
                   </div>
                 </div>
-              `).join('')}
-            </div>
-          </div>
-        </div>
-
-        ${['superadmin', 'hr_manager'].includes(Auth.role) ? `
-          <button class="topbar-btn" onclick="App.navigate('administration'); setTimeout(() => Administration.switchSection('blueprint'), 100);" title="103-Model Enterprise Architecture Blueprint Explorer" style="display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:20px;color:var(--primary);font-size:11.5px;font-weight:700;cursor:pointer;margin-right:4px">
-            <i class="fa fa-cubes"></i>
-            <span>103 Models</span>
-          </button>
-        ` : ''}
-
-        <!-- Keyboard Shortcuts Modal Trigger -->
-        <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)">
-          <i class="fa fa-keyboard"></i>
-        </button>
-
-        <!-- Quick Spotlight Launcher Button -->
-        <button class="topbar-btn" onclick="App.openCommandPalette()" title="Command Palette & Quick Actions (Ctrl+K)">
-          <i class="fa fa-magnifying-glass"></i>
-        </button>
-
-        <!-- Table Density Toggle Button -->
-        <button class="topbar-btn" id="density-toggle-btn" onclick="App.toggleTableDensity()" title="Table Row Density: ${currentDensity === 'compact' ? 'Compact (Click for Spacious)' : 'Spacious (Click for Compact)'}">
-          <i class="fa ${currentDensity === 'compact' ? 'fa-compress' : 'fa-expand'}"></i>
-        </button>
-
-        <!-- Navigation Layout Toggle (Left Sidebar / Top Navbar) -->
-        <button class="topbar-btn" id="nav-layout-toggle-btn" onclick="App.toggleNavPosition()" title="${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'Switch to Left Sidebar' : 'Move Navigation to Top'}">
-          <i class="fa ${(document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top') ? 'fa-table-columns' : 'fa-bars-progress'}"></i>
-        </button>
-
-        <!-- Brand Accent Color Picker -->
-        <div style="position:relative">
-          <button class="topbar-btn" id="accent-btn" onclick="App.toggleAccentPicker(event)" title="Accent Color Palette">
-            <span class="accent-swatch" style="background:var(--primary);width:15px;height:15px;display:inline-block"></span>
-          </button>
-          <div class="accent-picker-dropdown" id="accent-picker-dropdown">
-            <div style="font-size:10.5px;font-weight:800;color:var(--text-muted);padding:4px 8px;text-transform:uppercase;letter-spacing:0.4px">Brand Accent</div>
-            <div class="accent-option-row" onclick="App.setAccentColor('blue')">
-              <span class="accent-swatch" style="background:#2563eb"></span> <span>Corporate Cobalt</span>
-            </div>
-            <div class="accent-option-row" onclick="App.setAccentColor('emerald')">
-              <span class="accent-swatch" style="background:#059669"></span> <span>Emerald Forest</span>
-            </div>
-            <div class="accent-option-row" onclick="App.setAccentColor('violet')">
-              <span class="accent-swatch" style="background:#7c3aed"></span> <span>Modern Violet</span>
-            </div>
-            <div class="accent-option-row" onclick="App.setAccentColor('rose')">
-              <span class="accent-swatch" style="background:#e11d48"></span> <span>Crimson Rose</span>
-            </div>
-            <div class="accent-option-row" onclick="App.setAccentColor('amber')">
-              <span class="accent-swatch" style="background:#d97706"></span> <span>Amber Gold</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Dark / Light Mode Switcher -->
-        <button class="theme-toggle-btn topbar-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}">
-          <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
-        </button>
-
-        <!-- Activity History Drawer -->
-        <button class="topbar-btn" id="history-btn" onclick="App.toggleHistoryDrawer()" title="Activity History (Ctrl+H)">
-          <i class="fa fa-clock-rotate-left"></i>
-        </button>
-
-        <!-- Notifications -->
-        <div style="position:relative">
-          <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative">
-            <i class="fa fa-bell"></i>
-            <span class="badge-dot" id="notif-badge-dot"></span>
-            <span id="notif-badge-pill" style="display:none;position:absolute;top:2px;right:2px;background:var(--danger);color:#ffffff;font-size:9.5px;font-weight:800;border-radius:10px;padding:1px 5px;line-height:1.2;box-shadow:0 0 6px rgba(239,68,68,0.7)"></span>
-          </button>
-          <div class="notif-dropdown" id="notif-dropdown" style="width:375px">
-            <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-              <div style="display:flex;align-items:center;gap:6px">
-                <span style="font-weight:700">Notifications</span>
-                <span class="badge badge-primary" id="notif-count" style="margin-left:2px">0</span>
-                <span class="live-status-pill" title="Real-Time Synchronization Active"><span class="live-status-dot"></span> LIVE</span>
-              </div>
-              <div style="display:flex;align-items:center;gap:4px">
-                <button class="btn btn-ghost btn-xs" id="desktop-notif-btn" onclick="LiveNotifications.toggleDesktopPermission()" title="Enable Desktop Push Alerts" style="padding:2px 6px;font-size:11px">
-                  <i class="fa fa-bell"></i>
-                </button>
-                <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
+                <div id="notif-list" style="max-height:380px;overflow-y:auto"></div>
+                <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);font-size:11px;color:var(--text-3)">
+                  <span><span class="live-status-dot" style="display:inline-block;vertical-align:middle;margin-right:4px"></span> Real-Time Live Sync</span>
+                  <a href="javascript:void(0)" onclick="LiveNotifications.sendTestAlert()" style="color:var(--primary);font-weight:700">⚡ Test Live Alert</a>
+                </div>
               </div>
             </div>
-            <div id="notif-list" style="max-height:380px;overflow-y:auto"></div>
-            <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);font-size:11px;color:var(--text-3)">
-              <span><span class="live-status-dot" style="display:inline-block;vertical-align:middle;margin-right:4px"></span> Real-Time Live Sync</span>
-              <a href="javascript:void(0)" onclick="LiveNotifications.sendTestAlert()" style="color:var(--primary);font-weight:700">⚡ Test Live Alert</a>
-            </div>
+
+            <!-- Profile Avatar Button -->
+            <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile" style="width:30px;height:30px;padding:0">
+              <div class="avatar avatar-sm" style="background:${Utils.avatarColor(Auth.employee.id)};width:26px;height:26px;font-size:10.5px;border-radius:50%;overflow:hidden">
+                ${Auth.employee.photo ? `<img src="${Auth.employee.photo}" style="width:100%;height:100%;object-fit:cover" alt="${fullName}">` : Utils.avatarInitials(fullName)}
+              </div>
+            </button>
           </div>
         </div>
-
-        <!-- Profile Button -->
-        <button class="topbar-btn" onclick="App.navigate('profile')" title="My Profile">
-          <div class="avatar avatar-sm" style="background:${Utils.avatarColor(Auth.employee.id)};width:28px;height:28px;font-size:11px;border-radius:50%;overflow:hidden">
-            ${Auth.employee.photo ? `<img src="${Auth.employee.photo}" style="width:100%;height:100%;object-fit:cover" alt="${Auth.employee.fullName}">` : Utils.avatarInitials(Auth.employee.fullName)}
-          </div>
-        </button>
       </div>
     `;
 
@@ -556,6 +587,99 @@ const App = {
         if (pDd) pDd.style.display = 'none';
       }
     });
+  },
+
+  showChangePasswordModal() {
+    const id = 'change-password-modal';
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.className = 'modal-overlay';
+      document.body.appendChild(el);
+    }
+    el.innerHTML = `
+      <div class="modal" style="max-width:440px;background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 20px 48px rgba(0,0,0,0.3)">
+        <div class="modal-header" style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)">
+          <h3 style="margin:0;font-size:15px;display:flex;align-items:center;gap:8px;color:var(--text);font-weight:700">
+            <i class="fa fa-key" style="color:var(--primary)"></i> Change Account Password
+          </h3>
+          <button class="modal-close" onclick="Modal.close('${id}')" style="background:transparent;border:none;color:var(--text-3);font-size:16px;cursor:pointer"><i class="fa fa-times"></i></button>
+        </div>
+        <div class="modal-body" style="padding:18px">
+          <form id="change-pwd-form" onsubmit="App.handleChangePasswordSubmit(event, '${id}')">
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-2)">Current Password</label>
+              <div style="position:relative">
+                <input type="password" id="cp-current" required class="input" style="width:100%;padding-right:36px;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);padding-left:10px" placeholder="Enter current password">
+                <button type="button" onclick="App.togglePasswordVisibility('cp-current')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--text-3);cursor:pointer">
+                  <i class="fa fa-eye"></i>
+                </button>
+              </div>
+            </div>
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-2)">New Password</label>
+              <div style="position:relative">
+                <input type="password" id="cp-new" required minlength="4" class="input" style="width:100%;padding-right:36px;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);padding-left:10px" placeholder="Enter new password (min. 4 characters)">
+                <button type="button" onclick="App.togglePasswordVisibility('cp-new')" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:none;color:var(--text-3);cursor:pointer">
+                  <i class="fa fa-eye"></i>
+                </button>
+              </div>
+            </div>
+            <div style="margin-bottom:18px">
+              <label style="display:block;font-size:12px;font-weight:600;margin-bottom:6px;color:var(--text-2)">Confirm New Password</label>
+              <input type="password" id="cp-confirm" required minlength="4" class="input" style="width:100%;height:38px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);padding-left:10px" placeholder="Confirm new password">
+            </div>
+            <div id="cp-error" style="display:none;color:var(--danger);font-size:12px;margin-bottom:12px;padding:8px 10px;background:rgba(239,68,68,0.1);border-radius:6px"></div>
+            <div style="display:flex;justify-content:flex-end;gap:10px">
+              <button type="button" class="btn btn-ghost" onclick="Modal.close('${id}')">Cancel</button>
+              <button type="submit" class="btn btn-primary" id="cp-submit-btn">Update Password</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+    Modal.open(id);
+    el.onclick = (e) => { if (e.target === el) Modal.close(id); };
+  },
+
+  async handleChangePasswordSubmit(e, modalId) {
+    e.preventDefault();
+    const current = document.getElementById('cp-current')?.value;
+    const newPass = document.getElementById('cp-new')?.value;
+    const confirm = document.getElementById('cp-confirm')?.value;
+    const errEl = document.getElementById('cp-error');
+    const btn = document.getElementById('cp-submit-btn');
+
+    if (newPass !== confirm) {
+      if (errEl) { errEl.textContent = 'New password and confirm password do not match.'; errEl.style.display = 'block'; }
+      return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+    try {
+      if (typeof API !== 'undefined' && API.changePassword) {
+        await API.changePassword(current, newPass);
+      }
+      const users = DB.get('users') || [];
+      const u = users.find(x => x.username === Auth.user?.username);
+      if (u) {
+        u.password = newPass;
+        DB.set('users', users);
+      }
+      Modal.close(modalId);
+      Toast.show('Password changed successfully!', 'success');
+    } catch (err) {
+      if (errEl) { errEl.textContent = err.message || 'Failed to update password. Please check your current password.'; errEl.style.display = 'block'; }
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; }
+    }
+  },
+
+  togglePasswordVisibility(inputId) {
+    const el = document.getElementById(inputId);
+    if (!el) return;
+    el.type = el.type === 'password' ? 'text' : 'password';
   },
 
   togglePersonaDropdown(e) {
