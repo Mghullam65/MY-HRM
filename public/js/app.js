@@ -42,7 +42,7 @@ const App = {
             document.documentElement.style.setProperty('--primary-glow', s.accentColor + '33');
           }
           const appEl = document.getElementById('app');
-          const navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'left';
+          const navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'top';
           this.setNavPosition(navPos, false);
         }
 
@@ -280,10 +280,14 @@ const App = {
     if (agentBtn) agentBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
+    const navPos = localStorage.getItem('hrm_nav_position') || DB.getObj('settings')?.sidebarPosition || 'top';
+    this.setNavPosition(navPos, false);
+
     this.renderSidebar();
     this.renderTopbar();
     this.renderPersonaDock();
     this.setupKeyboardShortcuts();
+    this.setupNavScroll();
     // Restore sidebar state
     const collapsed = localStorage.getItem('hrm_sidebar_collapsed') === '1';
     if (collapsed) {
@@ -305,14 +309,21 @@ const App = {
 
     sidebar.innerHTML = `
       <div class="sidebar-logo">
-        <div class="logo-icon">HR</div>
-        <div class="logo-text">
-          <h1 id="company-sidebar-name">${DB.getObj('settings')?.companyName || 'HRM Pro'}</h1>
-          <span>HR Management System</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="logo-icon">HR</div>
+          <div class="logo-text">
+            <h1 id="company-sidebar-name">${DB.getObj('settings')?.companyName || 'HRM Pro'}</h1>
+            <span>HR Management System</span>
+          </div>
         </div>
-        <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
-          <i class="fa fa-chevron-left"></i>
-        </button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <button class="mobile-close-btn" id="mobile-sidebar-close" onclick="App.closeMobileSidebar()" title="Close Navigation Menu">
+            <i class="fa fa-xmark"></i>
+          </button>
+          <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+        </div>
       </div>
 
       <div class="sidebar-user">
@@ -327,7 +338,7 @@ const App = {
         <div class="nav-section-label">Main Menu</div>
         ${items.map(item => `
           <div class="nav-item" data-module="${item.id}" data-label="${item.label}"
-            onclick="App.navigate('${item.id}')"
+            onclick="App.navigate('${item.id}'); App.closeMobileSidebar();"
             data-tooltip="${item.label}">
             <i class="fa ${item.icon}"></i>
             <span>${item.label}</span>
@@ -856,7 +867,11 @@ const App = {
     // Update active nav item
     const activeSidebarMod = (module === 'settlement') ? 'employees' : module;
     document.querySelectorAll('.nav-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.module === activeSidebarMod);
+      const isActive = el.dataset.module === activeSidebarMod;
+      el.classList.toggle('active', isActive);
+      if (isActive && el.offsetParent !== null && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
     });
 
     this.currentModule = module;
@@ -972,7 +987,7 @@ const App = {
   },
 
   setNavPosition(pos, notify = false) {
-    pos = pos || 'left';
+    pos = pos || 'top';
     localStorage.setItem('hrm_nav_position', pos);
 
     // Persist to settings
@@ -1028,9 +1043,17 @@ const App = {
 
   openMobileSidebar() {
     const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
+    let overlay = document.getElementById('sidebar-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'sidebar-overlay';
+      overlay.className = 'sidebar-overlay';
+      overlay.onclick = () => App.closeMobileSidebar();
+      document.body.appendChild(overlay);
+    }
     sidebar?.classList.add('mobile-open');
     overlay?.classList.add('active');
+    document.body.classList.add('mobile-nav-open');
   },
 
   closeMobileSidebar() {
@@ -1038,6 +1061,29 @@ const App = {
     const overlay = document.getElementById('sidebar-overlay');
     sidebar?.classList.remove('mobile-open');
     overlay?.classList.remove('active');
+    document.body.classList.remove('mobile-nav-open');
+  },
+
+  setupNavScroll() {
+    const nav = document.querySelector('.sidebar-nav');
+    if (!nav || nav._wheelAttached) return;
+    nav._wheelAttached = true;
+    nav.addEventListener('wheel', (e) => {
+      const isTop = document.body.classList.contains('nav-pos-top') || localStorage.getItem('hrm_nav_position') === 'top';
+      if (isTop && window.innerWidth > 900) {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          nav.scrollLeft += (e.deltaY * 1.5);
+        }
+      }
+    }, { passive: false });
+  },
+
+  scrollNav(direction) {
+    const nav = document.querySelector('.sidebar-nav');
+    if (!nav) return;
+    const amount = direction === 'left' ? -260 : 260;
+    nav.scrollBy({ left: amount, behavior: 'smooth' });
   },
 
   handleGlobalSearch(val) {

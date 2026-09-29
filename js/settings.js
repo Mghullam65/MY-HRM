@@ -2334,7 +2334,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
   renderAppearance(c) {
     const currentTheme = document.documentElement.getAttribute('data-theme') || this._getSetting('theme', 'light');
     const accent = this._getSetting('accentColor', '#2563eb');
-    const sidebarPosition = this._getSetting('sidebarPosition', 'left');
+    const sidebarPosition = this._getSetting('sidebarPosition', 'top');
     const isCompact = this._getSetting('compactMode', false);
 
     c.innerHTML = this._sectionCard('Appearance', 'Customize interface styling, colors, sidebar position, and density', `
@@ -2589,7 +2589,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     const defaults = {
       theme: 'light',
       accentColor: '#2563eb',
-      sidebarPosition: 'left',
+      sidebarPosition: 'top',
       compactMode: false
     };
     this._setSetting('theme', defaults.theme);
