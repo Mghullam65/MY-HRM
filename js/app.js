@@ -51,21 +51,31 @@ const App = {
 
       const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
       const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
+
+      // ── Routing logic ───────────────────────────────────────────────────
+      // If the user is logged in, ALWAYS restore their session on refresh.
+      // They stay on whatever page/module they were on.
+      // Only show landing when the user is NOT logged in (fresh / logged out).
       if (loggedIn) {
-        const initialModule = (rawHash && rawHash !== 'login' && rawHash !== 'trial' && !rawHash.startsWith('module-') && rawHash !== 'landing') ? rawHash : 'dashboard';
+        // Restore the module they were on. rawHash holds the last module name
+        // pushed by navigate() e.g. "dashboard", "employees", "payroll" etc.
+        // Special non-app hashes are excluded.
+        const skipHashes = ['landing', 'login', 'trial', ''];
+        const isModuleHash = rawHash && !skipHashes.includes(rawHash) && !rawHash.startsWith('module-');
+        const initialModule = isModuleHash ? rawHash : 'dashboard';
         this.showApp();
         this.navigate(initialModule, null, false);
+      } else if (rawHash === 'login') {
+        this.showLogin(false);
+      } else if (rawHash === 'trial') {
+        this.showTrial('Pro', false);
+      } else if (rawHash.startsWith('module-')) {
+        this.showModule(rawHash.replace('module-', ''), false);
       } else {
-        if (rawHash === 'login') {
-          this.showLogin(false);
-        } else if (rawHash === 'trial') {
-          this.showTrial('Pro', false);
-        } else if (rawHash.startsWith('module-')) {
-          this.showModule(rawHash.replace('module-', ''), false);
-        } else {
-          this.showLanding(false);
-        }
+        // Not logged in, no specific hash → show landing page
+        this.showLanding(false);
       }
+
     } catch (err) {
       console.error('App.init error:', err);
       this.showLanding(false);
@@ -108,6 +118,7 @@ const App = {
               }
               this.navigate(state.module || 'dashboard', state.subSection || null, false);
             } else {
+              // Session expired — go to sign in page
               this.showLogin(false);
             }
             break;
@@ -1199,9 +1210,13 @@ const App = {
   logout() {
     if (!confirm('Are you sure you want to logout?')) return;
     Auth.logout();
-    this.showLanding(true);
-    Toast.show('Logged out successfully', 'success');
+    // Push a 'landing' history entry first, THEN navigate to Sign In.
+    // Result: Back button from Sign In page → Landing page.
+    history.pushState({ page: 'landing' }, '', '#landing');
+    this.showLogin(true);
+    Toast.show('Logged out successfully. Please sign in again.', 'success');
   },
+
 
   toggleNotifications() {
     this.refreshNotifications();
@@ -2916,7 +2931,7 @@ const Login = {
                 <label class="split-form-label">Email Address or Username</label>
                 <div class="split-input-box">
                   <i class="fa fa-envelope split-input-icon"></i>
-                  <input type="text" class="split-input-element" id="login-username" value="${acc.email}" placeholder="name@company.com" autocomplete="username">
+                  <input type="text" class="split-input-element" id="login-username" value="" placeholder="name@company.com" autocomplete="username">
                 </div>
               </div>
 
@@ -2924,7 +2939,7 @@ const Login = {
                 <label class="split-form-label">Password</label>
                 <div class="split-input-box">
                   <i class="fa fa-lock split-input-icon"></i>
-                  <input type="password" class="split-input-element" id="login-password" value="${acc.pass}" placeholder="••••••••••••" autocomplete="current-password">
+                  <input type="password" class="split-input-element" id="login-password" value="" placeholder="••••••••••••" autocomplete="current-password">
                   <button type="button" class="split-pw-eye" onclick="Login.togglePassword()" title="Toggle visibility">
                     <i class="fa fa-eye" id="pw-eye"></i>
                   </button>

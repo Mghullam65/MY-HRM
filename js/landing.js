@@ -802,11 +802,11 @@ const Landing = {
             <p class="module-hero-subtitle">${mod.subtitle}</p>
 
             <div class="module-hero-actions">
-              <button class="btn-module-primary" onclick="Login.quickLogin('${mod.recommendedRole === 'admin' ? 'admin' : (mod.recommendedRole === 'hr' ? 'sara.malik' : (mod.recommendedRole === 'manager' ? 'usman.baig' : 'fatima.raza'))}', '${mod.recommendedRole === 'admin' ? 'admin123' : (mod.recommendedRole === 'hr' ? 'hr123' : (mod.recommendedRole === 'manager' ? 'mgr123' : 'emp123'))}')">
-                <i class="fa fa-arrow-up-right-from-square"></i> Launch Interactive ${mod.title.split(' ')[0]}
+              <button class="btn-module-primary" onclick="App.showLogin()">
+                <i class="fa fa-arrow-up-right-from-square"></i> Sign In to Explore ${mod.title.split(' ')[0]}
               </button>
-              <button class="btn-module-secondary" onclick="App.showLogin()">
-                <i class="fa fa-shield-halved"></i> Choose Role Login
+              <button class="btn-module-secondary" onclick="App.showLanding()">
+                <i class="fa fa-arrow-left"></i> Back to Overview
               </button>
             </div>
           </div>
@@ -1472,7 +1472,110 @@ const Landing = {
           </div>
         </section>
 
-        <!-- ─── 11. CLIENT TESTIMONIALS & REVIEWS (MATCHING SCREENSHOT) ─── -->
+        <!-- ─── 10b. SEE IT IN ACTION — DASHBOARD SCREENSHOTS ─── -->
+        <section style="padding:72px 24px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);overflow:hidden">
+          <div style="max-width:1400px;margin:0 auto">
+            <!-- Section Header -->
+            <div style="text-align:center;margin-bottom:52px">
+              <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.3);border-radius:20px;padding:6px 16px;margin-bottom:18px">
+                <i class="fa fa-display" style="color:#60a5fa;font-size:13px"></i>
+                <span style="color:#60a5fa;font-size:12.5px;font-weight:700;letter-spacing:0.3px">LIVE PLATFORM PREVIEW</span>
+              </div>
+              <h2 style="font-size:clamp(26px,4vw,40px);font-weight:900;color:#f1f5f9;letter-spacing:-0.5px;margin-bottom:14px">
+                See HRM Pro in Action
+              </h2>
+              <p style="font-size:16px;color:#94a3b8;max-width:560px;margin:0 auto;line-height:1.6">
+                Real screenshots from the live platform — everything you see is fully functional and available after sign-in.
+              </p>
+            </div>
+
+            <!-- Screenshot Tabs Switcher -->
+            <div style="display:flex;justify-content:center;gap:8px;margin-bottom:32px;flex-wrap:wrap">
+              <button id="ss-tab-dash" onclick="Landing.switchScreenshot('dashboard')" style="padding:8px 20px;border-radius:20px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
+                <i class="fa fa-gauge-high"></i> Executive Dashboard
+              </button>
+              <button id="ss-tab-payroll" onclick="Landing.switchScreenshot('payroll')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
+                <i class="fa fa-file-invoice-dollar"></i> Payroll Processing
+              </button>
+              <button id="ss-tab-attendance" onclick="Landing.switchScreenshot('attendance')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
+                <i class="fa fa-fingerprint"></i> Biometric Attendance
+              </button>
+            </div>
+
+            <!-- Screenshot Frames -->
+            <div style="position:relative">
+              <!-- Dashboard Screenshot -->
+              <div id="ss-frame-dashboard" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);transition:opacity 0.3s ease">
+                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
+                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
+                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/dashboard</span>
+                  </div>
+                </div>
+                <img src="assets/ss-dashboard.jpg" alt="HRM Pro Executive Dashboard — KPIs, Charts, Employee Overview" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-dashboard.jpg'">
+              </div>
+
+              <!-- Payroll Screenshot (hidden by default) -->
+              <div id="ss-frame-payroll" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);display:none">
+                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
+                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
+                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/payroll</span>
+                  </div>
+                </div>
+                <img src="assets/ss-payroll.jpg" alt="HRM Pro Payroll Processing — September 2026 Summary, Employee Pay Data" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-payroll.jpg'">
+              </div>
+
+              <!-- Attendance Screenshot (hidden by default) -->
+              <div id="ss-frame-attendance" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);display:none">
+                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
+                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
+                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
+                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
+                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/attendance</span>
+                  </div>
+                </div>
+                <img src="assets/ss-attendance.jpg" alt="HRM Pro Biometric Attendance — Live Check-in Records and Monthly Heatmap" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-attendance.jpg'">
+              </div>
+            </div>
+
+            <!-- Feature Bullets + CTA -->
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:36px">
+              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:36px;height:36px;border-radius:8px;background:rgba(37,99,235,0.2);color:#60a5fa;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-gauge-high"></i></div>
+                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Live KPI Dashboard</div><div style="color:#64748b;font-size:12px;margin-top:3px">Real-time workforce telemetry, charts & alerts</div></div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:36px;height:36px;border-radius:8px;background:rgba(16,185,129,0.2);color:#34d399;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-coins"></i></div>
+                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">FBR-Compliant Payroll</div><div style="color:#64748b;font-size:12px;margin-top:3px">Automated statutory deductions & bank advice</div></div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.2);color:#fbbf24;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-fingerprint"></i></div>
+                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Biometric Attendance</div><div style="color:#64748b;font-size:12px;margin-top:3px">Hardware-synced check-ins with shift management</div></div>
+              </div>
+              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
+                <div style="width:36px;height:36px;border-radius:8px;background:rgba(168,85,247,0.2);color:#c084fc;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-shield-halved"></i></div>
+                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Multi-Tier RBAC</div><div style="color:#64748b;font-size:12px;margin-top:3px">Granular role permissions across all modules</div></div>
+              </div>
+            </div>
+
+            <!-- CTA -->
+            <div style="text-align:center;margin-top:40px">
+              <button onclick="App.showLogin()" style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(37,99,235,0.4);transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 12px 32px rgba(37,99,235,0.55)'" onmouseout="this.style.transform='';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.4)'">
+                <i class="fa fa-right-to-bracket"></i> Sign In to Access Full Platform
+                <i class="fa fa-arrow-right" style="font-size:13px;opacity:0.8"></i>
+              </button>
+              <p style="color:#475569;font-size:12.5px;margin-top:10px">All 16 modules · Live data · No setup required</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 11. CLIENT TESTIMONIALS &amp; REVIEWS (MATCHING SCREENSHOT) ─── -->
         <section class="testimonials-section" id="testimonials">
           <div class="testimonials-grid">
             <!-- Left Terracotta Feature Quote Card -->
@@ -2190,6 +2293,30 @@ const Landing = {
     const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
+    }
+  },
+
+  switchScreenshot(name) {
+    // Hide all frames
+    ['dashboard', 'payroll', 'attendance'].forEach(key => {
+      const frame = document.getElementById(`ss-frame-${key}`);
+      const tab   = document.getElementById(`ss-tab-${key === 'dashboard' ? 'dash' : key}`);
+      if (frame) frame.style.display = 'none';
+      if (tab) {
+        tab.style.background = 'transparent';
+        tab.style.color = '#94a3b8';
+        tab.style.borderColor = 'rgba(255,255,255,0.15)';
+      }
+    });
+    // Show selected frame and activate its tab
+    const activeFrame = document.getElementById(`ss-frame-${name}`);
+    const activeTabId = name === 'dashboard' ? 'ss-tab-dash' : `ss-tab-${name}`;
+    const activeTab   = document.getElementById(activeTabId);
+    if (activeFrame) activeFrame.style.display = 'block';
+    if (activeTab) {
+      activeTab.style.background = '#2563eb';
+      activeTab.style.color = '#fff';
+      activeTab.style.borderColor = '#2563eb';
     }
   },
 
