@@ -1436,11 +1436,14 @@ const Landing = {
               </div>
 
               <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
-                <button onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" class="btn btn-primary" style="padding: 14px 26px; font-size: 15px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; border: none; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
-                  <i class="fa fa-download"></i> Download / Install Now
-                </button>
-                <button onclick="typeof PWA !== 'undefined' ? PWA.showIOSInstallModal() : alert('Tap Share on iOS Safari, then Add to Home Screen')" class="btn btn-ghost" style="padding: 14px 22px; font-size: 14px; font-weight: 600; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
-                  <i class="fa-brands fa-apple" style="font-size: 18px;"></i> iOS iPhone Guide
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Mobile.apk" download="HRM-Pro-Mobile.apk" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 10px 25px -5px rgba(16,185,129,0.5);">
+                  <i class="fa-brands fa-android" style="font-size: 18px;"></i> Download Android APK (.apk)
+                </a>
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
+                  <i class="fa-brands fa-windows" style="font-size: 18px;"></i> Download Windows App (.zip)
+                </a>
+                <button onclick="typeof PWA !== 'undefined' ? PWA.showIOSInstallModal() : alert('Tap Share on iOS Safari, then Add to Home Screen')" class="btn btn-ghost" style="padding: 14px 18px; font-size: 14px; font-weight: 600; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
+                  <i class="fa-brands fa-apple" style="font-size: 18px;"></i> iOS Safari
                 </button>
               </div>
             </div>
@@ -1448,27 +1451,32 @@ const Landing = {
             <!-- Right Mockup Card -->
             <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); backdrop-filter: blur(12px);">
               <img src="assets/icon-512.png" alt="HRM Pro Mobile App" style="width: 96px; height: 96px; border-radius: 22px; margin-bottom: 16px; box-shadow: 0 12px 30px rgba(37,99,235,0.35); border: 2px solid rgba(255,255,255,0.2);">
-              <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #fff;">HRM Pro Enterprise</h3>
-              <p style="font-size: 12.5px; color: #94a3b8; margin-bottom: 20px;">Progressive Web Application • Standalone Mode</p>
+              <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #fff;">HRM Pro Applications</h3>
+              <p style="font-size: 12.5px; color: #94a3b8; margin-bottom: 20px;">Native Android APK &amp; Windows Desktop Suite</p>
               
               <div style="background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 10px; font-size: 13px; margin-bottom: 20px;">
                 <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Platforms:</span>
-                  <strong style="color:#e2e8f0;">Android, iOS, Windows, Mac</strong>
+                  <span>Android Package:</span>
+                  <strong style="color:#10b981;">HRM-Pro-Mobile.apk</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Download Size:</span>
-                  <strong style="color:#10b981;">&lt; 3 MB (Zero storage bloat)</strong>
+                  <span>Windows Desktop:</span>
+                  <strong style="color:#38bdf8;">HRM-Pro-Windows-Desktop.zip</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Offline Capability:</span>
-                  <strong style="color:#38bdf8;">Full Shell + Punch Queue</strong>
+                  <span>Cloud Live Sync:</span>
+                  <strong style="color:#a78bfa;">Automated Supabase 153-Tables</strong>
                 </div>
               </div>
 
-              <button onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" style="width: 100%; padding: 12px; font-size: 14px; font-weight: 700; background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.4); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                <i class="fa fa-circle-down"></i> Click to Install on This Device
-              </button>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Mobile.apk" download="HRM-Pro-Mobile.apk" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i class="fa-brands fa-android"></i> Direct Download APK File
+                </a>
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(59,130,246,0.18); color: #38bdf8; border: 1px solid rgba(59,130,246,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i class="fa-brands fa-windows"></i> Direct Download PC Setup (.zip)
+                </a>
+              </div>
             </div>
           </div>
         </section>

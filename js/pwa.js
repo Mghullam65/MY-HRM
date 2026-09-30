@@ -325,25 +325,67 @@ const PWA = {
   },
 
   showGenericInstallModal() {
+    const apkUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Mobile.apk';
+    const winUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip';
+
     if (window.Modal) {
       Modal.open({
-        title: '📲 Download & Install HRM Pro',
+        title: '📥 Download HRM Pro Applications',
         body: `
-          <div style="text-align: center; padding: 10px 0;">
-            <img src="assets/icon-192.png" alt="HRM Pro" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-            <h4 style="margin: 0 0 8px 0; font-size: 17px;">Install HRM Pro Desktop / Mobile</h4>
-            <p style="color: var(--text-muted, #94a3b8); font-size: 13px; margin-bottom: 20px;">
-              HRM Pro runs as an installed standalone application on your device.
-            </p>
+          <div style="padding: 10px 0;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="assets/icon-192.png" alt="HRM Pro" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.15);">
+              <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Download HRM Pro Apps</h4>
+              <p style="color: var(--text-muted, #94a3b8); font-size: 13px; margin: 0;">
+                Direct installer packages for Android phones & Windows computers
+              </p>
+            </div>
             
-            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius: 12px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 12px; font-size: 14px;">
-              <div>
-                <strong>💻 On Chrome / Edge (Laptop & PC):</strong>
-                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Look at the right side of the address bar at the top of your browser. Click the <strong>Install App icon (computer with down arrow)</strong>.</p>
-              </div>
-              <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
-                <strong>📱 On Android (Chrome / Samsung):</strong>
-                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Tap the 3 dots in the top right menu, then tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>.</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <!-- Android APK File Option -->
+              <a href="${apkUrl}" download="HRM-Pro-Mobile.apk" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(37,99,235,0.12); border: 1px solid rgba(59,130,246,0.35); border-radius: 14px; padding: 14px 16px; transition: all 0.2s ease;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16,185,129,0.2); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                    <i class="fa-brands fa-android"></i>
+                  </div>
+                  <div>
+                    <strong style="color: #f1f5f9; font-size: 14.5px; display: block;">Download Android APK (.apk)</strong>
+                    <span style="color: #94a3b8; font-size: 12px;">Official mobile package for all Android phones (Samsung, Xiaomi, Oppo, etc.)</span>
+                  </div>
+                </div>
+                <div style="background: #10b981; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
+                  <i class="fa fa-download"></i> APK
+                </div>
+              </a>
+
+              <!-- Windows Desktop App Option -->
+              <a href="${winUrl}" download="HRM-Pro-Windows-Desktop.zip" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); border-radius: 14px; padding: 14px 16px; transition: all 0.2s ease;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59,130,246,0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                    <i class="fa-brands fa-windows"></i>
+                  </div>
+                  <div>
+                    <strong style="color: #f1f5f9; font-size: 14.5px; display: block;">Download Windows Desktop App</strong>
+                    <span style="color: #94a3b8; font-size: 12px;">Standalone PC software for Windows 10 &amp; 11 Laptops/Desktops</span>
+                  </div>
+                </div>
+                <div style="background: #2563eb; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
+                  <i class="fa fa-download"></i> ZIP / EXE
+                </div>
+              </a>
+
+              <!-- iPhone Safari Guide Option -->
+              <div onclick="Modal.close(); PWA.showIOSInstallModal();" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px;">
+                <div style="display: flex; align-items: center; gap: 14px;">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px;">
+                    <i class="fa-brands fa-apple"></i>
+                  </div>
+                  <div>
+                    <strong style="color: #f1f5f9; font-size: 14px; display: block;">Apple iOS (iPhone / iPad)</strong>
+                    <span style="color: #94a3b8; font-size: 12px;">Install via Safari "Add to Home Screen"</span>
+                  </div>
+                </div>
+                <span style="color: #38bdf8; font-size: 13px; font-weight: 600;">View Steps &rarr;</span>
               </div>
             </div>
           </div>
@@ -351,11 +393,13 @@ const PWA = {
         actions: [
           {
             label: 'Close',
-            className: 'btn-primary',
+            className: 'btn-ghost',
             onClick: () => Modal.close()
           }
         ]
       });
+    } else {
+      window.location.href = apkUrl;
     }
   }
 };

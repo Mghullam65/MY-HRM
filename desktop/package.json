@@ -1,0 +1,14 @@
+{
+  "name": "hrm-pro-desktop",
+  "version": "3.1.0",
+  "description": "HRM Pro — Enterprise Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack:win": "electron-packager . \"HRM Pro\" --platform=win32 --arch=x64 --icon=../assets/icon-512.png --out=dist --overwrite"
+  },
+  "devDependencies": {
+    "electron": "^29.1.5",
+    "electron-packager": "^17.1.2"
+  }
+}
