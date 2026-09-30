@@ -401,6 +401,115 @@ const PWA = {
     } else {
       window.location.href = apkUrl;
     }
+  },
+
+  downloadAndroidAPK() {
+    if (window.Modal) {
+      Modal.open({
+        title: '📱 Download Android APK (.apk)',
+        body: `
+          <div style="padding: 10px 0; text-align: center;">
+            <div style="width: 58px; height: 58px; border-radius: 14px; background: rgba(16,185,129,0.15); color: #34d399; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+              <i class="fa-brands fa-android"></i>
+            </div>
+            <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Download Android Mobile APK</h4>
+            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 18px 0;">
+              Get the standalone installer file for Samsung, Xiaomi, Oppo, Vivo, Infinix, Pixel, etc.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+              <!-- Option 1: 1-Click Instant PWABuilder Generator -->
+              <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 12px; padding: 14px; color: #fff;">
+                <div>
+                  <strong style="color: #34d399; font-size: 14.5px; display: block;">⚡ 1-Click Online APK Generator (Fastest)</strong>
+                  <span style="color: #94a3b8; font-size: 12px;">Generates and downloads your signed Android package in 60 seconds</span>
+                </div>
+                <span style="background: #10b981; color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; white-space: nowrap;">
+                  Open &rarr;
+                </span>
+              </a>
+
+              <!-- Option 2: GitHub Releases -->
+              <a href="https://github.com/Mghullam65/MY-HRM/releases/tag/v3.1.0" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 14px; color: #fff;">
+                <div>
+                  <strong style="color: #38bdf8; font-size: 14.5px; display: block;">📦 GitHub Official Releases</strong>
+                  <span style="color: #94a3b8; font-size: 12px;">Direct repository download page with release tags &amp; assets</span>
+                </div>
+                <span style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; white-space: nowrap;">
+                  View &rarr;
+                </span>
+              </a>
+
+              <!-- Option 3: Local Android Project -->
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: #94a3b8;">
+                <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">🛠 Android Studio Source Code</strong>
+                Located in the project root under <code style="color: #38bdf8; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">android/</code> ready to build with Gradle.
+              </div>
+            </div>
+          </div>
+        `,
+        actions: [
+          {
+            label: 'Close',
+            className: 'btn-ghost',
+            onClick: () => Modal.close()
+          }
+        ]
+      });
+    } else {
+      window.open('https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/', '_blank');
+    }
+  },
+
+  downloadWindowsDesktop() {
+    const winUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip';
+    if (window.Modal) {
+      Modal.open({
+        title: '💻 Windows Desktop Application',
+        body: `
+          <div style="padding: 10px 0; text-align: center;">
+            <div style="width: 58px; height: 58px; border-radius: 14px; background: rgba(59,130,246,0.15); color: #38bdf8; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
+              <i class="fa-brands fa-windows"></i>
+            </div>
+            <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Windows PC Standalone App</h4>
+            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 16px 0;">
+              Standalone software for Windows 10 &amp; 11 PCs and Laptops.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
+              <!-- Direct Download -->
+              <a href="${winUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(37,99,235,0.15); border: 1px solid rgba(59,130,246,0.4); border-radius: 12px; padding: 14px; color: #fff;">
+                <div>
+                  <strong style="color: #60a5fa; font-size: 14.5px; display: block;">📥 Download HRM-Pro-Windows-Desktop.zip</strong>
+                  <span style="color: #94a3b8; font-size: 12px;">Standalone ZIP archive (108 MB) — extract and run HRM Pro.exe</span>
+                </div>
+                <span style="background: #2563eb; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; white-space: nowrap;">
+                  Download
+                </span>
+              </a>
+
+              <!-- Local PC Info -->
+              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: #94a3b8;">
+                <strong style="color: #34d399; display: block; margin-bottom: 2px;">⚡ Already Compiled on this PC!</strong>
+                You can run the app immediately without downloading:
+                <div style="margin-top: 6px; font-family: monospace; font-size: 11.5px; color: #e2e8f0; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; word-break: break-all;">
+                  desktop\\dist\\HRM Pro-win32-x64\\HRM Pro.exe
+                </div>
+              </div>
+            </div>
+          </div>
+        `,
+        actions: [
+          {
+            label: 'Close',
+            className: 'btn-ghost',
+            onClick: () => Modal.close()
+          }
+        ]
+      });
+    } else {
+      window.location.href = winUrl;
+    }
   }
 };
 
