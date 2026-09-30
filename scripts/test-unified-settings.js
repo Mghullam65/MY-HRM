@@ -98,3 +98,4 @@ if (isUserVisible === true) {
 console.log('\n=============================================');
 console.log('🎉 ALL UNIFIED SETTINGS TESTS PASSED 100%! 🎉');
 console.log('=============================================');
+process.exit(0);

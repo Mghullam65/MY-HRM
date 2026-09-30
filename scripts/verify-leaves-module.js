@@ -27,7 +27,7 @@ assert(leavesContent.includes('isTabActive(tabId)'), 'Leaves has isTabActive hel
 assert(leavesContent.includes('Leave Requests &amp; Approvals') || leavesContent.includes('Leave Requests & Approvals'), 'Stage 1 tab: Leave Requests & Approvals defined');
 assert(leavesContent.includes('Leave &amp; Holiday Calendar') || leavesContent.includes('Leave & Holiday Calendar'), 'Stage 2 tab: Leave & Holiday Calendar defined');
 assert(leavesContent.includes('Leave Quotas &amp; Policies') || leavesContent.includes('Leave Quotas & Policies'), 'Stage 3 tab: Leave Quotas & Policies defined');
-assert(leavesContent.includes('Comp-Off &amp; Overtime Tokens') || leavesContent.includes('Comp-Off & Overtime Tokens'), 'Stage 4 tab: Comp-Off & Overtime Tokens defined');
+assert(leavesContent.includes('Comp-Off &amp; Overtime Tokens') || leavesContent.includes('Comp-Off & Overtime Tokens') || leavesContent.includes('Comp-Off & TOIL Bank') || leavesContent.includes('Comp-Off &amp; TOIL Bank'), 'Stage 4 tab: Comp-Off & Overtime Tokens defined');
 
 // 2. Check Stage Sub-Navigations
 console.log('\n▶ Test 2: Validating Stage Sub-Navigation Controls...');

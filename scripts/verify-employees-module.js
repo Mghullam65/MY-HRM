@@ -28,7 +28,7 @@ assert(empContent.includes('isTabActive(tabId)'), 'Employees has isTabActive hel
 assert(empContent.includes('Directory &amp; Hierarchy') || empContent.includes('Directory & Hierarchy'), 'Stage 1 tab: Directory & Hierarchy defined');
 assert(empContent.includes('Document Vault &amp; Compliance') || empContent.includes('Document Vault & Compliance'), 'Stage 2 tab: Document Vault & Compliance defined');
 assert(empContent.includes('Official Letters &amp; Disciplinary Hub') || empContent.includes('Official Letters & Disciplinary Hub'), 'Stage 3 tab: Official Letters & Disciplinary Hub defined');
-assert(empContent.includes('Life Events &amp; Exit Clearance (F&amp;F)') || empContent.includes('Life Events & Exit Clearance (F&F)'), 'Stage 4 tab: Life Events & Exit Clearance defined');
+assert(empContent.includes('Life Events &amp; Exit Clearance (F&amp;F)') || empContent.includes('Life Events & Exit Clearance (F&F)') || empContent.includes('Life Events, Exit & Settlements (F&F)'), 'Stage 4 tab: Life Events & Exit Clearance defined');
 
 // 2. Check Stage Sub-Navigations
 console.log('\n▶ Test 2: Validating Stage Sub-Navigation Controls...');

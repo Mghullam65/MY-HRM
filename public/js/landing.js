@@ -1215,7 +1215,7 @@ const Landing = {
 
           <div class="why-choose-grid">
             <div class="why-card">
-              <div class="why-card-icon"><i class="fa fa-user-lock"></i></div>
+              <div class="why-card-icon"><i class="fa fa-lock"></i></div>
               <h3 class="why-card-title">Granular Multi-Tier RBAC</h3>
               <p class="why-card-desc">Configure dynamic partial permissions per module (view-only, apply-only, approve-only, export-only) without granting full admin rights.</p>
             </div>

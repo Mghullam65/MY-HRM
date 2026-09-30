@@ -17,19 +17,24 @@ global.localStorage = {
   clear() { this.store = {}; }
 };
 
-// Load DB and Auth
+// Load DB, Security, and Auth
+const secCode = fs.readFileSync(path.join(__dirname, '../js/security.js'), 'utf8');
+eval(secCode);
+
 const dbCode = fs.readFileSync(path.join(__dirname, '../js/data.js'), 'utf8');
 eval(dbCode);
 global.DB = window.DB;
 global.Utils = window.Utils;
-DB.init();
-DB.ensureRBACData();
 
-const authCode = fs.readFileSync(path.join(__dirname, '../js/auth.js'), 'utf8');
-eval(authCode);
-global.Auth = window.Auth;
+async function run() {
+  await DB.init();
+  DB.ensureRBACData();
 
-console.log('--- TESTING GRANULAR PARTIAL PERMISSIONS ---');
+  const authCode = fs.readFileSync(path.join(__dirname, '../js/auth.js'), 'utf8');
+  eval(authCode);
+  global.Auth = window.Auth;
+
+  console.log('--- TESTING GRANULAR PARTIAL PERMISSIONS ---');
 
 // Setup mock session as HR Manager
 Auth.user = { id: 2, username: 'hrmanager', role: 'hr_manager', fullName: 'HR Manager' };
@@ -140,3 +145,10 @@ console.log('   ✅ Expenses partial permission successfully enforced!');
 console.log('\n========================================');
 console.log('🎉 ALL PARTIAL PERMISSION TESTS PASSED! 🎉');
 console.log('========================================');
+process.exit(0);
+}
+
+run().catch(err => {
+  console.error('Fatal error in verify-partial-permissions:', err);
+  process.exit(1);
+});

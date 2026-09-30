@@ -1337,7 +1337,8 @@ const Chat = {
     const messages = this.getMessages(channel.id);
     const pinned = messages.filter(m => m.isPinned);
 
-    const inDrawer = document.getElementById('chat-drawer') && document.getElementById('chat-drawer').contains(panel);
+    const chatDrawerEl = document.getElementById('chat-drawer');
+    const inDrawer = !!(chatDrawerEl && panel && typeof chatDrawerEl.contains === 'function' && chatDrawerEl.contains(panel));
 
     panel.innerHTML = `
       <!-- Convo Topbar (Displays who you are communicating with) -->

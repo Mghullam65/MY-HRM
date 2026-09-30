@@ -122,7 +122,7 @@ Chat.handleIncomingMessage(othersMsg);
 check(Chat.unreadCounts['chan-sara'] === 1, 'Message from counterparty increments unread count when not active');
 
 console.log('\n▶ CATEGORY 4: Counterparty Dynamic Header Display...');
-const channel = DB.get('chat_channels')[0];
+const channel = DB.get('chat_channels').find(c => c.id === 'chan-sara') || DB.get('chat_channels')[0];
 const displayInfo = Chat.getChannelDisplayInfo(channel);
 check(displayInfo.name === 'Sara Malik', '1-on-1 direct channel displays counterparty name "Sara Malik" for Ahmed Khan');
 

@@ -137,3 +137,4 @@ console.log('   ✅ Settings Feature Visibility UI rendered cleanly with interac
 console.log('\n============================================================');
 console.log('🎉 ALL FEATURE & SUB-OPTION VISIBILITY TESTS PASSED! 🎉');
 console.log('============================================================');
+process.exit(0);

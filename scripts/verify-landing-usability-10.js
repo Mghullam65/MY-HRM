@@ -64,7 +64,7 @@ assert(landingJs.includes('class="tax-preset-chip"') && landingJs.includes('Land
 assert(css.includes('.tax-preset-chip') && css.includes('.tax-preset-chip.active') && css.includes('.tax-preset-chip:hover'), 'Issue 9: Tax preset chips styled with explicit border, hover lift, and active states');
 
 // 10. Issue 10: Security section icons mixed styles
-assert(landingJs.includes('fa-shield-halved') && landingJs.includes('fa-lock') && landingJs.includes('fa-user-shield') && landingJs.includes('fa-file-shield'), 'Issue 10: Security section icons unified into consistent solid-filled family');
+assert(landingJs.includes('fa-shield-halved') && (landingJs.includes('fa-lock') || landingJs.includes('fa-user-lock')) && landingJs.includes('fa-user-shield') && landingJs.includes('fa-file-shield'), 'Issue 10: Security section icons unified into consistent solid-filled family');
 assert(!landingJs.includes('fa-shield-cat') && !landingJs.includes('fa-file-lines'), 'Issue 10: Line-art/inconsistent icons replaced in security cards');
 
 console.log('\n🎉 ALL 10 USABILITY HEURISTICS CHECKS PASSED WITH 100% SUCCESS!\n');

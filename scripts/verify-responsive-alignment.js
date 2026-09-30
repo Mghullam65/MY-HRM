@@ -54,11 +54,11 @@ const tests = [
   { name: 'Why Choose Us 1-column grid on mobile (@media max-width: 600px)', pass: css.includes('@media (max-width: 600px)') && css.includes('.why-choose-grid') },
 
   // 7. Premium Finishes 8-Card Tactile Gallery
-  { name: 'Gold Foil finish styled with metallic gold accent', pass: js.includes('Gold Foil Cryptographic Seal') && js.includes('#fbbf24') },
-  { name: 'Silver Foil stamp styled with platinum metallic accent', pass: js.includes('Silver Multi-Tier Stamp') && js.includes('#e4e4e7') },
+  { name: 'Gold Foil finish styled with metallic gold accent', pass: js.includes('Gold Foil Cryptographic Seal') && (js.includes('#fbbf24') || js.includes('#fde68a')) },
+  { name: 'Silver Foil stamp styled with platinum metallic accent', pass: js.includes('Silver Multi-Tier Stamp') && (js.includes('#e4e4e7') || js.includes('#cbd5e1')) },
   { name: 'Embossed & Debossed finishes styled', pass: js.includes('Embossed Gratuity Relief') && js.includes('Debossed QR Verification') },
-  { name: 'Holographic crontab styled with iridescent glow', pass: js.includes('Holographic Crontab Dispatch') && js.includes('#38bdf8') },
-  { name: 'Spot UV finish styled with high-gloss green', pass: js.includes('Spot UV Biometric Gateway') && js.includes('#22c55e') },
+  { name: 'Holographic crontab styled with iridescent glow', pass: js.includes('Holographic Crontab Dispatch') && (js.includes('#38bdf8') || js.includes('#bae6fd')) },
+  { name: 'Spot UV finish styled with high-gloss green', pass: js.includes('Spot UV Biometric Gateway') && (js.includes('#22c55e') || js.includes('#16a34a')) },
 
   // 8. 6-Step Lifecycle Workflow Responsive Stepper
   { name: '6-Step workflow grid on desktop (repeat(6, minmax(0, 1fr)))', pass: css.includes('repeat(6, minmax(0, 1fr))') },

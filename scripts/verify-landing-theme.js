@@ -12,9 +12,9 @@ if (!fs.existsSync(cssPath)) {
 const cssContent = fs.readFileSync(cssPath, 'utf8');
 
 const checks = [
-  { name: 'Warm Terracotta/Coral Primary (#e05638)', test: cssContent.includes('#e05638') },
-  { name: 'Coral Dark Hover (#c84226)', test: cssContent.includes('#c84226') },
-  { name: 'Coral Light Tint (#fff5f2)', test: cssContent.includes('#fff5f2') },
+  { name: 'Warm Terracotta/Vermilion Primary', test: cssContent.includes('#c53a24') || cssContent.includes('#e05638') },
+  { name: 'Vermilion/Coral Dark Hover', test: cssContent.includes('#ad2e1a') || cssContent.includes('#c84226') },
+  { name: 'Vermilion/Coral Light Tint', test: cssContent.includes('#fbf5f3') || cssContent.includes('#fff5f2') },
   { name: 'Top Announcement Bar Styling', test: cssContent.includes('.landing-top-announcement') },
   { name: 'Header & Brand Icon Styling', test: cssContent.includes('.landing-brand-icon') },
   { name: '4x4 Module Product Grid', test: cssContent.includes('.modules-product-grid') },

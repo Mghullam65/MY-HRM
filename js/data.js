@@ -3879,8 +3879,8 @@ const DB = {
         let binding = rolePermissions.find(rp => rp.roleId === r.id && rp.permissionId === p.id);
         if (!binding) {
           const mod = modules.find(m => m.id === p.moduleId);
-          const modCode = mod ? mod.code : p.code.split('.')[0];
-          const isGranted = computeDefaultGrant(r.code, p.code, p.action, modCode);
+          const modCode = mod ? mod.code : (p && p.code ? p.code.split('.')[0] : '');
+          const isGranted = computeDefaultGrant(r.code, p && p.code ? p.code : '', p && p.action ? p.action : '', modCode);
           rolePermissions.push({
             id: ++maxRpId,
             roleId: r.id,

@@ -235,7 +235,7 @@ const Leaves = {
                       <button class="btn btn-ghost btn-icon btn-xs" onclick="Leaves.viewDetail(${leave.id})" title="View Details"><i class="fa fa-eye"></i></button>
                       ${(canApprove && leave.status === 'pending') ? `
                         <button class="btn ${isHRorAdmin ? 'btn-success' : 'btn-primary'} btn-xs" onclick="Leaves.approve(${leave.id})" title="${isHRorAdmin ? 'Final Corporate Approval' : 'Manager Endorse / Approve'}">
-                          <i class="fa ${isHRorAdmin ? 'fa-check-double' : 'fa-check'}"></i> ${isHRorAdmin ? 'Approve' : 'Endorse'}
+                          ${isHRorAdmin ? '<i class="fa fa-check-double"></i> Final' : '<i class="fa fa-user-check"></i> Mgr'}
                         </button>
                         <button class="btn btn-danger btn-icon btn-xs" onclick="Leaves.reject(${leave.id})" title="Reject">
                           <i class="fa fa-times"></i>

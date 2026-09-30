@@ -87,7 +87,9 @@ global.Auth = {
   role: 'superadmin',
   user: { id: 99, fullName: 'Super Administrator' },
   employee: { id: 1, fullName: 'Ahmed Khan' },
-  getScopedEmployees: (list) => list
+  getScopedEmployees: (list) => list,
+  can: (perm) => true,
+  canSeeFeature: (feat) => true
 };
 
 global.Utils = {

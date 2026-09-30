@@ -329,7 +329,7 @@ const Auth = {
             cleanPerm.replace(/^edms\./, 'documents.')
           ];
 
-          const matchedPerm = perms.find(p => candidateCodes.some(c => p.code === c || p.code.startsWith(c + '.') || c.startsWith(p.code)));
+          const matchedPerm = perms.find(p => p && typeof p.code === 'string' && candidateCodes.some(c => p.code === c || p.code.startsWith(c + '.') || c.startsWith(p.code)));
           if (matchedPerm) {
             const binding = rolePerms.find(rp => rp.roleId === currentRoleObj.id && rp.permissionId === matchedPerm.id);
             if (binding !== undefined) {

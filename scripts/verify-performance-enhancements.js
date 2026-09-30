@@ -98,7 +98,9 @@ global.Auth = {
   role: 'superadmin',
   user: { id: 1, name: 'Ahmed Khan' },
   employee: { id: 1, fullName: 'Ahmed Khan' },
-  getScopedEmployees(emps) { return emps; }
+  getScopedEmployees(emps) { return emps; },
+  can(perm) { return true; },
+  canSeeFeature(feat) { return true; }
 };
 
 // Seed test data
