@@ -35,3 +35,13 @@ last_sync_*.json
 Design Copy/
 server/data/sent_emails/
 server/data/daily_summary_job_log.json
+
+# Desktop & App Builds
+desktop/node_modules/
+desktop/dist/
+dist-packages/
+downloads/
+public/downloads/
+android/.gradle/
+android/build/
+android/app/build/
