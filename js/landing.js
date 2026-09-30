@@ -962,6 +962,55 @@ const Landing = {
     });
   },
 
+  testimonialsData: [
+    {
+      id: 0,
+      quote: "HRM Pro cut our monthly payroll cycle from 5 days to under 2 hours with 100% tax accuracy across our 350 employees in Karachi, Lahore, and Islamabad. The automated FBR tax slabs and bank advice splitters are a lifesaver.",
+      author: "Tariq Hussain",
+      role: "Chief Financial Officer, Apex Global Group",
+      avatar: "assets/avatars/tariq_hussain.jpg"
+    },
+    {
+      id: 1,
+      quote: "Managing leave quotas, biometrics across regional branches, and multi-gate exit clearances used to be a nightmare of paper and spreadsheets. HRM Pro unified everything into one calm, reliable platform.",
+      author: "Fatima Raza",
+      role: "Group Head of People & Culture, Crescent Logistics",
+      avatar: "assets/avatars/fatima_raza.jpg"
+    },
+    {
+      id: 2,
+      quote: "The real-time biometric gateway with grace period calculations has eliminated attendance disputes entirely. The mobile app clock-in with GPS geotagging is an indispensable tool for our operations.",
+      author: "Ahmed Khan",
+      role: "Chief Operating Officer, Horizon Tech Dynamics",
+      avatar: "assets/avatars/ahmed_khan.jpg"
+    }
+  ],
+
+  activeTestimonialIdx: 0,
+
+  switchTestimonial(idx) {
+    this.activeTestimonialIdx = idx;
+    const t = this.testimonialsData[idx];
+    if (!t) return;
+    const bodyEl = document.getElementById('editorial-spotlight-quote');
+    const authorEl = document.getElementById('editorial-spotlight-author');
+    const roleEl = document.getElementById('editorial-spotlight-role');
+    if (bodyEl) {
+      bodyEl.style.opacity = '0';
+      setTimeout(() => {
+        bodyEl.textContent = `"${t.quote}"`;
+        bodyEl.style.opacity = '1';
+      }, 150);
+    }
+    if (authorEl) authorEl.textContent = t.author;
+    if (roleEl) roleEl.textContent = t.role;
+    
+    document.querySelectorAll('.editorial-avatar-btn').forEach((btn, i) => {
+      if (i === idx) btn.classList.add('active');
+      else btn.classList.remove('active');
+    });
+  },
+
   render() {
     const container = document.getElementById('landing-page');
     if (!container) return;
@@ -1090,107 +1139,270 @@ const Landing = {
           </div>
         </header>
 
-        <!-- ─── 2. HERO SECTION WITH 3D SHOWCASE ─── -->
-        <section class="landing-hero-section">
-          <div class="landing-hero-grid">
-            <!-- Left Hero Content -->
-            <div class="landing-hero-content">
-              <div class="landing-pill-badge">
-                <i class="fa fa-sparkles"></i> Intelligent All-in-One HR &amp; Payroll Platform
+        <!-- ─── 2. EDITORIAL HERO SECTION (MATCHING REFERENCE DESIGN) ─── -->
+        <section class="editorial-hero-section">
+          <div class="editorial-hero-container">
+            <div class="editorial-hero-grid">
+              <div>
+                <h1 class="editorial-hero-title">
+                  PEOPLE FIRST<br>RECRUITMENT &amp;<br>WORKFORCE SUITE
+                </h1>
               </div>
-
-              <h1 class="landing-hero-title">
-                Next-Gen Workforce Operations <br><span class="text-gradient-coral">Made Effortless for Enterprises</span>
-              </h1>
-
-              <p class="landing-hero-sub">
-                Eliminate payroll friction with automated statutory tax calculations, real-time multi-branch biometric attendance, granular multi-tier role permissions, automated PDF report dispatch, and verified digital document generation.
-              </p>
-
-              <div class="landing-cta-group">
-                <button class="landing-hero-btn-primary" onclick="Landing.scrollTo('quote-section')">
-                  Get Instant Quote / Demo <i class="fa fa-arrow-right"></i>
-                </button>
-                <button class="landing-hero-btn-secondary" onclick="Landing.showDemoModal()">
-                  <i class="fa fa-play-circle" style="color:var(--hrm-coral);font-size:16px"></i> Interactive System Tour
-                </button>
-              </div>
-
-              <div class="landing-trust-badges">
-                <div class="landing-trust-item">
-                  <i class="fa fa-building-shield"></i>
-                  <div>
-                    <strong>Multi-Company Holdings</strong>
-                    <span>Head Office &amp; Subsidiary Data Scoping</span>
-                  </div>
-                </div>
-                <div class="landing-trust-item">
-                  <i class="fa fa-file-invoice-dollar"></i>
-                  <div>
-                    <strong>Statutory F&amp;F Settlement</strong>
-                    <span>Automated 30/26 Gratuity &amp; Clearances</span>
-                  </div>
-                </div>
-                <div class="landing-trust-item">
-                  <i class="fa fa-money-bill-transfer"></i>
-                  <div>
-                    <strong>SPMS Payroll &amp; 6 CSVs</strong>
-                    <span>Exact FBR Tax Engine &amp; Bank Splitter</span>
-                  </div>
-                </div>
-                <div class="landing-trust-item">
-                  <i class="fa fa-fingerprint"></i>
-                  <div>
-                    <strong>Biometric Fleet Hub</strong>
-                    <span>Live Hardware Ingestion &amp; Remote IP Gates</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Hero 3D Centerpiece -->
-            <div class="landing-hero-visual">
-              <div class="hero-3d-wrapper">
-                <!-- Floating Metric 1: Biometric Attendance Rate -->
-                <div class="hero-3d-badge-floating badge-pos-att" onclick="Landing.showModule('attendance')" style="cursor:pointer" title="Click to view Attendance Module">
-                  <div style="width:36px;height:36px;border-radius:8px;background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);display:flex;align-items:center;justify-content:center;font-size:18px">
-                    <i class="fa fa-fingerprint"></i>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:#64748b;font-weight:700">Attendance Rate</div>
-                    <div style="font-size:17px;font-weight:900;color:#111827">96.8%</div>
-                    <div style="font-size:11px;color:#16a34a;font-weight:700"><i class="fa fa-circle-check"></i> Live Biometric Sync</div>
-                  </div>
-                </div>
-
-                <!-- Floating Metric 2: Monthly Payroll Processed -->
-                <div class="hero-3d-badge-floating badge-pos-pay" onclick="Landing.showModule('payroll')" style="cursor:pointer" title="Click to view Payroll Module">
-                  <div style="width:36px;height:36px;border-radius:8px;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:18px">
-                    <i class="fa fa-coins"></i>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:#64748b;font-weight:700">Monthly Payroll</div>
-                    <div style="font-size:17px;font-weight:900;color:#111827">PKR 4.85M</div>
-                    <div style="font-size:11px;color:#16a34a;font-weight:700"><i class="fa fa-shield-check"></i> 100% Tax Compliant</div>
-                  </div>
-                </div>
-
-                <!-- 3D Framed Render Image -->
-                <div class="hero-3d-frame">
-                  <img src="assets/hero-3d.jpg" alt="HRM Pro Command Center" class="hero-3d-image" onerror="this.src='public/assets/hero-3d.jpg'">
+              <div>
+                <p class="editorial-hero-sub">
+                  Empowering high-performance organizations with autonomous statutory payroll, real-time multi-branch biometric attendance, granular multi-tier role permissions, and seamless employee lifecycle management.
+                </p>
+                <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+                  <button class="editorial-pill-btn" onclick="${loggedIn ? `App.showApp();App.navigate('dashboard');` : `App.showLogin();`}">
+                    <span>Explore Live Platform</span> <i class="fa fa-arrow-right" style="font-size:13px"></i>
+                  </button>
+                  <a href="#download-app" class="editorial-ghost-btn" onclick="Landing.scrollTo('download-app');return false;">
+                    <i class="fa fa-mobile-screen"></i> Download App
+                  </a>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 3. "YOUR TRUSTED PARTNER" 16 MODULE PRODUCT GRID (MATCHING 4x4 SCREENSHOT GRID) ─── -->
+        <!-- ─── 3. THE HRM PRO ADVANTAGE (3x3 MINIMALIST GRID MATCHING REFERENCE) ─── -->
+        <section class="editorial-advantage-section" id="advantage">
+          <div style="max-width: 1200px; margin: 0 auto; text-align: center;">
+            <h2 class="editorial-section-title">HRM Pro Advantage</h2>
+          </div>
+
+          <div class="editorial-adv-grid">
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-bolt"></i></div>
+              <h3 class="editorial-adv-title">Speed and Precision</h3>
+              <p class="editorial-adv-desc">Automated payroll execution calculates thousands of employee records with zero tax rounding discrepancy in seconds.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+              <h3 class="editorial-adv-title">Talent Quality Guarantee</h3>
+              <p class="editorial-adv-desc">Structured recruitment ATS with customizable pipeline stages, interview scorecards, and verifiable appointment offers.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-chart-line"></i></div>
+              <h3 class="editorial-adv-title">Talent That Transforms</h3>
+              <p class="editorial-adv-desc">Continuous performance appraisal reviews, SMART goal tracking, and skill certification matrices for high-output teams.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-sliders"></i></div>
+              <h3 class="editorial-adv-title">Personalized Partnerships</h3>
+              <p class="editorial-adv-desc">Tailored multi-branch organization hierarchies, custom approval matrices, and assisted data migration for your enterprise.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-fingerprint"></i></div>
+              <h3 class="editorial-adv-title">Industry Expertise</h3>
+              <p class="editorial-adv-desc">Pre-configured with official FBR tax brackets (2024–2026), EOBI, SESSI/PESSI, and statutory 30/26 gratuity calculations.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-user-group"></i></div>
+              <h3 class="editorial-adv-title">Focus on Culture Fit</h3>
+              <p class="editorial-adv-desc">Empower employees with self-service mobile portals for real-time leave applications, payslip downloads, and peer collaboration.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-shield-halved"></i></div>
+              <h3 class="editorial-adv-title">Dedicated Account Security</h3>
+              <p class="editorial-adv-desc">Granular least-privilege role permissions (view-only, apply-only, approve-only) backed by comprehensive audit trails.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-coins"></i></div>
+              <h3 class="editorial-adv-title">Cost-Effective Solutions</h3>
+              <p class="editorial-adv-desc">Eliminate multiple expensive software subscriptions by consolidating 16 mission-critical HR modules into one unified platform.</p>
+            </div>
+
+            <div class="editorial-adv-card">
+              <div class="editorial-adv-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+              <h3 class="editorial-adv-title">Continuous Innovation</h3>
+              <p class="editorial-adv-desc">High-speed real-time database architecture synchronizing changes instantly across desktop, web, and mobile environments.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 4. RUNNING MARQUEE BANNER (MATCHING REFERENCE DESIGN) ─── -->
+        <div class="editorial-marquee-wrap">
+          <div class="editorial-marquee-track">
+            <span class="editorial-marquee-text">HIRING WITH EXPERT-DRIVEN RECRUITMENT • AUTONOMOUS PAYROLL &amp; FBR COMPLIANCE • REAL-TIME BIOMETRICS • </span>
+            <span class="editorial-marquee-text">HIRING WITH EXPERT-DRIVEN RECRUITMENT • AUTONOMOUS PAYROLL &amp; FBR COMPLIANCE • REAL-TIME BIOMETRICS • </span>
+          </div>
+        </div>
+
+        <!-- ─── 5. NUMBERED SPLIT FEATURE STORIES: 01, 02, 03 (MATCHING REFERENCE) ─── -->
+        <section class="editorial-stories-section" id="stories">
+          <div class="editorial-stories-container">
+            
+            <!-- Story 01 -->
+            <div class="editorial-story-card">
+              <div class="editorial-story-img-wrap">
+                <img src="assets/story-01-collaboration.jpg" alt="Flexible, Scalable Workforce Solution" class="editorial-story-img" onerror="this.src='public/assets/story-01-collaboration.jpg'">
+              </div>
+              <div class="editorial-story-content">
+                <div class="editorial-story-num">01</div>
+                <h3 class="editorial-story-title">Flexible, Scalable Workforce Solution</h3>
+                <p class="editorial-story-desc">
+                  Adapt dynamically as your headcount scales from 25 to 5,000+ employees. Manage digital employee profiles, contracts, and department reporting lines with zero spreadsheet chaos.
+                </p>
+                <div>
+                  <a href="#modules-section" onclick="Landing.scrollTo('modules-section');return false;" class="editorial-story-link">
+                    <span>Explore Solutions</span> <i class="fa fa-arrow-right"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Story 02 -->
+            <div class="editorial-story-card">
+              <div class="editorial-story-img-wrap">
+                <img src="assets/story-02-handshake.jpg" alt="Unmatched Statutory & Payroll Expertise" class="editorial-story-img" onerror="this.src='public/assets/story-02-handshake.jpg'">
+              </div>
+              <div class="editorial-story-content">
+                <div class="editorial-story-num">02</div>
+                <h3 class="editorial-story-title">Unmatched Statutory &amp; Payroll Expertise</h3>
+                <p class="editorial-story-desc">
+                  Eliminate legal and fiscal compliance worries. Our embedded payroll tax engine automatically executes exact progressive tax slab deductions, EOBI contributions, and bank disbursement files.
+                </p>
+                <div>
+                  <a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;" class="editorial-story-link">
+                    <span>View Tax Engine</span> <i class="fa fa-arrow-right"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- Story 03 -->
+            <div class="editorial-story-card">
+              <div class="editorial-story-img-wrap">
+                <img src="assets/story-03-interview.jpg" alt="Faster Quality Hires & Precision Attendance" class="editorial-story-img" onerror="this.src='public/assets/story-03-interview.jpg'">
+              </div>
+              <div class="editorial-story-content">
+                <div class="editorial-story-num">03</div>
+                <h3 class="editorial-story-title">Faster Quality Hires &amp; Attendance</h3>
+                <p class="editorial-story-desc">
+                  Accelerate talent recruitment with end-to-end applicant tracking, and eliminate time-theft with real-time biometric terminal ingestion and GPS geofenced mobile check-ins.
+                </p>
+                <div>
+                  <a href="#download-app" onclick="Landing.scrollTo('download-app');return false;" class="editorial-story-link">
+                    <span>Get Applications</span> <i class="fa fa-arrow-right"></i>
+                  </a>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ─── 6. METRICS SOCIAL PROOF BAND (MATCHING REFERENCE) ─── -->
+        <section class="editorial-metrics-section">
+          <div style="text-align: center; max-width: 700px; margin: 0 auto 40px auto;">
+            <h3 style="font-size: 26px; font-weight: 900; color: #0f172a; margin-bottom: 8px;">100+ Enterprise Teams Trust HRM Pro</h3>
+            <p style="font-size: 14.5px; color: #64748b; margin: 0;">Delivering measurable operational efficiency, zero tax penalties, and rapid workforce velocity.</p>
+          </div>
+          <div class="editorial-metrics-grid">
+            <div class="editorial-metric-item">
+              <div class="editorial-metric-num" style="color: #6366f1;">50K+</div>
+              <div class="editorial-metric-label">Monthly Punches Tracked</div>
+            </div>
+            <div class="editorial-metric-item">
+              <div class="editorial-metric-num" style="color: #8b5cf6;">500+</div>
+              <div class="editorial-metric-label">Active Workforce Profiles</div>
+            </div>
+            <div class="editorial-metric-item">
+              <div class="editorial-metric-num" style="color: #10b981;">99.9%</div>
+              <div class="editorial-metric-label">Real-Time Cloud Uptime</div>
+            </div>
+            <div class="editorial-metric-item">
+              <div class="editorial-metric-num" style="color: #3b82f6;">5×</div>
+              <div class="editorial-metric-label">Faster Payroll Turnaround</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 7. OUR COMMITMENT TO QUALITY (LILAC BAND WITH COLLAGE MATCHING REFERENCE) ─── -->
+        <section class="editorial-commitment-section" id="commitment">
+          <div class="editorial-commitment-grid">
+            <div>
+              <h2 style="font-size: clamp(26px, 3.5vw, 36px); font-weight: 900; color: #0f172a; margin-bottom: 16px; letter-spacing: -0.8px;">
+                Our Commitment to Operational Quality
+              </h2>
+              <p style="font-size: 15px; color: #475569; line-height: 1.7; margin-bottom: 16px;">
+                At HRM Pro, we believe enterprise software should inspire confidence at every executive level. That is why our platform is architected around ironclad data integrity, complete auditability, and effortless usability for your workforce.
+              </p>
+              <ul class="editorial-commitment-checklist">
+                <li class="editorial-commitment-item">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span><strong>Zero Discrepancy FBR Calculations:</strong> Automated statutory brackets ensure compliance with all Federal and Provincial labor requirements.</span>
+                </li>
+                <li class="editorial-commitment-item">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span><strong>Granular Least-Privilege Access:</strong> Strict multi-tier RBAC prevents accidental data exposure and enforces separation of duties.</span>
+                </li>
+                <li class="editorial-commitment-item">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span><strong>Automated Digital Document Safe:</strong> Track employment contracts, educational credentials, and warning letters with automated renewal alerts.</span>
+                </li>
+                <li class="editorial-commitment-item">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span><strong>Dedicated Migration &amp; SLA Support:</strong> White-glove data migration from legacy spreadsheets with 24/7 dedicated engineering support.</span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Overlapping Human Team Collage -->
+            <div class="editorial-collage-wrap">
+              <img src="assets/quality-team-lead.jpg" alt="Dedicated Operations Support" class="editorial-collage-img" style="transform: translateY(-15px);" onerror="this.src='public/assets/quality-team-lead.jpg'">
+              <img src="assets/hr_functions_scene.jpg" alt="Enterprise Team Collaboration" class="editorial-collage-img" style="transform: translateY(20px);" onerror="this.src='public/assets/hr_functions_scene.jpg'">
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 8. CLIENT SATISFACTION: OUR TOP PRIORITY (TESTIMONIAL SPOTLIGHT MATCHING REFERENCE) ─── -->
+        <section class="editorial-testimonial-section" id="testimonials">
+          <div class="editorial-testimonial-container">
+            <h2 style="font-size: clamp(24px, 3.2vw, 34px); font-weight: 900; color: #0f172a; margin-bottom: 8px; letter-spacing: -0.5px;">
+              Client Satisfaction: Our Top Priority
+            </h2>
+            <p style="font-size: 14.5px; color: #64748b; margin-bottom: 36px;">
+              Hear directly from financial executives and HR leaders who transformed their operations with HRM Pro.
+            </p>
+
+            <div class="editorial-quote-mark">“</div>
+            <div class="editorial-quote-body" id="editorial-spotlight-quote">
+              "${this.testimonialsData[0].quote}"
+            </div>
+            <div class="editorial-quote-author" id="editorial-spotlight-author">
+              ${this.testimonialsData[0].author}
+            </div>
+            <div class="editorial-quote-role" id="editorial-spotlight-role">
+              ${this.testimonialsData[0].role}
+            </div>
+
+            <!-- Avatar Switcher (3 Clickable Portraits) -->
+            <div class="editorial-avatar-switcher">
+              ${this.testimonialsData.map((t, idx) => `
+                <button class="editorial-avatar-btn ${idx === 0 ? 'active' : ''}" onclick="Landing.switchTestimonial(${idx})" title="${t.author} (${t.role.split(',')[0]})">
+                  <img src="${t.avatar}" alt="${t.author}">
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 9. "YOUR TRUSTED PARTNER" 16 MODULE PRODUCT GRID ─── -->
         <section class="section-modules-gallery" id="modules-section">
           <div class="landing-section-header">
             <div class="landing-pill-badge" style="margin:0 auto 12px auto">
               <i class="fa fa-cubes"></i> 16 Comprehensive Modules
             </div>
-            <h2 class="landing-section-title">Your Trusted Partner for Enterprise Workforce Management</h2>
+            <h2 class="landing-section-title">Complete Enterprise Workforce Management Suite</h2>
             <p class="landing-section-sub">
               Empowering fast-growing enterprises, multi-branch corporations &amp; institutions with seamless, audit-ready HR automation.
             </p>
@@ -1198,87 +1410,6 @@ const Landing = {
 
           <div class="modules-product-grid">
             ${this.renderModulesProductGrid()}
-          </div>
-        </section>
-
-        <!-- ─── 4. SECONDARY BANNER (MATCHING SCREENSHOT) ─── -->
-        <section class="custom-banner-section">
-          <h2 class="custom-banner-title">Custom Enterprise Workflows for High-Growth Teams — Zero Setup Friction</h2>
-          <p class="custom-banner-sub">
-            Modular role-based permissions, automated approval matrices, multi-branch attendance sync, and instant compliance reports built for scale.
-          </p>
-        </section>
-
-        <!-- ─── 5. "WHY CHOOSE US" (4 CARDS WITH CORAL CIRCLE ICONS) ─── -->
-        <section class="why-choose-section" id="why-us">
-          <div class="landing-section-header">
-            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-award"></i> The Enterprise Edge
-            </div>
-            <h2 class="landing-section-title">Why Choose HRM Pro</h2>
-            <p class="landing-section-sub">
-              Engineered specifically to solve real operational bottlenecks that slow HR and finance teams down.
-            </p>
-          </div>
-
-          <div class="why-choose-grid">
-            <div class="why-card">
-              <div class="why-card-icon"><i class="fa fa-lock"></i></div>
-              <h3 class="why-card-title">Granular Multi-Tier RBAC</h3>
-              <p class="why-card-desc">Configure dynamic partial permissions per module (view-only, apply-only, approve-only, export-only) without granting full admin rights.</p>
-            </div>
-
-            <div class="why-card">
-              <div class="why-card-icon"><i class="fa fa-scale-balanced"></i></div>
-              <h3 class="why-card-title">Audit-Ready Statutory Engine</h3>
-              <p class="why-card-desc">Pre-configured with Pakistan 2024–2025 FBR tax slabs, EOBI, SESSI/PESSI, and statutory 30/26 gratuity exit settlements.</p>
-            </div>
-
-            <div class="why-card">
-              <div class="why-card-icon"><i class="fa fa-fingerprint"></i></div>
-              <h3 class="why-card-title">Real-Time Biometric Gateway</h3>
-              <p class="why-card-desc">Centralized hardware sync with physical fingerprint &amp; facial scanners across all regional branches, with grace buffers and shift swap rules.</p>
-            </div>
-
-            <div class="why-card">
-              <div class="why-card-icon"><i class="fa fa-file-pdf"></i></div>
-              <h3 class="why-card-title">Automated PDF Dispatch</h3>
-              <p class="why-card-desc">Scheduled morning briefs, payroll audits, and bank advice reports automatically generated and delivered to executive inboxes.</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 6. "PREMIUM CAPABILITIES & FINISHES" (2x4 GALLERY MATCHING SCREENSHOT) ─── -->
-        <section class="premium-finishes-section" id="capabilities">
-          <div class="landing-section-header">
-            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-gem"></i> Premium Capabilities &amp; Finishes
-            </div>
-            <h2 class="landing-section-title">Built with Enterprise Rigor &amp; Attention to Detail</h2>
-            <p class="landing-section-sub">
-              From cryptographic document seals to multi-company scoping, discover the advanced mechanisms powering your workforce.
-            </p>
-          </div>
-
-          <div class="premium-finishes-grid">
-            ${this.renderPremiumFinishesGrid()}
-          </div>
-        </section>
-
-        <!-- ─── 7. "ONE PLACE TO MANAGE YOUR WORKFORCE" (6 WORKFLOW STEPS) ─── -->
-        <section class="lifecycle-workflow-section" id="workflow">
-          <div class="landing-section-header">
-            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-arrows-split-up-and-left"></i> End-to-End Pipeline
-            </div>
-            <h2 class="landing-section-title">One Place to Manage Your Entire Workforce Lifecycle</h2>
-            <p class="landing-section-sub">
-              Seamlessly guide employees from first application to final gratuity settlement in one unified system.
-            </p>
-          </div>
-
-          <div class="lifecycle-steps-row">
-            ${this.renderWorkflowSteps()}
           </div>
         </section>
 
