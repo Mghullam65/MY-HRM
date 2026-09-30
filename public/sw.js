@@ -1,9 +1,13 @@
-// HRM Pro — Service Worker (Offline Shell & Asset Caching)
-const CACHE_NAME = 'hrm-pro-cache-v3.0.0';
+// HRM Pro — Service Worker (Offline Shell, Asset Caching & Offline Sync)
+const CACHE_NAME = 'hrm-pro-cache-v3.1.0';
+
 const STATIC_ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './assets/icon-192.png',
+  './assets/icon-512.png',
+  './assets/icon.svg',
   './css/main.css',
   './css/landing-theme.css',
   './js/security.js',
@@ -39,14 +43,17 @@ const STATIC_ASSETS = [
   './js/reports.js',
   './js/administration.js',
   './js/settings.js',
-  './js/hrAssistant.js'
+  './js/hrAssistant.js',
+  './js/pwa.js'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Pre-caching offline shell assets');
-      return cache.addAll(STATIC_ASSETS).catch(() => {});
+      console.log('[ServiceWorker] Pre-caching offline shell assets & icons');
+      return cache.addAll(STATIC_ASSETS).catch((err) => {
+        console.warn('[ServiceWorker] Cache addAll soft error:', err);
+      });
     })
   );
   self.skipWaiting();
@@ -69,12 +76,13 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
   if (event.request.method !== 'GET') return;
-  // Don't intercept live API calls
-  if (event.request.url.includes('/api/')) return;
 
-  // Network-First with Cache Fallback for instant updates
+  const url = event.request.url;
+  if (url.includes('/api/') || url.includes('supabase.co') || url.includes('/socket.io/')) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
@@ -88,7 +96,7 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request).then((cachedResponse) => {
           if (cachedResponse) return cachedResponse;
           if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
+            return caches.match('./index.html') || caches.match('/');
           }
         });
       })

@@ -1034,6 +1034,10 @@ const Landing = {
             </nav>
 
             <div class="landing-nav-actions">
+              <button class="landing-btn-signin desktop-only" onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" title="Install HRM Pro Desktop / Mobile App" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)">
+                <i class="fa fa-mobile-screen-button"></i>
+                <span>Download App</span>
+              </button>
               ${loggedIn ? `
               <button class="landing-btn-signin desktop-only" onclick="App.showApp();App.navigate('dashboard');" title="Open HRM Dashboard" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-color:transparent">
                 <i class="fa fa-gauge-high"></i>
@@ -1065,11 +1069,15 @@ const Landing = {
               <a href="#modules-section" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('modules-section');return false;"><i class="fa fa-cubes"></i> 16 Enterprise Modules</a>
               <a href="#why-us" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('why-us');return false;"><i class="fa fa-award"></i> Why Choose Us</a>
               <a href="#capabilities" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('capabilities');return false;"><i class="fa fa-gem"></i> Premium Capabilities</a>
+              <a href="#download-app" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('download-app');return false;"><i class="fa fa-mobile-screen"></i> Mobile App &amp; PWA</a>
               <a href="#workflow" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('workflow');return false;"><i class="fa fa-arrows-split-up-and-left"></i> Lifecycle Workflow</a>
               <a href="#tax-calc" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('tax-calc');return false;"><i class="fa fa-calculator"></i> Tax Calculator</a>
               <a href="#faq" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('faq');return false;"><i class="fa fa-circle-question"></i> FAQs</a>
               <a href="#careers" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('careers');return false;"><i class="fa fa-briefcase"></i> Careers (${openJobsCount} Open)</a>
               <div class="landing-mobile-actions">
+                <button class="landing-btn-signin" style="width:100%;justify-content:center;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);margin-bottom:8px" onclick="Landing.closeMobileNav();typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')">
+                  <i class="fa fa-download"></i> Download Mobile App
+                </button>
                 ${loggedIn ? `
                 <button class="landing-btn-signin" style="width:100%;justify-content:center;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff" onclick="Landing.closeMobileNav();App.showApp();App.navigate('dashboard')"><i class="fa fa-gauge-high"></i> Open Dashboard</button>
                 <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()">Sign In (Switch Account)</button>
@@ -1392,6 +1400,75 @@ const Landing = {
               <div class="landing-faq-answer faq-answer">
                 HRM Pro includes an integrated background job scheduler. You can configure daily attendance briefs, weekly department summaries, and monthly payroll audit packages to be compiled into PDF/CSV formats and dispatched automatically to management emails at designated times.
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 9B. PROGRESSIVE WEB APP & MOBILE DOWNLOAD SHOWCASE ─── -->
+        <section class="landing-pwa-section" id="download-app" style="padding: 70px 24px; background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%); color: #fff; border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06);">
+          <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center;" class="pwa-download-grid">
+            <div>
+              <div class="landing-pill-badge" style="background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.3); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa fa-mobile-screen"></i> Native Mobile &amp; Desktop App Experience
+              </div>
+              <h2 style="font-size: 34px; font-weight: 900; line-height: 1.25; margin-bottom: 18px; color: #fff;">
+                Work Anywhere with the <span style="background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">HRM Pro Mobile App</span>
+              </h2>
+              <p style="font-size: 15.5px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
+                Install HRM Pro directly to your Android, iPhone, or Desktop with zero app store delays. Clock in with GPS geotagging, apply for leaves, track approvals, and view monthly payslips with full offline sync support.
+              </p>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 30px;">
+                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                  <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(59,130,246,0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa fa-wifi-slash"></i></div>
+                  <div>
+                    <strong style="color: #f1f5f9; display: block; font-size: 14px;">Offline Attendance Sync</strong>
+                    <span style="color: #94a3b8; font-size: 12.5px;">Record punch even in basements with no signal; auto-syncs when online.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                  <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16,185,129,0.2); color: #34d399; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa fa-bolt"></i></div>
+                  <div>
+                    <strong style="color: #f1f5f9; display: block; font-size: 14px;">1-Tap Home Screen Icon</strong>
+                    <span style="color: #94a3b8; font-size: 12.5px;">Instant launch without browser address bar clutter or URL typing.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
+                <button onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" class="btn btn-primary" style="padding: 14px 26px; font-size: 15px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; border: none; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
+                  <i class="fa fa-download"></i> Download / Install Now
+                </button>
+                <button onclick="typeof PWA !== 'undefined' ? PWA.showIOSInstallModal() : alert('Tap Share on iOS Safari, then Add to Home Screen')" class="btn btn-ghost" style="padding: 14px 22px; font-size: 14px; font-weight: 600; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
+                  <i class="fa-brands fa-apple" style="font-size: 18px;"></i> iOS iPhone Guide
+                </button>
+              </div>
+            </div>
+
+            <!-- Right Mockup Card -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); backdrop-filter: blur(12px);">
+              <img src="assets/icon-512.png" alt="HRM Pro Mobile App" style="width: 96px; height: 96px; border-radius: 22px; margin-bottom: 16px; box-shadow: 0 12px 30px rgba(37,99,235,0.35); border: 2px solid rgba(255,255,255,0.2);">
+              <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #fff;">HRM Pro Enterprise</h3>
+              <p style="font-size: 12.5px; color: #94a3b8; margin-bottom: 20px;">Progressive Web Application • Standalone Mode</p>
+              
+              <div style="background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 10px; font-size: 13px; margin-bottom: 20px;">
+                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
+                  <span>Platforms:</span>
+                  <strong style="color:#e2e8f0;">Android, iOS, Windows, Mac</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
+                  <span>Download Size:</span>
+                  <strong style="color:#10b981;">&lt; 3 MB (Zero storage bloat)</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
+                  <span>Offline Capability:</span>
+                  <strong style="color:#38bdf8;">Full Shell + Punch Queue</strong>
+                </div>
+              </div>
+
+              <button onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" style="width: 100%; padding: 12px; font-size: 14px; font-weight: 700; background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.4); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa fa-circle-down"></i> Click to Install on This Device
+              </button>
             </div>
           </div>
         </section>

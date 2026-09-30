@@ -4702,6 +4702,22 @@ const Attendance = {
     const isLate = timeStr > '11:00';
     const status = isLate ? 'late' : 'present';
 
+    // Support offline punch queueing when device loses connection
+    if (typeof navigator !== 'undefined' && !navigator.onLine && typeof PWA !== 'undefined' && PWA.recordOfflinePunch) {
+      PWA.recordOfflinePunch({
+        id: DB.nextId('attendance'),
+        employeeId: myId,
+        date: dateStr,
+        timeIn: timeStr,
+        timeOut: null,
+        status,
+        device: 'Mobile-PWA (Offline Queued)',
+        remarks: 'Recorded in offline mode; auto-synced with cloud',
+        overtime: 0
+      });
+      return;
+    }
+
     let att = DB.get('attendance') || [];
     let rec = att.find(a => a.employeeId === myId && a.date === dateStr);
     if (!rec) {
