@@ -986,6 +986,7 @@ const Landing = {
     const presentToday = att.filter(a => a.date === todayStr && a.status === 'present').length || Math.min(totalEmps, 48);
     const pendingLeaves = leaves.filter(l => l.status === 'pending').length || 6;
     const openJobs = openJobsCount;
+    const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
 
     container.innerHTML = `
       <div class="landing-wrapper" onclick="Landing.closeAllMenus()">
@@ -1033,6 +1034,15 @@ const Landing = {
             </nav>
 
             <div class="landing-nav-actions">
+              ${loggedIn ? `
+              <button class="landing-btn-signin desktop-only" onclick="App.showApp();App.navigate('dashboard');" title="Open HRM Dashboard" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-color:transparent">
+                <i class="fa fa-gauge-high"></i>
+                <span>Dashboard</span>
+              </button>
+              <button class="landing-btn-cta" onclick="App.showLogin()" title="Switch Account / Sign In">
+                <span>Sign In</span>
+              </button>
+              ` : `
               <button class="landing-btn-signin desktop-only" onclick="App.showLogin()" title="Sign in to HRM Portal">
                 <i class="fa fa-right-to-bracket"></i>
                 <span>Sign In</span>
@@ -1040,6 +1050,7 @@ const Landing = {
               <button class="landing-btn-cta" onclick="Landing.scrollTo('quote-section')" title="Request Custom Proposal & Trial">
                 <span>Get Free Quote / Trial</span>
               </button>
+              `}
               <!-- Mobile Hamburger Toggle Button -->
               <button class="landing-mobile-menu-btn" onclick="Landing.toggleMobileNav(event)" aria-label="Toggle navigation menu">
                 <i class="fa fa-bars"></i>
@@ -1059,8 +1070,13 @@ const Landing = {
               <a href="#faq" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('faq');return false;"><i class="fa fa-circle-question"></i> FAQs</a>
               <a href="#careers" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('careers');return false;"><i class="fa fa-briefcase"></i> Careers (${openJobsCount} Open)</a>
               <div class="landing-mobile-actions">
+                ${loggedIn ? `
+                <button class="landing-btn-signin" style="width:100%;justify-content:center;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff" onclick="Landing.closeMobileNav();App.showApp();App.navigate('dashboard')"><i class="fa fa-gauge-high"></i> Open Dashboard</button>
+                <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()">Sign In (Switch Account)</button>
+                ` : `
                 <button class="landing-btn-signin" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()"><i class="fa fa-right-to-bracket"></i> Sign In to Portal</button>
                 <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();Landing.scrollTo('quote-section')">Request Free Proposal</button>
+                `}
               </div>
             </div>
           </div>

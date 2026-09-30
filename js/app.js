@@ -52,19 +52,21 @@ const App = {
       const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
       const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
 
+      // Known app modules that can be restored on browser refresh
+      const appModules = [
+        'dashboard', 'employees', 'attendance', 'leaves', 'payroll',
+        'settlement', 'companies', 'performance', 'recruitment', 'assets',
+        'expenses', 'helpdesk', 'events', 'reports', 'administration',
+        'settings', 'profile'
+      ];
+
       // ── Routing logic ───────────────────────────────────────────────────
-      // If the user is logged in, ALWAYS restore their session on refresh.
-      // They stay on whatever page/module they were on.
-      // Only show landing when the user is NOT logged in (fresh / logged out).
-      if (loggedIn) {
-        // Restore the module they were on. rawHash holds the last module name
-        // pushed by navigate() e.g. "dashboard", "employees", "payroll" etc.
-        // Special non-app hashes are excluded.
-        const skipHashes = ['landing', 'login', 'trial', ''];
-        const isModuleHash = rawHash && !skipHashes.includes(rawHash) && !rawHash.startsWith('module-');
-        const initialModule = isModuleHash ? rawHash : 'dashboard';
+      // If user is logged in AND URL has an active module hash (e.g. #dashboard, #payroll),
+      // restore their session on that exact module (handles browser F5 / Refresh).
+      // If the user visits the official root URL (no hash, or #landing), ALWAYS show Landing!
+      if (loggedIn && appModules.includes(rawHash)) {
         this.showApp();
-        this.navigate(initialModule, null, false);
+        this.navigate(rawHash, null, false);
       } else if (rawHash === 'login') {
         this.showLogin(false);
       } else if (rawHash === 'trial') {
@@ -72,7 +74,8 @@ const App = {
       } else if (rawHash.startsWith('module-')) {
         this.showModule(rawHash.replace('module-', ''), false);
       } else {
-        // Not logged in, no specific hash → show landing page
+        // Root URL (https://my-hrm-rosy.vercel.app/), #landing, or unauthenticated:
+        // ALWAYS show official Landing Page!
         this.showLanding(false);
       }
 
@@ -84,10 +87,11 @@ const App = {
 
   setupHistoryRouter() {
     // Record initial browser history state if empty
-    const hash = window.location.hash;
-    const initialPage = hash === '#login' ? 'login' : (hash === '#trial' ? 'trial' : (hash.startsWith('#module-') ? 'module' : 'landing'));
+    const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+    const isAppModule = rawHash && !['landing', 'login', 'trial'].includes(rawHash) && !rawHash.startsWith('module-');
+    const initialPage = rawHash === 'login' ? 'login' : (rawHash === 'trial' ? 'trial' : (rawHash.startsWith('module-') ? 'module' : (isAppModule ? 'app' : 'landing')));
     if (!history.state) {
-      history.replaceState({ page: initialPage, hash: hash || '#landing' }, '', window.location.href);
+      history.replaceState({ page: initialPage, module: isAppModule ? rawHash : undefined, hash: window.location.hash || '#landing' }, '', window.location.href);
     }
 
     // Listen to Chrome default back & forward buttons
