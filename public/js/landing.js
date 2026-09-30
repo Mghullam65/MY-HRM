@@ -1436,12 +1436,12 @@ const Landing = {
               </div>
 
               <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
-                <button onclick="typeof PWA !== 'undefined' ? PWA.downloadAndroidAPK() : window.open('https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/','_blank')" class="btn btn-primary" style="padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(16,185,129,0.5);">
+                <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 10px 25px -5px rgba(16,185,129,0.5);">
                   <i class="fa-brands fa-android" style="font-size: 18px;"></i> Download Android APK (.apk)
-                </button>
-                <button onclick="typeof PWA !== 'undefined' ? PWA.downloadWindowsDesktop() : window.open('https://github.com/Mghullam65/MY-HRM/releases/tag/v3.1.0','_blank')" class="btn btn-primary" style="padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; border: none; cursor: pointer; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
+                </a>
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
                   <i class="fa-brands fa-windows" style="font-size: 18px;"></i> Download Windows App (.zip)
-                </button>
+                </a>
                 <button onclick="typeof PWA !== 'undefined' ? PWA.showIOSInstallModal() : alert('Tap Share on iOS Safari, then Add to Home Screen')" class="btn btn-ghost" style="padding: 14px 18px; font-size: 14px; font-weight: 600; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
                   <i class="fa-brands fa-apple" style="font-size: 18px;"></i> iOS Safari
                 </button>
@@ -1470,12 +1470,12 @@ const Landing = {
               </div>
 
               <div style="display: flex; flex-direction: column; gap: 8px;">
-                <button onclick="typeof PWA !== 'undefined' ? PWA.downloadAndroidAPK() : window.open('https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/','_blank')" style="width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <i class="fa-brands fa-android"></i> Direct Download APK File
-                </button>
-                <button onclick="typeof PWA !== 'undefined' ? PWA.downloadWindowsDesktop() : window.open('https://github.com/Mghullam65/MY-HRM/releases/tag/v3.1.0','_blank')" style="width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(59,130,246,0.18); color: #38bdf8; border: 1px solid rgba(59,130,246,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <i class="fa-brands fa-windows"></i> Direct Download PC Setup (.zip)
-                </button>
+                <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i class="fa-brands fa-android"></i> Generate &amp; Download APK
+                </a>
+                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(59,130,246,0.18); color: #38bdf8; border: 1px solid rgba(59,130,246,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                  <i class="fa-brands fa-windows"></i> 1-Click Download Windows App (.zip)
+                </a>
               </div>
             </div>
           </div>
