@@ -11477,8 +11477,9 @@ body.sidebar-pos-right .sidebar {
     border-bottom: 1px solid var(--border) !important;
   }
 
-  /* Hide Desktop user line & search box inside fixed mobile topbar */
+  /* Hide Desktop user line, welcome center greeting & search box inside fixed mobile topbar */
   .topbar-user-line,
+  .topbar-welcome-center,
   .sample-search-box {
     display: none !important;
   }
