@@ -7,6 +7,19 @@ const App = {
 
   async init() {
     try {
+      // 0. Instant First Paint: If visiting root, #landing, or unauthenticated, immediately display landing page!
+      const initialHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+      if (!initialHash || initialHash === 'landing') {
+        const landingEl = document.getElementById('landing-page');
+        if (landingEl) {
+          landingEl.style.display = 'block';
+          landingEl.setAttribute('data-theme', 'dark');
+        }
+        if (typeof Landing !== 'undefined' && Landing.render) {
+          try { Landing.render(); } catch (e) { console.warn('Pre-paint landing error:', e); }
+        }
+      }
+
       await DB.init();
       Auth.init();
       if (typeof LiveNotifications !== 'undefined' && LiveNotifications.init) {
@@ -1645,6 +1658,7 @@ const App = {
   openCommandPalette() {
     const overlay = document.getElementById('cmd-palette-overlay');
     if (!overlay) return;
+    overlay.style.display = 'flex';
     overlay.classList.add('open');
     this.commandPaletteFilter = 'all';
     this.commandPaletteIndex = 0;
@@ -1662,7 +1676,10 @@ const App = {
   closeCommandPalette(e) {
     if (e && e.target && e.target.closest && e.target.closest('.cmd-palette-box')) return;
     const overlay = document.getElementById('cmd-palette-overlay');
-    overlay?.classList.remove('open');
+    if (overlay) {
+      overlay.classList.remove('open');
+      overlay.style.display = 'none';
+    }
   },
 
   setCommandPaletteFilter(filter) {
@@ -2277,11 +2294,13 @@ const App = {
 
     const count = this.selectedRowIds.size;
     if (count > 0) {
+      dock.style.display = 'flex';
       dock.classList.add('active');
       if (countEl) countEl.textContent = count;
       if (labelEl) labelEl.textContent = `${count} record${count > 1 ? 's' : ''} selected`;
     } else {
       dock.classList.remove('active');
+      dock.style.display = 'none';
     }
   },
 
@@ -2428,15 +2447,16 @@ const App = {
       }
     }
 
-    overlay?.classList.add('open');
+    if (overlay) { overlay.style.display = 'block'; overlay.classList.add('open'); }
+    drawer.style.display = 'flex';
     drawer.classList.add('open');
   },
 
   closeInspectDrawer() {
     const overlay = document.getElementById('inspect-drawer-overlay');
     const drawer = document.getElementById('inspect-drawer');
-    overlay?.classList.remove('open');
-    drawer?.classList.remove('open');
+    if (overlay) { overlay.classList.remove('open'); overlay.style.display = 'none'; }
+    if (drawer) { drawer.classList.remove('open'); drawer.style.display = 'none'; }
   },
 
   // ═══════════════════════════════════════════════

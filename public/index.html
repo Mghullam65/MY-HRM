@@ -31,8 +31,19 @@
   <link rel="stylesheet" href="css/landing-theme.css?v=2.5.3">
   <link rel="manifest" href="manifest.json">
 
-  <!-- Dedicated Chatbox Instant UI Styles (Cache-Proof) -->
+  <!-- Dedicated Instant UI Styles & Anti-FOUC Overlay Guards -->
   <style id="chatbox-instant-css">
+    /* ── Anti-FOUC Overlay Protections: Strictly Hide Drawers & Panels Unless Explicitly Active ── */
+    #landing-agent-panel:not(.open),
+    #cmd-palette-overlay:not(.open),
+    #batch-action-dock:not(.active),
+    #inspect-drawer:not(.open),
+    #inspect-drawer-overlay:not(.open),
+    #chat-drawer:not(.open),
+    #chat-drawer-overlay:not(.open) {
+      display: none !important;
+    }
+
     /* ── Floating Chat Launcher ── */
     .chat-floating-launcher {
       position: fixed !important;
@@ -431,9 +442,9 @@
 <!-- ══════════════════════════════════════
      TEAM COLLABORATION & CHAT DRAWER
 ══════════════════════════════════════ -->
-<div id="chat-drawer-overlay" class="chat-drawer-overlay" onclick="Chat.closeDrawer()"></div>
-<aside id="chat-drawer" class="chat-drawer"></aside>
-<div id="chat-floating-launcher" class="chat-floating-launcher" onclick="Chat.toggleDrawer()" title="Team Chatbox (Ctrl+M)">
+<div id="chat-drawer-overlay" class="chat-drawer-overlay" style="display:none" onclick="Chat.closeDrawer()"></div>
+<aside id="chat-drawer" class="chat-drawer" style="display:none"></aside>
+<div id="chat-floating-launcher" class="chat-floating-launcher" style="display:none" onclick="Chat.toggleDrawer()" title="Team Chatbox (Ctrl+M)">
   <i class="fa fa-comments"></i>
   <span id="chat-floating-badge" class="chat-floating-badge" style="display:none">0</span>
 </div>
@@ -441,7 +452,7 @@
 <!-- ══════════════════════════════════════
      HRM PRO VIRTUAL FEATURE AGENT (LANDING PAGE FAQ CONCIERGE)
 ══════════════════════════════════════ -->
-<div id="landing-agent-launcher" class="landing-agent-launcher" onclick="LandingAgent.toggle()" title="Ask HRM Pro Feature Agent">
+<div id="landing-agent-launcher" class="landing-agent-launcher" style="display:none" onclick="LandingAgent.toggle()" title="Ask HRM Pro Feature Agent">
   <div class="landing-agent-avatar">
     <i class="fa fa-robot"></i>
     <span class="agent-status-dot"></span>
@@ -452,7 +463,7 @@
   </div>
 </div>
 
-<div id="landing-agent-panel" class="landing-agent-panel">
+<div id="landing-agent-panel" class="landing-agent-panel" style="display:none">
   <!-- Header -->
   <div class="landing-agent-header">
     <div class="landing-agent-header-left">
@@ -520,7 +531,7 @@
 <!-- ══════════════════════════════════════
      GLOBAL SPOTLIGHT COMMAND PALETTE (CTRL+K)
 ══════════════════════════════════════ -->
-<div id="cmd-palette-overlay" class="cmd-palette-overlay" onclick="App.closeCommandPalette(event)">
+<div id="cmd-palette-overlay" class="cmd-palette-overlay" style="display:none" onclick="App.closeCommandPalette(event)">
   <div class="cmd-palette-box" onclick="event.stopPropagation()">
     <div class="cmd-palette-header">
       <i class="fa fa-terminal cmd-palette-icon"></i>
@@ -548,7 +559,7 @@
 <!-- ══════════════════════════════════════
      MULTI-SELECT FLOATING BATCH ACTION DOCK
 ══════════════════════════════════════ -->
-<div id="batch-action-dock" class="batch-action-dock">
+<div id="batch-action-dock" class="batch-action-dock" style="display:none">
   <div class="batch-dock-left">
     <span class="batch-count-badge" id="batch-dock-count">0</span>
     <span class="batch-count-label" id="batch-dock-label">items selected</span>
@@ -572,8 +583,8 @@
 <!-- ══════════════════════════════════════
      QUICK INSPECT SLIDE-OVER DRAWER
 ══════════════════════════════════════ -->
-<div id="inspect-drawer-overlay" class="inspect-drawer-overlay" onclick="App.closeInspectDrawer()"></div>
-<aside id="inspect-drawer" class="inspect-drawer">
+<div id="inspect-drawer-overlay" class="inspect-drawer-overlay" style="display:none" onclick="App.closeInspectDrawer()"></div>
+<aside id="inspect-drawer" class="inspect-drawer" style="display:none">
   <div class="inspect-drawer-header">
     <div style="display:flex;align-items:center;gap:10px">
       <div id="inspect-drawer-icon" style="width:34px;height:34px;border-radius:8px;background:var(--primary-glow);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:16px">

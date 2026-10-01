@@ -13009,13 +13009,13 @@ body[data-table-density="comfortable"] table td {
 
 /* ── 5. SPOTLIGHT COMMAND PALETTE (CTRL+K) ── */
 .cmd-palette-overlay {
+  display: none;
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.72);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 2000;
-  display: flex;
   align-items: flex-start;
   justify-content: center;
   padding-top: 10vh;
@@ -13025,6 +13025,7 @@ body[data-table-density="comfortable"] table td {
 }
 
 .cmd-palette-overlay.open {
+  display: flex !important;
   opacity: 1;
   pointer-events: auto;
 }
@@ -13364,6 +13365,7 @@ body[data-table-density="comfortable"] table td {
 
 /* ── 2. MULTI-SELECT FLOATING BATCH ACTION DOCK ── */
 .batch-action-dock {
+  display: none;
   position: fixed;
   bottom: 28px;
   left: 50%;
@@ -13375,7 +13377,6 @@ body[data-table-density="comfortable"] table td {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08);
   border-radius: 999px;
   padding: 8px 16px;
-  display: flex;
   align-items: center;
   gap: 16px;
   z-index: 1040;
@@ -13383,6 +13384,7 @@ body[data-table-density="comfortable"] table td {
 }
 
 .batch-action-dock.active {
+  display: flex !important;
   transform: translateX(-50%) translateY(0);
   opacity: 1;
   pointer-events: auto;
@@ -13442,6 +13444,7 @@ body[data-table-density="comfortable"] table td {
 }
 
 .inspect-drawer {
+  display: none;
   position: fixed;
   top: 0;
   right: 0;
@@ -13452,7 +13455,6 @@ body[data-table-density="comfortable"] table td {
   border-left: 1px solid var(--border);
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.4);
   z-index: 1080;
-  display: flex;
   flex-direction: column;
   transform: translateX(100%);
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
@@ -13460,6 +13462,7 @@ body[data-table-density="comfortable"] table td {
 }
 
 .inspect-drawer.open {
+  display: flex !important;
   transform: translateX(0);
 }
 
@@ -13759,6 +13762,7 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
 
 /* ── Landing Agent Floating Panel ── */
 .landing-agent-panel {
+  display: none;
   position: fixed;
   bottom: 90px;
   right: 24px;
@@ -13771,7 +13775,6 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 20px;
   z-index: 1050;
-  display: flex;
   flex-direction: column;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
   transform: translateY(24px) scale(0.95);
@@ -13783,6 +13786,7 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
 }
 
 .landing-agent-panel.open {
+  display: flex !important;
   transform: translateY(0) scale(1);
   opacity: 1;
   pointer-events: auto;

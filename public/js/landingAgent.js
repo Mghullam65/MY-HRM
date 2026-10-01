@@ -222,6 +222,11 @@ const LandingAgent = {
 
   // ── Initialization ──
   init() {
+    const panel = document.getElementById('landing-agent-panel');
+    if (panel && !this.isOpen) {
+      panel.style.display = 'none';
+      panel.classList.remove('open');
+    }
     this.renderChips();
     if (this.messageHistory.length === 0) {
       this.addAgentGreeting();
@@ -244,6 +249,7 @@ const LandingAgent = {
     const panel = document.getElementById('landing-agent-panel');
     const launcher = document.getElementById('landing-agent-launcher');
     if (panel) {
+      panel.style.display = 'flex';
       panel.classList.add('open');
       if (this.isMinimized) panel.classList.add('minimized');
       if (this.isMaximized) panel.classList.add('maximized');
@@ -261,6 +267,7 @@ const LandingAgent = {
     const panel = document.getElementById('landing-agent-panel');
     const launcher = document.getElementById('landing-agent-launcher');
     if (panel) {
+      panel.style.display = 'none';
       panel.classList.remove('open');
       panel.classList.remove('minimized');
       panel.classList.remove('maximized');
