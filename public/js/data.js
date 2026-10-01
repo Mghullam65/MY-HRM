@@ -75,11 +75,15 @@ const DB = {
       });
     }
 
-    // ─── Non-Blocking Asynchronous Cloud & REST Background Hydration ───
-    // Allows UI to render immediately with 0ms latency!
-    this.hydrateFromCloudAndServer().catch(err => {
-      console.warn('[DB] Background cloud hydration notice:', err.message);
-    });
+    // ─── Cloud & REST Hydration (Fast 2s Race to Guarantee Fresh Remote Data) ───
+    try {
+      await Promise.race([
+        this.hydrateFromCloudAndServer(),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+    } catch (err) {
+      console.warn('[DB] Cloud hydration notice:', err.message);
+    }
   },
 
   async hydrateFromCloudAndServer() {
@@ -128,6 +132,15 @@ const DB = {
       localStorage.setItem('hrm_initialized', '1');
       console.log(`[Supabase Cloud] ⚡ Hydrated ${cloudRows.length} tables from persistent cloud database!`);
       this.initSupabaseRealtime();
+
+      if (typeof Auth !== 'undefined' && Auth.refreshSession) {
+        try { Auth.refreshSession(); } catch(e){}
+      }
+      if (typeof App !== 'undefined' && App.onDataSync) {
+        try { App.onDataSync(cloudRows.map(r => r.id)); } catch(e){}
+      } else if (typeof App !== 'undefined' && App.currentModule && App.navigate) {
+        try { App.navigate(App.currentModule, null, false); } catch(e){}
+      }
     }
 
     // 2. Authoritative REST / Local Server Sync (Fallback if Supabase table not created yet)
@@ -144,6 +157,15 @@ const DB = {
             localStorage.setItem('hrm_initialized', '1');
             serverHydrated = true;
             console.log(`[DB] Central server connected: hydrated ${Object.keys(res.tables).length} tables (v${this.serverVersion})`);
+
+            if (typeof Auth !== 'undefined' && Auth.refreshSession) {
+              try { Auth.refreshSession(); } catch(e){}
+            }
+            if (typeof App !== 'undefined' && App.onDataSync) {
+              try { App.onDataSync(Object.keys(res.tables)); } catch(e){}
+            } else if (typeof App !== 'undefined' && App.currentModule && App.navigate) {
+              try { App.navigate(App.currentModule, null, false); } catch(e){}
+            }
           }
         }
       } catch (err) {

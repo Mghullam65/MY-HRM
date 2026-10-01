@@ -63,6 +63,7 @@ class StoreService {
     }
 
     this.isInitialized = true;
+    this.hydrateFromSupabase().catch(() => {});
   }
 
   seedFromDataJs() {
@@ -187,11 +188,68 @@ class StoreService {
     return result;
   }
 
+  async pushToSupabase(rows) {
+    if (!Array.isArray(rows) || rows.length === 0) return;
+    const supabaseUrl = 'https://fualeqgyjvflgkjgpohb.supabase.co';
+    const supabaseKey = 'sb_publishable_Yx_qmwQzE6x2NLmy9dJ44w_RotLBdbA';
+    try {
+      if (typeof fetch !== 'undefined') {
+        await fetch(`${supabaseUrl}/rest/v1/hrm_store`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify(rows)
+        });
+      }
+    } catch (err) {
+      console.warn('[StoreService] Supabase cloud push notice:', err.message);
+    }
+  }
+
+  async hydrateFromSupabase() {
+    const supabaseUrl = 'https://fualeqgyjvflgkjgpohb.supabase.co';
+    const supabaseKey = 'sb_publishable_Yx_qmwQzE6x2NLmy9dJ44w_RotLBdbA';
+    try {
+      if (typeof fetch !== 'undefined') {
+        const res = await fetch(`${supabaseUrl}/rest/v1/hrm_store?select=*`, {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`
+          }
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows.length > 0) {
+            rows.forEach(r => {
+              if (r.id && r.data) {
+                this.store[r.id] = r.data;
+              }
+            });
+            console.log(`[StoreService] ⚡ Hydrated ${rows.length} master tables from Supabase Cloud!`);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[StoreService] Hydrate from Supabase notice:', err.message);
+    }
+  }
+
   setTable(name, data, senderClientId = null) {
     this.store[name] = data;
     this.version++;
     this.updatedAt = Date.now();
     this.scheduleSave();
+
+    this.pushToSupabase([{
+      id: name,
+      data: data,
+      version: this.version,
+      updated_at: new Date().toISOString()
+    }]).catch(() => {});
 
     this.broadcast('table_update', {
       table: name,
@@ -217,6 +275,14 @@ class StoreService {
     this.version++;
     this.updatedAt = Date.now();
     this.scheduleSave();
+
+    const rows = Object.entries(tablesObj).map(([t, d]) => ({
+      id: t,
+      data: d,
+      version: this.version,
+      updated_at: new Date().toISOString()
+    }));
+    this.pushToSupabase(rows).catch(() => {});
 
     this.broadcast('batch_update', {
       tables: updatedNames,
