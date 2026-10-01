@@ -76,13 +76,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only cache GET requests
   if (event.request.method !== 'GET') return;
 
+  // Don't intercept live backend or external socket/auth calls
   const url = event.request.url;
   if (url.includes('/api/') || url.includes('supabase.co') || url.includes('/socket.io/')) {
     return;
   }
 
+  // Network-First with Cache Fallback for instant updates and reliable offline access
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
