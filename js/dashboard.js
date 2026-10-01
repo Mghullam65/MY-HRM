@@ -540,7 +540,7 @@ const Dashboard = {
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Profile Card + Headlines Ticker side-by-side row -->
-        <div style="display:flex;align-items:stretch;gap:14px;margin-bottom:18px;min-width:0">
+        <div class="dash-hero-row" style="display:flex;align-items:stretch;gap:14px;margin-bottom:18px;min-width:0">
           <!-- Left: Logged-in Person Profile Card -->
           <div class="dash-user-profile-card" style="display:inline-flex;align-items:center;gap:20px;padding:14px 26px 14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.06);flex-shrink:0;cursor:pointer;transition:transform 0.15s ease,box-shadow 0.15s ease" onclick="App.navigate('profile')" title="View My Profile">
             <div class="avatar" style="width:78px;height:78px;min-width:78px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);border:2.5px solid #00a2e8">
