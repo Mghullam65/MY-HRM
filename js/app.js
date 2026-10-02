@@ -3015,7 +3015,7 @@ const Login = {
 
             <div class="split-sso-grid">
               <button class="split-sso-btn" onclick="Login.quickLogin('sara.malik','hr123')" title="Quick Sign in as HR Director">
-                <img src="https://www.gstatic.com/images/branding/product/1x/gsuite_48dp.png" alt="Google Workspace" style="width:16px;height:16px;object-fit:contain" onerror="this.remove()">
+                <i class="fa-brands fa-google" style="color:#ea4335;font-size:15px"></i>
                 <span>Google Workspace</span>
               </button>
               <button class="split-sso-btn" onclick="Login.quickLogin('admin','admin123')" title="Quick Sign in as Super Admin">

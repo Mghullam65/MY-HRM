@@ -24,6 +24,8 @@ const API = {
     }
   },
 
+  _warnedEndpoints: {},
+
   // Central fetch wrapper with auth header and error handling
   async request(endpoint, options = {}) {
     const url = `${this.baseUrl}${endpoint}`;
@@ -47,8 +49,12 @@ const API = {
 
       return data;
     } catch (err) {
-      // If network fails (e.g. backend server is not running yet), throw informative error
-      console.warn(`[API] Endpoint ${endpoint} failed:`, err.message);
+      // If network fails (e.g. backend server is not running on static hosting), log once per endpoint and throw
+      const baseKey = endpoint.split('?')[0];
+      if (!this._warnedEndpoints[baseKey]) {
+        this._warnedEndpoints[baseKey] = true;
+        console.info(`[API] Endpoint ${baseKey} unavailable (${err.message}). Using autonomous client store.`);
+      }
       throw err;
     }
   },

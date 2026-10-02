@@ -5962,7 +5962,10 @@ const DB = {
         if (res && res.version) this.serverVersion = res.version;
       }
     } catch (err) {
-      console.warn('[DB] Background push failed, will retry on next poll:', err.message);
+      if (!this._warnedPush) {
+        this._warnedPush = true;
+        console.info('[DB] Background sync to central API paused (offline/static mode). Local & Supabase storage active.');
+      }
     }
   },
 
@@ -5994,7 +5997,10 @@ const DB = {
         }
       }
     } catch (err) {
-      console.warn('[DB] Server pull notice:', err.message);
+      if (!this._warnedPull) {
+        this._warnedPull = true;
+        console.info('[DB] Central API polling inactive. Using client-side state.');
+      }
     }
   },
 

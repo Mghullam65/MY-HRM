@@ -204,6 +204,7 @@ const Leaves = {
                 const emp = emps.find(e => e.id === leave.employeeId);
                 const type = types.find(t => t.id === leave.typeId);
                 const isSelf = Auth.employee?.id === leave.employeeId;
+                const calcDays = leave.days != null ? leave.days : (leave.from && leave.to ? Math.max(1, Math.round((new Date(leave.to) - new Date(leave.from)) / (1000 * 60 * 60 * 24)) + 1) : 1);
                 return `<tr>
                   <td><div style="display:flex;align-items:center;gap:10px">
                     <div class="avatar avatar-sm" style="background:${Utils.avatarColor(leave.employeeId)}">${Utils.avatarInitials(emp?.fullName||'?')}</div>
@@ -224,7 +225,7 @@ const Leaves = {
                   </td>
                   <td>${Utils.formatDate(leave.from)}</td>
                   <td>${Utils.formatDate(leave.to)}</td>
-                  <td><strong>${leave.days} day${leave.days!==1?'s':''}</strong></td>
+                  <td><strong>${calcDays} day${calcDays!==1?'s':''}</strong></td>
                   <td style="font-size:12px">${Utils.formatDate(leave.appliedOn)}</td>
                   <td>
                     ${Utils.statusBadge(leave.status)}
@@ -2697,8 +2698,8 @@ const Leaves = {
           ['Quota Utilized', quotaType?.name ? `${quotaType.name} Quota` : 'Standard Quota'],
           ['From', Utils.formatDate(leave.from)],
           ['To', Utils.formatDate(leave.to)],
-          ['Days', `${leave.days} day${leave.days !== 1 ? 's' : ''}`],
-          ['Reason', leave.reason],
+          ['Days', `${leave.days != null ? leave.days : (leave.from && leave.to ? Math.max(1, Math.round((new Date(leave.to) - new Date(leave.from)) / (1000 * 60 * 60 * 24)) + 1) : 1)} day${(leave.days != null ? leave.days : 1) !== 1 ? 's' : ''}`],
+          ['Reason', leave.reason || '—'],
           ['Remarks / Handover', leave.remarks || '—'],
           ['Salary Deduction', leave.salaryDeduction 
             ? (showFinancials 

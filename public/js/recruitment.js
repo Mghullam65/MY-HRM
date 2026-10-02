@@ -832,6 +832,10 @@ const Recruitment = {
         ${jobs.map(j => {
           const dept = depts.find(d => d.id === j.departmentId);
           const statusColors = { open:'var(--success)', closed:'var(--danger)', interviewing:'var(--warning)' };
+          const posText = j.positions ? `${j.positions} position${j.positions > 1 ? 's' : ''}` : '1 position';
+          const expText = j.experience || 'Experience: Any';
+          const salText = j.salary ? (String(j.salary).startsWith('PKR') ? j.salary : `PKR ${j.salary}`) : 'Competitive';
+          const dueText = j.deadline ? `Due: ${Utils.formatDate(j.deadline)}` : 'Open Position';
           return `
             <div class="card" style="border-left:4px solid ${statusColors[j.status]||'var(--primary)'}">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
@@ -842,10 +846,10 @@ const Recruitment = {
                 ${Utils.statusBadge(j.status)}
               </div>
               <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-                <span class="chip"><i class="fa fa-users" style="margin-right:4px"></i>${j.positions} position${j.positions>1?'s':''}</span>
-                <span class="chip"><i class="fa fa-briefcase" style="margin-right:4px"></i>${j.experience}</span>
-                <span class="chip"><i class="fa fa-money-bill" style="margin-right:4px"></i>PKR ${j.salary}</span>
-                <span class="chip"><i class="fa fa-calendar" style="margin-right:4px"></i>Due: ${Utils.formatDate(j.deadline)}</span>
+                <span class="chip"><i class="fa fa-users" style="margin-right:4px"></i>${posText}</span>
+                <span class="chip"><i class="fa fa-briefcase" style="margin-right:4px"></i>${expText}</span>
+                <span class="chip"><i class="fa fa-money-bill" style="margin-right:4px"></i>${salText}</span>
+                <span class="chip"><i class="fa fa-calendar" style="margin-right:4px"></i>${dueText}</span>
               </div>
               <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
                 <button class="btn btn-ghost btn-sm" style="font-size:13px;color:var(--primary);font-weight:700;padding:4px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px" onclick="Recruitment.viewJobApplicants(${j.id})" title="Click to view all applicants for this job">
