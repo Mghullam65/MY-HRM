@@ -10,6 +10,7 @@ jobs:
   qa-audit:
     name: Headless Chrome Deep Quality Gate
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -20,6 +21,11 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Install Chrome (stable)
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
       - name: Install Dependencies
         run: npm ci
 
@@ -27,4 +33,7 @@ jobs:
         run: node scripts/build.js
 
       - name: Execute Headless Quality Gate
+        env:
+          CHROME_BIN: google-chrome
+          DISPLAY: ''
         run: node scripts/ci-audit.js

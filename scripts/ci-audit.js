@@ -58,19 +58,50 @@ async function runCIAudit() {
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-gpu',
+    '--disable-extensions',
+    '--disable-background-networking',
+    '--disable-default-apps',
+    '--disable-sync',
+    '--mute-audio',
+    '--no-first-run',
     `--remote-debugging-port=${DEBUG_PORT}`,
     `--user-data-dir=${path.join(process.env.TEMP || '/tmp', 'hrm_ci_' + Date.now())}`,
     'about:blank'
   ];
 
-  const chrome = spawn(chromePath, chromeArgs);
-  await new Promise(r => setTimeout(r, 2000));
+  const chrome = spawn(chromePath, chromeArgs, { stdio: 'ignore' });
 
-  const ver = await new Promise(res => {
-    http.get(`http://127.0.0.1:${DEBUG_PORT}/json/version`, r => {
-      let d = ''; r.on('data', c => d += c); r.on('end', () => res(JSON.parse(d)));
-    });
+  chrome.on('error', (err) => {
+    console.error('[CI] Chrome spawn error:', err.message);
+    process.exit(1);
   });
+
+  // Poll until Chrome debug port is ready (up to 20s / 40 retries)
+  let ver = null;
+  for (let attempt = 1; attempt <= 40; attempt++) {
+    await new Promise(r => setTimeout(r, 500));
+    try {
+      ver = await new Promise((res, rej) => {
+        const req = http.get(`http://127.0.0.1:${DEBUG_PORT}/json/version`, r => {
+          let d = ''; r.on('data', c => d += c); r.on('end', () => {
+            try { res(JSON.parse(d)); } catch (e) { rej(e); }
+          });
+        });
+        req.on('error', rej);
+        req.setTimeout(1000, () => { req.destroy(); rej(new Error('timeout')); });
+      });
+      console.log(`[CI] Chrome ready on attempt ${attempt} (${attempt * 0.5}s)`);
+      break;
+    } catch (_) {
+      if (attempt === 40) {
+        console.error('[CI] Chrome debug port never became available after 20s. Aborting.');
+        chrome.kill();
+        server.close();
+        process.exit(1);
+      }
+      // still waiting…
+    }
+  }
 
   const ws = new WebSocket(ver.webSocketDebuggerUrl);
   await new Promise(r => ws.on('open', r));
