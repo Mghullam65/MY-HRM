@@ -1,0 +1,169 @@
+{
+  "target": "http://127.0.0.1:8096",
+  "routesTested": [
+    "#dashboard",
+    "#employees",
+    "#attendance",
+    "#leaves",
+    "#payroll",
+    "#performance",
+    "#recruitment",
+    "#assets",
+    "#expenses",
+    "#helpdesk",
+    "#events",
+    "#reports",
+    "#administration",
+    "#settings",
+    "#profile"
+  ],
+  "overflowIssues": [],
+  "brokenImages": [],
+  "nanOrUndefinedStrings": [],
+  "modalsTested": [],
+  "themeTested": {
+    "initialTheme": "light",
+    "hasToggleBtn": true,
+    "switchedSuccessfully": true
+  },
+  "i18nTested": null,
+  "exceptions": [],
+  "consoleErrors": [],
+  "networkErrors": [
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/stream"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/batch"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/auth/login"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/batch"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/notifications/poll?recipientEmpId=2&recipientRole=hr_manager&since=1790942254478"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/notifications/poll?recipientEmpId=2&recipientRole=hr_manager&since=1790942254478"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/notifications/poll?recipientEmpId=2&recipientRole=hr_manager&since=1790942254478"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/notifications/poll?recipientEmpId=2&recipientRole=hr_manager&since=1790942254478"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/set"
+    },
+    {
+      "status": 404,
+      "url": "http://127.0.0.1:8096/api/sync/version"
+    }
+  ],
+  "desktopCheck": {
+    "scrollWidth": 1434,
+    "innerWidth": 1440,
+    "hasOverflow": false,
+    "navItemsCount": 19,
+    "statCardsCount": 4
+  }
+}

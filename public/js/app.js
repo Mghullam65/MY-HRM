@@ -646,6 +646,16 @@ const App = {
               <i class="fa fa-mobile-screen-button"></i>
             </button>
 
+            <!-- Guided Product Tour -->
+            <button class="topbar-btn tour-trigger-btn" onclick="typeof HRMTour !== 'undefined' ? HRMTour.start(true) : null" title="Take Interactive Platform Tour" style="width:30px;height:30px;color:#a855f7">
+              <i class="fa fa-wand-magic-sparkles"></i>
+            </button>
+
+            <!-- Corporate Document Hub & PDF Generator -->
+            <button class="topbar-btn doc-hub-btn" onclick="typeof HRMDocumentEngine !== 'undefined' ? HRMDocumentEngine.openDocumentHub() : null" title="Corporate Document Hub & PDF Generator" style="width:30px;height:30px;color:#10b981">
+              <i class="fa fa-file-pdf"></i>
+            </button>
+
             <!-- Shortcuts Modal -->
             <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)" style="width:30px;height:30px">
               <i class="fa fa-keyboard"></i>
@@ -1159,6 +1169,7 @@ const App = {
     if (title) title.textContent = moduleLabels[module] || module;
     if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString('en-PK', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`;
     this.updateBreadcrumbs(module, subView);
+    this.updateMobileBottomNav(module);
 
     if (!content) return;
 
@@ -1259,6 +1270,32 @@ const App = {
     Toast.show('Logged out successfully. Please sign in again.', 'success');
   },
 
+  updateMobileBottomNav(module) {
+    const nav = document.getElementById('mobile-bottom-nav');
+    if (!nav) return;
+    const items = nav.querySelectorAll('.mobile-nav-item');
+    items.forEach(item => item.classList.remove('active'));
+
+    if (module === 'dashboard') {
+      const el = nav.querySelector('[data-nav="dashboard"]');
+      if (el) el.classList.add('active');
+    } else if (['employees', 'recruitment', 'profile'].includes(module)) {
+      const el = nav.querySelector('[data-nav="employees"]');
+      if (el) el.classList.add('active');
+    } else if (module === 'chat') {
+      const el = nav.querySelector('[data-nav="chat"]');
+      if (el) el.classList.add('active');
+    }
+  },
+
+  handleQuickClockIn(event) {
+    if (event) event.stopPropagation();
+    if (typeof Dashboard !== 'undefined' && typeof Dashboard.quickSelfPunch === 'function') {
+      Dashboard.quickSelfPunch('in');
+    } else {
+      this.navigate('attendance');
+    }
+  },
 
   toggleNotifications() {
     this.refreshNotifications();

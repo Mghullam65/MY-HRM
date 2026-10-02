@@ -426,6 +426,35 @@
     <!-- Page Content -->
     <main id="page-content" class="page-content"></main>
   </div>
+
+  <!-- Mobile Native Bottom Navigation Dock -->
+  <nav id="mobile-bottom-nav" class="mobile-bottom-nav" aria-label="Mobile Navigation">
+    <button class="mobile-nav-item active" data-nav="dashboard" onclick="App.navigate('dashboard')" title="Home Dashboard">
+      <i class="fa fa-house"></i>
+      <span>Home</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="employees" onclick="App.navigate('employees')" title="Team & Directory">
+      <i class="fa fa-users"></i>
+      <span>Team</span>
+    </button>
+    <button class="mobile-nav-item mobile-nav-action" onclick="App.handleQuickClockIn(event)" title="Quick Clock-In / Check-in">
+      <div class="action-btn-circle">
+        <i class="fa fa-fingerprint"></i>
+      </div>
+      <span>Check-in</span>
+    </button>
+    <button class="mobile-nav-item" data-nav="chat" onclick="Chat.toggleDrawer()" title="Team Chat">
+      <div style="position:relative">
+        <i class="fa fa-comments"></i>
+        <span id="mobile-chat-badge" class="mobile-badge" style="display:none">0</span>
+      </div>
+      <span>Chat</span>
+    </button>
+    <button class="mobile-nav-item" onclick="App.toggleSidebar()" title="All Modules">
+      <i class="fa fa-bars"></i>
+      <span>Menu</span>
+    </button>
+  </nav>
 </div>
 
 <!-- ══════════════════════════════════════
@@ -645,6 +674,8 @@
 <script src="js/settings.js?v=2.6.0"></script>
 <script src="js/hrAssistant.js?v=2.6.0"></script>
 <script src="js/pwa.js?v=3.1.0"></script>
+<script src="js/tour.js?v=1.0.0"></script>
+<script src="js/documentEngine.js?v=1.0.0"></script>
 
   <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
   <script>
@@ -661,6 +692,8 @@
       if (typeof Events !== 'undefined') window.Events = Events;
       if (typeof Reports !== 'undefined') window.Reports = Reports;
       if (typeof Administration !== 'undefined') window.Administration = Administration;
+      if (typeof HRMTour !== 'undefined') window.HRMTour = HRMTour;
+      if (typeof HRMDocumentEngine !== 'undefined') window.HRMDocumentEngine = HRMDocumentEngine;
     } catch(e) {}
 
     // Safety check — ensure all modules loaded
