@@ -2129,7 +2129,7 @@ const Chat = {
       bar.style.display = 'flex';
     }
 
-    setTimeout(() => {
+    setTimeout(async () => {
       if (bar) {
         bar.innerHTML = '';
         bar.style.display = 'none';
@@ -2306,18 +2306,30 @@ const Chat = {
           `- **Whistleblower & Grievances:** Anti-harassment and ethics redressal supports 100% cryptographic anonymity.\n\n` +
           `*For full policy documentation, visit the Knowledge Base in the Helpdesk module.*`;
       }
-      // ── INTENT 8: Default Fallback & Intelligent Guidance ──
+      // ── INTENT 8: Intelligent Gemini AI Assistant & Live Guidance ──
       else {
-        reply = `✨ Hello ${me.fullName.split(' ')[0]}! I'm your **HRM AI Copilot**, connected live to company records and policy ledgers.\n\n` +
-          `Here are some things you can ask me in natural language:\n` +
-          `- 🌴 *"How many annual leaves do I have left?"*\n` +
-          `- 💰 *"Show me my latest salary and payslip breakdown"*\n` +
-          `- 🎫 *"What is the status of ticket #TKT-2026-001?"*\n` +
-          `- ⏱️ *"What was my check-in time today?"*\n` +
-          `- 📑 *"What is the deadline for submitting expense claims?"*\n` +
-          `- 📖 *"What is the company policy on remote work and probation?"*\n` +
-          `- ✍️ *"Draft a sick leave request email for me"*\n\n` +
-          `*Feel free to click any of the suggestion chips below or ask your own question!*`;
+        if (typeof GeminiService !== 'undefined') {
+          try {
+            const geminiRes = await GeminiService.askHRCopilot(query);
+            if (geminiRes && geminiRes.success && geminiRes.text) {
+              reply = geminiRes.text;
+            }
+          } catch (e) {
+            console.warn('[Chat] Gemini query fallback:', e);
+          }
+        }
+        if (!reply) {
+          reply = `✨ Hello ${me.fullName.split(' ')[0]}! I'm your **HRM AI Copilot**, connected live to company records and policy ledgers.\n\n` +
+            `Here are some things you can ask me in natural language:\n` +
+            `- 🌴 *"How many annual leaves do I have left?"*\n` +
+            `- 💰 *"Show me my latest salary and payslip breakdown"*\n` +
+            `- 🎫 *"What is the status of ticket #TKT-2026-001?"*\n` +
+            `- ⏱️ *"What was my check-in time today?"*\n` +
+            `- 📑 *"What is the deadline for submitting expense claims?"*\n` +
+            `- 📖 *"What is the company policy on remote work and probation?"*\n` +
+            `- ✍️ *"Draft a sick leave request email for me"*\n\n` +
+            `*Feel free to click any of the suggestion chips below or ask your own question!*`;
+        }
       }
 
       const botMsg = {

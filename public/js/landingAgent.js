@@ -525,15 +525,44 @@ const LandingAgent = {
     if (el) el.remove();
   },
 
-  generateResponse(query) {
+  async generateResponse(query) {
     const typing = this.showTypingIndicator();
     const cleanQuery = query.toLowerCase();
 
+    try {
+      if (typeof GeminiService !== 'undefined') {
+        const geminiRes = await GeminiService.askLandingAgent(query, this.messageHistory);
+        if (geminiRes && geminiRes.success && geminiRes.text) {
+          this.removeTypingIndicator();
+          const formatted = GeminiService.formatMarkdown(geminiRes.text);
+          const html = `
+            <div style="font-size:10px;color:#a855f7;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px">
+              <i class="fa fa-sparkles"></i> Gemini AI &bull; Feature Concierge
+            </div>
+            <div>${formatted}</div>
+            <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="btn btn-primary btn-xs" onclick="App.showTrial('Enterprise')" style="font-size:11px">
+                <i class="fa fa-rocket"></i> Start Free Trial
+              </button>
+              <button class="btn btn-secondary btn-xs" onclick="App.showLogin()" style="font-size:11px">
+                <i class="fa fa-key"></i> Try Live Demo
+              </button>
+            </div>
+          `;
+          this.appendMessage({ role: 'agent', html });
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[LandingAgent] Gemini AI query failed, falling back to local knowledge:', err);
+    }
+
+    // Fallback to local structured knowledge base
     setTimeout(() => {
       this.removeTypingIndicator();
       const matched = this.matchQueryToKnowledge(cleanQuery);
       this.appendMessage({ role: 'agent', html: matched });
-    }, 380);
+    }, 350);
   },
 
   matchQueryToKnowledge(query) {

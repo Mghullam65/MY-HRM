@@ -96,7 +96,7 @@ const HRAssistant = {
           <div>
             <div style="font-weight:700;font-size:14.5px;color:var(--text);display:flex;align-items:center;gap:6px">
               HR AI Co-Pilot
-              <span class="badge badge-primary" style="font-size:10px;padding:2px 6px">GPT-HR v2.5</span>
+              <span class="badge" style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px"><i class="fa fa-sparkles"></i> Gemini AI</span>
             </div>
             <div style="font-size:11.5px;color:var(--text-3)">Real-time Workforce Intelligence & Document Generator</div>
           </div>
@@ -165,7 +165,7 @@ const HRAssistant = {
     this.handleUserInput(text);
   },
 
-  handleUserInput(text) {
+  async handleUserInput(text) {
     const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     this.messages.push({ sender: 'user', time, text });
     this.renderMessages();
@@ -174,16 +174,30 @@ const HRAssistant = {
     this.isProcessing = true;
     this.renderMessages();
 
-    setTimeout(() => {
-      const response = this.computeResponse(text);
-      this.isProcessing = false;
-      this.messages.push({
-        sender: 'ai',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: response
-      });
-      this.renderMessages();
-    }, 600);
+    let finalResponse = '';
+
+    try {
+      if (typeof GeminiService !== 'undefined') {
+        const geminiRes = await GeminiService.askHRCopilot(text, this.messages);
+        if (geminiRes && geminiRes.success && geminiRes.text) {
+          finalResponse = GeminiService.formatMarkdown(geminiRes.text);
+        }
+      }
+    } catch (err) {
+      console.warn('[HRAssistant] Gemini Co-Pilot query error, falling back to local engine:', err);
+    }
+
+    if (!finalResponse) {
+      finalResponse = this.computeResponse(text);
+    }
+
+    this.isProcessing = false;
+    this.messages.push({
+      sender: 'ai',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      text: finalResponse
+    });
+    this.renderMessages();
   },
 
   computeResponse(query) {

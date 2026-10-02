@@ -1,5 +1,5 @@
 // HRM Pro — Service Worker (Offline Shell, Asset Caching & Offline Sync)
-const CACHE_NAME = 'hrm-pro-cache-v3.6.1';
+const CACHE_NAME = 'hrm-pro-cache-v3.6.2';
 
 const STATIC_ASSETS = [
   './',
@@ -21,6 +21,7 @@ const STATIC_ASSETS = [
   './js/workflow.js',
   './js/workflow-engine.js',
   './js/websocket.js',
+  './js/geminiService.js',
   './js/chat.js',
   './js/landing.js',
   './js/landingAgent.js',

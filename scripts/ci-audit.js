@@ -224,6 +224,7 @@ async function runCIAudit() {
         docHubAccessible: typeof HRMDocumentEngine !== 'undefined' && typeof HRMDocumentEngine.openDocumentHub === 'function',
         badgeGeneratorLoaded: typeof HRMBadgeGenerator !== 'undefined',
         badgeModalAccessible: typeof HRMBadgeGenerator !== 'undefined' && typeof HRMBadgeGenerator.openModal === 'function',
+        geminiServiceLoaded: typeof GeminiService !== 'undefined',
         pwaActive: typeof PWA !== 'undefined'
       };
     })()`,
