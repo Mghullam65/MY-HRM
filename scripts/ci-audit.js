@@ -222,6 +222,8 @@ async function runCIAudit() {
         tourLoaded: typeof HRMTour !== 'undefined',
         docEngineLoaded: typeof HRMDocumentEngine !== 'undefined',
         docHubAccessible: typeof HRMDocumentEngine !== 'undefined' && typeof HRMDocumentEngine.openDocumentHub === 'function',
+        badgeGeneratorLoaded: typeof HRMBadgeGenerator !== 'undefined',
+        badgeModalAccessible: typeof HRMBadgeGenerator !== 'undefined' && typeof HRMBadgeGenerator.openModal === 'function',
         pwaActive: typeof PWA !== 'undefined'
       };
     })()`,

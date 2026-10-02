@@ -805,12 +805,16 @@ const Employees = {
               <div style="overflow:hidden">
                 <h3 style="font-size:17px;font-weight:700;color:#0284c7;margin:0;line-height:1.2;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${emp.fullName}</h3>
                 <div style="font-size:12.5px;font-weight:600;color:var(--text-2);margin-top:6px">EMP ID: ${String(emp.empNo||emp.id).replace('EMP-', '')}</div>
-                <div style="font-size:11px;color:var(--text-3);margin-top:3px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden">${Utils.getDesigName(emp.designationId)}</div>
-                ${(isHR || Auth.employee?.id === emp.id) ? `
-                  <button class="btn btn-ghost btn-xs" onclick="Employees.showUploadPhotoModal(${emp.id})" style="margin-top:5px;font-size:10px;padding:2px 7px;color:var(--primary)">
-                    <i class="fa fa-camera" style="font-size:9px"></i> Edit Photo
+                <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+                  ${(isHR || Auth.employee?.id === emp.id) ? `
+                    <button class="btn btn-ghost btn-xs" onclick="Employees.showUploadPhotoModal(${emp.id})" style="font-size:10px;padding:2px 7px;color:var(--primary)">
+                      <i class="fa fa-camera" style="font-size:9px"></i> Edit Photo
+                    </button>
+                  ` : ''}
+                  <button class="btn btn-secondary btn-xs" onclick="typeof HRMBadgeGenerator !== 'undefined' ? HRMBadgeGenerator.openModal(${emp.id}) : null" style="font-size:10px;padding:2px 7px;display:inline-flex;align-items:center;gap:4px">
+                    <i class="fa fa-id-card" style="color:var(--primary)"></i> ID Badge
                   </button>
-                ` : ''}
+                </div>
               </div>
             </div>
 

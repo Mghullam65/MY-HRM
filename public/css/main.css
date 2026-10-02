@@ -14772,3 +14772,36 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
   padding-top: 12px;
   border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
 }
+
+/* ════════════════════════════════════════════════════════════
+   DIGITAL EMPLOYEE ID CARD & 3D BADGE GENERATOR
+   ════════════════════════════════════════════════════════════ */
+.badge-3d-card {
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.badge-3d-card.flipped {
+  transform: rotateY(180deg);
+}
+.badge-3d-card:hover {
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.25));
+}
+.badge-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transition: box-shadow 0.3s ease;
+}
+@media (max-width: 768px) {
+  #hrm-badge-modal .card {
+    max-height: 96vh !important;
+  }
+  #hrm-badge-modal [style*="grid-template-columns:310px 1fr"] {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column-reverse !important;
+  }
+  .badge-3d-card {
+    transform: scale(0.9);
+    margin: -10px 0;
+  }
+}

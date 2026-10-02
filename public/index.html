@@ -676,6 +676,7 @@
 <script src="js/pwa.js?v=3.1.0"></script>
 <script src="js/tour.js?v=1.0.0"></script>
 <script src="js/documentEngine.js?v=1.0.0"></script>
+<script src="js/badgeGenerator.js?v=1.0.0"></script>
 
   <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
   <script>
@@ -694,6 +695,7 @@
       if (typeof Administration !== 'undefined') window.Administration = Administration;
       if (typeof HRMTour !== 'undefined') window.HRMTour = HRMTour;
       if (typeof HRMDocumentEngine !== 'undefined') window.HRMDocumentEngine = HRMDocumentEngine;
+      if (typeof HRMBadgeGenerator !== 'undefined') window.HRMBadgeGenerator = HRMBadgeGenerator;
     } catch(e) {}
 
     // Safety check — ensure all modules loaded

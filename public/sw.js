@@ -1,5 +1,5 @@
 // HRM Pro — Service Worker (Offline Shell, Asset Caching & Offline Sync)
-const CACHE_NAME = 'hrm-pro-cache-v3.6.0';
+const CACHE_NAME = 'hrm-pro-cache-v3.6.1';
 
 const STATIC_ASSETS = [
   './',
@@ -46,7 +46,8 @@ const STATIC_ASSETS = [
   './js/hrAssistant.js',
   './js/pwa.js',
   './js/tour.js',
-  './js/documentEngine.js'
+  './js/documentEngine.js',
+  './js/badgeGenerator.js'
 ];
 
 self.addEventListener('install', (event) => {

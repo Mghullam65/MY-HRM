@@ -656,6 +656,11 @@ const App = {
               <i class="fa fa-file-pdf"></i>
             </button>
 
+            <!-- Digital Employee ID Badge Generator -->
+            <button class="topbar-btn badge-trigger-btn" onclick="typeof HRMBadgeGenerator !== 'undefined' ? HRMBadgeGenerator.openModal() : null" title="Digital Employee ID Card & Badge Generator" style="width:30px;height:30px;color:#f59e0b">
+              <i class="fa fa-id-card"></i>
+            </button>
+
             <!-- Shortcuts Modal -->
             <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)" style="width:30px;height:30px">
               <i class="fa fa-keyboard"></i>
