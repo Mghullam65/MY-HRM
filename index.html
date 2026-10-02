@@ -27,7 +27,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/main.css?v=3.5.0">
+  <link rel="stylesheet" href="css/main.css?v=3.5.3">
   <link rel="stylesheet" href="css/landing-theme.css?v=2.5.3">
   <link rel="manifest" href="manifest.json">
 
@@ -625,8 +625,8 @@
 <script src="js/landing.js?v=2.5.3"></script>
 <script src="js/landingAgent.js?v=1.0.0"></script>
 <script src="js/trial.js?v=2.5.0"></script>
-<script src="js/app.js?v=3.0.0"></script>
-<script src="js/dashboard.js?v=3.0.0"></script>
+<script src="js/app.js?v=3.5.3"></script>
+<script src="js/dashboard.js?v=3.5.3"></script>
 <script src="js/employees.js?v=3.0.0"></script>
 <script src="js/attendance.js?v=2.6.0"></script>
 <script src="js/leaves.js?v=2.6.0"></script>
@@ -648,6 +648,21 @@
 
   <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
   <script>
+    // Ensure all modules are globally available on window object
+    try {
+      if (typeof Security !== 'undefined') window.Security = Security;
+      if (typeof Employees !== 'undefined') window.Employees = Employees;
+      if (typeof Attendance !== 'undefined') window.Attendance = Attendance;
+      if (typeof Leaves !== 'undefined') window.Leaves = Leaves;
+      if (typeof Payroll !== 'undefined') window.Payroll = Payroll;
+      if (typeof Assets !== 'undefined') window.Assets = Assets;
+      if (typeof Expenses !== 'undefined') window.Expenses = Expenses;
+      if (typeof Helpdesk !== 'undefined') window.Helpdesk = Helpdesk;
+      if (typeof Events !== 'undefined') window.Events = Events;
+      if (typeof Reports !== 'undefined') window.Reports = Reports;
+      if (typeof Administration !== 'undefined') window.Administration = Administration;
+    } catch(e) {}
+
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
       const required = ['Security','API','I18n','DB','LiveNotifications','Auth','HRMWebSocket','Landing','LandingAgent','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils','Chat','HRAssistant'];

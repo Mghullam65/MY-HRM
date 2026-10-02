@@ -7424,16 +7424,17 @@ const Utils = {
     if (typeof window === 'undefined' || !window.requestAnimationFrame) return;
     const el = typeof elementOrId === 'string' ? document.getElementById(elementOrId) : elementOrId;
     if (!el) return;
-    const num = parseFloat(String(targetValue).replace(/[^0-9.-]+/g, '')) || 0;
-    const isFloat = String(targetValue).includes('.');
+    const rawVal = el.dataset.target !== undefined ? el.dataset.target : targetValue;
+    const num = Math.abs(parseFloat(String(rawVal).replace(/[^0-9.]+/g, '')) || 0);
+    const isFloat = String(rawVal).includes('.');
     const startTime = performance.now();
 
     function update(now) {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const elapsed = Math.max(0, now - startTime);
+      const progress = Math.min(Math.max(0, elapsed / duration), 1);
       // easeOutCubic
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const current = num * eased;
+      const eased = Math.max(0, 1 - Math.pow(1 - progress, 3));
+      const current = Math.max(0, num * eased);
       const formatted = isFloat ? current.toFixed(1) : Math.round(current).toLocaleString();
       el.textContent = `${prefix}${formatted}${suffix}`;
       if (progress < 1) {

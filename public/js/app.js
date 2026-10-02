@@ -7,7 +7,7 @@ const App = {
 
   async init() {
     try {
-      // 0. Instant First Paint: If visiting root, #landing, or unauthenticated, immediately display landing page!
+      // 0. Instant First Paint: If visiting root, #landing, #login or #trial, immediately display the view in 0ms!
       const initialHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
       if (!initialHash || initialHash === 'landing') {
         const landingEl = document.getElementById('landing-page');
@@ -17,6 +17,19 @@ const App = {
         }
         if (typeof Landing !== 'undefined' && Landing.render) {
           try { Landing.render(); } catch (e) { console.warn('Pre-paint landing error:', e); }
+        }
+      } else if (initialHash === 'login') {
+        const loginEl = document.getElementById('login-page');
+        if (loginEl) {
+          loginEl.style.display = 'flex';
+        }
+        if (typeof Login !== 'undefined' && Login.render) {
+          try { Login.render(); } catch (e) { console.warn('Pre-paint login error:', e); }
+        }
+      } else if (initialHash === 'trial') {
+        const trialEl = document.getElementById('trial-page');
+        if (trialEl) {
+          trialEl.style.display = 'flex';
         }
       }
 
