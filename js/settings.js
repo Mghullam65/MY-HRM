@@ -2480,11 +2480,11 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     const appEl = document.getElementById('app');
     if (appEl) {
       if (pos === 'right') {
-        appEl.style.flexDirection = 'row-reverse';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'right');
         document.body.classList.add('sidebar-pos-right');
       } else {
-        appEl.style.flexDirection = 'row';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'left');
         document.body.classList.remove('sidebar-pos-right');
       }
@@ -2522,7 +2522,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     document.documentElement.classList.toggle('compact-mode', isCompact);
 
     // 3. Sidebar Position
-    const sidebarPos = settings.sidebarPosition || 'left';
+    const sidebarPos = settings.sidebarPosition || 'top';
     const appEl = document.getElementById('app');
     if (appEl) {
       if (sidebarPos === 'top') {
@@ -2532,13 +2532,13 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         document.body.classList.add('nav-pos-top');
         appEl.classList.add('nav-pos-top');
       } else if (sidebarPos === 'right') {
-        appEl.style.flexDirection = 'row-reverse';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'right');
         document.body.classList.remove('nav-pos-top');
         appEl.classList.remove('nav-pos-top');
         document.body.classList.add('sidebar-pos-right');
       } else {
-        appEl.style.flexDirection = 'row';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'left');
         document.body.classList.remove('nav-pos-top');
         appEl.classList.remove('nav-pos-top');

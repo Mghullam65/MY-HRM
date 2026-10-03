@@ -2856,7 +2856,8 @@ const Attendance = {
     if (!timeIn || explicitStatus === 'absent') return { status: explicitStatus, lateMinutes: 0, isLate: false, autoRemark: '' };
     const emp = DB.find('employees', empId);
     const shifts = DB.get('shifts') || [];
-    const shift = shifts.find(s => s.id === (emp?.shiftId || 1)) || shifts[0];
+    // BUG-07 FIX: guard against empty shifts array — never fall through to undefined cutoff
+    const shift = shifts.length ? (shifts.find(s => s.id === (emp?.shiftId || 1)) || shifts[0]) : null;
     const cutoff = shift?.timeInWindowEnd || '11:00';
 
     if (timeIn > cutoff) {
@@ -4837,6 +4838,8 @@ const Attendance = {
     let parsedCount = 0;
     let lateCount = 0;
 
+    const activeEmps = DB.get('employees') || [];
+    let skippedCount = 0;
     lines.forEach(line => {
       const parts = line.trim().split(/[\t, ]+/);
       if (parts.length >= 2) {
@@ -4844,8 +4847,18 @@ const Attendance = {
         const date = parts[1];
         const time = parts[2]?.slice(0, 5) || '09:00';
 
+        // BUG-03 FIX: validate employee exists before creating records
+        const empExists = activeEmps.some(e =>
+          e.id === empId ||
+          (e.biometricId && String(e.biometricId) === String(empId)) ||
+          String(e.empNo).replace(/\D/g, '') === String(empId)
+        );
+        if (!empExists) { skippedCount++; return; }
+
         if (empId && date) {
-          const isLate = time > '11:00';
+          // BUG-03 FIX: use evaluateTimeIn for consistent cutoff logic
+          const evalRes = this.evaluateTimeIn(empId, time, null);
+          const isLate = evalRes.isLate;
           if (isLate) lateCount++;
 
           // Update or add machine log
@@ -4885,17 +4898,21 @@ const Attendance = {
 
     DB.set('attendance', att);
     DB.set('attendance_logs', logs);
-    DB.log('IMPORT', 'Attendance', `Imported ${parsedCount} biometric machine punches from ZKTeco device`, Auth.user?.id);
+    DB.log('IMPORT', 'Attendance', `Imported ${parsedCount} biometric machine punches from ZKTeco device (${skippedCount} skipped — unknown employee IDs)`, Auth.user?.id);
 
     Modal.close('dynamic-modal');
-    Toast.show(`Successfully imported ${parsedCount} biometric punches!`, 'success', `${lateCount} punches flagged for late arrival cutoff.`);
+    const skipMsg = skippedCount > 0 ? ` ${skippedCount} lines skipped (unknown employee IDs).` : '';
+    Toast.show(`Successfully imported ${parsedCount} biometric punches!`, 'success', `${lateCount} punches flagged late.${skipMsg}`);
     this.renderView();
   },
 
   async syncBiometricHardware() {
-    Toast.show('Connecting to ZKTeco terminals (Head Office & Factory)...', 'info');
+    // Bridge URL: configurable via localStorage key 'zkBridgeUrl'
+    // Default: http://localhost:8877 (run bridge/zkteco-bridge.js on the same machine)
+    const bridgeUrl = localStorage.getItem('zkBridgeUrl') || 'http://localhost:8877';
+    Toast.show('Connecting to ZKTeco Bridge & hardware terminals...', 'info');
     try {
-      const resp = await fetch('/api/attendance/biometric-sync').catch(() => null);
+      const resp = await fetch(`${bridgeUrl}/api/attendance/biometric-sync`).catch(() => null);
       if (resp && resp.ok) {
         const data = await resp.json();
         const emps = (DB.get('employees') || []).filter(e => e.status === 'active');
@@ -4931,18 +4948,18 @@ const Attendance = {
 
               let rec = att.find(a => a.employeeId === emp.id && a.date === punchDate);
               if (!rec) {
-                const [h, m] = punchTime.split(':').map(Number);
-                const isLate = (h > 9) || (h === 9 && m > 30);
+                // BUG-01 FIX: use evaluateTimeIn for unified cutoff — was: (h > 9)||(h===9 && m>30) i.e. 09:31
+                const evalRes = this.evaluateTimeIn(emp.id, punchTime, null);
                 att.push({
                   id: DB.nextId('attendance'),
                   employeeId: emp.id,
                   date: punchDate,
                   timeIn: punchTime,
                   timeOut: null,
-                  status: isLate ? 'late' : 'present',
+                  status: evalRes.isLate ? 'late' : 'present',
                   device: b.device_name || 'Biometric Terminal',
                   overtime: 0,
-                  remarks: `Live sync from ${b.device_name || 'Hardware'}`
+                  remarks: evalRes.isLate ? evalRes.autoRemark : `Live sync from ${b.device_name || 'Hardware'}`
                 });
                 newPunches++;
               } else if (!rec.timeOut && punchTime > (rec.timeIn || '00:00')) {
@@ -6236,33 +6253,65 @@ const Attendance = {
     const allAtt = DB.get('attendance') || [];
     let att = allAtt.find(a => a.employeeId === empId && a.date === dateStr);
 
-    if (punchType.includes('In') || !att) {
+    const isCheckIn  = punchType.includes('In')  && !punchType.includes('Break');
+    const isCheckOut = punchType.includes('Out') && !punchType.includes('Break');
+    const isBreakOut = punchType.includes('Break-Out') || punchType === 'Break-Out';
+    const isBreakIn  = punchType.includes('Break-In')  || punchType === 'Break-In';
+
+    if (isCheckIn || (!att && !isCheckOut)) {
       if (!att) {
+        // BUG-02 FIX: use evaluateTimeIn for unified cutoff — was hardcoded timeStr > '10:00'
+        const evalRes = this.evaluateTimeIn(empId, timeStr, null);
         att = {
           id: Date.now() + 1,
           employeeId: empId,
           date: dateStr,
+          timeIn: timeStr,
           clockIn: timeStr,
           clockOut: null,
-          status: timeStr > '10:00' ? 'late' : 'present',
+          status: evalRes.isLate ? 'late' : 'present',
           overtime: 0,
-          notes: `Punch via ${device} (${verifyMode})`
+          device: device,
+          remarks: evalRes.isLate ? evalRes.autoRemark : `Punch via ${device} (${verifyMode})`
         };
         allAtt.push(att);
-      } else if (!att.clockIn) {
+      } else if (!att.clockIn && !att.timeIn) {
         att.clockIn = timeStr;
+        att.timeIn = timeStr;
       }
-    } else if (punchType.includes('Out')) {
-      if (att) {
-        att.clockOut = timeStr;
-        if (att.clockIn) {
-          const [inH, inM] = att.clockIn.split(':').map(Number);
-          const [outH, outM] = timeStr.split(':').map(Number);
-          const diffHours = (outH + outM / 60) - (inH + inM / 60);
-          if (diffHours > 8.5) {
-            att.overtime = Math.round((diffHours - 8) * 10) / 10;
-          }
+    } else if (isCheckOut) {
+      // BUG-05 FIX: warn operator if Check-Out arrives without a prior Check-In
+      if (!att || (!att.clockIn && !att.timeIn)) {
+        Toast.show(`Check-Out recorded for ${emp.fullName} — no prior Check-In found. Please verify.`, 'warning');
+        if (!att) {
+          att = { id: Date.now() + 1, employeeId: empId, date: dateStr, timeIn: null, clockIn: null, overtime: 0, device: device, remarks: `Orphan Check-Out via ${device}` };
+          allAtt.push(att);
         }
+      }
+      att.clockOut = timeStr;
+      att.timeOut  = timeStr;
+      if (att.clockIn || att.timeIn) {
+        const inTime = att.clockIn || att.timeIn;
+        const [inH, inM] = inTime.split(':').map(Number);
+        const [outH, outM] = timeStr.split(':').map(Number);
+        const diffHours = (outH + outM / 60) - (inH + inM / 60);
+        if (diffHours > 8.5) {
+          att.overtime = Math.round((diffHours - 8) * 10) / 10;
+        }
+      }
+    } else if (isBreakOut) {
+      // BUG-04 FIX: sync Break-Out punch into attendance register
+      if (att) {
+        att.breakOut = timeStr;
+        if (!att.breaks) att.breaks = [];
+        att.breaks.push({ breakOut: timeStr, breakIn: null });
+      }
+    } else if (isBreakIn) {
+      // BUG-04 FIX: sync Break-In punch into attendance register
+      if (att) {
+        att.breakIn = timeStr;
+        const lastBreak = att.breaks && att.breaks[att.breaks.length - 1];
+        if (lastBreak && !lastBreak.breakIn) lastBreak.breakIn = timeStr;
       }
     }
     DB.save('attendance', allAtt);
@@ -6347,11 +6396,24 @@ const Attendance = {
         return;
       }
       this._parsedRows = [];
+      this._csvSkipped = [];
+      const knownEmps = DB.get('employees') || [];
       for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
         if (parts.length >= 2 && parts[0] && parts[1]) {
+          const empId = Number(parts[0]);
+          // BUG-08 FIX: validate EmployeeID — report skipped rows instead of silent drop
+          if (isNaN(empId) || empId <= 0) {
+            this._csvSkipped.push({ row: i + 1, reason: `Invalid EmployeeID: '${parts[0]}'` });
+            continue;
+          }
+          const empExists = knownEmps.some(e => e.id === empId || String(e.empNo).replace(/\D/g, '') === String(empId));
+          if (!empExists) {
+            this._csvSkipped.push({ row: i + 1, reason: `Unknown Employee ID: ${empId}` });
+            continue;
+          }
           this._parsedRows.push({
-            employeeId: Number(parts[0]),
+            employeeId: empId,
             date: parts[1],
             clockIn: parts[2] || '09:00',
             clockOut: parts[3] || '18:00',
@@ -6373,6 +6435,10 @@ const Attendance = {
             <td><span class="badge badge-success">${r.status}</span></td>
           </tr>
         `).join('');
+        // BUG-08 FIX: show skipped row warnings below preview
+        if (this._csvSkipped && this._csvSkipped.length > 0) {
+          tbody.innerHTML += `<tr><td colspan="5" style="color:var(--warning);font-size:11px;font-weight:600;padding:6px 8px"><i class="fa fa-triangle-exclamation"></i> ${this._csvSkipped.length} row(s) skipped: ${this._csvSkipped.map(s => `Row ${s.row} — ${s.reason}`).join(', ')}</td></tr>`;
+        }
         previewDiv.style.display = 'block';
       }
     };
@@ -6382,21 +6448,28 @@ const Attendance = {
   confirmCSVImport() {
     if (!this._parsedRows || !this._parsedRows.length) return;
     const allAtt = DB.get('attendance') || [];
-    let count = 0;
+    let created = 0, overwritten = 0;
     this._parsedRows.forEach(r => {
       const existing = allAtt.find(a => a.employeeId === r.employeeId && a.date === r.date);
       if (existing) {
-        existing.clockIn = r.clockIn;
+        // BUG-06 FIX: track overwrite count and include in audit log instead of silent replace
+        existing.clockIn  = r.clockIn;
         existing.clockOut = r.clockOut;
-        existing.status = r.status;
-        existing.notes = r.notes;
+        existing.status   = r.status;
+        existing.timeIn   = r.clockIn;
+        existing.timeOut  = r.clockOut;
+        existing.notes    = r.notes;
+        existing.device   = 'Bulk CSV Import';
+        overwritten++;
       } else {
-        allAtt.push({ id: Date.now() + Math.random(), ...r });
+        allAtt.push({ id: Date.now() + Math.random(), timeIn: r.clockIn, timeOut: r.clockOut, device: 'Bulk CSV Import', ...r });
+        created++;
       }
-      count++;
     });
     DB.save('attendance', allAtt);
-    Toast.show(`Successfully imported ${count} attendance records!`, 'success');
+    DB.log('IMPORT', 'Attendance', `CSV bulk import: ${created} created, ${overwritten} overwritten by ${Auth.user?.username || 'Admin'}`, Auth.user?.id);
+    const overwriteNote = overwritten > 0 ? ` (${overwritten} existing record(s) updated)` : '';
+    Toast.show(`Imported ${created + overwritten} attendance records!${overwriteNote}`, 'success');
     Modal.close();
     this.render();
   }

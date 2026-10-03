@@ -1014,50 +1014,28 @@ const Landing = {
   render() {
     const container = document.getElementById('landing-page');
     if (!container) return;
-    const savedTheme = localStorage.getItem('hrm_landing_theme') || 'light';
-    container.setAttribute('data-theme', savedTheme);
-    const detailContainer = document.getElementById('module-detail-page');
-    if (detailContainer) detailContainer.setAttribute('data-theme', savedTheme);
 
-    // Live database counts
-    const emps = (typeof DB !== 'undefined' && DB.get) ? (DB.get('employees') || []) : [];
-    const att = (typeof DB !== 'undefined' && DB.get) ? (DB.get('attendance') || []) : [];
-    const leaves = (typeof DB !== 'undefined' && DB.get) ? (DB.get('leave_requests') || []) : [];
-    const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
-    const depts = (typeof DB !== 'undefined' && DB.get) ? (DB.get('departments') || []) : [];
+    const savedTheme = localStorage.getItem('landing_theme') || 'dark';
+    container.setAttribute('data-landing-theme', savedTheme);
+
+    // Live database telemetry
+    const emps = (typeof DB !== 'undefined' && DB.getEmployees) ? DB.getEmployees() : [];
+    const att = (typeof DB !== 'undefined' && DB.getAttendance) ? DB.getAttendance() : [];
+    const leaves = (typeof DB !== 'undefined' && DB.getLeaves) ? DB.getLeaves() : [];
+    const jobs = (typeof DB !== 'undefined' && DB.getJobs) ? DB.getJobs() : [];
+    const depts = (typeof DB !== 'undefined' && DB.getDepartments) ? DB.getDepartments() : [];
+
     const openJobsList = jobs.filter(j => j.status === 'active' || j.status === 'open');
     const openJobsCount = openJobsList.length;
-    const uniqueDeptIds = [...new Set(openJobsList.map(j => j.departmentId))];
-    const uniqueDepts = uniqueDeptIds.map(id => depts.find(d => d.id === id)).filter(Boolean);
 
     const todayStr = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : new Date().toISOString().slice(0, 10);
     const totalEmps = emps.length > 0 ? emps.length : 52;
     const presentToday = att.filter(a => a.date === todayStr && a.status === 'present').length || Math.min(totalEmps, 48);
     const pendingLeaves = leaves.filter(l => l.status === 'pending').length || 6;
-    const openJobs = openJobsCount;
-    const loggedIn = typeof Auth !== 'undefined' && (typeof Auth.isLoggedIn === 'function' ? Auth.isLoggedIn() : !!Auth.user);
 
     container.innerHTML = `
-      <div class="landing-wrapper" onclick="Landing.closeAllMenus()">
-        
-        <!-- ─── 0. TOP ANNOUNCEMENT BAR (MATCHING SCREENSHOT) ─── -->
-        <div class="landing-top-announcement">
-          <div class="landing-top-left">
-            <i class="fa fa-sparkles"></i>
-            <span>Enterprise Human Resource &amp; Payroll Management System</span>
-            <span style="opacity:0.4;margin:0 6px">•</span>
-            <span>99.98% Cloud Uptime</span>
-            <span style="opacity:0.4;margin:0 6px">•</span>
-            <span>Free 14-Day Enterprise Trial</span>
-          </div>
-          <div class="landing-top-right">
-            <a href="tel:+18005554767" class="landing-top-contact-item"><i class="fa fa-phone"></i> +1 (800) 555-HRMPRO</a>
-            <a href="mailto:enterprise@hrmpro.com" class="landing-top-contact-item"><i class="fa fa-envelope"></i> enterprise@hrmpro.com</a>
-            <a href="#" onclick="Landing.showDemoModal();return false;" class="landing-top-demo-btn"><i class="fa fa-play-circle"></i> Book Live Demo</a>
-          </div>
-        </div>
-
-        <!-- ─── 1. TOP NAVBAR WITH WARM CORAL ACCENTS ─── -->
+      <div class="landing-wrapper" data-landing-theme="${savedTheme}" onclick="Landing.closeAllMenus()">
+        <!-- ─── 1. TOP NAVBAR (WITH DUAL THEME TOGGLE) ─── -->
         <header class="landing-header">
           <div class="landing-nav-container">
             <a href="#" class="landing-brand" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">
@@ -1066,379 +1044,500 @@ const Landing = {
               </div>
               <div>
                 <div class="landing-brand-name">HRM Pro</div>
-                <div class="landing-brand-tag">Enterprise Human Capital Platform</div>
+                <div class="landing-brand-tag">Workforce Intelligence System</div>
               </div>
             </a>
 
-            <!-- Desktop Nav Links -->
-            <nav class="landing-nav-links desktop-only">
-              <a href="#" class="landing-nav-link" onclick="window.scrollTo({top:0,behavior:'smooth'});return false;">Home</a>
-              <a href="#modules-section" class="landing-nav-link" onclick="Landing.scrollTo('modules-section');return false;">16 Modules</a>
-              <a href="#why-us" class="landing-nav-link" onclick="Landing.scrollTo('why-us');return false;">Why Choose Us</a>
-              <a href="#capabilities" class="landing-nav-link" onclick="Landing.scrollTo('capabilities');return false;">Capabilities</a>
-              <a href="#workflow" class="landing-nav-link" onclick="Landing.scrollTo('workflow');return false;">Workflow</a>
-              <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Calculator</a>
-              <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQs</a>
-              <a href="#careers" class="landing-nav-link" onclick="Landing.scrollTo('careers');return false;">Careers <span class="landing-careers-nav-pill" style="background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);border:1px solid var(--hrm-vermilion-border)">${openJobsCount}&nbsp;Open</span></a>
+            <!-- Floating Pill Navigation Bar -->
+            <nav class="landing-nav-pill-wrapper" id="desktop-nav-pill">
+              <a href="#why-us" class="landing-nav-link" onclick="Landing.scrollTo('why-us');return false;">Why HRM Pro</a>
+              <a href="#values" class="landing-nav-link" onclick="Landing.scrollTo('values');return false;">Values</a>
+              <a href="#modules-catalog" class="landing-nav-link" onclick="Landing.scrollTo('modules-catalog');return false;">
+                16 Modules <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
+              </a>
+              <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Pillars</a>
+              <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Engine</a>
+              <a href="#integrations" class="landing-nav-link" onclick="Landing.scrollTo('integrations');return false;">Integrations</a>
+              <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
             </nav>
 
-            <div class="landing-nav-actions">
-              <button class="landing-btn-signin desktop-only" onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')" title="Install HRM Pro Desktop / Mobile App" style="background:rgba(56,189,248,0.1);color:#38bdf8;border:1px solid rgba(56,189,248,0.3)">
-                <i class="fa fa-mobile-screen-button"></i>
-                <span>Download App</span>
+            <!-- Nav Action Buttons & Theme Switcher -->
+            <div style="display:flex;align-items:center;gap:10px;">
+              <!-- Light / Dark Theme Switcher Button -->
+              <button class="landing-theme-toggle-btn" id="landing-theme-toggle" onclick="Landing.toggleTheme()" title="Switch Light / Dark Theme">
+                <i class="fa fa-sun theme-icon-sun"></i>
+                <i class="fa fa-moon theme-icon-moon"></i>
+                <span class="theme-toggle-label">${savedTheme === 'dark' ? 'Dark' : 'Light'}</span>
               </button>
-              ${loggedIn ? `
-              <button class="landing-btn-signin desktop-only" onclick="App.showApp();App.navigate('dashboard');" title="Open HRM Dashboard" style="background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;border-color:transparent">
-                <i class="fa fa-gauge-high"></i>
-                <span>Dashboard</span>
-              </button>
-              <button class="landing-btn-cta" onclick="App.showLogin()" title="Switch Account / Sign In">
-                <span>Sign In</span>
-              </button>
-              ` : `
-              <button class="landing-btn-signin desktop-only" onclick="App.showLogin()" title="Sign in to HRM Portal">
-                <i class="fa fa-right-to-bracket"></i>
-                <span>Sign In</span>
-              </button>
-              <button class="landing-btn-cta" onclick="Landing.scrollTo('quote-section')" title="Request Custom Proposal & Trial">
-                <span>Get Free Quote / Trial</span>
-              </button>
-              `}
-              <!-- Mobile Hamburger Toggle Button -->
-              <button class="landing-mobile-menu-btn" onclick="Landing.toggleMobileNav(event)" aria-label="Toggle navigation menu">
-                <i class="fa fa-bars"></i>
-              </button>
-            </div>
-          </div>
 
-          <!-- Mobile Nav Drawer -->
-          <div class="landing-mobile-drawer" id="landing-mobile-drawer">
-            <div class="landing-mobile-drawer-inner">
-              <a href="#" class="landing-mobile-link" onclick="Landing.closeMobileNav();window.scrollTo({top:0,behavior:'smooth'});return false;"><i class="fa fa-house"></i> Home</a>
-              <a href="#modules-section" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('modules-section');return false;"><i class="fa fa-cubes"></i> 16 Enterprise Modules</a>
-              <a href="#why-us" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('why-us');return false;"><i class="fa fa-award"></i> Why Choose Us</a>
-              <a href="#capabilities" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('capabilities');return false;"><i class="fa fa-gem"></i> Premium Capabilities</a>
-              <a href="#download-app" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('download-app');return false;"><i class="fa fa-mobile-screen"></i> Mobile App &amp; PWA</a>
-              <a href="#workflow" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('workflow');return false;"><i class="fa fa-arrows-split-up-and-left"></i> Lifecycle Workflow</a>
-              <a href="#tax-calc" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('tax-calc');return false;"><i class="fa fa-calculator"></i> Tax Calculator</a>
-              <a href="#faq" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('faq');return false;"><i class="fa fa-circle-question"></i> FAQs</a>
-              <a href="#careers" class="landing-mobile-link" onclick="Landing.closeMobileNav();Landing.scrollTo('careers');return false;"><i class="fa fa-briefcase"></i> Careers (${openJobsCount} Open)</a>
-              <div class="landing-mobile-actions">
-                <button class="landing-btn-signin" style="width:100%;justify-content:center;background:rgba(56,189,248,0.15);color:#38bdf8;border:1px solid rgba(56,189,248,0.35);margin-bottom:8px" onclick="Landing.closeMobileNav();typeof PWA !== 'undefined' ? PWA.promptInstall() : alert('Install ready')">
-                  <i class="fa fa-download"></i> Download Mobile App
-                </button>
-                ${loggedIn ? `
-                <button class="landing-btn-signin" style="width:100%;justify-content:center;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff" onclick="Landing.closeMobileNav();App.showApp();App.navigate('dashboard')"><i class="fa fa-gauge-high"></i> Open Dashboard</button>
-                <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()">Sign In (Switch Account)</button>
-                ` : `
-                <button class="landing-btn-signin" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();App.showLogin()"><i class="fa fa-right-to-bracket"></i> Sign In to Portal</button>
-                <button class="landing-btn-cta" style="width:100%;justify-content:center" onclick="Landing.closeMobileNav();Landing.scrollTo('quote-section')">Request Free Proposal</button>
-                `}
-              </div>
+              <button class="btn-automark-outline" style="padding:9px 20px;font-size:13.5px;" onclick="App.showLogin()">
+                <i class="fa fa-arrow-right-to-bracket" style="font-size:11px;"></i> Sign In
+              </button>
+              <button class="btn-automark-primary" style="padding:9px 20px;font-size:13.5px;" onclick="Trial.show()">
+                <i class="fa fa-rocket" style="font-size:11px;"></i> Free Trial
+              </button>
             </div>
           </div>
         </header>
 
-        <!-- ─── 2. EDITORIAL HERO SECTION (MATCHING REFERENCE DESIGN) ─── -->
-        <section class="editorial-hero-section">
-          <div class="editorial-hero-container">
-            <div class="editorial-hero-grid">
-              <div>
-                <h1 class="editorial-hero-title">
-                  PEOPLE FIRST<br>RECRUITMENT &amp;<br>WORKFORCE SUITE
-                </h1>
+        <!-- ─── 2. HERO SECTION WITH 3 ANIMATED MOVING OBJECTS ─── -->
+        <section class="landing-hero">
+          <!-- Ambient Spore Particles Canvas -->
+          <div class="hero-spore-container">
+            <canvas class="heroSporeCanvas"></canvas>
+          </div>
+
+          <!-- THREE (3) 3D ANIMATED MOVING OBJECTS -->
+          <div class="hero-3d-scene-container">
+            <!-- 3D Moving Object 1: Holographic Gyroscope Cube (Top Right) -->
+            <div class="anim-3d-cube-wrapper" title="3D Gyroscope Engine Node">
+              <div class="anim-3d-cube">
+                <div class="cube-face cube-front"><i class="fa fa-cubes"></i></div>
+                <div class="cube-face cube-back"><i class="fa fa-layer-group"></i></div>
+                <div class="cube-face cube-right"><i class="fa fa-chart-simple"></i></div>
+                <div class="cube-face cube-left"><i class="fa fa-microchip"></i></div>
+                <div class="cube-face cube-top"><i class="fa fa-shield-halved"></i></div>
+                <div class="cube-face cube-bottom"><i class="fa fa-bolt"></i></div>
               </div>
-              <div>
-                <p class="editorial-hero-sub">
-                  Empowering high-performance organizations with autonomous statutory payroll, real-time multi-branch biometric attendance, granular multi-tier role permissions, and seamless employee lifecycle management.
-                </p>
-                <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
-                  <button class="editorial-pill-btn" onclick="${loggedIn ? `App.showApp();App.navigate('dashboard');` : `App.showLogin();`}">
-                    <span>Explore Live Platform</span> <i class="fa fa-arrow-right" style="font-size:13px"></i>
+            </div>
+
+            <!-- 3D Moving Object 2: Planetary Workforce Orb & Orbit Rings (Top Left) -->
+            <div class="anim-3d-orb-wrapper" title="3D Planetary Workforce Core">
+              <div class="anim-3d-orb-core">
+                <i class="fa fa-network-wired"></i>
+              </div>
+              <div class="anim-orbit-ring ring-a"></div>
+              <div class="anim-orbit-ring ring-b"></div>
+            </div>
+
+            <!-- 3D Moving Object 3: Holographic Telemetry Badge & Biometric Radar (Bottom Right) -->
+            <div class="anim-3d-shield-wrapper" title="Live Telemetry Ingestion Node">
+              <div class="anim-3d-shield-card">
+                <div class="shield-radar-box">
+                  <div class="radar-sweep-beam"></div>
+                  <i class="fa fa-fingerprint"></i>
+                </div>
+                <div style="text-align:left">
+                  <div style="font-size:12.5px;font-weight:700;color:var(--color-heading);display:flex;align-items:center;gap:6px;">
+                    <span class="live-pulse-dot"></span> Live Biometric Ingestion
+                  </div>
+                  <div style="font-size:11px;color:var(--color-text-dark)">ZKTeco & SilkID Fleet · 14ms latency</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="landing-hero-content">
+            <div class="badge-automark">
+              <i class="fa fa-sparkles"></i> Automated Workforce Intelligence Platform
+            </div>
+
+            <h1 class="landing-hero-title hasHighlight">
+              The All-In-One Growth Software for <strong>Modern Enterprises</strong>
+            </h1>
+
+            <p class="landing-hero-subtitle">
+              The complete automated workforce system designed to manage personnel master files, biometric punch fleets, multi-company holdings, and 100% compliant statutory FBR tax & 30/26 gratuity settlements — all in one unified cloud hub.
+            </p>
+
+            <div class="landing-hero-actions">
+              <button class="btn-automark-primary" onclick="Trial.show()">
+                <i class="fa fa-rocket"></i> Start Your 14-Day Free Trial
+              </button>
+              <button class="btn-automark-outline" onclick="App.showLogin()">
+                <i class="fa fa-shield-halved"></i> Access Portal Demo
+              </button>
+            </div>
+          </div>
+
+          <!-- 3D Perspective Showcase Mockup -->
+          <div class="hero-showcase-perspective">
+            <div class="hero-dashboard-mockup">
+              <!-- Mockup Window Bar -->
+              <div class="mockup-topbar">
+                <div class="mockup-window-controls">
+                  <div class="mockup-dot red"></div>
+                  <div class="mockup-dot yellow"></div>
+                  <div class="mockup-dot green"></div>
+                  <span style="margin-left:12px;font-size:12px;color:var(--color-text-dark);font-family:var(--font-primary);">hrm-pro.enterprise.cloud/dashboard</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <span class="mockup-company-badge">
+                    <i class="fa fa-building-columns"></i> Apex Holding Corp (HQ) ▾
+                  </span>
+                  <span style="font-size:12px;color:#34D399;display:flex;align-items:center;gap:6px;font-weight:700">
+                    <span class="live-pulse-dot"></span> Telemetry Active
+                  </span>
+                </div>
+              </div>
+
+              <!-- Mockup Body Content -->
+              <div class="mockup-body">
+                <div class="mockup-kpis-grid">
+                  <div class="mockup-kpi-box">
+                    <div class="kpi-title"><i class="fa fa-users" style="color:#60A5FA;margin-right:6px"></i> Active Personnel</div>
+                    <div class="kpi-val">${totalEmps}</div>
+                    <div class="kpi-trend" style="color:#34D399;"><i class="fa fa-arrow-trend-up"></i> 100% Master Files Verified</div>
+                  </div>
+                  <div class="mockup-kpi-box">
+                    <div class="kpi-title"><i class="fa fa-clock" style="color:#34D399;margin-right:6px"></i> Today's Attendance</div>
+                    <div class="kpi-val">${presentToday} <span style="font-size:16px;color:var(--color-text-dark)">/ ${totalEmps}</span></div>
+                    <div class="kpi-trend" style="color:#34D399;"><i class="fa fa-fingerprint"></i> 92.3% Punctuality (Biometric Synced)</div>
+                  </div>
+                  <div class="mockup-kpi-box">
+                    <div class="kpi-title"><i class="fa fa-money-bill-wave" style="color:#A78BFA;margin-right:6px"></i> Monthly Payroll</div>
+                    <div class="kpi-val">PKR 4.85M</div>
+                    <div class="kpi-trend" style="color:#A78BFA;"><i class="fa fa-scale-balanced"></i> Exact FBR Tax Deducted</div>
+                  </div>
+                  <div class="mockup-kpi-box">
+                    <div class="kpi-title"><i class="fa fa-hourglass-half" style="color:#FBBF24;margin-right:6px"></i> Pending Clearances</div>
+                    <div class="kpi-val">${pendingLeaves}</div>
+                    <div class="kpi-trend" style="color:#FBBF24;"><i class="fa fa-file-signature"></i> Multi-Gate Exit & Leaves</div>
+                  </div>
+                </div>
+
+                <!-- Showcase Feature Strip -->
+                <div style="background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:18px;padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                  <div style="display:flex;align-items:center;gap:14px;">
+                    <div style="width:38px;height:38px;border-radius:10px;background:rgba(99,102,241,0.15);color:var(--color-primary);display:flex;align-items:center;justify-content:center;">
+                      <i class="fa fa-network-wired"></i>
+                    </div>
+                    <div style="text-align:left">
+                      <div style="font-size:13.5px;font-weight:700;color:var(--color-heading)">Unified Holding Operations Active</div>
+                      <div style="font-size:12px;color:var(--color-text-dark)">3 Subsidiary Entities · 2 Biometric Fleets · Automated Tax Clearing</div>
+                    </div>
+                  </div>
+                  <button class="btn-automark-outline" style="padding:8px 18px;font-size:12.5px;" onclick="App.showLogin()">
+                    Explore Live Dashboard <i class="fa fa-arrow-right" style="margin-left:6px;font-size:11px;"></i>
                   </button>
-                  <a href="#download-app" class="editorial-ghost-btn" onclick="Landing.scrollTo('download-app');return false;">
-                    <i class="fa fa-mobile-screen"></i> Download App
-                  </a>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 3. THE HRM PRO ADVANTAGE (3x3 MINIMALIST GRID MATCHING REFERENCE) ─── -->
-        <section class="editorial-advantage-section" id="advantage">
-          <div style="max-width: 1200px; margin: 0 auto; text-align: center;">
-            <h2 class="editorial-section-title">HRM Pro Advantage</h2>
-          </div>
-
-          <div class="editorial-adv-grid">
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-bolt"></i></div>
-              <h3 class="editorial-adv-title">Speed and Precision</h3>
-              <p class="editorial-adv-desc">Automated payroll execution calculates thousands of employee records with zero tax rounding discrepancy in seconds.</p>
+        <!-- ─── 3. TRUST & STATS STRIP ─── -->
+        <section class="landing-trust-strip">
+          <div class="landing-trust-strip-title">Trusted By Leading Enterprises, Multi-Entity Holdings & Factory Hubs</div>
+          <div class="landing-trust-badges-grid">
+            <div class="landing-trust-item">
+              <i class="fa fa-building-shield"></i>
+              <div>
+                <strong style="color:var(--color-heading);display:block;font-size:14.5px;margin-bottom:2px">Multi-Company Holdings</strong>
+                <span style="font-size:12.5px;color:var(--color-text-dark)">Head Office & Subsidiary Data Scoping</span>
+              </div>
             </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-scale-balanced"></i></div>
-              <h3 class="editorial-adv-title">Talent Quality Guarantee</h3>
-              <p class="editorial-adv-desc">Structured recruitment ATS with customizable pipeline stages, interview scorecards, and verifiable appointment offers.</p>
+            <div class="landing-trust-item">
+              <i class="fa fa-fingerprint"></i>
+              <div>
+                <strong style="color:var(--color-heading);display:block;font-size:14.5px;margin-bottom:2px">Biometric Fleet Hub</strong>
+                <span style="font-size:12.5px;color:var(--color-text-dark)">Live Hardware Ingestion & Remote IP Gates</span>
+              </div>
             </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-chart-line"></i></div>
-              <h3 class="editorial-adv-title">Talent That Transforms</h3>
-              <p class="editorial-adv-desc">Continuous performance appraisal reviews, SMART goal tracking, and skill certification matrices for high-output teams.</p>
+            <div class="landing-trust-item">
+              <i class="fa fa-money-bill-transfer"></i>
+              <div>
+                <strong style="color:var(--color-heading);display:block;font-size:14.5px;margin-bottom:2px">SPMS Payroll & 6 CSVs</strong>
+                <span style="font-size:12.5px;color:var(--color-text-dark)">Exact FBR Tax Engine & Bank Splitter</span>
+              </div>
             </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-sliders"></i></div>
-              <h3 class="editorial-adv-title">Personalized Partnerships</h3>
-              <p class="editorial-adv-desc">Tailored multi-branch organization hierarchies, custom approval matrices, and assisted data migration for your enterprise.</p>
-            </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-fingerprint"></i></div>
-              <h3 class="editorial-adv-title">Industry Expertise</h3>
-              <p class="editorial-adv-desc">Pre-configured with official FBR tax brackets (2024–2026), EOBI, SESSI/PESSI, and statutory 30/26 gratuity calculations.</p>
-            </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-user-group"></i></div>
-              <h3 class="editorial-adv-title">Focus on Culture Fit</h3>
-              <p class="editorial-adv-desc">Empower employees with self-service mobile portals for real-time leave applications, payslip downloads, and peer collaboration.</p>
-            </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-shield-halved"></i></div>
-              <h3 class="editorial-adv-title">Dedicated Account Security</h3>
-              <p class="editorial-adv-desc">Granular least-privilege role permissions (view-only, apply-only, approve-only) backed by comprehensive audit trails.</p>
-            </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-coins"></i></div>
-              <h3 class="editorial-adv-title">Cost-Effective Solutions</h3>
-              <p class="editorial-adv-desc">Eliminate multiple expensive software subscriptions by consolidating 16 mission-critical HR modules into one unified platform.</p>
-            </div>
-
-            <div class="editorial-adv-card">
-              <div class="editorial-adv-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-              <h3 class="editorial-adv-title">Continuous Innovation</h3>
-              <p class="editorial-adv-desc">High-speed real-time database architecture synchronizing changes instantly across desktop, web, and mobile environments.</p>
+            <div class="landing-trust-item">
+              <i class="fa fa-file-invoice-dollar"></i>
+              <div>
+                <strong style="color:var(--color-heading);display:block;font-size:14.5px;margin-bottom:2px">Statutory F&F Settlement</strong>
+                <span style="font-size:12.5px;color:var(--color-text-dark)">Automated 30/26 Gratuity & Clearances</span>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 4. RUNNING MARQUEE BANNER (MATCHING REFERENCE DESIGN) ─── -->
-        <div class="editorial-marquee-wrap">
-          <div class="editorial-marquee-track">
-            <span class="editorial-marquee-text">HIRING WITH EXPERT-DRIVEN RECRUITMENT • AUTONOMOUS PAYROLL &amp; FBR COMPLIANCE • REAL-TIME BIOMETRICS • </span>
-            <span class="editorial-marquee-text">HIRING WITH EXPERT-DRIVEN RECRUITMENT • AUTONOMOUS PAYROLL &amp; FBR COMPLIANCE • REAL-TIME BIOMETRICS • </span>
+        <!-- ─── 4. THE WORKFORCE FRICTION GAP (WHY US) ─── -->
+        <section class="section-box-automark" id="why-us">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-triangle-exclamation"></i> The Operational Gap</div>
+            <h2 class="hasHighlight">Are you losing real workforce hours to the <strong>Manual HR Gap?</strong></h2>
+            <p>Stop wasting money and leadership time on fragmented spreadsheets, lost WhatsApp leave requests, and guesswork tax calculations that trigger statutory penalties.</p>
           </div>
-        </div>
 
-        <!-- ─── 5. NUMBERED SPLIT FEATURE STORIES: 01, 02, 03 (MATCHING REFERENCE) ─── -->
-        <section class="editorial-stories-section" id="stories">
-          <div class="editorial-stories-container">
-            
-            <!-- Story 01 -->
-            <div class="editorial-story-card">
-              <div class="editorial-story-img-wrap">
-                <img src="assets/story-01-collaboration.jpg" alt="Flexible, Scalable Workforce Solution" class="editorial-story-img" onerror="this.src='public/assets/story-01-collaboration.jpg'">
-              </div>
-              <div class="editorial-story-content">
-                <div class="editorial-story-num">01</div>
-                <h3 class="editorial-story-title">Flexible, Scalable Workforce Solution</h3>
-                <p class="editorial-story-desc">
-                  Adapt dynamically as your headcount scales from 25 to 5,000+ employees. Manage digital employee profiles, contracts, and department reporting lines with zero spreadsheet chaos.
-                </p>
-                <div>
-                  <a href="#modules-section" onclick="Landing.scrollTo('modules-section');return false;" class="editorial-story-link">
-                    <span>Explore Solutions</span> <i class="fa fa-arrow-right"></i>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <!-- Story 02 -->
-            <div class="editorial-story-card">
-              <div class="editorial-story-img-wrap">
-                <img src="assets/story-02-handshake.jpg" alt="Unmatched Statutory & Payroll Expertise" class="editorial-story-img" onerror="this.src='public/assets/story-02-handshake.jpg'">
-              </div>
-              <div class="editorial-story-content">
-                <div class="editorial-story-num">02</div>
-                <h3 class="editorial-story-title">Unmatched Statutory &amp; Payroll Expertise</h3>
-                <p class="editorial-story-desc">
-                  Eliminate legal and fiscal compliance worries. Our embedded payroll tax engine automatically executes exact progressive tax slab deductions, EOBI contributions, and bank disbursement files.
-                </p>
-                <div>
-                  <a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;" class="editorial-story-link">
-                    <span>View Tax Engine</span> <i class="fa fa-arrow-right"></i>
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            <!-- Story 03 -->
-            <div class="editorial-story-card">
-              <div class="editorial-story-img-wrap">
-                <img src="assets/story-03-interview.jpg" alt="Faster Quality Hires & Precision Attendance" class="editorial-story-img" onerror="this.src='public/assets/story-03-interview.jpg'">
-              </div>
-              <div class="editorial-story-content">
-                <div class="editorial-story-num">03</div>
-                <h3 class="editorial-story-title">Faster Quality Hires &amp; Attendance</h3>
-                <p class="editorial-story-desc">
-                  Accelerate talent recruitment with end-to-end applicant tracking, and eliminate time-theft with real-time biometric terminal ingestion and GPS geofenced mobile check-ins.
-                </p>
-                <div>
-                  <a href="#download-app" onclick="Landing.scrollTo('download-app');return false;" class="editorial-story-link">
-                    <span>Get Applications</span> <i class="fa fa-arrow-right"></i>
-                  </a>
-                </div>
-              </div>
-            </div>
-
+          <!-- 6 Friction Chips -->
+          <div class="gap-chips-container">
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Wasted Payroll Spreadsheets (50+ hrs/mo)</div>
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Ghost Punches & Unsynced Scanners</div>
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Inaccurate FBR Tax Deductions & Audits</div>
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Disconnected Subsidiary Data Silos</div>
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Uncalculated 30/26 Exit Gratuity Disputes</div>
+            <div class="gap-chip"><i class="fa fa-xmark"></i> Lost Candidate Resumes & Delayed ATS</div>
           </div>
-        </section>
 
-        <!-- ─── 6. METRICS SOCIAL PROOF BAND (MATCHING REFERENCE) ─── -->
-        <section class="editorial-metrics-section">
-          <div style="text-align: center; max-width: 700px; margin: 0 auto 40px auto;">
-            <h3 style="font-size: 26px; font-weight: 900; color: #0f172a; margin-bottom: 8px;">100+ Enterprise Teams Trust HRM Pro</h3>
-            <p style="font-size: 14.5px; color: #64748b; margin: 0;">Delivering measurable operational efficiency, zero tax penalties, and rapid workforce velocity.</p>
-          </div>
-          <div class="editorial-metrics-grid">
-            <div class="editorial-metric-item">
-              <div class="editorial-metric-num" style="color: #6366f1;">50K+</div>
-              <div class="editorial-metric-label">Monthly Punches Tracked</div>
-            </div>
-            <div class="editorial-metric-item">
-              <div class="editorial-metric-num" style="color: #8b5cf6;">500+</div>
-              <div class="editorial-metric-label">Active Workforce Profiles</div>
-            </div>
-            <div class="editorial-metric-item">
-              <div class="editorial-metric-num" style="color: #10b981;">99.9%</div>
-              <div class="editorial-metric-label">Real-Time Cloud Uptime</div>
-            </div>
-            <div class="editorial-metric-item">
-              <div class="editorial-metric-num" style="color: #3b82f6;">5×</div>
-              <div class="editorial-metric-label">Faster Payroll Turnaround</div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 7. OUR COMMITMENT TO QUALITY (LILAC BAND WITH COLLAGE MATCHING REFERENCE) ─── -->
-        <section class="editorial-commitment-section" id="commitment">
-          <div class="editorial-commitment-grid">
-            <div>
-              <h2 style="font-size: clamp(26px, 3.5vw, 36px); font-weight: 900; color: #0f172a; margin-bottom: 16px; letter-spacing: -0.8px;">
-                Our Commitment to Operational Quality
-              </h2>
-              <p style="font-size: 15px; color: #475569; line-height: 1.7; margin-bottom: 16px;">
-                At HRM Pro, we believe enterprise software should inspire confidence at every executive level. That is why our platform is architected around ironclad data integrity, complete auditability, and effortless usability for your workforce.
-              </p>
-              <ul class="editorial-commitment-checklist">
-                <li class="editorial-commitment-item">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span><strong>Zero Discrepancy FBR Calculations:</strong> Automated statutory brackets ensure compliance with all Federal and Provincial labor requirements.</span>
-                </li>
-                <li class="editorial-commitment-item">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span><strong>Granular Least-Privilege Access:</strong> Strict multi-tier RBAC prevents accidental data exposure and enforces separation of duties.</span>
-                </li>
-                <li class="editorial-commitment-item">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span><strong>Automated Digital Document Safe:</strong> Track employment contracts, educational credentials, and warning letters with automated renewal alerts.</span>
-                </li>
-                <li class="editorial-commitment-item">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span><strong>Dedicated Migration &amp; SLA Support:</strong> White-glove data migration from legacy spreadsheets with 24/7 dedicated engineering support.</span>
-                </li>
+          <!-- Side-by-Side Comparison -->
+          <div class="problem-solution-grid-automark">
+            <div class="ps-card-automark broken">
+              <span class="ps-card-tag"><i class="fa fa-xmark"></i> The Broken Legacy Franken-Stack</span>
+              <h3 style="font-size:22px;margin-bottom:12px;color:var(--color-heading)">Disconnected Tools & Manual Guesswork</h3>
+              <p style="font-size:14.5px;color:var(--color-text-dark);line-height:1.6">HR teams juggle 5 separate tools, paper files, and WhatsApp chats, leading to salary errors, ghost punches, and audit penalties.</p>
+              <ul class="ps-list-automark">
+                <li class="ps-list-item-automark" style="color:#F87171"><i class="fa fa-circle-xmark"></i> Disconnected Excel files prone to formula crashes and data loss</li>
+                <li class="ps-list-item-automark" style="color:#F87171"><i class="fa fa-circle-xmark"></i> Physical biometric scanners offline with manual USB log extraction</li>
+                <li class="ps-list-item-automark" style="color:#F87171"><i class="fa fa-circle-xmark"></i> Outdated tax tables causing employee withholding tax discrepancies</li>
+                <li class="ps-list-item-automark" style="color:#F87171"><i class="fa fa-circle-xmark"></i> Zero subsidiary data isolation for multi-company holdings</li>
+                <li class="ps-list-item-automark" style="color:#F87171"><i class="fa fa-circle-xmark"></i> Unstandardized exit gratuity computations leading to labor court claims</li>
               </ul>
             </div>
 
-            <!-- Overlapping Human Team Collage -->
-            <div class="editorial-collage-wrap">
-              <img src="assets/quality-team-lead.jpg" alt="Dedicated Operations Support" class="editorial-collage-img" style="transform: translateY(-15px);" onerror="this.src='public/assets/quality-team-lead.jpg'">
-              <img src="assets/hr_functions_scene.jpg" alt="Enterprise Team Collaboration" class="editorial-collage-img" style="transform: translateY(20px);" onerror="this.src='public/assets/hr_functions_scene.jpg'">
+            <div class="ps-card-automark solution">
+              <span class="ps-card-tag"><i class="fa fa-check"></i> The HRM Pro Unified Engine</span>
+              <h3 style="font-size:22px;margin-bottom:12px;color:var(--color-heading)">Automated, Audit-Proof & Cloud Synced</h3>
+              <p style="font-size:14.5px;color:var(--color-text);line-height:1.6">All 16 operational workforce pillars operate seamlessly in one unified cloud database with strict statutory compliance and live hardware sync.</p>
+              <ul class="ps-list-automark">
+                <li class="ps-list-item-automark" style="color:#34D399"><i class="fa fa-circle-check"></i> Real-time cloud database with complete digital employee master files (e-DMS)</li>
+                <li class="ps-list-item-automark" style="color:#34D399"><i class="fa fa-circle-check"></i> Live biometric hardware push API across Head Office & Factory terminals</li>
+                <li class="ps-list-item-automark" style="color:#34D399"><i class="fa fa-circle-check"></i> Native SPMS payroll engine with official FY 2025-26 & 2026-27 FBR tax brackets</li>
+                <li class="ps-list-item-automark" style="color:#34D399"><i class="fa fa-circle-check"></i> Model A Multi-Company isolation with unified holding executive governance</li>
+                <li class="ps-list-item-automark" style="color:#34D399"><i class="fa fa-circle-check"></i> Statutory 30/26 Gratuity exit settlements with multi-gate clearance vouchers</li>
+              </ul>
             </div>
           </div>
         </section>
 
-        <!-- ─── 8. CLIENT SATISFACTION: OUR TOP PRIORITY (TESTIMONIAL SPOTLIGHT MATCHING REFERENCE) ─── -->
-        <section class="editorial-testimonial-section" id="testimonials">
-          <div class="editorial-testimonial-container">
-            <h2 style="font-size: clamp(24px, 3.2vw, 34px); font-weight: 900; color: #0f172a; margin-bottom: 8px; letter-spacing: -0.5px;">
-              Client Satisfaction: Our Top Priority
-            </h2>
-            <p style="font-size: 14.5px; color: #64748b; margin-bottom: 36px;">
-              Hear directly from financial executives and HR leaders who transformed their operations with HRM Pro.
-            </p>
+        <!-- ─── 5. VALUE PROPOSITION CARDS ─── -->
+        <section class="value-props-section" id="values">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-gem"></i> Core Value System</div>
+            <h2 class="hasHighlight">Replace Your Clunky Tools With A <strong>Smart, All-In-One System</strong></h2>
+            <p>Log in to a single powerful command center to manage your holding workforce seamlessly.</p>
+          </div>
 
-            <div class="editorial-quote-mark">“</div>
-            <div class="editorial-quote-body" id="editorial-spotlight-quote">
-              "${this.testimonialsData[0].quote}"
-            </div>
-            <div class="editorial-quote-author" id="editorial-spotlight-author">
-              ${this.testimonialsData[0].author}
-            </div>
-            <div class="editorial-quote-role" id="editorial-spotlight-role">
-              ${this.testimonialsData[0].role}
+          <div class="value-cards-grid">
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-building-shield"></i></div>
+              <h3 class="value-card-title">Multi-Company Holdings</h3>
+              <p class="value-card-desc">Govern parent holdings and autonomous subsidiary business units with strict Model A data isolation and unified group telemetry.</p>
+              <ul class="value-card-list">
+                <li><i class="fa fa-circle-check"></i> Unified Holding Command Center</li>
+                <li><i class="fa fa-circle-check"></i> Model A Subsidiary Scoped Security</li>
+                <li><i class="fa fa-circle-check"></i> 1-Click Entity & Branch Switcher</li>
+              </ul>
             </div>
 
-            <!-- Avatar Switcher (3 Clickable Portraits) -->
-            <div class="editorial-avatar-switcher">
-              ${this.testimonialsData.map((t, idx) => `
-                <button class="editorial-avatar-btn ${idx === 0 ? 'active' : ''}" onclick="Landing.switchTestimonial(${idx})" title="${t.author} (${t.role.split(',')[0]})">
-                  <img src="${t.avatar}" alt="${t.author}">
-                </button>
-              `).join('')}
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-fingerprint"></i></div>
+              <h3 class="value-card-title">Biometric Fleet Gateway</h3>
+              <p class="value-card-desc">Direct hardware push integration with physical fingerprint/facial scanners across branches, remote IP gates, and overtime calculations.</p>
+              <ul class="value-card-list">
+                <li><i class="fa fa-circle-check"></i> Real-Time Punch Ingestion API</li>
+                <li><i class="fa fa-circle-check"></i> Arrival Buffers & Late Deductions</li>
+                <li><i class="fa fa-circle-check"></i> Automated Overtime Token Feeds</li>
+              </ul>
+            </div>
+
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-money-bill-transfer"></i></div>
+              <h3 class="value-card-title">SPMS Payroll & Tax</h3>
+              <p class="value-card-desc">Error-free monthly pay runs with exact FBR income tax slabs, 6 exportable banking CSV batches, and cumulative EOBI ledgers.</p>
+              <ul class="value-card-list">
+                <li><i class="fa fa-circle-check"></i> Official FY 2025-27 Tax Slabs</li>
+                <li><i class="fa fa-circle-check"></i> 6 CSV Financial Disbursal Files</li>
+                <li><i class="fa fa-circle-check"></i> Gross vs Splitter Bank Accounts</li>
+              </ul>
+            </div>
+
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-file-invoice-dollar"></i></div>
+              <h3 class="value-card-title">Statutory Exit & Gratuity</h3>
+              <p class="value-card-desc">End-to-end offboarding with legal 30/26 gratuity computations, multi-department sign-offs, and printable settlement vouchers.</p>
+              <ul class="value-card-list">
+                <li><i class="fa fa-circle-check"></i> Legal 30/26 Formula Automation</li>
+                <li><i class="fa fa-circle-check"></i> IT, Finance & Dept Clearances</li>
+                <li><i class="fa fa-circle-check"></i> Printable Final Settlement Vouchers</li>
+              </ul>
             </div>
           </div>
         </section>
 
-        <!-- ─── 9. "YOUR TRUSTED PARTNER" 16 MODULE PRODUCT GRID ─── -->
-        <section class="section-modules-gallery" id="modules-section">
-          <div class="landing-section-header">
-            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-cubes"></i> 16 Comprehensive Modules
-            </div>
-            <h2 class="landing-section-title">Complete Enterprise Workforce Management Suite</h2>
-            <p class="landing-section-sub">
-              Empowering fast-growing enterprises, multi-branch corporations &amp; institutions with seamless, audit-ready HR automation.
-            </p>
+        <!-- ─── 6. ALL 16 ENTERPRISE MODULES & DETAILED FEATURE CATALOG ─── -->
+        <section class="modules-catalog-section" id="modules-catalog">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-cubes"></i> Complete System Inventory</div>
+            <h2 class="hasHighlight">All 16 Enterprise Modules & <strong>Feature Details</strong></h2>
+            <p>Our platform delivers 16 interconnected operational modules with role-based governance. Click any module below to inspect full capabilities and workflows.</p>
           </div>
 
-          <div class="modules-product-grid">
-            ${this.renderModulesProductGrid()}
+          <!-- Category Filter Bar -->
+          <div class="catalog-filter-bar">
+            <button class="catalog-filter-btn active" data-cat="all" onclick="Landing.filterModulesCatalog('all')">
+              All 16 Modules
+            </button>
+            <button class="catalog-filter-btn" data-cat="workforce" onclick="Landing.filterModulesCatalog('workforce')">
+              Core Workforce
+            </button>
+            <button class="catalog-filter-btn" data-cat="finance" onclick="Landing.filterModulesCatalog('finance')">
+              Compensation & Talent
+            </button>
+            <button class="catalog-filter-btn" data-cat="operations" onclick="Landing.filterModulesCatalog('operations')">
+              Operations & BI
+            </button>
+            <button class="catalog-filter-btn" data-cat="governance" onclick="Landing.filterModulesCatalog('governance')">
+              Holdings & Legal
+            </button>
+          </div>
+
+          <!-- Dynamic 16 Modules Cards Grid -->
+          <div class="modules-catalog-grid" id="modules-catalog-grid">
+            ${this.getModulesCatalogHtml('all')}
           </div>
         </section>
 
-        <!-- ─── 8. INTERACTIVE PAKISTAN STATUTORY TAX CALCULATOR ─── -->
-        <section class="tax-calc-section" id="tax-calc" style="padding:60px 24px;background:#ffffff;border-top:1px solid #f1f5f9">
-          <div class="tax-calc-card">
-            <div style="text-align:center;max-width:680px;margin:0 auto 36px auto">
-              <div class="landing-pill-badge tax-calc-badge" style="margin-bottom:12px">
-                <i class="fa fa-calculator" style="color:var(--hrm-coral)"></i> Live Statutory Payroll Estimator
+        <!-- ─── 7. INTERACTIVE 8-PILLAR CORE HR SHOWCASE ─── -->
+        <section class="pillar-tabs-container" id="features">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-layer-group"></i> 8 Enterprise Pillars</div>
+            <h2 class="hasHighlight">Explore The <strong>Core Platform Pillars</strong></h2>
+            <p>Inspect live telemetry metrics, security access gates, and architectural workflows for our signature engines.</p>
+          </div>
+
+          <div class="pillar-tabs-nav" role="tablist">
+            <button class="pillar-tab-btn ${Landing.activePillar === 'people' ? 'active' : ''}" onclick="Landing.switchPillar('people')">
+              <i class="fa fa-users"></i> People & e-DMS
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'attendance' ? 'active' : ''}" onclick="Landing.switchPillar('attendance')">
+              <i class="fa fa-clock"></i> Biometric Fleet
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'payroll' ? 'active' : ''}" onclick="Landing.switchPillar('payroll')">
+              <i class="fa fa-money-bill-wave"></i> SPMS Payroll & Tax
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'multi_company' ? 'active' : ''}" onclick="Landing.switchPillar('multi_company')">
+              <i class="fa fa-building-shield"></i> Multi-Company Holdings
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'settlement' ? 'active' : ''}" onclick="Landing.switchPillar('settlement')">
+              <i class="fa fa-file-invoice-dollar"></i> Exit & Gratuity
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'recruitment' ? 'active' : ''}" onclick="Landing.switchPillar('recruitment')">
+              <i class="fa fa-briefcase"></i> Recruitment ATS
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'performance' ? 'active' : ''}" onclick="Landing.switchPillar('performance')">
+              <i class="fa fa-chart-line"></i> Performance & OKRs
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'training' ? 'active' : ''}" onclick="Landing.switchPillar('training')">
+              <i class="fa fa-graduation-cap"></i> Training & LMS
+            </button>
+          </div>
+
+          <div class="pillar-showcase-panel" id="pillar-showcase-panel">
+            ${Landing.getPillarCardHtml(Landing.activePillar)}
+          </div>
+        </section>
+
+        <!-- ─── 8. FOUNDER / CEO THOUGHT SECTION ─── -->
+        <div class="ourstory-section">
+          <div class="ourstory-quote-mark">
+            <i class="fa fa-quote-left"></i>
+          </div>
+          <h2 class="ourstory-title hasHighlight">
+            We know you didn't build your enterprise to spend weekends <strong>Debugging Payroll Spreadsheets</strong>
+          </h2>
+          <blockquote class="ourstory-quote">
+            "Before HRM Pro, our accounts and HR department spent 7 full days at each month-end reconciling biometric attendance logs, manually computing FBR tax brackets, and settling subsidiary transfers. Now, our entire holding payroll of 450+ staff across 3 corporate entities runs in under 12 minutes with 100% audit accuracy."
+          </blockquote>
+          <div style="font-family:var(--font-secondary);font-size:18px;font-weight:700;color:var(--color-heading)">Ronald Richards</div>
+          <div style="font-size:13.5px;color:var(--color-primary);font-weight:600">Group Chief Operating Officer · Nexus Holdings</div>
+        </div>
+
+        <!-- ─── 9. TESTIMONIAL & STAT BLOBS ─── -->
+        <section class="testimonial-section-automark" id="testimonials">
+          <div class="testimonial-grid-automark">
+            <div class="stat-blobs-col">
+              <div class="blob-message-automark">
+                <strong>10,000+</strong>
+                Active Personnel Managed Across Regional Hubs
               </div>
-              <h2 class="tax-calc-title" style="font-size:32px;font-weight:900;letter-spacing:-0.8px;margin-bottom:10px">
-                Interactive Salary &amp; Income Tax Calculator
+              <div class="blob-message-automark" style="margin-left:20px;">
+                <strong>5x Faster</strong>
+                Automated Leave & Multi-Gate Exit Approvals
+              </div>
+              <div class="blob-message-automark">
+                <strong>100% Audit-Ready</strong>
+                Statutory FBR Tax & Legal 30/26 Gratuity Compliance
+              </div>
+            </div>
+
+            <div class="testimonial-card-automark">
+              <div style="color:#FBBF24;font-size:18px;margin-bottom:20px;display:flex;gap:4px;">
+                <i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i>
+              </div>
+              <blockquote style="font-size:19px;line-height:1.7;color:var(--color-heading);font-family:var(--font-secondary);margin-bottom:28px;">
+                "This all-in-one software is exactly what our enterprise holding group needed. It completely eliminated our need for 4 separate disconnected vendors, streamlined our biometric punch fleet across factory sites, and gave our board instant visibility into subsidiary headcount costs."
+              </blockquote>
+              <div style="display:flex;align-items:center;gap:16px;">
+                <div style="width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--color-primary),var(--color-accent-cyan));display:flex;align-items:center;justify-content:center;color:#FFFFFF;font-size:20px;font-weight:800;">
+                  RR
+                </div>
+                <div>
+                  <h4 style="font-size:17px;font-weight:700;color:var(--color-heading);margin-bottom:2px">Ronald Richards</h4>
+                  <p style="font-size:13px;color:var(--color-text-dark);margin:0">Group Chief Operating Officer, Indus Holdings</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 10. 3-STEP PATH TO AUTOMATED WORKFORCE GROWTH ─── -->
+        <section class="growth-process-section" id="process">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-route"></i> Seamless Deployment</div>
+            <h2 class="hasHighlight">Your 3-Step Path to <strong>Automated Workforce Operations</strong></h2>
+            <p>Transform your entire human resource lifecycle from manual friction to autonomous accuracy in days.</p>
+          </div>
+
+          <div class="growth-steps-grid">
+            <div class="growth-step-card">
+              <div class="growth-step-badge">01</div>
+              <h3 style="font-size:20px;font-weight:700;margin-bottom:12px;color:var(--color-heading)">Configure Group Holdings</h3>
+              <p style="font-size:14.5px;color:var(--color-text);line-height:1.6">Set up your parent corporate entity, autonomous subsidiaries, branches, and custom grading rules in under 15 minutes.</p>
+            </div>
+            <div class="growth-step-card">
+              <div class="growth-step-badge">02</div>
+              <h3 style="font-size:20px;font-weight:700;margin-bottom:12px;color:var(--color-heading)">Connect Hardware & Staff</h3>
+              <p style="font-size:14.5px;color:var(--color-text);line-height:1.6">Import digital personnel master files, link physical biometric scanner terminal IPs, and invite department managers with role-based gates.</p>
+            </div>
+            <div class="growth-step-card">
+              <div class="growth-step-badge">03</div>
+              <h3 style="font-size:20px;font-weight:700;margin-bottom:12px;color:var(--color-heading)">Scale on Autopilot</h3>
+              <p style="font-size:14.5px;color:var(--color-text);line-height:1.6">Watch daily attendance aggregate, run 1-click statutory payroll with exact FBR tax deductions, and disburse 6 banking CSV files automatically.</p>
+            </div>
+          </div>
+
+          <div>
+            <button class="btn-automark-primary" onclick="Trial.show()">
+              <i class="fa fa-rocket"></i> Start Your 14-Day Free Trial
+            </button>
+          </div>
+        </section>
+
+        <!-- ─── 11. PAKISTAN STATUTORY TAX CALCULATOR ─── -->
+        <section class="tax-calc-section" id="tax-calc">
+          <div class="tax-calc-card">
+            <div style="text-align:center;max-width:720px;margin:0 auto 40px auto">
+              <div class="badge-automark">
+                <i class="fa fa-calculator text-primary"></i> Live Statutory Payroll Estimator
+              </div>
+              <h2 class="hasHighlight" style="font-size:34px;margin-bottom:12px;color:var(--color-heading)">
+                Interactive Salary & <strong>Income Tax Calculator</strong>
               </h2>
-              <p class="tax-calc-desc" style="font-size:14px;line-height:1.6;color:#64748b">
-                Calculate real-time monthly take-home pay, FBR income tax deductions, and statutory funds under official Tax Slabs (2024-2025). Deducts tax after Provident Fund and exempt allowances for maximum take-home clarity.
+              <p style="font-size:15px;color:var(--color-text);line-height:1.6">
+                Calculate real-time monthly take-home pay, progressive FBR income tax withholdings, and statutory funds under official Pakistan Tax Slabs (FY 2025-26 & 2026-27).
               </p>
             </div>
 
             <div class="tax-calc-grid">
               <!-- Inputs Side -->
-              <div class="tax-calc-box-input">
-                <label class="tax-calc-label" style="font-size:13.5px;display:block;margin-bottom:6px;font-weight:700">
+              <div style="background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:24px;padding:30px;">
+                <label style="font-size:14px;font-weight:700;color:var(--color-heading);display:block;margin-bottom:8px">
                   Monthly Gross Salary (PKR)
                 </label>
-                <div style="position:relative;margin-bottom:14px">
-                  <span class="tax-calc-prefix" style="position:absolute;left:14px;top:12px;font-weight:800;font-size:15px;color:var(--hrm-coral)">PKR</span>
+                <div style="position:relative;margin-bottom:16px">
+                  <span style="position:absolute;left:16px;top:12px;font-weight:800;color:var(--color-primary);font-size:15px">PKR</span>
                   <input type="number" id="tax-input-gross" value="150000" min="0" max="10000000" step="5000"
-                    class="tax-calc-input"
-                    style="width:100%;box-sizing:border-box;border-radius:10px;padding:12px 14px 12px 55px;font-size:18px;font-weight:800;outline:none"
+                    style="width:100%;box-sizing:border-box;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:12px 14px 12px 60px;font-size:18px;font-weight:800;color:var(--color-heading);outline:none"
                     oninput="Landing.updateTaxCalc(this.value)">
                 </div>
 
@@ -1446,565 +1545,318 @@ const Landing = {
                   oninput="Landing.updateTaxCalc(this.value)">
 
                 <!-- Quick Presets Chips -->
-                <div class="tax-calc-desc" style="font-size:12px;margin-top:14px;margin-bottom:6px;font-weight:700">Quick Presets:</div>
-                <div class="tax-presets-row" role="group" aria-label="Salary Presets">
-                  <button type="button" id="preset-tax-80000" class="tax-preset-chip" onclick="Landing.setTaxPreset(80000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 80k</button>
-                  <button type="button" id="preset-tax-150000" class="tax-preset-chip active" onclick="Landing.setTaxPreset(150000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 150k</button>
-                  <button type="button" id="preset-tax-250000" class="tax-preset-chip" onclick="Landing.setTaxPreset(250000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 250k</button>
-                  <button type="button" id="preset-tax-500000" class="tax-preset-chip" onclick="Landing.setTaxPreset(500000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 500k</button>
-                  <button type="button" id="preset-tax-1000000" class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)"><i class="fa fa-calculator" style="font-size:11px;opacity:0.8"></i> PKR 1.0M</button>
-                </div>
-              </div>
-
-              <!-- Results Display Side -->
-              <div class="tax-calc-box-results">
-                <div class="tax-results-net-card" style="background:var(--hrm-coral);color:#ffffff;border-radius:14px;padding:22px">
-                  <div class="tax-net-title" style="font-size:12px;letter-spacing:0.3px;opacity:0.9">Estimated Net Take-Home Pay</div>
-                  <div class="tax-net-amount" id="tax-res-net" style="font-size:32px;font-weight:900;margin:6px 0">PKR 144,000</div>
-                  <div class="tax-net-sub" style="font-size:13px;opacity:0.9" id="tax-res-pct">96.0% of gross monthly salary</div>
+                <div style="font-size:12px;color:var(--color-text-dark);margin-top:16px;margin-bottom:8px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em">Quick Salary Presets:</div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  <button type="button" class="tax-preset-chip" onclick="Landing.setTaxPreset(80000)">PKR 80k</button>
+                  <button type="button" class="tax-preset-chip active" onclick="Landing.setTaxPreset(150000)">PKR 150k</button>
+                  <button type="button" class="tax-preset-chip" onclick="Landing.setTaxPreset(250000)">PKR 250k</button>
+                  <button type="button" class="tax-preset-chip" onclick="Landing.setTaxPreset(500000)">PKR 500k</button>
+                  <button type="button" class="tax-preset-chip" onclick="Landing.setTaxPreset(1000000)">PKR 1.0M</button>
                 </div>
 
-                <!-- Ledger Rows -->
-                <div class="tax-results-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9">
-                  <span class="tax-row-label">Monthly Gross Salary</span>
-                  <strong class="tax-row-val" id="tax-res-gross">PKR 150,000</strong>
-                </div>
-                <div class="tax-results-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f1f5f9">
-                  <span class="tax-row-label">Annual Income Tax</span>
-                  <strong style="color:#ef4444;font-weight:800" id="tax-res-annual-tax">PKR 72,000</strong>
-                </div>
-                <div class="tax-results-row" style="display:flex;justify-content:space-between;padding:10px 0">
-                  <span class="tax-row-label">FBR Tax Bracket</span>
-                  <span style="font-size:12px;color:var(--hrm-coral);text-align:right;font-weight:700" id="tax-res-slab-desc">Slab 3</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 9. FREQUENTLY ASKED QUESTIONS (ACCORDION) ─── -->
-        <section class="landing-faq-section" id="faq" style="padding:60px 24px;background:#f9fafb">
-          <div class="landing-section-header">
-            <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-              <i class="fa fa-circle-question"></i> Answers &amp; Clarity
-            </div>
-            <h2 class="landing-section-title">Frequently Asked Questions</h2>
-            <p class="landing-section-sub">Everything you need to know about HRM Pro features, statutory payroll, and enterprise deployment.</p>
-          </div>
-
-          <div class="landing-faq-container" style="max-width:860px;margin:0 auto">
-            <div class="landing-faq-item" id="faq-item-1" onclick="Landing.toggleFaq(1, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
-                <span>How does HRM Pro automate statutory tax and EOBI calculations?</span>
-                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
-              </div>
-              <div class="landing-faq-answer faq-answer">
-                HRM Pro embeds official Pakistan FBR salary tax brackets (Finance Act 2024-2025). The system automatically calculates taxable income, applies progressive slab rates, deducts statutory EOBI employee contributions, and computes Provident Fund contributions seamlessly on each salary run.
-              </div>
-            </div>
-
-            <div class="landing-faq-item" id="faq-item-2" onclick="Landing.toggleFaq(2, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
-                <span>Can biometric attendance integrate across multiple physical offices?</span>
-                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
-              </div>
-              <div class="landing-faq-answer faq-answer">
-                Yes. HRM Pro features a real-time hardware gateway supporting physical fingerprint and facial scanners across multiple branches. Punches synchronize with cloud database records instantly, calculating arrival grace buffers, late-coming penalties, and approved overtime tokens.
-              </div>
-            </div>
-
-            <div class="landing-faq-item" id="faq-item-3" onclick="Landing.toggleFaq(3, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
-                <span>How do granular partial permissions work in the Leave and Payroll modules?</span>
-                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
-              </div>
-              <div class="landing-faq-answer faq-answer">
-                Through our multi-tier RBAC engine, administrators can grant view-only, apply-only, or approve-only rights to specific roles. For example, a Department Manager can be granted leave approval authority without gaining permission to modify leave quota allocations or edit employee records.
-              </div>
-            </div>
-
-            <div class="landing-faq-item" id="faq-item-4" onclick="Landing.toggleFaq(4, event)" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;margin-bottom:12px;padding:18px 22px;cursor:pointer">
-              <div class="landing-faq-question faq-question" style="display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px">
-                <span>How does automated scheduled PDF report dispatching operate?</span>
-                <i class="fa fa-chevron-down faq-chevron" style="color:var(--hrm-coral)"></i>
-              </div>
-              <div class="landing-faq-answer faq-answer">
-                HRM Pro includes an integrated background job scheduler. You can configure daily attendance briefs, weekly department summaries, and monthly payroll audit packages to be compiled into PDF/CSV formats and dispatched automatically to management emails at designated times.
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 9B. PROGRESSIVE WEB APP & MOBILE DOWNLOAD SHOWCASE ─── -->
-        <section class="landing-pwa-section" id="download-app" style="padding: 70px 24px; background: linear-gradient(135deg, #090d16 0%, #0f172a 50%, #1e1b4b 100%); color: #fff; border-top: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06);">
-          <div style="max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center;" class="pwa-download-grid">
-            <div>
-              <div class="landing-pill-badge" style="background: rgba(59,130,246,0.15); color: #38bdf8; border: 1px solid rgba(59,130,246,0.3); margin-bottom: 16px; display: inline-flex; align-items: center; gap: 8px;">
-                <i class="fa fa-mobile-screen"></i> Native Mobile &amp; Desktop App Experience
-              </div>
-              <h2 style="font-size: 34px; font-weight: 900; line-height: 1.25; margin-bottom: 18px; color: #fff;">
-                Work Anywhere with the <span style="background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">HRM Pro Mobile App</span>
-              </h2>
-              <p style="font-size: 15.5px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px;">
-                Install HRM Pro directly to your Android, iPhone, or Desktop with zero app store delays. Clock in with GPS geotagging, apply for leaves, track approvals, and view monthly payslips with full offline sync support.
-              </p>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 30px;">
-                <div style="display: flex; gap: 12px; align-items: flex-start;">
-                  <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(59,130,246,0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa fa-wifi-slash"></i></div>
-                  <div>
-                    <strong style="color: #f1f5f9; display: block; font-size: 14px;">Offline Attendance Sync</strong>
-                    <span style="color: #94a3b8; font-size: 12.5px;">Record punch even in basements with no signal; auto-syncs when online.</span>
+                <!-- Custom Deductions -->
+                <div style="margin-top:22px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:14px;padding:14px 18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="Landing.toggleCustomDeductions()">
+                    <span style="font-size:13px;font-weight:700;color:var(--color-primary);display:flex;align-items:center;gap:8px">
+                      <i class="fa fa-sliders"></i> Customize Provident Fund & EOBI Deductions
+                    </span>
+                    <i class="fa fa-chevron-down" id="custom-deductions-caret" style="color:var(--color-text-dark);font-size:11px"></i>
                   </div>
-                </div>
-                <div style="display: flex; gap: 12px; align-items: flex-start;">
-                  <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(16,185,129,0.2); color: #34d399; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa fa-bolt"></i></div>
-                  <div>
-                    <strong style="color: #f1f5f9; display: block; font-size: 14px;">1-Tap Home Screen Icon</strong>
-                    <span style="color: #94a3b8; font-size: 12.5px;">Instant launch without browser address bar clutter or URL typing.</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style="display: flex; gap: 14px; flex-wrap: wrap; align-items: center;">
-                <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 10px 25px -5px rgba(16,185,129,0.5);">
-                  <i class="fa-brands fa-android" style="font-size: 18px;"></i> Download Android APK (.apk)
-                </a>
-                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" class="btn btn-primary" style="text-decoration: none; padding: 14px 22px; font-size: 14.5px; font-weight: 700; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: linear-gradient(135deg, #2563eb, #4f46e5); color: #fff; box-shadow: 0 10px 25px -5px rgba(37,99,235,0.5);">
-                  <i class="fa-brands fa-windows" style="font-size: 18px;"></i> Download Windows App (.zip)
-                </a>
-                <button onclick="typeof PWA !== 'undefined' ? PWA.showIOSInstallModal() : alert('Tap Share on iOS Safari, then Add to Home Screen')" class="btn btn-ghost" style="padding: 14px 18px; font-size: 14px; font-weight: 600; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); color: #cbd5e1; border: 1px solid rgba(255,255,255,0.15); cursor: pointer;">
-                  <i class="fa-brands fa-apple" style="font-size: 18px;"></i> iOS Safari
-                </button>
-              </div>
-            </div>
-
-            <!-- Right Mockup Card -->
-            <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 28px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); backdrop-filter: blur(12px);">
-              <img src="assets/icon-512.png" alt="HRM Pro Mobile App" style="width: 96px; height: 96px; border-radius: 22px; margin-bottom: 16px; box-shadow: 0 12px 30px rgba(37,99,235,0.35); border: 2px solid rgba(255,255,255,0.2);">
-              <h3 style="font-size: 20px; font-weight: 800; margin-bottom: 6px; color: #fff;">HRM Pro Applications</h3>
-              <p style="font-size: 12.5px; color: #94a3b8; margin-bottom: 20px;">Native Android APK &amp; Windows Desktop Suite</p>
-              
-              <div style="background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 10px; font-size: 13px; margin-bottom: 20px;">
-                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Android Package:</span>
-                  <strong style="color:#10b981;">HRM-Pro-Mobile.apk</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Windows Desktop:</span>
-                  <strong style="color:#38bdf8;">HRM-Pro-Windows-Desktop.zip</strong>
-                </div>
-                <div style="display:flex; justify-content:space-between; color:#94a3b8;">
-                  <span>Cloud Live Sync:</span>
-                  <strong style="color:#a78bfa;">Automated Supabase 153-Tables</strong>
-                </div>
-              </div>
-
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(16,185,129,0.18); color: #34d399; border: 1px solid rgba(16,185,129,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <i class="fa-brands fa-android"></i> Generate &amp; Download APK
-                </a>
-                <a href="https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip" download="HRM-Pro-Windows-Desktop.zip" style="text-decoration: none; width: 100%; padding: 12px; font-size: 13.5px; font-weight: 700; background: rgba(59,130,246,0.18); color: #38bdf8; border: 1px solid rgba(59,130,246,0.45); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                  <i class="fa-brands fa-windows"></i> 1-Click Download Windows App (.zip)
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 10. GET AN INSTANT ENTERPRISE QUOTE / DEMO (MATCHING SCREENSHOT) ─── -->
-        <section class="quote-demo-section" id="quote-section">
-          <div class="quote-demo-grid">
-            <!-- Left Mockup Visual -->
-            <div class="quote-visual-card">
-              <div style="width:52px;height:52px;border-radius:12px;background:var(--hrm-vermilion-light);color:var(--hrm-vermilion);display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:18px">
-                <i class="fa fa-shield-halved"></i>
-              </div>
-              <h3 style="font-size:24px;font-weight:900;color:#111827;margin-bottom:10px">Enterprise HRM Pro Suite</h3>
-              <p style="font-size:14.5px;color:#64748b;line-height:1.6;margin-bottom:20px">
-                Get a custom proposal tailored to your employee headcount, branch network, and statutory requirements.
-              </p>
-              
-              <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px">
-                <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> 14-Day Full Access Enterprise Trial
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> Zero Setup Fee &amp; Assisted Data Migration
-                </div>
-                <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;color:#374151;font-weight:600">
-                  <i class="fa fa-circle-check" style="color:var(--hrm-vermilion)"></i> 24/7 Priority Support &amp; Dedicated Account Lead
-                </div>
-              </div>
-
-              <div style="border-radius:12px;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,0.06)">
-                <img src="assets/hr_functions_scene.jpg" alt="HR Operations Suite" style="width:100%;height:auto;display:block">
-              </div>
-            </div>
-
-            <!-- Right Interactive Form -->
-            <div class="quote-form-card">
-              <h3 class="quote-form-title">Request Enterprise Proposal</h3>
-              <p class="quote-form-sub">Fill out the details below to receive a customized pricing quote and live system demonstration.</p>
-
-              <form onsubmit="Landing.submitQuote(event)">
-                <div class="quote-inputs-grid">
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Full Name *</label>
-                    <input type="text" id="quote-name" class="quote-input-field" placeholder="e.g. Tariq Mehmood" required>
-                  </div>
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Work Email *</label>
-                    <input type="email" id="quote-email" class="quote-input-field" placeholder="tariq@enterprise.com" required>
-                  </div>
-                </div>
-
-                <div class="quote-inputs-grid">
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Phone Number</label>
-                    <input type="tel" id="quote-phone" class="quote-input-field" placeholder="+92 300 1234567">
-                  </div>
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Company / Organization</label>
-                    <input type="text" id="quote-company" class="quote-input-field" placeholder="Apex Global Pvt. Ltd.">
-                  </div>
-                </div>
-
-                <div class="quote-inputs-grid">
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Employee Headcount</label>
-                    <select id="quote-size" class="quote-input-field">
-                      <option value="10-50">10 – 50 Employees</option>
-                      <option value="51-200" selected>51 – 200 Employees</option>
-                      <option value="201-500">201 – 500 Employees</option>
-                      <option value="500+">500+ Enterprise</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Primary Need</label>
-                    <select id="quote-module" class="quote-input-field">
-                      <option value="all" selected>All-in-One Full HRM Pro Suite</option>
-                      <option value="payroll">Payroll &amp; Tax Compliance Only</option>
-                      <option value="attendance">Biometric Attendance &amp; Shifts</option>
-                      <option value="recruitment">Recruitment ATS &amp; Onboarding</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div style="margin-bottom:14px">
-                  <label style="font-size:12px;font-weight:700;color:#4b5563;display:block;margin-bottom:4px">Specific Requirements / Notes</label>
-                  <textarea id="quote-notes" class="quote-input-field" rows="2" placeholder="Tell us about your multi-branch locations, legacy system migration, or custom policies..."></textarea>
-                </div>
-
-                <button type="submit" class="quote-submit-btn">
-                  Request Custom Proposal &amp; Live Demo <i class="fa fa-arrow-right" style="margin-left:6px"></i>
-                </button>
-              </form>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 10b. SEE IT IN ACTION — DASHBOARD SCREENSHOTS ─── -->
-        <section style="padding:72px 24px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);overflow:hidden">
-          <div style="max-width:1400px;margin:0 auto">
-            <!-- Section Header -->
-            <div style="text-align:center;margin-bottom:52px">
-              <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(37,99,235,0.12);border:1px solid rgba(37,99,235,0.3);border-radius:20px;padding:6px 16px;margin-bottom:18px">
-                <i class="fa fa-display" style="color:#60a5fa;font-size:13px"></i>
-                <span style="color:#60a5fa;font-size:12.5px;font-weight:700;letter-spacing:0.3px">LIVE PLATFORM PREVIEW</span>
-              </div>
-              <h2 style="font-size:clamp(26px,4vw,40px);font-weight:900;color:#f1f5f9;letter-spacing:-0.5px;margin-bottom:14px">
-                See HRM Pro in Action
-              </h2>
-              <p style="font-size:16px;color:#94a3b8;max-width:560px;margin:0 auto;line-height:1.6">
-                Real screenshots from the live platform — everything you see is fully functional and available after sign-in.
-              </p>
-            </div>
-
-            <!-- Screenshot Tabs Switcher -->
-            <div style="display:flex;justify-content:center;gap:8px;margin-bottom:32px;flex-wrap:wrap">
-              <button id="ss-tab-dash" onclick="Landing.switchScreenshot('dashboard')" style="padding:8px 20px;border-radius:20px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
-                <i class="fa fa-gauge-high"></i> Executive Dashboard
-              </button>
-              <button id="ss-tab-payroll" onclick="Landing.switchScreenshot('payroll')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
-                <i class="fa fa-file-invoice-dollar"></i> Payroll Processing
-              </button>
-              <button id="ss-tab-attendance" onclick="Landing.switchScreenshot('attendance')" style="padding:8px 20px;border-radius:20px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#94a3b8;font-size:13px;font-weight:700;cursor:pointer;transition:all 0.2s">
-                <i class="fa fa-fingerprint"></i> Biometric Attendance
-              </button>
-            </div>
-
-            <!-- Screenshot Frames -->
-            <div style="position:relative">
-              <!-- Dashboard Screenshot -->
-              <div id="ss-frame-dashboard" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);transition:opacity 0.3s ease">
-                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
-                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
-                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
-                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/dashboard</span>
-                  </div>
-                </div>
-                <img src="assets/ss-dashboard.jpg" alt="HRM Pro Executive Dashboard — KPIs, Charts, Employee Overview" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-dashboard.jpg'">
-              </div>
-
-              <!-- Payroll Screenshot (hidden by default) -->
-              <div id="ss-frame-payroll" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);display:none">
-                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
-                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
-                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
-                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/payroll</span>
-                  </div>
-                </div>
-                <img src="assets/ss-payroll.jpg" alt="HRM Pro Payroll Processing — September 2026 Summary, Employee Pay Data" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-payroll.jpg'">
-              </div>
-
-              <!-- Attendance Screenshot (hidden by default) -->
-              <div id="ss-frame-attendance" style="border-radius:16px;overflow:hidden;box-shadow:0 0 0 1px rgba(255,255,255,0.08),0 40px 80px rgba(0,0,0,0.6);display:none">
-                <div style="background:#1e293b;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.08)">
-                  <div style="width:10px;height:10px;border-radius:50%;background:#ef4444"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
-                  <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
-                  <div style="flex:1;background:rgba(255,255,255,0.06);border-radius:4px;height:20px;margin:0 8px;display:flex;align-items:center;padding:0 10px">
-                    <span style="font-size:11px;color:#64748b">hrmpro.enterprise.com/attendance</span>
-                  </div>
-                </div>
-                <img src="assets/ss-attendance.jpg" alt="HRM Pro Biometric Attendance — Live Check-in Records and Monthly Heatmap" style="width:100%;display:block;max-height:540px;object-fit:cover;object-position:top" onerror="this.src='public/assets/ss-attendance.jpg'">
-              </div>
-            </div>
-
-            <!-- Feature Bullets + CTA -->
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:36px">
-              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
-                <div style="width:36px;height:36px;border-radius:8px;background:rgba(37,99,235,0.2);color:#60a5fa;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-gauge-high"></i></div>
-                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Live KPI Dashboard</div><div style="color:#64748b;font-size:12px;margin-top:3px">Real-time workforce telemetry, charts & alerts</div></div>
-              </div>
-              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
-                <div style="width:36px;height:36px;border-radius:8px;background:rgba(16,185,129,0.2);color:#34d399;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-coins"></i></div>
-                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">FBR-Compliant Payroll</div><div style="color:#64748b;font-size:12px;margin-top:3px">Automated statutory deductions & bank advice</div></div>
-              </div>
-              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
-                <div style="width:36px;height:36px;border-radius:8px;background:rgba(245,158,11,0.2);color:#fbbf24;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-fingerprint"></i></div>
-                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Biometric Attendance</div><div style="color:#64748b;font-size:12px;margin-top:3px">Hardware-synced check-ins with shift management</div></div>
-              </div>
-              <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:18px 20px;display:flex;align-items:flex-start;gap:12px">
-                <div style="width:36px;height:36px;border-radius:8px;background:rgba(168,85,247,0.2);color:#c084fc;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fa fa-shield-halved"></i></div>
-                <div><div style="color:#f1f5f9;font-weight:700;font-size:13.5px">Multi-Tier RBAC</div><div style="color:#64748b;font-size:12px;margin-top:3px">Granular role permissions across all modules</div></div>
-              </div>
-            </div>
-
-            <!-- CTA -->
-            <div style="text-align:center;margin-top:40px">
-              <button onclick="App.showLogin()" style="display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:15px;font-weight:700;padding:14px 32px;border-radius:12px;border:none;cursor:pointer;box-shadow:0 8px 24px rgba(37,99,235,0.4);transition:all 0.2s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 12px 32px rgba(37,99,235,0.55)'" onmouseout="this.style.transform='';this.style.boxShadow='0 8px 24px rgba(37,99,235,0.4)'">
-                <i class="fa fa-right-to-bracket"></i> Sign In to Access Full Platform
-                <i class="fa fa-arrow-right" style="font-size:13px;opacity:0.8"></i>
-              </button>
-              <p style="color:#475569;font-size:12.5px;margin-top:10px">All 16 modules · Live data · No setup required</p>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 11. CLIENT TESTIMONIALS &amp; REVIEWS (MATCHING SCREENSHOT) ─── -->
-        <section class="testimonials-section" id="testimonials">
-          <div class="testimonials-grid">
-            <!-- Left Terracotta Feature Quote Card -->
-            <div class="testimonial-coral-card" style="background:#c53a24 !important;color:#ffffff !important;border-radius:18px !important;padding:36px !important;box-shadow:0 16px 36px rgba(197,58,36,0.28) !important;position:relative !important">
-              <div class="testimonial-quote-icon" style="color:rgba(255,255,255,0.85) !important;font-size:32px !important;margin-bottom:16px !important;display:block !important">
-                <i class="fa fa-quote-left" style="color:rgba(255,255,255,0.85) !important"></i>
-              </div>
-              <p class="testimonial-quote-text" style="color:#ffffff !important;font-size:17.5px !important;line-height:1.68 !important;font-weight:500 !important;font-style:italic !important;margin-bottom:24px !important;opacity:1 !important;display:block !important">
-                "Transitioning our 450+ multi-branch workforce to HRM Pro reduced our payroll closing cycle from 6 days to under 4 hours. The automated FBR tax engine and biometric integration are completely dependable."
-              </p>
-              <div class="testimonial-author-row" style="display:flex;align-items:center;gap:14px">
-                <img src="assets/avatars/tariq_hussain.jpg" alt="Tariq Hussain" class="testimonial-author-avatar" onerror="this.src='public/assets/avatars/tariq_hussain.jpg'" style="width:48px;height:48px;border-radius:50%;border:2px solid rgba(255,255,255,0.8);object-fit:cover">
-                <div>
-                  <div class="testimonial-author-name" style="color:#ffffff !important;font-size:17px !important;font-weight:800 !important">Tariq Hussain</div>
-                  <div class="testimonial-author-role" style="color:rgba(255,255,255,0.92) !important;font-size:13.5px !important">Chief Human Resources Officer, Apex Global</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Right Reviews & Avatar Cluster -->
-            <div class="reviews-ratings-wrap">
-              <div class="reviews-badges-row">
-                <div class="review-badge-item">
-                  <i class="fa fa-star"></i>
-                  <span>Trustpilot <strong>4.9 / 5</strong></span>
-                </div>
-                <div class="review-badge-item">
-                  <i class="fa fa-star"></i>
-                  <span>Google Reviews <strong>4.9 ★</strong></span>
-                </div>
-              </div>
-
-              <div style="font-size:14.5px;font-weight:800;color:#111827;margin-bottom:6px">
-                Trusted by 380+ Verified HR Leaders
-              </div>
-              <div style="font-size:13px;color:#64748b;margin-bottom:18px">
-                Across technology, manufacturing, banking, and professional services.
-              </div>
-
-              <div class="avatars-cluster">
-                <img src="assets/avatars/ahmed_khan.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/ahmed_khan.jpg'">
-                <img src="assets/avatars/fatima_raza.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/fatima_raza.jpg'">
-                <img src="assets/avatars/omar_farhan.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/omar_farhan.jpg'">
-                <img src="assets/avatars/sara_malik.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/sara_malik.jpg'">
-                <img src="assets/avatars/sehar_nawaz.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/sehar_nawaz.jpg'">
-                <img src="assets/avatars/usman_baig.jpg" alt="Client" class="cluster-avatar" onerror="this.src='public/assets/avatars/usman_baig.jpg'">
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- ─── 12. FEATURED PRODUCTS ROW (5 CARDS MATCHING SCREENSHOT) ─── -->
-        <section class="featured-products-section">
-          <div class="landing-section-header" style="margin-bottom:28px">
-            <h3 style="font-size:20px;font-weight:900;color:#111827">Featured Enterprise Suites</h3>
-          </div>
-          <div class="featured-products-grid">
-            ${this.renderFeaturedSuites()}
-          </div>
-        </section>
-
-        <!-- ─── 13. INTEGRATION PARTNERS (MATCHING SCREENSHOT) ─── -->
-        <section class="partners-section">
-          <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#64748b">
-            Seamlessly Integrated with Enterprise Infrastructure
-          </div>
-          <div class="partners-logos-row">
-            <div class="partner-logo-item"><i class="fa-brands fa-google"></i> Google Workspace</div>
-            <div class="partner-logo-item"><i class="fa-brands fa-microsoft"></i> Microsoft 365</div>
-            <div class="partner-logo-item"><i class="fa-brands fa-slack"></i> Slack Real-Time</div>
-            <div class="partner-logo-item"><i class="fa-brands fa-whatsapp"></i> WhatsApp Alerts</div>
-            <div class="partner-logo-item"><i class="fa fa-building-columns"></i> 1-Click Bank Advice CSVs</div>
-          </div>
-        </section>
-
-        <!-- ─── 14. ACTIVE CAREERS & ATS PORTAL ─── -->
-        <section class="landing-careers-section" id="careers" style="padding:60px 24px;background:#ffffff;border-top:1px solid #f1f5f9">
-          <div class="landing-careers-inner" style="max-width:1400px;margin:0 auto">
-            <div class="landing-section-header">
-              <div class="landing-pill-badge" style="margin:0 auto 12px auto">
-                <i class="fa fa-briefcase"></i> We Are Actively Hiring
-              </div>
-              <h2 class="landing-section-title">Current Open Positions at HRM Pro</h2>
-              <p class="landing-section-sub">
-                Explore high-growth career opportunities across Engineering, Human Resources, Finance, and Operations.
-              </p>
-            </div>
-
-            <!-- Job Openings Grid -->
-            <div class="careers-jobs-grid" id="careers-jobs-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));gap:20px">
-              ${openJobsList.length > 0 ? openJobsList.map(job => {
-                const dept = depts.find(d => d.id === job.departmentId);
-                return `
-                  <div class="career-job-card" data-dept="${job.departmentId}" style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:20px">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+                  <div id="custom-deductions-body" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--color-border)">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                       <div>
-                        <span style="font-size:11px;font-weight:700;color:var(--hrm-coral);background:var(--hrm-vermilion-light);padding:3px 8px;border-radius:6px">${dept?.name || 'General Operations'}</span>
-                        <h3 style="font-size:16px;font-weight:800;color:#111827;margin-top:6px">${job.title}</h3>
+                        <label style="font-size:12px;color:var(--color-text);display:block;margin-bottom:4px">PF Contribution (%)</label>
+                        <input type="number" id="tax-input-pf" value="0" min="0" max="25" step="1"
+                          style="width:100%;box-sizing:border-box;background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--color-heading)"
+                          oninput="Landing.updateTaxCalc(document.getElementById('tax-input-gross').value)">
                       </div>
-                      <span style="font-size:11px;color:#16a34a;font-weight:700"><i class="fa fa-circle" style="font-size:8px"></i> Open</span>
+                      <div>
+                        <label style="font-size:12px;color:var(--color-text);display:block;margin-bottom:4px">EOBI Employee (PKR)</label>
+                        <input type="number" id="tax-input-eobi" value="130" min="0" max="5000" step="10"
+                          style="width:100%;box-sizing:border-box;background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--color-heading)"
+                          oninput="Landing.updateTaxCalc(document.getElementById('tax-input-gross').value)">
+                      </div>
                     </div>
-                    <div style="display:flex;gap:8px;margin-bottom:12px;font-size:12px;color:#64748b">
-                      <span><i class="fa fa-clock"></i> ${job.experience || 'Full-time'}</span>
-                      <span>•</span>
-                      <span><i class="fa fa-money-bill-wave"></i> Rs. ${job.salary || 'Competitive'}</span>
-                    </div>
-                    <button class="btn btn-primary" style="width:100%;background:var(--hrm-coral);border-color:var(--hrm-coral);border-radius:8px;font-weight:700" onclick="Landing.openApplyModal(${job.id})">
-                      Apply Now <i class="fa fa-arrow-right"></i>
-                    </button>
                   </div>
-                `;
-              }).join('') : `
-                <div style="grid-column: 1/-1;text-align:center;padding:40px;background:#f8fafc;border-radius:12px;color:#64748b">
-                  <i class="fa fa-briefcase" style="font-size:36px;margin-bottom:12px;color:#94a3b8"></i>
-                  <p style="font-size:15px;font-weight:600;margin:0">No current openings matching your criteria. Check back soon!</p>
                 </div>
-              `}
+              </div>
+
+              <!-- Results Side -->
+              <div class="tax-result-box">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--color-border)">
+                  <div>
+                    <div style="font-size:12px;font-weight:700;color:var(--color-text-dark);text-transform:uppercase;letter-spacing:0.04em">Take-Home Pay (Monthly)</div>
+                    <div style="font-size:34px;font-weight:800;color:#34D399;font-family:var(--font-secondary);" id="calc-net-salary">PKR 147,370</div>
+                  </div>
+                  <div style="text-align:right">
+                    <span style="display:inline-block;padding:5px 12px;border-radius:9999px;background:rgba(52,211,153,0.15);color:#34D399;font-size:12px;font-weight:700">
+                      Tax Compliant
+                    </span>
+                  </div>
+                </div>
+
+                <div style="display:flex;flex-direction:column;gap:12px;font-size:14px;">
+                  <div style="display:flex;justify-content:space-between;color:var(--color-text)">
+                    <span>Annual Taxable Gross</span>
+                    <strong style="color:var(--color-heading)" id="calc-annual-gross">PKR 1,800,000</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--color-text)">
+                    <span>Applicable FBR Tax Slab</span>
+                    <strong style="color:var(--color-primary)" id="calc-tax-slab">Slab 2 (PKR 1.2M - 2.4M)</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--color-text)">
+                    <span>Monthly Income Tax Withholding</span>
+                    <strong style="color:#F87171" id="calc-monthly-tax">PKR 2,500</strong>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;color:var(--color-text)">
+                    <span>Statutory EOBI Deduction</span>
+                    <strong style="color:var(--color-text)" id="calc-monthly-eobi">PKR 130</strong>
+                  </div>
+                </div>
+
+                <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--color-border)">
+                  <button class="btn-automark-primary" style="width:100%;" onclick="Trial.show()">
+                    <i class="fa fa-file-invoice-dollar"></i> Run Full Holding Payroll
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <!-- ─── 15. MODERN ENTERPRISE FOOTER ─── -->
+        <!-- ─── 12. CONNECT ALL YOUR APPLICATIONS (INTEGRATIONS) ─── -->
+        <section class="integrations-section" id="integrations">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-plug"></i> Ecosystem Hub</div>
+            <h2 class="hasHighlight">Connect All Your <strong>Workforce Applications</strong></h2>
+            <p>Seamlessly integrate physical biometric scanners, official statutory portals, and enterprise communication channels.</p>
+          </div>
+
+          <div class="integrations-bubbles-grid">
+            <div class="integration-bubble">
+              <i class="fa fa-fingerprint"></i>
+              <span>ZKTeco & SilkID</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa fa-building-columns"></i>
+              <span>FBR IRIS Portal</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa fa-money-check"></i>
+              <span>1Link & 6 Banks</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa fa-shield-halved"></i>
+              <span>EOBI / PESSI</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa-brands fa-microsoft"></i>
+              <span>Microsoft 365</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa-brands fa-slack"></i>
+              <span>Slack Alerts</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa-brands fa-google"></i>
+              <span>Google Safe</span>
+            </div>
+            <div class="integration-bubble">
+              <i class="fa-brands fa-whatsapp"></i>
+              <span>WhatsApp Bot</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 13. ENTERPRISE SECURITY & GOVERNANCE ─── -->
+        <section class="section-box-automark" id="security" style="padding-top:40px;">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-lock"></i> Bank-Grade Protection</div>
+            <h2 class="hasHighlight">Enterprise Security, Privacy & <strong>Audit Safe</strong></h2>
+            <p>Engineered for high-compliance multi-entity organizations, manufacturing hubs, and public corporate groups.</p>
+          </div>
+
+          <div class="value-cards-grid">
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-shield-halved"></i></div>
+              <h3 class="value-card-title">Role-Based Access</h3>
+              <p class="value-card-desc">5 discrete permission tiers: Super Admin, HR Director, Department Manager, Finance/Accounts, and Self-Service Employee.</p>
+            </div>
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-file-shield"></i></div>
+              <h3 class="value-card-title">AES-256 Encrypted e-DMS</h3>
+              <p class="value-card-desc">Personnel contracts, national IDs, and salary documents encrypted at rest and in transit with strict permission watermarks.</p>
+            </div>
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-building-lock"></i></div>
+              <h3 class="value-card-title">Model A Scoped Isolation</h3>
+              <p class="value-card-desc">Subsidiary HR managers cannot view sister company data, preventing unauthorized intra-group salary disclosure.</p>
+            </div>
+            <div class="value-card-automark">
+              <div class="value-card-icon-box"><i class="fa fa-receipt"></i></div>
+              <h3 class="value-card-title">Immutable Audit Safe</h3>
+              <p class="value-card-desc">Every punch modification, salary change, and exit settlement is stamped with timestamp, IP address, and author ID.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 14. RICH FAQ ACCORDION ─── -->
+        <section class="landing-faq-section" id="faq">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-circle-question"></i> Common Questions</div>
+            <h2 class="hasHighlight">Frequently Asked <strong>Questions</strong></h2>
+            <p>Everything you need to know about setting up HRM Pro for your enterprise.</p>
+          </div>
+
+          <div>
+            <div class="faq-item" onclick="Landing.toggleFaq(1)">
+              <div class="faq-question">
+                <span>How does Multi-Company Model A Scoping work?</span>
+                <i class="fa fa-chevron-down" id="faq-caret-1" style="color:var(--color-primary);font-size:13px"></i>
+              </div>
+              <div class="faq-answer" id="faq-answer-1" style="display:none;">
+                Model A Scoping isolates employee data, attendance logs, and payroll records per corporate subsidiary. Subsidiary HR managers only have access to their company records, while Group Super Admins have unified global telemetry and reporting across all entities.
+              </div>
+            </div>
+
+            <div class="faq-item" onclick="Landing.toggleFaq(2)">
+              <div class="faq-question">
+                <span>Can we connect our physical ZKTeco biometric machines?</span>
+                <i class="fa fa-chevron-down" id="faq-caret-2" style="color:var(--color-primary);font-size:13px"></i>
+              </div>
+              <div class="faq-answer" id="faq-answer-2" style="display:none;">
+                Yes! HRM Pro comes bundled with the background attendance agent (Node.js & Python drivers). It communicates directly with ZKTeco, SilkID, and standalone IP terminals, streaming check-in punches straight to the cloud in real-time.
+              </div>
+            </div>
+
+            <div class="faq-item" onclick="Landing.toggleFaq(3)">
+              <div class="faq-question">
+                <span>Are Pakistan FBR Salaried Tax Slabs (2025-27) supported?</span>
+                <i class="fa fa-chevron-down" id="faq-caret-3" style="color:var(--color-primary);font-size:13px"></i>
+              </div>
+              <div class="faq-answer" id="faq-answer-3" style="display:none;">
+                100% yes. The native SPMS payroll engine automatically applies progressive tax brackets, computes monthly withholding amounts, and handles EOBI & Provident Fund shares with zero manual math.
+              </div>
+            </div>
+
+            <div class="faq-item" onclick="Landing.toggleFaq(4)">
+              <div class="faq-question">
+                <span>How does Statutory 30/26 Gratuity Exit Settlement operate?</span>
+                <i class="fa fa-chevron-down" id="faq-caret-4" style="color:var(--color-primary);font-size:13px"></i>
+              </div>
+              <div class="faq-answer" id="faq-answer-4" style="display:none;">
+                When an employee resigns or exits, HRM Pro calculates their legal gratuity under the statutory (Last Gross Salary ÷ 26 × 30) formula multiplied by qualifying years of service. It triggers multi-gate clearances across IT, HR, and Accounts before issuing printable vouchers.
+              </div>
+            </div>
+
+            <div class="faq-item" onclick="Landing.toggleFaq(5)">
+              <div class="faq-question">
+                <span>Can we generate bank-ready salary disbursal files?</span>
+                <i class="fa fa-chevron-down" id="faq-caret-5" style="color:var(--color-primary);font-size:13px"></i>
+              </div>
+              <div class="faq-answer" id="faq-answer-5" style="display:none;">
+                Yes, HRM Pro generates 6 standard CSV disbursal formats formatted for commercial banks, 1Link, and PayPak, including Gross vs Splitter bank accounts.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ─── 15. BOTTOM CALL TO ACTION ─── -->
+        <section class="landing-cta-section">
+          <h2 class="landing-cta-title hasHighlight">
+            Ready to Put Your Workforce Operations on <strong>Autopilot?</strong>
+          </h2>
+          <p class="landing-cta-sub">
+            Join hundreds of enterprises that run multi-company holdings, hardware biometric fleets, and 100% compliant statutory payroll on HRM Pro.
+          </p>
+          <div style="display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
+            <button class="btn-automark-primary" onclick="Trial.show()">
+              <i class="fa fa-rocket"></i> Start Your 14-Day Free Trial
+            </button>
+            <button class="btn-automark-outline" onclick="App.showLogin()">
+              <i class="fa fa-shield-halved"></i> Access Portal Demo
+            </button>
+          </div>
+        </section>
+
+        <!-- ─── 16. MODERN FOOTER ─── -->
         <footer class="landing-footer">
           <div class="landing-footer-grid">
-            <!-- Brand Column -->
-            <div class="landing-footer-brand-col">
-              <div class="landing-brand" style="margin-bottom:12px">
-                <div class="landing-brand-icon">
+            <div>
+              <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+                <div class="landing-brand-icon" style="width:36px;height:36px;font-size:16px;">
                   <i class="fa fa-users"></i>
                 </div>
-                <div>
-                  <div class="landing-brand-name">HRM Pro</div>
-                  <div class="landing-brand-tag" style="color:#94a3b8">Enterprise Human Capital Platform</div>
-                </div>
+                <div class="landing-brand-name" style="font-size:20px;">HRM Pro</div>
               </div>
-              <p class="landing-footer-tagline">
-                Cloud Human Resource Information System with real-time biometric synchronization, automated statutory payroll, and end-to-end employee lifecycle governance.
+              <p style="font-size:14px;line-height:1.6;color:var(--color-text-dark);max-width:320px;margin-bottom:20px;">
+                The complete automated workforce system designed for modern multi-entity enterprises, holding companies, and manufacturing hubs.
               </p>
-            </div>
-
-            <!-- Links: Product -->
-            <div class="landing-footer-col">
-              <h3 class="landing-footer-heading">Platform Modules</h3>
-              <div class="landing-footer-links">
-                <a href="#" onclick="Landing.showModule('employees');return false;">Employees &amp; e-DMS</a>
-                <a href="#" onclick="Landing.showModule('attendance');return false;">Biometric Attendance</a>
-                <a href="#" onclick="Landing.showModule('payroll');return false;">Statutory Payroll</a>
-                <a href="#" onclick="Landing.showModule('leaves');return false;">Leave Approvals</a>
-                <a href="#" onclick="Landing.showModule('recruitment');return false;">Recruitment ATS</a>
-                <a href="#" onclick="Landing.showModule('reports');return false;">Scheduled PDF Reports</a>
+              <div style="font-size:13.5px;color:var(--color-text-dark)">
+                <i class="fa fa-envelope" style="color:var(--color-primary);margin-right:8px"></i> enterprise@hrmpro.cloud<br>
+                <i class="fa fa-phone" style="color:var(--color-primary);margin-right:8px;margin-top:8px"></i> +92 (51) 880-9900
               </div>
             </div>
 
-            <!-- Links: Compliance -->
             <div class="landing-footer-col">
-              <h3 class="landing-footer-heading">Statutory &amp; Security</h3>
-              <div class="landing-footer-links">
-                <a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;">FBR Tax Slabs 2024-25</a>
-                <a href="#capabilities" onclick="Landing.scrollTo('capabilities');return false;">30/26 Gratuity Settlement</a>
-                <a href="#capabilities" onclick="Landing.scrollTo('capabilities');return false;">ISO 27001 Security</a>
-                <a href="#capabilities" onclick="Landing.scrollTo('capabilities');return false;">256-Bit Data Encryption</a>
-                <a href="#why-us" onclick="Landing.scrollTo('why-us');return false;">Granular Multi-Tier RBAC</a>
-              </div>
+              <h4>Core Platforms</h4>
+              <ul>
+                <li><a href="#" onclick="Landing.showModule('employees');return false;">People & e-DMS</a></li>
+                <li><a href="#" onclick="Landing.showModule('attendance');return false;">Biometric Fleet</a></li>
+                <li><a href="#" onclick="Landing.showModule('payroll');return false;">SPMS Payroll</a></li>
+                <li><a href="#" onclick="Landing.showModule('company');return false;">Multi-Company</a></li>
+                <li><a href="#" onclick="Landing.showModule('settlement');return false;">Exit Settlements</a></li>
+              </ul>
             </div>
 
-            <!-- Links: Contact -->
             <div class="landing-footer-col">
-              <h3 class="landing-footer-heading">Enterprise Support</h3>
-              <div class="landing-footer-links">
-                <a href="tel:+18005554767"><i class="fa fa-phone" style="margin-right:6px"></i> +1 (800) 555-HRMPRO</a>
-                <a href="mailto:enterprise@hrmpro.com"><i class="fa fa-envelope" style="margin-right:6px"></i> enterprise@hrmpro.com</a>
-                <a href="#" onclick="Landing.scrollTo('quote-section');return false;">Request Custom Quote</a>
-                <a href="#" onclick="Landing.showDemoModal();return false;">Book Live Demo</a>
-                <a href="#" onclick="App.showLogin();return false;">Sign In to Portal</a>
-              </div>
+              <h4>Governance</h4>
+              <ul>
+                <li><a href="#security" onclick="Landing.scrollTo('security');return false;">Role-Based Matrix</a></li>
+                <li><a href="#security" onclick="Landing.scrollTo('security');return false;">AES-256 Encryption</a></li>
+                <li><a href="#security" onclick="Landing.scrollTo('security');return false;">Model A Isolation</a></li>
+                <li><a href="#security" onclick="Landing.scrollTo('security');return false;">Immutable Audit Safe</a></li>
+                <li><a href="#tax-calc" onclick="Landing.scrollTo('tax-calc');return false;">Tax Slabs 2026-27</a></li>
+              </ul>
+            </div>
+
+            <div class="landing-footer-col">
+              <h4>Portals</h4>
+              <ul>
+                <li><a href="#" onclick="App.showLogin();return false;">Super Admin Command</a></li>
+                <li><a href="#" onclick="App.showLogin();return false;">HR Director Workspace</a></li>
+                <li><a href="#" onclick="App.showLogin();return false;">Finance & Accounts</a></li>
+                <li><a href="#" onclick="App.showLogin();return false;">Employee Self-Service</a></li>
+                <li><a href="#" onclick="Trial.show();return false;">Start Free Trial</a></li>
+              </ul>
             </div>
           </div>
 
           <div class="landing-footer-bottom">
             <div>© 2026 HRM Pro Enterprise Edition. All rights reserved.</div>
-            <div style="display:flex;gap:18px">
-              <a href="#" onclick="return false;">Privacy Policy</a>
-              <a href="#" onclick="return false;">Terms of Service</a>
-              <a href="#" onclick="return false;">Security Protocols</a>
+            <div style="display:flex;gap:20px;">
+              <a href="#" onclick="return false;" style="color:var(--color-text-dark);text-decoration:none">Privacy Policy</a>
+              <a href="#" onclick="return false;" style="color:var(--color-text-dark);text-decoration:none">Terms of Service</a>
+              <a href="#" onclick="return false;" style="color:var(--color-text-dark);text-decoration:none">Security Whitepaper</a>
             </div>
           </div>
         </footer>
       </div>
     `;
 
-    // Initialize interactive tax calculator with default state
+    // Apply saved theme
+    this.applyTheme(savedTheme);
+
+    // Initialize interactive tax calculator & spore particle canvas
     setTimeout(() => {
       Landing.updateTaxCalc(150000);
+      if (typeof window.initSporeCanvas === 'function') {
+        window.initSporeCanvas();
+      }
     }, 50);
   },
 
-    // ─── Dynamic Pillar Content Generator ───
+  // ─── Dynamic Pillar Content Generator ───
   getPillarCardHtml(pillarKey) {
     const pillars = {
       people: {
@@ -3142,6 +2994,82 @@ const Landing = {
     `).join('');
   },
   
+  activeCatalogCategory: 'all',
+
+  toggleTheme() {
+    const current = localStorage.getItem('landing_theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('landing_theme', next);
+    this.applyTheme(next);
+  },
+
+  applyTheme(theme) {
+    const page = document.getElementById('landing-page');
+    const wrapper = document.querySelector('.landing-wrapper');
+    if (page) page.setAttribute('data-landing-theme', theme);
+    if (wrapper) wrapper.setAttribute('data-landing-theme', theme);
+    const label = document.querySelector('.theme-toggle-label');
+    if (label) label.innerText = theme === 'dark' ? 'Dark' : 'Light';
+    const toggleBtn = document.getElementById('landing-theme-toggle');
+    if (toggleBtn) toggleBtn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Theme');
+  },
+
+  getModulesCatalogHtml(activeCategory = 'all') {
+    const modules = Object.values(this.modulesData || {});
+    const filtered = activeCategory === 'all' 
+      ? modules 
+      : modules.filter(m => {
+          if (activeCategory === 'workforce') return ['Core Workforce', 'Time & Attendance', 'Leaves & Absences', 'Talent Acquisition'].includes(m.category);
+          if (activeCategory === 'finance') return ['Compensation', 'Talent & Development', 'Performance', 'Expenses'].includes(m.category);
+          if (activeCategory === 'operations') return ['Operations', 'Support', 'Company Culture', 'Executive BI'].includes(m.category);
+          if (activeCategory === 'governance') return ['Multi-Company Holdings', 'Legal & Settlements', 'Governance', 'System Administration'].includes(m.category);
+          return m.category === activeCategory;
+        });
+
+    return filtered.map(m => {
+      const caps = (m.capabilities || []).slice(0, 3);
+      return `
+        <div class="module-catalog-card" data-category="${m.category}" onclick="Landing.showModule('${m.id}')">
+          <div class="module-catalog-top">
+            <div class="module-catalog-icon" style="background:${m.color}1a;color:${m.color}">
+              <i class="fa ${m.icon}"></i>
+            </div>
+            <span class="module-catalog-cat-badge">${m.category}</span>
+          </div>
+          <h3 class="module-catalog-title">${m.title}</h3>
+          <p class="module-catalog-desc">${m.subtitle}</p>
+          
+          <ul class="module-caps-list">
+            ${caps.map(c => `
+              <li class="module-cap-item">
+                <i class="fa ${c.icon || 'fa-check'}"></i>
+                <div><strong>${c.title}:</strong> ${c.desc}</div>
+              </li>
+            `).join('')}
+          </ul>
+
+          <div class="module-catalog-footer">
+            <span class="module-role-pill"><i class="fa fa-user-shield"></i> ${m.recommendedRole ? m.recommendedRole.toUpperCase() : 'ALL'} Access</span>
+            <button class="btn-inspect-module" onclick="event.stopPropagation();Landing.showModule('${m.id}')">
+              Inspect Features <i class="fa fa-arrow-right" style="font-size:10px;"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  filterModulesCatalog(category) {
+    this.activeCatalogCategory = category;
+    document.querySelectorAll('.catalog-filter-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-cat') === category);
+    });
+    const grid = document.getElementById('modules-catalog-grid');
+    if (grid) {
+      grid.innerHTML = this.getModulesCatalogHtml(category);
+    }
+  },
+
   openContactModal() {
     Modal.show({
       title: 'Contact HRM Pro Enterprise Solutions',

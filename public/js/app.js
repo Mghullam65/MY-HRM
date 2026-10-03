@@ -68,7 +68,8 @@ const App = {
             document.documentElement.style.setProperty('--primary-glow', s.accentColor + '33');
           }
           const appEl = document.getElementById('app');
-          const navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'top';
+          let navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'top';
+          if (navPos === 'right') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
           this.setNavPosition(navPos, false);
         }
 
@@ -321,7 +322,8 @@ const App = {
     if (agentBtn) agentBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
-    const navPos = localStorage.getItem('hrm_nav_position') || DB.getObj('settings')?.sidebarPosition || 'top';
+    let navPos = localStorage.getItem('hrm_nav_position') || DB.getObj('settings')?.sidebarPosition || 'top';
+    if (navPos === 'right') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
     this.setNavPosition(navPos, false);
 
     this.renderSidebar();
@@ -1365,7 +1367,7 @@ const App = {
       if (appEl) {
         appEl.classList.remove('nav-pos-top');
         appEl.setAttribute('data-sidebar-pos', 'right');
-        appEl.style.flexDirection = 'row-reverse';
+        appEl.style.flexDirection = '';
       }
       if (notify && typeof Toast !== 'undefined') Toast.show('Navigation docked to Right Sidebar', 'info');
     } else {
@@ -1374,7 +1376,7 @@ const App = {
       if (appEl) {
         appEl.classList.remove('nav-pos-top');
         appEl.setAttribute('data-sidebar-pos', 'left');
-        appEl.style.flexDirection = 'row';
+        appEl.style.flexDirection = '';
       }
       if (notify && typeof Toast !== 'undefined') Toast.show('Navigation docked to Left Sidebar', 'info');
     }

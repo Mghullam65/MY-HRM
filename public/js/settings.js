@@ -2480,11 +2480,11 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     const appEl = document.getElementById('app');
     if (appEl) {
       if (pos === 'right') {
-        appEl.style.flexDirection = 'row-reverse';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'right');
         document.body.classList.add('sidebar-pos-right');
       } else {
-        appEl.style.flexDirection = 'row';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'left');
         document.body.classList.remove('sidebar-pos-right');
       }
@@ -2522,7 +2522,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     document.documentElement.classList.toggle('compact-mode', isCompact);
 
     // 3. Sidebar Position
-    const sidebarPos = settings.sidebarPosition || 'left';
+    const sidebarPos = settings.sidebarPosition || 'top';
     const appEl = document.getElementById('app');
     if (appEl) {
       if (sidebarPos === 'top') {
@@ -2532,13 +2532,13 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         document.body.classList.add('nav-pos-top');
         appEl.classList.add('nav-pos-top');
       } else if (sidebarPos === 'right') {
-        appEl.style.flexDirection = 'row-reverse';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'right');
         document.body.classList.remove('nav-pos-top');
         appEl.classList.remove('nav-pos-top');
         document.body.classList.add('sidebar-pos-right');
       } else {
-        appEl.style.flexDirection = 'row';
+        appEl.style.flexDirection = '';
         appEl.setAttribute('data-sidebar-pos', 'left');
         document.body.classList.remove('nav-pos-top');
         appEl.classList.remove('nav-pos-top');
@@ -3864,8 +3864,93 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     });
 
     c.innerHTML = `
+      <!-- CARD 0: ZKTECO BRIDGE LIVE CONNECTION CONFIG -->
+      <div class="card" style="margin-bottom:20px;border:2px solid var(--primary);background:linear-gradient(135deg,var(--surface) 0%,rgba(99,102,241,0.05) 100%)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+          <div style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:18px;flex-shrink:0">
+            <i class="fa fa-microchip"></i>
+          </div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:var(--text)">ZKTeco Bridge — Live Connection Settings</div>
+            <div style="font-size:12px;color:var(--text-3)">Configure your ZKTeco SpeedFace / SF-series device IPs — used by Attendance → Sync Biometric Hardware</div>
+          </div>
+          <div style="margin-left:auto" id="zk-bridge-status-badge">
+            <span class="badge" style="background:var(--surface-2);color:var(--text-3);font-size:11px;padding:5px 12px"><i class="fa fa-circle-question"></i> Not tested</span>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px" class="zk-config-grid">
+          <div class="form-group" style="margin:0">
+            <label class="form-label required" style="font-weight:700;font-size:12px">
+              <i class="fa fa-network-wired" style="color:var(--primary);margin-right:4px"></i>Device LAN IP
+            </label>
+            <input class="form-control" id="zk-lan-ip" placeholder="e.g. 192.168.1.201"
+              value="${localStorage.getItem('zkDeviceLanIp') || ''}"
+              style="font-family:monospace;font-weight:700;letter-spacing:0.5px">
+            <small style="color:var(--text-3);font-size:11px">From device: Menu → Comm → Ethernet</small>
+          </div>
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-weight:700;font-size:12px">
+              <i class="fa fa-globe" style="color:var(--success);margin-right:4px"></i>Your Internet (Public) IP
+            </label>
+            <div style="display:flex;gap:6px">
+              <input class="form-control" id="zk-public-ip" placeholder="e.g. 203.135.10.55"
+                value="${localStorage.getItem('zkPublicIp') || ''}"
+                style="font-family:monospace;font-weight:700;letter-spacing:0.5px">
+              <button class="btn btn-secondary btn-sm" style="flex-shrink:0;white-space:nowrap" onclick="Settings.detectZkPublicIp()">
+                <i class="fa fa-crosshairs"></i>
+              </button>
+            </div>
+            <small style="color:var(--text-3);font-size:11px">Used for ADMS push URL on device</small>
+          </div>
+
+          <div class="form-group" style="margin:0">
+            <label class="form-label" style="font-weight:700;font-size:12px">
+              <i class="fa fa-server" style="color:var(--warning);margin-right:4px"></i>Bridge Server URL
+            </label>
+            <input class="form-control" id="zk-bridge-url" placeholder="http://localhost:8877"
+              value="${localStorage.getItem('zkBridgeUrl') || 'http://localhost:8877'}"
+              style="font-family:monospace;font-size:12px">
+            <small style="color:var(--text-3);font-size:11px">Where bridge/zkteco-bridge.js is running</small>
+          </div>
+        </div>
+
+        <!-- ADMS URL info box -->
+        <div id="zk-adms-info" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:16px;display:${localStorage.getItem('zkPublicIp') ? 'block' : 'none'}">
+          <div style="font-size:12px;font-weight:700;margin-bottom:6px"><i class="fa fa-arrow-right-to-bracket" style="color:var(--primary)"></i> ADMS Push URL — Configure this on your ZKTeco device:</div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <code id="zk-adms-url-text" style="font-size:12px;background:var(--surface);padding:6px 12px;border-radius:6px;color:var(--primary);font-weight:700;flex:1">
+              ${localStorage.getItem('zkPublicIp') ? `http://${localStorage.getItem('zkPublicIp')}:8877/iclock/cdata` : ''}
+            </code>
+            <button class="btn btn-secondary btn-sm" onclick="Settings.copyAdmsUrl()" title="Copy ADMS URL">
+              <i class="fa fa-copy"></i> Copy
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px">
+            On device: <strong>Menu → Comm → ADMS / Cloud Server</strong> → paste this URL as Server Address, Port = 8877
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="Settings.saveZkBridgeConfig()" style="font-weight:700">
+            <i class="fa fa-save"></i> Save Configuration
+          </button>
+          <button class="btn btn-secondary" onclick="Settings.testZkBridgeConnection()" id="zk-test-btn">
+            <i class="fa fa-plug"></i> Test Connection
+          </button>
+          <button class="btn btn-ghost" onclick="Settings.syncNowFromSettings()" style="color:var(--primary)">
+            <i class="fa fa-rotate"></i> Sync Punches Now
+          </button>
+        </div>
+
+        <!-- Connection test result panel -->
+        <div id="zk-test-result" style="display:none;margin-top:14px;border-radius:8px;padding:14px;border:1px solid var(--border)"></div>
+      </div>
+
       <!-- CARD 1: BIOMETRIC TERMINALS & DEVICE IPS FLEET -->
       <div class="card" style="margin-bottom:20px">
+
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
             <div style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
@@ -4141,7 +4226,171 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     }, 150);
   },
 
+  // ─────────────────────────────────────────────────────────
+  // ZKTeco Bridge Configuration Methods
+  // ─────────────────────────────────────────────────────────
+
+  saveZkBridgeConfig() {
+    const lanIp    = (document.getElementById('zk-lan-ip')     || {}).value?.trim();
+    const publicIp = (document.getElementById('zk-public-ip')  || {}).value?.trim();
+    const bridgeUrl= (document.getElementById('zk-bridge-url') || {}).value?.trim();
+
+    if (!lanIp) { Toast.show('Please enter the Device LAN IP first.', 'warning'); return; }
+
+    // Save all three to localStorage — attendance.js and bridge reads these
+    if (lanIp)     localStorage.setItem('zkDeviceLanIp', lanIp);
+    if (publicIp)  localStorage.setItem('zkPublicIp', publicIp);
+    if (bridgeUrl) localStorage.setItem('zkBridgeUrl', bridgeUrl);
+
+    // Also save bridge device IP config so bridge can be updated via API
+    if (bridgeUrl && lanIp) {
+      fetch(`${bridgeUrl}/api/device/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: lanIp })
+      }).catch(() => {}); // best-effort
+    }
+
+    // Show ADMS URL box
+    if (publicIp) {
+      const admsBox = document.getElementById('zk-adms-info');
+      const admsText = document.getElementById('zk-adms-url-text');
+      if (admsBox)  admsBox.style.display = 'block';
+      if (admsText) admsText.textContent = `http://${publicIp}:8877/iclock/cdata`;
+    }
+
+    Toast.show(`ZKTeco settings saved! Device: ${lanIp} | Bridge: ${bridgeUrl || 'localhost:8877'}`, 'success');
+    DB.log('SETTINGS', 'Biometric', `ZKTeco bridge configured — LAN: ${lanIp}, Public: ${publicIp || 'N/A'}, Bridge: ${bridgeUrl}`, Auth.user?.id);
+  },
+
+  async testZkBridgeConnection() {
+    const bridgeUrl = localStorage.getItem('zkBridgeUrl') || 'http://localhost:8877';
+    const btn = document.getElementById('zk-test-btn');
+    const badge = document.getElementById('zk-bridge-status-badge');
+    const result = document.getElementById('zk-test-result');
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Testing...'; }
+    if (badge) badge.innerHTML = '<span class="badge" style="background:var(--warning-bg);color:var(--warning);font-size:11px;padding:5px 12px"><i class="fa fa-spinner fa-spin"></i> Connecting...</span>';
+    if (result) result.style.display = 'none';
+
+    try {
+      // Step 1 — ping bridge health
+      const health = await fetch(`${bridgeUrl}/health`, { signal: AbortSignal.timeout(5000) });
+      if (!health.ok) throw new Error(`Bridge returned ${health.status}`);
+
+      // Step 2 — get device status from bridge
+      const statusResp = await fetch(`${bridgeUrl}/api/device/status`, { signal: AbortSignal.timeout(5000) });
+      const statusData = statusResp.ok ? await statusResp.json() : null;
+
+      const deviceStatus = statusData?.status || 'unknown';
+      const isDeviceOnline = deviceStatus === 'online';
+      const cachedPunches = statusData?.cached_punches ?? 0;
+
+      // Update badge
+      if (badge) {
+        badge.innerHTML = isDeviceOnline
+          ? `<span class="badge badge-success" style="font-size:11px;padding:5px 12px"><i class="fa fa-circle-check"></i> Bridge + Device Online</span>`
+          : `<span class="badge" style="background:#fff8e1;color:#f59e0b;font-size:11px;padding:5px 12px"><i class="fa fa-triangle-exclamation"></i> Bridge OK — Device Offline</span>`;
+      }
+
+      // Show detailed result panel
+      if (result) {
+        result.style.display = 'block';
+        result.style.background = isDeviceOnline ? 'rgba(16,185,129,0.08)' : 'rgba(245,158,11,0.08)';
+        result.style.borderColor = isDeviceOnline ? 'var(--success)' : 'var(--warning)';
+        result.innerHTML = `
+          <div style="font-weight:700;margin-bottom:8px;font-size:13px">
+            ${isDeviceOnline
+              ? '<i class="fa fa-circle-check" style="color:var(--success)"></i> Connection Successful!'
+              : '<i class="fa fa-triangle-exclamation" style="color:var(--warning)"></i> Bridge Running — Device Not Reachable'}
+          </div>
+          <div style="font-size:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><span style="color:var(--text-3)">Bridge URL:</span> <code>${bridgeUrl}</code></div>
+            <div><span style="color:var(--text-3)">Bridge Status:</span> <strong style="color:var(--success)">Online ✓</strong></div>
+            <div><span style="color:var(--text-3)">ZKTeco Device:</span> <strong style="color:${isDeviceOnline ? 'var(--success)' : 'var(--warning)'}">${statusData?.ip || 'N/A'}:${statusData?.port || 4370}</strong></div>
+            <div><span style="color:var(--text-3)">Device Status:</span> <strong>${deviceStatus}</strong></div>
+            <div><span style="color:var(--text-3)">Cached Punches:</span> <strong>${cachedPunches}</strong></div>
+            <div><span style="color:var(--text-3)">Last Sync:</span> <strong>${statusData?.last_sync ? new Date(statusData.last_sync).toLocaleString() : 'Never'}</strong></div>
+            ${statusData?.last_error ? `<div colspan="2" style="color:var(--danger);font-size:11px"><i class="fa fa-circle-exclamation"></i> ${statusData.last_error}</div>` : ''}
+          </div>
+          ${!isDeviceOnline ? `<div style="margin-top:10px;font-size:11px;color:var(--text-3)">
+            <i class="fa fa-lightbulb" style="color:var(--warning)"></i>
+            Device offline? Check LAN IP in bridge/zkteco-bridge.js or switch to ADMS push mode on the device.
+          </div>` : ''}
+        `;
+      }
+
+      Toast.show(isDeviceOnline ? 'ZKTeco bridge & device connected!' : 'Bridge OK — check device LAN IP or use ADMS push mode.', isDeviceOnline ? 'success' : 'warning');
+
+    } catch (err) {
+      if (badge) badge.innerHTML = '<span class="badge" style="background:var(--danger-bg);color:var(--danger);font-size:11px;padding:5px 12px"><i class="fa fa-circle-xmark"></i> Bridge Offline</span>';
+      if (result) {
+        result.style.display = 'block';
+        result.style.background = 'rgba(239,68,68,0.06)';
+        result.style.borderColor = 'var(--danger)';
+        result.innerHTML = `
+          <div style="font-weight:700;color:var(--danger);margin-bottom:6px"><i class="fa fa-circle-xmark"></i> Bridge Not Running</div>
+          <div style="font-size:12px;color:var(--text-2)">Could not reach <code>${bridgeUrl}</code></div>
+          <div style="margin-top:10px;font-size:12px;background:var(--surface);padding:10px;border-radius:6px">
+            <strong>To start the bridge:</strong><br>
+            <code style="color:var(--primary)">cd bridge &nbsp;&nbsp;npm install &nbsp;&nbsp;node zkteco-bridge.js</code>
+          </div>
+          <div style="font-size:11px;color:var(--text-3);margin-top:6px">Error: ${err.message}</div>
+        `;
+      }
+      Toast.show('Bridge offline — start bridge/zkteco-bridge.js on the machine connected to the ZKTeco device.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-plug"></i> Test Connection'; }
+    }
+  },
+
+  async detectZkPublicIp() {
+    const input = document.getElementById('zk-public-ip');
+    if (input) { input.placeholder = 'Detecting...'; input.disabled = true; }
+    try {
+      const resp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(5000) });
+      const { ip } = await resp.json();
+      if (input) { input.value = ip; input.disabled = false; input.placeholder = 'e.g. 203.135.10.55'; }
+      // Auto-show ADMS box
+      const admsBox = document.getElementById('zk-adms-info');
+      const admsText = document.getElementById('zk-adms-url-text');
+      if (admsBox)  admsBox.style.display = 'block';
+      if (admsText) admsText.textContent = `http://${ip}:8877/iclock/cdata`;
+      Toast.show(`Public IP detected: ${ip}`, 'success');
+    } catch {
+      if (input) { input.disabled = false; input.placeholder = 'e.g. 203.135.10.55'; }
+      Toast.show('Could not auto-detect IP — enter manually.', 'warning');
+    }
+  },
+
+  copyAdmsUrl() {
+    const text = (document.getElementById('zk-adms-url-text') || {}).textContent?.trim();
+    if (!text) { Toast.show('Save your public IP first.', 'warning'); return; }
+    navigator.clipboard.writeText(text).then(() => {
+      Toast.show(`Copied: ${text}`, 'success');
+    }).catch(() => {
+      Toast.show('Copy failed — select and copy manually.', 'error');
+    });
+  },
+
+  async syncNowFromSettings() {
+    const bridgeUrl = localStorage.getItem('zkBridgeUrl') || 'http://localhost:8877';
+    Toast.show('Triggering live sync from ZKTeco device...', 'info');
+    try {
+      const resp = await fetch(`${bridgeUrl}/api/attendance/sync-now`, { method: 'POST', signal: AbortSignal.timeout(15000) });
+      const data = resp.ok ? await resp.json() : null;
+      if (data?.success) {
+        Toast.show(`Sync complete — ${data.newPunches} new punches (total: ${data.total})`, 'success');
+      } else {
+        Toast.show(data?.error || 'Sync failed — check bridge and device.', 'error');
+      }
+    } catch (err) {
+      Toast.show('Bridge offline — start bridge/zkteco-bridge.js first.', 'error');
+    }
+  },
+
   // --- Biometric Terminals CRUD ---
+
   openDeviceModal(deviceId = null) {
     const devices = DB.get('biometric_devices') || [];
     const isEdit = deviceId !== null;

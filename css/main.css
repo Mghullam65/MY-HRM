@@ -11107,16 +11107,78 @@ html.compact-mode .nav-item {
   --shadow-lg:      0 8px 40px rgba(0,0,0,0.5);
 }
 
-/* Sidebar Position Styles */
-#app[data-sidebar-pos="right"],
-#app.sidebar-pos-right {
-  flex-direction: row-reverse !important;
-}
-#app[data-sidebar-pos="right"] .sidebar,
-#app.sidebar-pos-right .sidebar,
-body.sidebar-pos-right .sidebar {
-  border-right: none !important;
-  border-left: 1px solid var(--sidebar-border) !important;
+/* Sidebar Position Styles (Desktop: min-width: 901px) */
+@media (min-width: 901px) {
+  #app[data-sidebar-pos="right"]:not([style*="display: none"]):not([style*="display:none"]),
+  #app.sidebar-pos-right:not([style*="display: none"]):not([style*="display:none"]),
+  body.sidebar-pos-right #app:not([style*="display: none"]):not([style*="display:none"]) {
+    display: grid !important;
+    grid-template-columns: 1fr var(--sidebar-w) !important;
+    grid-template-rows: auto 1fr !important;
+    grid-template-areas:
+      "topbar sidebar"
+      "main   sidebar" !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  #app[data-sidebar-pos="right"] .topbar,
+  #app.sidebar-pos-right .topbar,
+  body.sidebar-pos-right .topbar {
+    grid-area: topbar !important;
+    width: 100% !important;
+    height: 58px !important;
+  }
+  #app[data-sidebar-pos="right"] .sidebar,
+  #app.sidebar-pos-right .sidebar,
+  body.sidebar-pos-right .sidebar {
+    grid-area: sidebar !important;
+    height: 100vh !important;
+    border-right: none !important;
+    border-left: 1px solid var(--sidebar-border) !important;
+  }
+  #app[data-sidebar-pos="right"] .main-content,
+  #app.sidebar-pos-right .main-content,
+  body.sidebar-pos-right .main-content {
+    grid-area: main !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  /* Left Sidebar Position */
+  #app[data-sidebar-pos="left"]:not([style*="display: none"]):not([style*="display:none"]) {
+    display: grid !important;
+    grid-template-columns: var(--sidebar-w) 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    grid-template-areas:
+      "sidebar topbar"
+      "sidebar main" !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+  }
+  #app[data-sidebar-pos="left"] .topbar {
+    grid-area: topbar !important;
+    width: 100% !important;
+    height: 58px !important;
+  }
+  #app[data-sidebar-pos="left"] .sidebar {
+    grid-area: sidebar !important;
+    height: 100vh !important;
+    border-right: 1px solid var(--sidebar-border) !important;
+    border-left: none !important;
+  }
+  #app[data-sidebar-pos="left"] .main-content {
+    grid-area: main !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    min-width: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+  }
 }
 
 /* ── TOP HORIZONTAL NAVBAR LAYOUT (DESKTOP: min-width: 901px) ── */
