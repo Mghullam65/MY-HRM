@@ -1522,11 +1522,13 @@ const Landing = {
                 <div style="position:relative;margin-bottom:16px">
                   <span style="position:absolute;left:16px;top:12px;font-weight:800;color:var(--color-primary);font-size:15px">PKR</span>
                   <input type="number" id="tax-input-gross" value="150000" min="0" max="10000000" step="5000"
+                    aria-label="Monthly Gross Salary (PKR)"
                     style="width:100%;box-sizing:border-box;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:12px 14px 12px 60px;font-size:18px;font-weight:800;color:var(--color-heading);outline:none"
                     oninput="Landing.updateTaxCalc(this.value)">
                 </div>
 
                 <input type="range" id="tax-slider-gross" min="30000" max="1500000" step="5000" value="150000" class="tax-range-slider"
+                  aria-label="Monthly Gross Salary Slider"
                   oninput="Landing.updateTaxCalc(this.value)">
 
                 <!-- Quick Presets Chips -->
@@ -1552,12 +1554,14 @@ const Landing = {
                       <div>
                         <label style="font-size:12px;color:var(--color-text);display:block;margin-bottom:4px">PF Contribution (%)</label>
                         <input type="number" id="tax-input-pf" value="0" min="0" max="25" step="1"
+                          aria-label="Provident Fund Contribution Percentage"
                           style="width:100%;box-sizing:border-box;background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--color-heading)"
                           oninput="Landing.updateTaxCalc(document.getElementById('tax-input-gross').value)">
                       </div>
                       <div>
                         <label style="font-size:12px;color:var(--color-text);display:block;margin-bottom:4px">EOBI Employee (PKR)</label>
                         <input type="number" id="tax-input-eobi" value="130" min="0" max="5000" step="10"
+                          aria-label="EOBI Employee Contribution (PKR)"
                           style="width:100%;box-sizing:border-box;background:var(--color-card-subtle);border:1px solid var(--color-border);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--color-heading)"
                           oninput="Landing.updateTaxCalc(document.getElementById('tax-input-gross').value)">
                       </div>

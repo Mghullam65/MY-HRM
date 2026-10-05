@@ -1,5 +1,5 @@
 // HRM Pro — Service Worker (Offline Shell, Asset Caching & Offline Sync)
-const CACHE_NAME = 'hrm-pro-cache-v3.6.5';
+const CACHE_NAME = 'hrm-pro-cache-v3.6.6';
 
 const STATIC_ASSETS = [
   './',

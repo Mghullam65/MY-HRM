@@ -15,9 +15,10 @@
   <!-- Favicon (inline SVG as data URI) -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%234f80f7'/><text x='16' y='23' font-size='18' font-weight='900' text-anchor='middle' fill='white' font-family='Arial'>HR</text></svg>">
 
-  <!-- Fonts -->
+  <!-- Fonts & CDN Preconnects -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
 
@@ -25,7 +26,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
   <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
 
   <!-- App CSS -->
   <link rel="stylesheet" href="css/main.css?v=3.6.5">
@@ -510,7 +511,7 @@
     <div class="landing-agent-header-actions">
       <!-- Dropdown Options Menu Trigger ("drop option") -->
       <div class="agent-drop-wrapper" style="position:relative">
-        <button class="agent-action-btn" onclick="LandingAgent.toggleDropMenu(event)" title="Options & Tools (Drop Menu)">
+        <button class="agent-action-btn" onclick="LandingAgent.toggleDropMenu(event)" title="Options & Tools (Drop Menu)" aria-label="Options & Tools">
           <i class="fa fa-ellipsis-vertical"></i>
         </button>
         <div id="landing-agent-drop-menu" class="agent-drop-menu" style="display:none">
@@ -525,15 +526,15 @@
         </div>
       </div>
       <!-- Minimize Button -->
-      <button class="agent-action-btn" onclick="LandingAgent.toggleMinimize(event)" title="Minimize (Dock to Bottom)">
+      <button class="agent-action-btn" onclick="LandingAgent.toggleMinimize(event)" title="Minimize (Dock to Bottom)" aria-label="Minimize Agent">
         <i class="fa fa-minus"></i>
       </button>
       <!-- Maximize Button -->
-      <button class="agent-action-btn" id="agent-max-btn" onclick="LandingAgent.toggleMaximize(event)" title="Maximize / Restore">
+      <button class="agent-action-btn" id="agent-max-btn" onclick="LandingAgent.toggleMaximize(event)" title="Maximize / Restore" aria-label="Maximize or Restore Agent">
         <i class="fa fa-expand"></i>
       </button>
       <!-- Close Button -->
-      <button class="agent-action-btn" onclick="LandingAgent.close()" title="Close Agent">
+      <button class="agent-action-btn" onclick="LandingAgent.close()" title="Close Agent" aria-label="Close Agent">
         <i class="fa fa-times"></i>
       </button>
     </div>
@@ -548,8 +549,8 @@
   <!-- Input Form -->
   <form class="landing-agent-input-form" onsubmit="LandingAgent.handleUserSubmit(event)">
     <div class="landing-agent-input-wrap">
-      <input type="text" id="landing-agent-input" class="landing-agent-input" placeholder="Ask about any feature (e.g. shift swaps, payroll tax, ATS)..." autocomplete="off">
-      <button type="submit" class="landing-agent-send-btn" title="Send Question">
+      <input type="text" id="landing-agent-input" class="landing-agent-input" placeholder="Ask about any feature (e.g. shift swaps, payroll tax, ATS)..." aria-label="Ask about HRM Pro capabilities" autocomplete="off">
+      <button type="submit" class="landing-agent-send-btn" title="Send Question" aria-label="Send Question">
         <i class="fa fa-paper-plane"></i>
       </button>
     </div>
@@ -626,7 +627,7 @@
         <span id="inspect-drawer-subtitle" style="font-size:12px;color:var(--text-3)">Record Details & Quick Actions</span>
       </div>
     </div>
-    <button class="btn btn-icon btn-ghost" onclick="App.closeInspectDrawer()" title="Close Inspector (ESC)">
+    <button class="btn btn-icon btn-ghost" onclick="App.closeInspectDrawer()" title="Close Inspector (ESC)" aria-label="Close Inspector">
       <i class="fa fa-xmark"></i>
     </button>
   </div>
@@ -639,72 +640,79 @@
 </aside>
 
 <!-- Supabase Cloud Database SDK (Local bundle with CDN fallback) -->
-<script src="js/vendor/supabase.js"></script>
-<script>if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') { document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"><\/script>'); }</script>
+<script src="js/vendor/supabase.js" defer></script>
+<script>
+  if (typeof supabase === 'undefined' && typeof window.supabase === 'undefined') {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+    s.defer = true;
+    document.head.appendChild(s);
+  }
+</script>
 
-<script src="js/security.js?v=2.5.0"></script>
-<script src="js/api.js?v=2.5.0"></script>
-<script src="js/i18n.js?v=2.5.0"></script>
-<script src="js/data.js?v=2.5.0"></script>
-<script src="js/taxEngine.js?v=2.5.0"></script>
-<script src="js/bankFormats.js?v=2.5.0"></script>
-<script src="js/notifications.js?v=2.5.0"></script>
-<script src="js/auth.js?v=3.5.0"></script>
-<script src="js/workflow.js?v=1.0.0"></script>
-<script src="js/websocket.js?v=2.5.0"></script>
-<script src="js/geminiService.js?v=1.0.0"></script>
-<script src="js/chat.js?v=3.5.0"></script>
-<script src="js/landing-particles.js?v=2.6.5"></script>
-<script src="js/landing.js?v=2.6.5"></script>
-<script src="js/landingAgent.js?v=1.0.0"></script>
-<script src="js/trial.js?v=2.5.0"></script>
-<script src="js/app.js?v=3.6.5"></script>
-<script src="js/dashboard.js?v=3.5.3"></script>
-<script src="js/employees.js?v=3.0.0"></script>
-<script src="js/attendance.js?v=2.6.0"></script>
-<script src="js/leaves.js?v=2.6.0"></script>
-<script src="js/emailNotifier.js?v=2.6.0"></script>
-<script src="js/payroll.js?v=2.6.0"></script>
-<script src="js/company.js?v=2.6.0"></script>
-<script src="js/settlement.js?v=2.6.0"></script>
-<script src="js/performance.js?v=2.6.0"></script>
-<script src="js/recruitment.js?v=2.6.0"></script>
-<script src="js/events.js?v=2.6.0"></script>
-<script src="js/assets.js?v=2.6.0"></script>
-<script src="js/expenses.js?v=2.6.0"></script>
-<script src="js/helpdesk.js?v=2.6.0"></script>
-<script src="js/reports.js?v=2.6.0"></script>
-<script src="js/administration.js?v=2.6.0"></script>
-<script src="js/settings.js?v=2.6.0"></script>
-<script src="js/hrAssistant.js?v=2.6.0"></script>
-<script src="js/pwa.js?v=3.1.0"></script>
-<script src="js/tour.js?v=1.0.0"></script>
-<script src="js/documentEngine.js?v=1.0.0"></script>
-<script src="js/badgeGenerator.js?v=1.0.0"></script>
+<script src="js/security.js?v=2.5.0" defer></script>
+<script src="js/api.js?v=2.5.0" defer></script>
+<script src="js/i18n.js?v=2.5.0" defer></script>
+<script src="js/data.js?v=2.5.0" defer></script>
+<script src="js/taxEngine.js?v=2.5.0" defer></script>
+<script src="js/bankFormats.js?v=2.5.0" defer></script>
+<script src="js/notifications.js?v=2.5.0" defer></script>
+<script src="js/auth.js?v=3.5.0" defer></script>
+<script src="js/workflow.js?v=1.0.0" defer></script>
+<script src="js/websocket.js?v=2.5.0" defer></script>
+<script src="js/geminiService.js?v=1.0.0" defer></script>
+<script src="js/chat.js?v=3.5.0" defer></script>
+<script src="js/landing-particles.js?v=2.6.5" defer></script>
+<script src="js/landing.js?v=2.6.5" defer></script>
+<script src="js/landingAgent.js?v=1.0.0" defer></script>
+<script src="js/trial.js?v=2.5.0" defer></script>
+<script src="js/app.js?v=3.6.5" defer></script>
+<script src="js/dashboard.js?v=3.5.3" defer></script>
+<script src="js/employees.js?v=3.0.0" defer></script>
+<script src="js/attendance.js?v=2.6.0" defer></script>
+<script src="js/leaves.js?v=2.6.0" defer></script>
+<script src="js/emailNotifier.js?v=2.6.0" defer></script>
+<script src="js/payroll.js?v=2.6.0" defer></script>
+<script src="js/company.js?v=2.6.0" defer></script>
+<script src="js/settlement.js?v=2.6.0" defer></script>
+<script src="js/performance.js?v=2.6.0" defer></script>
+<script src="js/recruitment.js?v=2.6.0" defer></script>
+<script src="js/events.js?v=2.6.0" defer></script>
+<script src="js/assets.js?v=2.6.0" defer></script>
+<script src="js/expenses.js?v=2.6.0" defer></script>
+<script src="js/helpdesk.js?v=2.6.0" defer></script>
+<script src="js/reports.js?v=2.6.0" defer></script>
+<script src="js/administration.js?v=2.6.0" defer></script>
+<script src="js/settings.js?v=2.6.0" defer></script>
+<script src="js/hrAssistant.js?v=2.6.0" defer></script>
+<script src="js/pwa.js?v=3.1.0" defer></script>
+<script src="js/tour.js?v=1.0.0" defer></script>
+<script src="js/documentEngine.js?v=1.0.0" defer></script>
+<script src="js/badgeGenerator.js?v=1.0.0" defer></script>
 
   <!-- Inline: ensure all modules loaded (defined inside performance.js, events.js, assets.js, expenses.js, helpdesk.js) -->
   <script>
-    // Ensure all modules are globally available on window object
-    try {
-      if (typeof Security !== 'undefined') window.Security = Security;
-      if (typeof Employees !== 'undefined') window.Employees = Employees;
-      if (typeof Attendance !== 'undefined') window.Attendance = Attendance;
-      if (typeof Leaves !== 'undefined') window.Leaves = Leaves;
-      if (typeof Payroll !== 'undefined') window.Payroll = Payroll;
-      if (typeof Assets !== 'undefined') window.Assets = Assets;
-      if (typeof Expenses !== 'undefined') window.Expenses = Expenses;
-      if (typeof Helpdesk !== 'undefined') window.Helpdesk = Helpdesk;
-      if (typeof Events !== 'undefined') window.Events = Events;
-      if (typeof Reports !== 'undefined') window.Reports = Reports;
-      if (typeof Administration !== 'undefined') window.Administration = Administration;
-      if (typeof HRMTour !== 'undefined') window.HRMTour = HRMTour;
-      if (typeof HRMDocumentEngine !== 'undefined') window.HRMDocumentEngine = HRMDocumentEngine;
-      if (typeof HRMBadgeGenerator !== 'undefined') window.HRMBadgeGenerator = HRMBadgeGenerator;
-      if (typeof GeminiService !== 'undefined') window.GeminiService = GeminiService;
-    } catch(e) {}
-
     // Safety check — ensure all modules loaded
     window.addEventListener('DOMContentLoaded', () => {
+      // Ensure all modules are globally available on window object
+      try {
+        if (typeof Security !== 'undefined') window.Security = Security;
+        if (typeof Employees !== 'undefined') window.Employees = Employees;
+        if (typeof Attendance !== 'undefined') window.Attendance = Attendance;
+        if (typeof Leaves !== 'undefined') window.Leaves = Leaves;
+        if (typeof Payroll !== 'undefined') window.Payroll = Payroll;
+        if (typeof Assets !== 'undefined') window.Assets = Assets;
+        if (typeof Expenses !== 'undefined') window.Expenses = Expenses;
+        if (typeof Helpdesk !== 'undefined') window.Helpdesk = Helpdesk;
+        if (typeof Events !== 'undefined') window.Events = Events;
+        if (typeof Reports !== 'undefined') window.Reports = Reports;
+        if (typeof Administration !== 'undefined') window.Administration = Administration;
+        if (typeof HRMTour !== 'undefined') window.HRMTour = HRMTour;
+        if (typeof HRMDocumentEngine !== 'undefined') window.HRMDocumentEngine = HRMDocumentEngine;
+        if (typeof HRMBadgeGenerator !== 'undefined') window.HRMBadgeGenerator = HRMBadgeGenerator;
+        if (typeof GeminiService !== 'undefined') window.GeminiService = GeminiService;
+      } catch(e) {}
+
       const required = ['Security','API','I18n','DB','LiveNotifications','Auth','HRMWebSocket','Landing','LandingAgent','Trial','App','Dashboard','Employees','Attendance','Leaves','Payroll','Company','Settlement','Performance','Recruitment','Assets','Expenses','Helpdesk','Events','Reports','Administration','Settings','Toast','Modal','Utils','Chat','HRAssistant'];
       const missing = required.filter(m => typeof window[m] === 'undefined');
       if (missing.length > 0) {
