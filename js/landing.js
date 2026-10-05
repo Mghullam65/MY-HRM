@@ -777,8 +777,18 @@ const Landing = {
             </div>
 
             <div class="module-nav-switcher">
-              <button class="landing-theme-toggle-btn" id="landing-theme-toggle-btn" onclick="Landing.toggleTheme()" title="${savedTheme === 'dark' ? 'Switch to Crisp Light Theme' : 'Switch to Obsidian Dark Theme'}" style="margin-right:4px">
-                <i class="fa ${savedTheme === 'dark' ? 'fa-sun' : 'fa-moon'}" style="color:${savedTheme === 'dark' ? '#f59e0b' : '#6366f1'};font-size:15px"></i>
+              <button class="landing-theme-toggle-btn" id="landing-theme-toggle-btn" onclick="Landing.toggleTheme()" aria-label="Toggle theme between Light and Dark mode" title="Switch to ${savedTheme === 'dark' ? 'Light' : 'Dark'} Mode" style="margin-right:6px">
+                <span class="theme-switch-track">
+                  <span class="theme-switch-indicator"></span>
+                  <span class="theme-switch-opt opt-light" title="Light Theme">
+                    <i class="fa fa-sun"></i>
+                    <span class="theme-switch-text">Light</span>
+                  </span>
+                  <span class="theme-switch-opt opt-dark" title="Dark Theme">
+                    <i class="fa fa-moon"></i>
+                    <span class="theme-switch-text">Dark</span>
+                  </span>
+                </span>
               </button>
               <button class="module-switcher-btn" onclick="App.showModule('${prevMod.id}')" title="Previous: ${prevMod.title}">
                 <i class="fa fa-chevron-left"></i> <span>${prevMod.title.split(' ')[0]}</span>
@@ -1047,12 +1057,20 @@ const Landing = {
             </nav>
 
             <!-- Nav Action Buttons & Theme Switcher -->
-            <div style="display:flex;align-items:center;gap:10px;">
-              <!-- Light / Dark Theme Switcher Button -->
-              <button class="landing-theme-toggle-btn" id="landing-theme-toggle" onclick="Landing.toggleTheme()" title="Switch Light / Dark Theme">
-                <i class="fa fa-sun theme-icon-sun"></i>
-                <i class="fa fa-moon theme-icon-moon"></i>
-                <span class="theme-toggle-label">${savedTheme === 'dark' ? 'Dark' : 'Light'}</span>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <!-- Dual-Mode Sliding Capsule Theme Switcher -->
+              <button class="landing-theme-toggle-btn" id="landing-theme-toggle" onclick="Landing.toggleTheme()" aria-label="Toggle theme between Light and Dark mode" title="Switch to ${savedTheme === 'dark' ? 'Light' : 'Dark'} Mode">
+                <span class="theme-switch-track">
+                  <span class="theme-switch-indicator"></span>
+                  <span class="theme-switch-opt opt-light" title="Light Theme">
+                    <i class="fa fa-sun"></i>
+                    <span class="theme-switch-text">Light</span>
+                  </span>
+                  <span class="theme-switch-opt opt-dark" title="Dark Theme">
+                    <i class="fa fa-moon"></i>
+                    <span class="theme-switch-text">Dark</span>
+                  </span>
+                </span>
               </button>
 
               <button class="btn-automark-outline" style="padding:9px 20px;font-size:13.5px;" onclick="App.showLogin()">
@@ -1067,6 +1085,13 @@ const Landing = {
 
         <!-- ─── 2. HERO SECTION WITH 3 ANIMATED MOVING OBJECTS ─── -->
         <section class="landing-hero">
+          <!-- Ambient Moving Aurora Mesh (Fluid Living Background in Light & Dark Mode) -->
+          <div class="hero-ambient-mesh" aria-hidden="true">
+            <div class="ambient-blob ambient-blob-1"></div>
+            <div class="ambient-blob ambient-blob-2"></div>
+            <div class="ambient-blob ambient-blob-3"></div>
+          </div>
+
           <!-- Ambient Spore Particles Canvas -->
           <div class="hero-spore-container">
             <canvas class="heroSporeCanvas"></canvas>
@@ -3026,12 +3051,10 @@ const Landing = {
     document.body.setAttribute('data-landing-theme', theme);
     document.body.setAttribute('data-theme', theme);
 
-    const labels = document.querySelectorAll('.theme-toggle-label');
-    labels.forEach(l => l.innerText = theme === 'dark' ? 'Dark' : 'Light');
-
-    const toggleBtns = document.querySelectorAll('.landing-theme-toggle-btn, #landing-theme-toggle');
+    const toggleBtns = document.querySelectorAll('.landing-theme-toggle-btn, #landing-theme-toggle, #landing-theme-toggle-btn');
     toggleBtns.forEach(btn => {
-      btn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Theme');
+      btn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Mode');
+      btn.setAttribute('aria-label', 'Toggle theme between Light and Dark mode (current: ' + theme + ')');
     });
 
     if (window.LandingParticles && typeof window.LandingParticles.setTheme === 'function') {
