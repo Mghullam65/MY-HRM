@@ -1,5 +1,5 @@
 // HRM Pro — Service Worker (Offline Shell, Asset Caching & Offline Sync)
-const CACHE_NAME = 'hrm-pro-cache-v3.6.2';
+const CACHE_NAME = 'hrm-pro-cache-v3.6.5';
 
 const STATIC_ASSETS = [
   './',
@@ -10,6 +10,7 @@ const STATIC_ASSETS = [
   './assets/icon.svg',
   './css/main.css',
   './css/landing-theme.css',
+  './css/landing-automark.css',
   './js/security.js',
   './js/api.js',
   './js/i18n.js',
@@ -23,6 +24,7 @@ const STATIC_ASSETS = [
   './js/websocket.js',
   './js/geminiService.js',
   './js/chat.js',
+  './js/landing-particles.js',
   './js/landing.js',
   './js/landingAgent.js',
   './js/trial.js',

@@ -11,9 +11,11 @@ const App = {
       const initialHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
       if (!initialHash || initialHash === 'landing') {
         const landingEl = document.getElementById('landing-page');
+        const savedLandingTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
         if (landingEl) {
           landingEl.style.display = 'block';
-          landingEl.setAttribute('data-theme', 'dark');
+          landingEl.setAttribute('data-landing-theme', savedLandingTheme);
+          landingEl.setAttribute('data-theme', savedLandingTheme);
         }
         if (typeof Landing !== 'undefined' && Landing.render) {
           try { Landing.render(); } catch (e) { console.warn('Pre-paint landing error:', e); }
@@ -180,8 +182,12 @@ const App = {
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
     const trial = document.getElementById('trial-page');
-    const app = document.getElementById('app');
-    if (landing) { landing.style.display = 'block'; landing.setAttribute('data-theme', 'dark'); }
+    const savedLandingTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
+    if (landing) {
+      landing.style.display = 'block';
+      landing.setAttribute('data-landing-theme', savedLandingTheme);
+      landing.setAttribute('data-theme', savedLandingTheme);
+    }
     if (modDetail) modDetail.style.display = 'none';
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
@@ -215,7 +221,12 @@ const App = {
     const trial = document.getElementById('trial-page');
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
-    if (modDetail) { modDetail.style.display = 'block'; modDetail.setAttribute('data-theme', 'dark'); }
+    const savedLandingTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
+    if (modDetail) {
+      modDetail.style.display = 'block';
+      modDetail.setAttribute('data-landing-theme', savedLandingTheme);
+      modDetail.setAttribute('data-theme', savedLandingTheme);
+    }
     if (login) login.style.display = 'none';
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';

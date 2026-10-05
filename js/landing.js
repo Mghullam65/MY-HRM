@@ -757,7 +757,8 @@ const Landing = {
     const leaves = (typeof DB !== 'undefined' && DB.get) ? (DB.get('leave_requests') || []) : [];
     const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
 
-    const savedTheme = localStorage.getItem('hrm_landing_theme') || 'dark';
+    const savedTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
+    container.setAttribute('data-landing-theme', savedTheme);
     container.setAttribute('data-theme', savedTheme);
 
     container.innerHTML = `
@@ -936,30 +937,13 @@ const Landing = {
   },
 
 
+  // Legacy theme forwarders (unified at bottom of Landing object)
   toggleTheme() {
-    const currentTheme = localStorage.getItem('hrm_landing_theme') || 'light';
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    localStorage.setItem('hrm_landing_theme', newTheme);
-    this.applyTheme(newTheme);
+    this.toggleThemeUnified();
   },
 
   applyTheme(theme) {
-    const landingEl = document.getElementById('landing-page');
-    const detailEl = document.getElementById('module-detail-page');
-    if (landingEl) landingEl.setAttribute('data-theme', theme);
-    if (detailEl) detailEl.setAttribute('data-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    document.body.setAttribute('data-theme', theme);
-    const wrappers = document.querySelectorAll('.landing-wrapper, .module-detail-page-wrapper');
-    wrappers.forEach(w => w.setAttribute('data-theme', theme));
-
-    const btns = document.querySelectorAll('.landing-theme-toggle-btn');
-    btns.forEach(btn => {
-      btn.innerHTML = theme === 'dark' 
-        ? '<i class="fa fa-sun" style="color:#f59e0b;font-size:16px"></i>' 
-        : '<i class="fa fa-moon" style="color:#6366f1;font-size:16px"></i>';
-      btn.title = theme === 'dark' ? 'Switch to Crisp Light Theme' : 'Switch to Obsidian Dark Theme';
-    });
+    this.applyThemeUnified(theme);
   },
 
   testimonialsData: [
@@ -1015,26 +999,27 @@ const Landing = {
     const container = document.getElementById('landing-page');
     if (!container) return;
 
-    const savedTheme = localStorage.getItem('landing_theme') || 'dark';
+    const savedTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
     container.setAttribute('data-landing-theme', savedTheme);
+    container.setAttribute('data-theme', savedTheme);
 
     // Live database telemetry
-    const emps = (typeof DB !== 'undefined' && DB.getEmployees) ? DB.getEmployees() : [];
-    const att = (typeof DB !== 'undefined' && DB.getAttendance) ? DB.getAttendance() : [];
-    const leaves = (typeof DB !== 'undefined' && DB.getLeaves) ? DB.getLeaves() : [];
-    const jobs = (typeof DB !== 'undefined' && DB.getJobs) ? DB.getJobs() : [];
-    const depts = (typeof DB !== 'undefined' && DB.getDepartments) ? DB.getDepartments() : [];
+    const emps = (typeof DB !== 'undefined' && DB.get) ? (DB.get('employees') || []) : [];
+    const att = (typeof DB !== 'undefined' && DB.get) ? (DB.get('attendance') || []) : [];
+    const leaves = (typeof DB !== 'undefined' && DB.get) ? (DB.get('leave_requests') || []) : [];
+    const jobs = (typeof DB !== 'undefined' && DB.get) ? (DB.get('recruitment') || []) : [];
+    const depts = (typeof DB !== 'undefined' && DB.get) ? (DB.get('departments') || []) : [];
 
     const openJobsList = jobs.filter(j => j.status === 'active' || j.status === 'open');
     const openJobsCount = openJobsList.length;
 
     const todayStr = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : new Date().toISOString().slice(0, 10);
     const totalEmps = emps.length > 0 ? emps.length : 52;
-    const presentToday = att.filter(a => a.date === todayStr && a.status === 'present').length || Math.min(totalEmps, 48);
-    const pendingLeaves = leaves.filter(l => l.status === 'pending').length || 6;
+    const presentToday = att.filter(a => a.date === todayStr && a.status === 'present').length || (emps.length > 0 ? Math.min(totalEmps, emps.length) : 48);
+    const pendingLeaves = leaves.filter(l => l.status === 'pending').length || (emps.length > 0 ? 0 : 6);
 
     container.innerHTML = `
-      <div class="landing-wrapper" data-landing-theme="${savedTheme}" onclick="Landing.closeAllMenus()">
+      <div class="landing-wrapper" data-landing-theme="${savedTheme}" data-theme="${savedTheme}" onclick="Landing.closeAllMenus()">
         <!-- ─── 1. TOP NAVBAR (WITH DUAL THEME TOGGLE) ─── -->
         <header class="landing-header">
           <div class="landing-nav-container">
@@ -2996,22 +2981,58 @@ const Landing = {
   
   activeCatalogCategory: 'all',
 
+  toggleThemeUnified() {
+    this.toggleTheme();
+  },
+
   toggleTheme() {
-    const current = localStorage.getItem('landing_theme') || 'dark';
+    const current = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
     localStorage.setItem('landing_theme', next);
+    localStorage.setItem('hrm_landing_theme', next);
     this.applyTheme(next);
   },
 
+  applyThemeUnified(theme) {
+    this.applyTheme(theme);
+  },
+
   applyTheme(theme) {
+    localStorage.setItem('landing_theme', theme);
+    localStorage.setItem('hrm_landing_theme', theme);
+
     const page = document.getElementById('landing-page');
     const wrapper = document.querySelector('.landing-wrapper');
-    if (page) page.setAttribute('data-landing-theme', theme);
-    if (wrapper) wrapper.setAttribute('data-landing-theme', theme);
-    const label = document.querySelector('.theme-toggle-label');
-    if (label) label.innerText = theme === 'dark' ? 'Dark' : 'Light';
-    const toggleBtn = document.getElementById('landing-theme-toggle');
-    if (toggleBtn) toggleBtn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Theme');
+    const detail = document.getElementById('module-detail-page');
+
+    if (page) {
+      page.setAttribute('data-landing-theme', theme);
+      page.setAttribute('data-theme', theme);
+    }
+    if (wrapper) {
+      wrapper.setAttribute('data-landing-theme', theme);
+      wrapper.setAttribute('data-theme', theme);
+    }
+    if (detail) {
+      detail.setAttribute('data-landing-theme', theme);
+      detail.setAttribute('data-theme', theme);
+    }
+    document.documentElement.setAttribute('data-landing-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.setAttribute('data-landing-theme', theme);
+    document.body.setAttribute('data-theme', theme);
+
+    const labels = document.querySelectorAll('.theme-toggle-label');
+    labels.forEach(l => l.innerText = theme === 'dark' ? 'Dark' : 'Light');
+
+    const toggleBtns = document.querySelectorAll('.landing-theme-toggle-btn, #landing-theme-toggle');
+    toggleBtns.forEach(btn => {
+      btn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Theme');
+    });
+
+    if (window.LandingParticles && typeof window.LandingParticles.setTheme === 'function') {
+      window.LandingParticles.setTheme(theme);
+    }
   },
 
   getModulesCatalogHtml(activeCategory = 'all') {
@@ -3019,10 +3040,18 @@ const Landing = {
     const filtered = activeCategory === 'all' 
       ? modules 
       : modules.filter(m => {
-          if (activeCategory === 'workforce') return ['Core Workforce', 'Time & Attendance', 'Leaves & Absences', 'Talent Acquisition'].includes(m.category);
-          if (activeCategory === 'finance') return ['Compensation', 'Talent & Development', 'Performance', 'Expenses'].includes(m.category);
-          if (activeCategory === 'operations') return ['Operations', 'Support', 'Company Culture', 'Executive BI'].includes(m.category);
-          if (activeCategory === 'governance') return ['Multi-Company Holdings', 'Legal & Settlements', 'Governance', 'System Administration'].includes(m.category);
+          if (activeCategory === 'workforce') {
+            return ['Core Workforce', 'Time & Attendance', 'Leaves & Absences', 'Talent Acquisition'].includes(m.category) || ['employees', 'attendance', 'leaves', 'recruitment'].includes(m.id);
+          }
+          if (activeCategory === 'finance') {
+            return ['Payroll & Performance', 'Compensation', 'Talent & Development', 'Performance', 'Expenses'].includes(m.category) || ['training', 'payroll', 'performance', 'expenses'].includes(m.id);
+          }
+          if (activeCategory === 'operations') {
+            return ['Operations & Assets', 'Operations', 'Support', 'Company Culture', 'Executive BI'].includes(m.category) || ['assets', 'helpdesk', 'events'].includes(m.id);
+          }
+          if (activeCategory === 'governance') {
+            return ['Governance & Intelligence', 'Governance & Holding Structure', 'Exit & Statutory Compliance', 'Multi-Company Holdings', 'Legal & Settlements', 'Governance', 'System Administration'].includes(m.category) || ['reports', 'administration', 'settings', 'dashboard', 'company', 'settlement'].includes(m.id);
+          }
           return m.category === activeCategory;
         });
 
