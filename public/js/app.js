@@ -525,10 +525,6 @@ const App = {
       </nav>
 
       <div class="sidebar-footer" style="display:flex;flex-direction:column;gap:6px">
-        <button class="btn btn-ghost btn-sm pwa-install-btn" onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : null" style="color:#38bdf8;width:100%;justify-content:flex-start;padding:8px 12px;font-size:12.5px" title="Install HRM Pro Mobile / Desktop App">
-          <i class="fa fa-download" style="width:18px"></i>
-          <span>Install Mobile App</span>
-        </button>
         <button class="logout-btn" onclick="App.logout()">
           <i class="fa fa-right-from-bracket"></i>
           <span>Logout</span>
@@ -625,9 +621,6 @@ const App = {
       <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
         <!-- Top Row: My Profile + Change Password + Install App + Logout -->
         <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
-          <a href="javascript:void(0)" onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : null" class="header-action-link link-install pwa-install-btn" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer" title="Install HRM Pro Desktop / Mobile App">
-            <i class="fa fa-download" style="font-size:11px"></i> Install App
-          </a>
           <a href="javascript:void(0)" onclick="App.navigate('profile')" class="header-action-link link-profile" style="color:var(--text-2);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             <i class="fa fa-user" style="font-size:11px"></i> My Profile
           </a>
@@ -653,11 +646,6 @@ const App = {
 
           <div class="topbar-actions" style="display:inline-flex;align-items:center;gap:6px">
             ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
-
-            <!-- Install Mobile / Desktop App Button -->
-            <button class="topbar-btn pwa-install-btn" onclick="typeof PWA !== 'undefined' ? PWA.promptInstall() : null" title="Install HRM Pro Mobile / Desktop App" style="width:30px;height:30px;color:#38bdf8">
-              <i class="fa fa-mobile-screen-button"></i>
-            </button>
 
             <!-- Guided Product Tour -->
             <button class="topbar-btn tour-trigger-btn" onclick="typeof HRMTour !== 'undefined' ? HRMTour.start(true) : null" title="Take Interactive Platform Tour" style="width:30px;height:30px;color:#a855f7">

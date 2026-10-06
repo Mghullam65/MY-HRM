@@ -10,9 +10,8 @@ const PWA = {
   init() {
     this.detectPlatform();
     this.registerServiceWorker();
-    this.bindInstallEvents();
     this.bindNetworkEvents();
-    this.renderInstallUI();
+    this.hideInstallButtons();
   },
 
   detectPlatform() {
@@ -52,21 +51,9 @@ const PWA = {
   },
 
   bindInstallEvents() {
+    // Pure web application mode: prevent default browser install mini-infobars
     window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent the mini-infobar from appearing on mobile
       e.preventDefault();
-      this.deferredPrompt = e;
-      console.log('[PWA] beforeinstallprompt event captured');
-      this.showInstallButtons();
-    });
-
-    window.addEventListener('appinstalled', () => {
-      this.deferredPrompt = null;
-      this.isInstalled = true;
-      console.log('[PWA] App installed successfully');
-      if (window.Toast) {
-        Toast.show('🎉 HRM Pro installed successfully on your device!', 'success');
-      }
       this.hideInstallButtons();
     });
   },
@@ -176,340 +163,56 @@ const PWA = {
   },
 
   showInstallButtons() {
-    const installBtns = document.querySelectorAll('.pwa-install-btn');
-    installBtns.forEach(btn => btn.style.display = 'inline-flex');
-    this.renderFloatingBanner();
+    // Pure web mode: install buttons remain hidden
+    this.hideInstallButtons();
   },
 
   hideInstallButtons() {
     const installBtns = document.querySelectorAll('.pwa-install-btn');
-    installBtns.forEach(btn => btn.style.display = 'none');
+    installBtns.forEach(btn => {
+      btn.style.display = 'none';
+      if (btn.parentNode && btn.classList.contains('pwa-install-btn')) {
+        btn.remove();
+      }
+    });
     const floating = document.getElementById('pwa-floating-install-banner');
     if (floating) floating.remove();
   },
 
   renderInstallUI() {
-    if (this.isInstalled) return;
-
-    // Check if dismissed in last 24h
-    const dismissedAt = localStorage.getItem('pwa_install_dismissed');
-    if (dismissedAt && (Date.now() - parseInt(dismissedAt, 10)) < 86400000) {
-      return;
-    }
-
-    setTimeout(() => {
-      this.renderFloatingBanner();
-    }, 3500);
+    // Pure web mode: no install UI rendered
   },
 
   renderFloatingBanner() {
-    if (this.isInstalled || document.getElementById('pwa-floating-install-banner')) return;
-
-    const banner = document.createElement('div');
-    banner.id = 'pwa-floating-install-banner';
-    banner.className = 'pwa-install-sheet';
-    banner.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      max-width: 360px;
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      border: 1px solid rgba(59, 130, 246, 0.4);
-      border-radius: 16px;
-      padding: 16px;
-      box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6), 0 0 20px rgba(59,130,246,0.25);
-      z-index: 9999;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      animation: pwaSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    `;
-
-    banner.innerHTML = `
-      <style>
-        @keyframes pwaSlideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      </style>
-      <div style="display: flex; align-items: center; justify-content: space-between;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <img src="assets/icon-192.png" alt="HRM Pro" style="width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.3);">
-          <div>
-            <div style="font-weight: 700; font-size: 15px; letter-spacing: -0.2px;">Install HRM Pro App</div>
-            <div style="font-size: 12px; color: #94a3b8;">Fast 1-tap access & offline attendance</div>
-          </div>
-        </div>
-        <button onclick="PWA.dismissBanner()" style="background: none; border: none; color: #64748b; font-size: 16px; cursor: pointer; padding: 4px;">✕</button>
-      </div>
-      <div style="display: flex; gap: 8px; margin-top: 4px;">
-        <button onclick="PWA.promptInstall()" class="btn btn-primary" style="flex: 1; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; background: #2563eb; color: #fff; border: none; cursor: pointer;">
-          <i class="fa fa-download"></i> Install Now
-        </button>
-        <button onclick="PWA.dismissBanner()" class="btn btn-ghost" style="font-size: 13px; color: #94a3b8; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 8px 12px; cursor: pointer;">
-          Later
-        </button>
-      </div>
-    `;
-
-    document.body.appendChild(banner);
+    // Pure web mode: no floating banners
+    const floating = document.getElementById('pwa-floating-install-banner');
+    if (floating) floating.remove();
   },
 
   dismissBanner() {
     const banner = document.getElementById('pwa-floating-install-banner');
     if (banner) banner.remove();
-    localStorage.setItem('pwa_install_dismissed', Date.now().toString());
   },
 
-  async promptInstall() {
-    if (this.deferredPrompt) {
-      this.deferredPrompt.prompt();
-      const choice = await this.deferredPrompt.userChoice;
-      console.log('[PWA] User choice:', choice.outcome);
-      if (choice.outcome === 'accepted') {
-        this.dismissBanner();
-      }
-      this.deferredPrompt = null;
-      return;
-    }
-
-    if (this.isIOS) {
-      this.showIOSInstallModal();
-      return;
-    }
-
-    // Desktop or other browser
-    this.showGenericInstallModal();
+  promptInstall() {
+    // Pure web mode: runs seamlessly directly in the browser
+    console.log('[HRM Pro] Web App active. No application download required.');
   },
 
   showIOSInstallModal() {
-    if (window.Modal) {
-      Modal.open({
-        title: '📱 Install on iPhone / iPad',
-        body: `
-          <div style="text-align: center; padding: 10px 0;">
-            <img src="assets/icon-192.png" alt="HRM Pro" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
-            <h4 style="margin: 0 0 8px 0; font-size: 17px;">Install HRM Pro on iOS</h4>
-            <p style="color: var(--text-muted, #94a3b8); font-size: 13px; margin-bottom: 20px;">
-              Apple Safari lets you install directly to your home screen in 3 quick steps:
-            </p>
-            
-            <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--border-color, rgba(255,255,255,0.1)); border-radius: 12px; padding: 16px; text-align: left; display: flex; flex-direction: column; gap: 14px; font-size: 14px;">
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="background: #2563eb; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">1</span>
-                <span>Tap the <strong>Share</strong> button <i class="fa fa-arrow-up-from-bracket" style="color: #38bdf8; margin: 0 4px;"></i> at the bottom of Safari.</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="background: #2563eb; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">2</span>
-                <span>Scroll down and tap <strong>Add to Home Screen</strong> <i class="fa fa-plus-square" style="color: #38bdf8; margin: 0 4px;"></i>.</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 12px;">
-                <span style="background: #2563eb; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px;">3</span>
-                <span>Tap <strong>Add</strong> in the top right corner. Done!</span>
-              </div>
-            </div>
-          </div>
-        `,
-        actions: [
-          {
-            label: 'Got It',
-            className: 'btn-primary',
-            onClick: () => Modal.close()
-          }
-        ]
-      });
-    } else {
-      alert("To install on iOS: Tap the Share button in Safari, then tap 'Add to Home Screen'!");
-    }
+    // Pure web mode: no app modal
   },
 
   showGenericInstallModal() {
-    const apkUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Mobile.apk';
-    const winUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip';
-
-    if (window.Modal) {
-      Modal.open({
-        title: '📥 Download HRM Pro Applications',
-        body: `
-          <div style="padding: 10px 0;">
-            <div style="text-align: center; margin-bottom: 20px;">
-              <img src="assets/icon-192.png" alt="HRM Pro" style="width: 64px; height: 64px; border-radius: 14px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2px solid rgba(255,255,255,0.15);">
-              <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Download HRM Pro Apps</h4>
-              <p style="color: var(--text-muted, #94a3b8); font-size: 13px; margin: 0;">
-                Direct installer packages for Android phones & Windows computers
-              </p>
-            </div>
-            
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-              <!-- Android APK File Option -->
-              <a href="${apkUrl}" download="HRM-Pro-Mobile.apk" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(37,99,235,0.12); border: 1px solid rgba(59,130,246,0.35); border-radius: 14px; padding: 14px 16px; transition: all 0.2s ease;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16,185,129,0.2); color: #34d399; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                    <i class="fa-brands fa-android"></i>
-                  </div>
-                  <div>
-                    <strong style="color: #f1f5f9; font-size: 14.5px; display: block;">Download Android APK (.apk)</strong>
-                    <span style="color: #94a3b8; font-size: 12px;">Official mobile package for all Android phones (Samsung, Xiaomi, Oppo, etc.)</span>
-                  </div>
-                </div>
-                <div style="background: #10b981; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
-                  <i class="fa fa-download"></i> APK
-                </div>
-              </a>
-
-              <!-- Windows Desktop App Option -->
-              <a href="${winUrl}" download="HRM-Pro-Windows-Desktop.zip" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); border-radius: 14px; padding: 14px 16px; transition: all 0.2s ease;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59,130,246,0.2); color: #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                    <i class="fa-brands fa-windows"></i>
-                  </div>
-                  <div>
-                    <strong style="color: #f1f5f9; font-size: 14.5px; display: block;">Download Windows Desktop App</strong>
-                    <span style="color: #94a3b8; font-size: 12px;">Standalone PC software for Windows 10 &amp; 11 Laptops/Desktops</span>
-                  </div>
-                </div>
-                <div style="background: #2563eb; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
-                  <i class="fa fa-download"></i> ZIP / EXE
-                </div>
-              </a>
-
-              <!-- iPhone Safari Guide Option -->
-              <div onclick="Modal.close(); PWA.showIOSInstallModal();" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 14px 16px;">
-                <div style="display: flex; align-items: center; gap: 14px;">
-                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(255,255,255,0.1); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px;">
-                    <i class="fa-brands fa-apple"></i>
-                  </div>
-                  <div>
-                    <strong style="color: #f1f5f9; font-size: 14px; display: block;">Apple iOS (iPhone / iPad)</strong>
-                    <span style="color: #94a3b8; font-size: 12px;">Install via Safari "Add to Home Screen"</span>
-                  </div>
-                </div>
-                <span style="color: #38bdf8; font-size: 13px; font-weight: 600;">View Steps &rarr;</span>
-              </div>
-            </div>
-          </div>
-        `,
-        actions: [
-          {
-            label: 'Close',
-            className: 'btn-ghost',
-            onClick: () => Modal.close()
-          }
-        ]
-      });
-    } else {
-      window.location.href = apkUrl;
-    }
+    // Pure web mode: no app modal
   },
 
   downloadAndroidAPK() {
-    if (window.Modal) {
-      Modal.open({
-        title: '📱 Download Android APK (.apk)',
-        body: `
-          <div style="padding: 10px 0; text-align: center;">
-            <div style="width: 58px; height: 58px; border-radius: 14px; background: rgba(16,185,129,0.15); color: #34d399; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-              <i class="fa-brands fa-android"></i>
-            </div>
-            <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Download Android Mobile APK</h4>
-            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 18px 0;">
-              Get the standalone installer file for Samsung, Xiaomi, Oppo, Vivo, Infinix, Pixel, etc.
-            </p>
-
-            <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
-              <!-- Option 1: 1-Click Instant PWABuilder Generator -->
-              <a href="https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.35); border-radius: 12px; padding: 14px; color: #fff;">
-                <div>
-                  <strong style="color: #34d399; font-size: 14.5px; display: block;">⚡ 1-Click Online APK Generator (Fastest)</strong>
-                  <span style="color: #94a3b8; font-size: 12px;">Generates and downloads your signed Android package in 60 seconds</span>
-                </div>
-                <span style="background: #10b981; color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; white-space: nowrap;">
-                  Open &rarr;
-                </span>
-              </a>
-
-              <!-- Option 2: GitHub Releases -->
-              <a href="https://github.com/Mghullam65/MY-HRM/releases/tag/v3.1.0" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 12px; padding: 14px; color: #fff;">
-                <div>
-                  <strong style="color: #38bdf8; font-size: 14.5px; display: block;">📦 GitHub Official Releases</strong>
-                  <span style="color: #94a3b8; font-size: 12px;">Direct repository download page with release tags &amp; assets</span>
-                </div>
-                <span style="background: #2563eb; color: #fff; padding: 6px 12px; border-radius: 8px; font-weight: 700; font-size: 12px; white-space: nowrap;">
-                  View &rarr;
-                </span>
-              </a>
-
-              <!-- Option 3: Local Android Project -->
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: #94a3b8;">
-                <strong style="color: #f1f5f9; display: block; margin-bottom: 2px;">🛠 Android Studio Source Code</strong>
-                Located in the project root under <code style="color: #38bdf8; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">android/</code> ready to build with Gradle.
-              </div>
-            </div>
-          </div>
-        `,
-        actions: [
-          {
-            label: 'Close',
-            className: 'btn-ghost',
-            onClick: () => Modal.close()
-          }
-        ]
-      });
-    } else {
-      window.open('https://www.pwabuilder.com/publish?url=https://my-hrm-rosy.vercel.app/', '_blank');
-    }
+    // Pure web mode: no APK download
   },
 
   downloadWindowsDesktop() {
-    const winUrl = 'https://github.com/Mghullam65/MY-HRM/releases/download/v3.1.0/HRM-Pro-Windows-Desktop.zip';
-    if (window.Modal) {
-      Modal.open({
-        title: '💻 Windows Desktop Application',
-        body: `
-          <div style="padding: 10px 0; text-align: center;">
-            <div style="width: 58px; height: 58px; border-radius: 14px; background: rgba(59,130,246,0.15); color: #38bdf8; font-size: 28px; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-              <i class="fa-brands fa-windows"></i>
-            </div>
-            <h4 style="margin: 0 0 6px 0; font-size: 18px; color: #fff;">Windows PC Standalone App</h4>
-            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 16px 0;">
-              Standalone software for Windows 10 &amp; 11 PCs and Laptops.
-            </p>
-
-            <div style="display: flex; flex-direction: column; gap: 12px; text-align: left;">
-              <!-- Direct Download -->
-              <a href="${winUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: flex; align-items: center; justify-content: space-between; background: rgba(37,99,235,0.15); border: 1px solid rgba(59,130,246,0.4); border-radius: 12px; padding: 14px; color: #fff;">
-                <div>
-                  <strong style="color: #60a5fa; font-size: 14.5px; display: block;">📥 Download HRM-Pro-Windows-Desktop.zip</strong>
-                  <span style="color: #94a3b8; font-size: 12px;">Standalone ZIP archive (108 MB) — extract and run HRM Pro.exe</span>
-                </div>
-                <span style="background: #2563eb; color: #fff; padding: 8px 14px; border-radius: 8px; font-weight: 700; font-size: 12.5px; white-space: nowrap;">
-                  Download
-                </span>
-              </a>
-
-              <!-- Local PC Info -->
-              <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 12px 14px; font-size: 12.5px; color: #94a3b8;">
-                <strong style="color: #34d399; display: block; margin-bottom: 2px;">⚡ Already Compiled on this PC!</strong>
-                You can run the app immediately without downloading:
-                <div style="margin-top: 6px; font-family: monospace; font-size: 11.5px; color: #e2e8f0; background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 6px; word-break: break-all;">
-                  desktop\\dist\\HRM Pro-win32-x64\\HRM Pro.exe
-                </div>
-              </div>
-            </div>
-          </div>
-        `,
-        actions: [
-          {
-            label: 'Close',
-            className: 'btn-ghost',
-            onClick: () => Modal.close()
-          }
-        ]
-      });
-    } else {
-      window.location.href = winUrl;
-    }
+    // Pure web mode: no desktop download
   }
 };
 

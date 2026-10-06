@@ -14867,3 +14867,13 @@ body:not(.app-workspace-active) #chat-drawer-overlay {
     margin: -10px 0;
   }
 }
+
+/* Pure Web Application Mode: Hide all application download & installation options */
+.pwa-install-btn,
+.link-install,
+#pwa-floating-install-banner,
+.pwa-install-sheet {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
