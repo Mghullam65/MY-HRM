@@ -1057,7 +1057,7 @@ const Landing = {
             </nav>
 
             <!-- Nav Action Buttons & Theme Switcher -->
-            <div style="display:flex;align-items:center;gap:12px;">
+            <div class="landing-header-actions" style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
               <!-- Dual-Mode Sliding Capsule Theme Switcher -->
               <button class="landing-theme-toggle-btn" id="landing-theme-toggle" onclick="Landing.toggleTheme()" aria-label="Toggle theme between Light and Dark mode" title="Switch to ${savedTheme === 'dark' ? 'Light' : 'Dark'} Mode">
                 <span class="theme-switch-track">
@@ -1073,11 +1073,11 @@ const Landing = {
                 </span>
               </button>
 
-              <button class="btn-automark-outline" style="padding:9px 20px;font-size:13.5px;" onclick="App.showLogin()">
-                <i class="fa fa-arrow-right-to-bracket" style="font-size:11px;"></i> Sign In
+              <button class="btn-automark-outline" style="padding:8px 18px;font-size:13.5px;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:7px;" onclick="App.showLogin()" title="Sign In to HRM Portal">
+                <i class="fa-solid fa-right-to-bracket" style="font-size:12px;line-height:1;"></i><span>Sign In</span>
               </button>
-              <button class="btn-automark-primary" style="padding:9px 20px;font-size:13.5px;" onclick="Trial.show()">
-                <i class="fa fa-rocket" style="font-size:11px;"></i> Free Trial
+              <button class="btn-automark-primary" style="padding:8px 20px;font-size:13.5px;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:7px;" onclick="Trial.show()" title="Start 14-Day Free Enterprise Trial">
+                <i class="fa-solid fa-rocket" style="font-size:12px;line-height:1;"></i><span>Free Trial</span>
               </button>
             </div>
           </div>
@@ -1722,54 +1722,94 @@ const Landing = {
             <p>Everything you need to know about setting up HRM Pro for your enterprise.</p>
           </div>
 
-          <div>
-            <div class="faq-item" onclick="Landing.toggleFaq(1)">
+          <div class="faq-container">
+            <div class="faq-item" id="faq-item-1" onclick="Landing.toggleFaq(1, event)" onkeydown="if(event.key==='Enter'||event.key===' ')Landing.toggleFaq(1, event)" role="button" tabindex="0" aria-expanded="false">
               <div class="faq-question">
                 <span>How does Multi-Company Model A Scoping work?</span>
                 <i class="fa fa-chevron-down" id="faq-caret-1" style="color:var(--color-primary);font-size:13px"></i>
               </div>
               <div class="faq-answer" id="faq-answer-1" style="display:none;">
-                Model A Scoping isolates employee data, attendance logs, and payroll records per corporate subsidiary. Subsidiary HR managers only have access to their company records, while Group Super Admins have unified global telemetry and reporting across all entities.
+                <p style="margin:0 0 10px 0;">Model A Scoping isolates employee data, attendance logs, and payroll records per corporate subsidiary. Subsidiary HR managers only have access to their company records, while Group Super Admins have unified global telemetry and reporting across all entities.</p>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sparkles text-primary"></i> Need deeper architecture details?
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs" style="font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px" onclick="event.stopPropagation(); LandingAgent.ask('How does Multi-Company Model A Scoping work?');">
+                    <i class="fa fa-robot"></i> Ask HRM Pro Agent
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="faq-item" onclick="Landing.toggleFaq(2)">
+            <div class="faq-item" id="faq-item-2" onclick="Landing.toggleFaq(2, event)" onkeydown="if(event.key==='Enter'||event.key===' ')Landing.toggleFaq(2, event)" role="button" tabindex="0" aria-expanded="false">
               <div class="faq-question">
                 <span>Can we connect our physical ZKTeco biometric machines?</span>
                 <i class="fa fa-chevron-down" id="faq-caret-2" style="color:var(--color-primary);font-size:13px"></i>
               </div>
               <div class="faq-answer" id="faq-answer-2" style="display:none;">
-                Yes! HRM Pro comes bundled with the background attendance agent (Node.js & Python drivers). It communicates directly with ZKTeco, SilkID, and standalone IP terminals, streaming check-in punches straight to the cloud in real-time.
+                <p style="margin:0 0 10px 0;">Yes! HRM Pro comes bundled with the background attendance agent (Node.js & Python drivers). It communicates directly with ZKTeco, SilkID, and standalone IP terminals, streaming check-in punches straight to the cloud in real-time.</p>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sparkles text-primary"></i> Want device configuration specs?
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs" style="font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px" onclick="event.stopPropagation(); LandingAgent.ask('Can we connect our physical ZKTeco biometric machines?');">
+                    <i class="fa fa-robot"></i> Ask HRM Pro Agent
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="faq-item" onclick="Landing.toggleFaq(3)">
+            <div class="faq-item" id="faq-item-3" onclick="Landing.toggleFaq(3, event)" onkeydown="if(event.key==='Enter'||event.key===' ')Landing.toggleFaq(3, event)" role="button" tabindex="0" aria-expanded="false">
               <div class="faq-question">
                 <span>Are Pakistan FBR Salaried Tax Slabs (2025-27) supported?</span>
                 <i class="fa fa-chevron-down" id="faq-caret-3" style="color:var(--color-primary);font-size:13px"></i>
               </div>
               <div class="faq-answer" id="faq-answer-3" style="display:none;">
-                100% yes. The native SPMS payroll engine automatically applies progressive tax brackets, computes monthly withholding amounts, and handles EOBI & Provident Fund shares with zero manual math.
+                <p style="margin:0 0 10px 0;">100% yes. The native SPMS payroll engine automatically applies progressive tax brackets, computes monthly withholding amounts, and handles EOBI & Provident Fund shares with zero manual math.</p>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sparkles text-primary"></i> See statutory calculation formula?
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs" style="font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px" onclick="event.stopPropagation(); LandingAgent.ask('Are Pakistan FBR Salaried Tax Slabs (2025-27) supported?');">
+                    <i class="fa fa-robot"></i> Ask HRM Pro Agent
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="faq-item" onclick="Landing.toggleFaq(4)">
+            <div class="faq-item" id="faq-item-4" onclick="Landing.toggleFaq(4, event)" onkeydown="if(event.key==='Enter'||event.key===' ')Landing.toggleFaq(4, event)" role="button" tabindex="0" aria-expanded="false">
               <div class="faq-question">
                 <span>How does Statutory 30/26 Gratuity Exit Settlement operate?</span>
                 <i class="fa fa-chevron-down" id="faq-caret-4" style="color:var(--color-primary);font-size:13px"></i>
               </div>
               <div class="faq-answer" id="faq-answer-4" style="display:none;">
-                When an employee resigns or exits, HRM Pro calculates their legal gratuity under the statutory (Last Gross Salary ÷ 26 × 30) formula multiplied by qualifying years of service. It triggers multi-gate clearances across IT, HR, and Accounts before issuing printable vouchers.
+                <p style="margin:0 0 10px 0;">When an employee resigns or exits, HRM Pro calculates their legal gratuity under the statutory (Last Gross Salary ÷ 26 × 30) formula multiplied by qualifying years of service. It triggers multi-gate clearances across IT, HR, and Accounts before issuing printable vouchers.</p>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sparkles text-primary"></i> Inquire about clearance gates?
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs" style="font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px" onclick="event.stopPropagation(); LandingAgent.ask('How does Statutory 30/26 Gratuity Exit Settlement operate?');">
+                    <i class="fa fa-robot"></i> Ask HRM Pro Agent
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div class="faq-item" onclick="Landing.toggleFaq(5)">
+            <div class="faq-item" id="faq-item-5" onclick="Landing.toggleFaq(5, event)" onkeydown="if(event.key==='Enter'||event.key===' ')Landing.toggleFaq(5, event)" role="button" tabindex="0" aria-expanded="false">
               <div class="faq-question">
                 <span>Can we generate bank-ready salary disbursal files?</span>
                 <i class="fa fa-chevron-down" id="faq-caret-5" style="color:var(--color-primary);font-size:13px"></i>
               </div>
               <div class="faq-answer" id="faq-answer-5" style="display:none;">
-                Yes, HRM Pro generates 6 standard CSV disbursal formats formatted for commercial banks, 1Link, and PayPak, including Gross vs Splitter bank accounts.
+                <p style="margin:0 0 10px 0;">Yes, HRM Pro generates 6 standard CSV disbursal formats formatted for commercial banks, 1Link, and PayPak, including Gross vs Splitter bank accounts.</p>
+                <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--color-border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                  <span style="font-size:12px;color:var(--text-3);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sparkles text-primary"></i> Check supported bank formats?
+                  </span>
+                  <button type="button" class="btn btn-secondary btn-xs" style="font-size:11.5px;padding:5px 12px;border-radius:6px;display:inline-flex;align-items:center;gap:6px" onclick="event.stopPropagation(); LandingAgent.ask('Can we generate bank-ready salary disbursal files?');">
+                    <i class="fa fa-robot"></i> Ask HRM Pro Agent
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2352,38 +2392,37 @@ const Landing = {
   },
 
   toggleFaq(index, evt) {
-    // Prevent the wrapper's closeAllMenus from interfering
+    // Prevent any parent handler interference
     if (!evt && typeof window !== 'undefined' && window.event) evt = window.event;
     if (evt && evt.stopPropagation) evt.stopPropagation();
 
-    const item = document.getElementById(`faq-item-${index}`);
+    const allItems = document.querySelectorAll('.faq-item, .landing-faq-item');
+    const item = document.getElementById(`faq-item-${index}`) || allItems[index - 1];
     if (!item) return;
-    const wasOpen = item.classList.contains('active');
+
+    const answer = document.getElementById(`faq-answer-${index}`) || 
+                   item.querySelector('.faq-answer, .landing-faq-answer');
+    const caret = document.getElementById(`faq-caret-${index}`) || 
+                   item.querySelector('i.fa-chevron-down, .faq-chevron');
+
+    const isCurrentlyActive = item.classList.contains('active');
 
     // Close all other FAQ items
-    document.querySelectorAll('.landing-faq-item').forEach(el => {
+    allItems.forEach((el, idx) => {
       el.classList.remove('active');
-      const ans = el.querySelector('.landing-faq-answer, .faq-answer');
-      if (ans) {
-        ans.style.setProperty('display', 'none', 'important');
-      }
-      const chevron = el.querySelector('i.fa-chevron-down, .faq-chevron');
-      if (chevron) {
-        chevron.style.transform = 'rotate(0deg)';
-      }
+      el.setAttribute('aria-expanded', 'false');
+      const ans = el.querySelector('.faq-answer, .landing-faq-answer') || document.getElementById(`faq-answer-${idx + 1}`);
+      if (ans) ans.style.display = 'none';
+      const ch = el.querySelector('i.fa-chevron-down, .faq-chevron') || document.getElementById(`faq-caret-${idx + 1}`);
+      if (ch) ch.style.transform = 'rotate(0deg)';
     });
 
-    // Toggle targeted FAQ item
-    if (!wasOpen) {
+    // If it was not open, open it now
+    if (!isCurrentlyActive) {
       item.classList.add('active');
-      const ans = item.querySelector('.landing-faq-answer, .faq-answer');
-      if (ans) {
-        ans.style.setProperty('display', 'block', 'important');
-      }
-      const chevron = item.querySelector('i.fa-chevron-down, .faq-chevron');
-      if (chevron) {
-        chevron.style.transform = 'rotate(180deg)';
-      }
+      item.setAttribute('aria-expanded', 'true');
+      if (answer) answer.style.display = 'block';
+      if (caret) caret.style.transform = 'rotate(180deg)';
     }
   },
 

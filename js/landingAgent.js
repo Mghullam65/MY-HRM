@@ -9,23 +9,100 @@ const LandingAgent = {
   messageHistory: [],
 
   faqChips: [
-    { label: '💰 Payroll & Tax', query: 'Tell me about Payroll and Pakistan Tax Engine' },
-    { label: '⏱️ Biometrics & Shift Swaps', query: 'How does Biometric Attendance and Shift Swapping work?' },
-    { label: '⚖️ Show-Cause & Inquiry', query: 'What is the Show-Cause Notice & Disciplinary Inquiry system?' },
+    { label: '🏢 Multi-Company Model A', query: 'How does Multi-Company Model A Scoping work?' },
+    { label: '⏱️ ZKTeco Biometrics', query: 'Can we connect our physical ZKTeco biometric machines?' },
+    { label: '🇵🇰 FBR Tax Slabs (2025-27)', query: 'Are Pakistan FBR Salaried Tax Slabs (2025-27) supported?' },
+    { label: '⚖️ 30/26 Gratuity Settlement', query: 'How does Statutory 30/26 Gratuity Exit Settlement operate?' },
+    { label: '🏦 Bank Disbursal Files', query: 'Can we generate bank-ready salary disbursal files?' },
+    { label: '💰 Payroll & Taxes', query: 'Tell me about Payroll and Pakistan Tax Engine' },
     { label: '📈 Merit Increment Matrix', query: 'How does the Performance Merit Increment Matrix work?' },
     { label: '🏖️ Leave Carry-Forward', query: 'How does Annual Leave Encashment and Carry-Forward work?' },
     { label: '👥 Recruitment ATS', query: 'Tell me about the Recruitment ATS Pipeline' },
-    { label: '🏢 e-DMS & Probation', query: 'How does Probation Management and e-DMS Document Vault work?' },
-    { label: '🎨 Themes & UI Pro', query: 'What UI features and themes are included?' },
-    { label: '🔐 Roles & Permissions', query: 'What user roles and permissions exist?' },
     { label: '🚀 Free Trial & Demos', query: 'How can I try a demo or start a free trial?' }
   ],
 
   // Knowledge Base Dictionary with Keywords, Titles, Bullets, and Action Links
   knowledgeBase: [
     {
+      id: 'multi_company',
+      keywords: ['multi-company', 'multi company', 'model a', 'subsidiary', 'subsidiaries', 'holding', 'holding company', 'scoping', 'entity', 'entities', 'parent company', 'cross company'],
+      title: 'Multi-Company Model A Scoping & Subsidiary Governance',
+      summary: 'Model A Scoping isolates employee data, attendance logs, and payroll records per corporate subsidiary while providing Group Super Admins unified global telemetry.',
+      features: [
+        '<strong>Strict Subsidiary Data Isolation:</strong> Subsidiary HR managers and department heads access strictly their assigned operating company with zero cross-company data leakage.',
+        '<strong>Group Super Admin Unified Oversight:</strong> Group Super Admins can switch between company entities in 1-click or generate consolidated cross-subsidiary workforce & payroll reports.',
+        '<strong>Independent Statutory Profiles:</strong> Each corporate entity can configure separate statutory NTN/tax registrations, bank disbursal accounts, and allowance baskets.',
+        '<strong>Inter-Company Employee Transfers:</strong> Seamlessly transfer employees between group companies preserving tenure, leave credits, and gratuity eligibility.'
+      ],
+      actions: [
+        { label: 'Explore Multi-Company Engine', icon: 'fa-sitemap', onclick: "App.showModule('company')" },
+        { label: 'Try Admin Scoping Demo', icon: 'fa-key', onclick: "App.showLogin()" }
+      ]
+    },
+    {
+      id: 'zkteco_biometrics',
+      keywords: ['zkteco', 'biometric machine', 'biometric machines', 'physical machine', 'physical', 'hardware', 'silkid', 'ip machine', 'fingerprint machine', 'facial recognition', 'terminal', 'turnstile', 'punch machine'],
+      title: 'Physical ZKTeco & Standalone Biometric Terminal Integration',
+      summary: 'HRM Pro comes bundled with a lightweight background attendance listener (Node.js & Python SDK drivers) that connects directly with physical ZKTeco, SilkID, and IP terminals.',
+      features: [
+        '<strong>Direct Hardware Connectivity:</strong> Native TCP/IP communication with physical ZKTeco, SilkID, and standalone biometric turnstiles.',
+        '<strong>Real-Time Punch Streaming:</strong> Check-in and check-out punches are pushed immediately into the cloud attendance database.',
+        '<strong>Offline Punch Buffer:</strong> Terminals locally cache up to 100,000 punch records during internet outages and auto-sync when online.',
+        '<strong>Multi-Terminal Fleet Support:</strong> Register multiple gates (Headquarters, Factory, Branch Offices) with automated time-zone synchronization.'
+      ],
+      actions: [
+        { label: 'Explore Attendance Gateway', icon: 'fa-clock', onclick: "App.showModule('attendance')" }
+      ]
+    },
+    {
+      id: 'fbr_tax_slabs',
+      keywords: ['fbr', 'tax slab', 'tax slabs', '2025-27', 'salaried tax', 'pakistan tax', 'withholding tax', 'income tax', 'tax bracket'],
+      title: 'Pakistan FBR Salaried Tax Slabs (2025-27) & Statutory SPMS Engine',
+      summary: '100% compliant progressive tax computation pre-calibrated to the Federal Board of Revenue (FBR) 2025-27 fiscal statutory guidelines.',
+      features: [
+        '<strong>Progressive Pakistan Tax Slabs:</strong> Built-in FBR brackets (0% up to 35%) computed dynamically based on annual projected gross taxable income.',
+        '<strong>Automated Monthly Withholding:</strong> Divides calculated annual liability across remaining months with immediate adjustments for mid-year increments or bonuses.',
+        '<strong>Statutory Provident Fund & EOBI:</strong> Computes mandatory employer and employee contributions with itemized payslip breakdown.',
+        '<strong>Tax Optimization Simulator:</strong> Interactive tax calculator allowing employees to simulate take-home pay under custom deductions and medical exemptions.'
+      ],
+      actions: [
+        { label: 'Open Tax Simulator', icon: 'fa-calculator', onclick: "Landing.scrollTo('landing-tax-calc')" },
+        { label: 'Explore Payroll Module', icon: 'fa-receipt', onclick: "App.showModule('payroll')" }
+      ]
+    },
+    {
+      id: 'gratuity_settlement',
+      keywords: ['gratuity', '30/26', 'exit settlement', 'settlement formula', 'last gross', 'clearance', 'severance', 'final settlement', 'voucher'],
+      title: 'Statutory 30/26 Gratuity & Full & Final Exit Settlement Engine',
+      summary: 'Compliant offboarding calculations under the statutory (Last Gross Salary ÷ 26 × 30) formula multiplied by qualifying years of service.',
+      features: [
+        '<strong>Statutory Gratuity Formula:</strong> Computes <code>(Last Gross Salary ÷ 26 × 30) × Qualifying Years</code> automatically with pro-rata months.',
+        '<strong>Multi-Gate Clearances:</strong> Digital clearance signatures across IT (equipment/laptops), Administration (access cards), and Finance (advances/dues).',
+        '<strong>Earned Leave Encashment:</strong> Automatically includes un-availed leave balance converted to cash at statutory formula.',
+        '<strong>Printable Settlement Voucher:</strong> Generates executive Full & Final Settlement statements with formal sign-off blocks.'
+      ],
+      actions: [
+        { label: 'Explore Settlements Module', icon: 'fa-file-invoice-dollar', onclick: "App.showModule('settlement')" }
+      ]
+    },
+    {
+      id: 'bank_disbursal_files',
+      keywords: ['bank disbursal', 'disbursal file', 'commercial bank', '1link', 'paypak', 'salary disbursal', 'disbursal', 'banking advice', 'disbursal files'],
+      title: 'Bank-Ready Salary Disbursal Files & Formats',
+      summary: 'HRM Pro generates standard automated CSV and Excel disbursal files formatted for commercial banks, 1Link, and PayPak systems.',
+      features: [
+        '<strong>6 Standard Disbursal Formats:</strong> Pre-built CSV formats for HBL, Meezan, MCB, UBL, Standard Chartered, and generic 1Link bulk transfer files.',
+        '<strong>Gross vs Splitter Account Support:</strong> Supports splitting salary disbursement across multiple employee bank accounts (e.g. basic vs allowance).',
+        '<strong>Batch Audit & Checksums:</strong> Pre-disbursal total account number and amount verification preventing erroneous bank transfers.',
+        '<strong>1-Click Export:</strong> Download ready-to-upload files directly from the closed payroll run.'
+      ],
+      actions: [
+        { label: 'Explore Payroll Module', icon: 'fa-coins', onclick: "App.showModule('payroll')" }
+      ]
+    },
+    {
       id: 'payroll',
-      keywords: ['payroll', 'salary', 'tax', 'fbr', 'tax slab', 'deduction', 'provident fund', 'pf', 'eobi', 'payslip', 'wage', 'compensation', 'allowance'],
+      keywords: ['payroll', 'salary', 'tax', 'deduction', 'provident fund', 'pf', 'eobi', 'payslip', 'wage', 'compensation', 'allowance'],
       title: 'Automated Payroll & Pakistan Statutory Tax Engine',
       summary: 'HRM Pro features a complete enterprise payroll engine that calculates gross-to-net salary slips in one click with statutory compliance.',
       features: [
@@ -449,15 +526,74 @@ const LandingAgent = {
     `).join('');
   },
 
+  isInternalWorkforceQuery(query) {
+    const q = String(query || '').toLowerCase().trim();
+    const internalPatterns = [
+      /\bwho('?s|\s+is|\s+are)?\s+(absent|present|late|on\s+leave|missing)\b/,
+      /\btoday('?s)?\s+(attendance|absences|absent|late|headcount|leaves)\b/,
+      /\b(attendance|absence|punch|clock-?in)\s+(today|records?|log|status)\b/,
+      /\bwho\s+clocked\s+(in|out)\b/,
+      /\b(what\s+is|what's|how\s+much\s+is)\s+.*(salary|wage|compensation|pay)\b/,
+      /\b(how\s+much\s+(do|does|did)\s+.*(earn|make|get\s+paid))\b/,
+      /\b(total|monthly)\s+(payroll|salary)\s+(cost|expense|bill|amount|budget|payout)\b/,
+      /\bwhat\s+is\s+our\s+total\s+monthly\s+payroll\b/,
+      /\b(show|list|display|give)(\s+me)?\s+(all\s+)?(employees?|staff|workers?|team\s+members?)(\s+list)?\b/,
+      /\b(employee\s+list|employees\s+list|staff\s+list)\b/,
+      /\b(show|list|display)\s+.*(department\s+staff|employees\s+in)\b/,
+      /\bwho\s+works\s+in\s+.*department\b/,
+      /\b(pending\s+(leaves?|leave\s+requests?|tickets?|approvals?|disciplinary))\b/,
+      /\bwho\s+(applied\s+for|is\s+requesting)\s+leave\b/,
+      /\bdisciplinary\s+(case|inquiry|records?)\s+against\b/,
+      /\bwho\s+are\s+our\s+top\s+performing\s+employees\b/
+    ];
+    return internalPatterns.some(pattern => pattern.test(q));
+  },
+
+  formatInternalBoundaryCard(query) {
+    return `
+      <div class="agent-bubble-title" style="color:#f59e0b;display:flex;align-items:center;gap:6px">
+        <i class="fa fa-shield-halved text-warning"></i> Confidential Enterprise Data Protected
+      </div>
+      <p style="color:var(--color-text,#e2e8f0);margin-bottom:8px">
+        You are inquiring about <strong>live internal company records</strong> (<em>e.g., live attendance, employee rosters, or live payroll costs</em>).
+      </p>
+      <div style="background:rgba(99,102,241,0.08);border-left:3px solid #6366f1;border-radius:4px;padding:8px 12px;margin:8px 0;font-size:12.5px;color:var(--color-text-muted,#cbd5e1);line-height:1.55">
+        <div style="margin-bottom:5px">
+          <strong>• Landing Page Concierge (Here):</strong> Public solutions specialist — provides information on HRM Pro's 16 modules, architecture, Pakistan statutory compliance (FBR tax, EOBI/PF, 30/26 gratuity), and pricing.
+        </div>
+        <div>
+          <strong>• Dashboard HR Co-Pilot:</strong> Internal workforce intelligence — accessible strictly <strong>after logging in</strong> with role-based security to query real-time attendance, department staff, payroll disbursements, and pending leaves.
+        </div>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px">
+        To query live company databases using our HR AI Co-Pilot, please sign in to the portal or test one of our pre-configured demo personas:
+      </p>
+      <div class="agent-bubble-actions" style="margin-top:10px">
+        <button class="agent-action-btn-link" onclick="App.showLogin()">
+          <i class="fa fa-key"></i> Sign In to Access HR Co-Pilot
+        </button>
+        <button class="agent-action-btn-link" onclick="LandingAgent.ask('Tell me about the Biometric Attendance Gateway')">
+          <i class="fa fa-clock"></i> Biometric Attendance Features
+        </button>
+        <button class="agent-action-btn-link" onclick="LandingAgent.ask('Tell me about Payroll and Pakistan Tax Engine')">
+          <i class="fa fa-calculator"></i> Payroll & Tax Engine Features
+        </button>
+      </div>
+    `;
+  },
+
   addAgentGreeting() {
     this.appendMessage({
       role: 'agent',
       html: `
         <div class="agent-bubble-title">
-          <i class="fa fa-sparkles text-primary"></i> Welcome to HRM Pro Product Guide!
+          <i class="fa fa-sparkles text-primary"></i> Welcome to HRM Pro Solutions Concierge!
         </div>
-        <p>I am your dedicated <strong>HRM Pro Feature Agent</strong>. I can answer any question about our <strong>16 enterprise modules</strong>, statutory Pakistan tax & gratuity rules, biometric shift swaps, disciplinary inquiry compliance, and modern UI capabilities.</p>
-        <p style="margin-top:6px;font-size:12px;color:#94a3b8">👉 Tap any suggested topic above or ask me about a specific workflow below!</p>
+        <p>I am your dedicated <strong>Product & Features Concierge</strong>. I am here to guide you through HRM Pro's <strong>16 enterprise modules</strong>, business benefits, statutory Pakistan tax & gratuity rules, biometric hardware integration, and pricing.</p>
+        <div style="margin:8px 0;padding:8px 12px;background:rgba(99,102,241,0.08);border-left:3px solid #6366f1;border-radius:4px;font-size:12px;color:var(--color-text-muted,#94a3b8)">
+          🔒 <em>Note: Live company workforce records (today's attendance, staff salaries, internal leaves) are confidential and queried via the internal <strong>HR Co-Pilot</strong> inside the Dashboard after logging in.</em>
+        </div>
+        <p style="margin-top:6px;font-size:12px;color:#94a3b8">👉 Tap any suggested topic above, ask about our features, or test our live demo accounts!</p>
       `
     });
   },
@@ -489,10 +625,16 @@ const LandingAgent = {
       ? `<div class="agent-msg-avatar"><i class="fa fa-robot"></i></div>`
       : '';
 
+    const safeContent = html || (
+      (typeof Utils !== 'undefined' && typeof Utils.escapeHtml === 'function')
+        ? Utils.escapeHtml(text)
+        : String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+    );
+
     wrap.innerHTML = `
       ${avatarHtml}
       <div class="agent-bubble">
-        ${html || Utils.escapeHtml(text)}
+        ${safeContent}
       </div>
     `;
 
@@ -526,26 +668,39 @@ const LandingAgent = {
   },
 
   async generateResponse(query) {
+    const cleanQuery = query.toLowerCase().trim();
+
+    // 0. Boundary Check: Guard against internal confidential workforce queries on public landing page
+    if (this.isInternalWorkforceQuery(cleanQuery)) {
+      const boundaryHtml = this.formatInternalBoundaryCard(query);
+      this.appendMessage({ role: 'agent', html: boundaryHtml });
+      return;
+    }
+
     const typing = this.showTypingIndicator();
-    const cleanQuery = query.toLowerCase();
+    let responded = false;
 
     try {
-      if (typeof GeminiService !== 'undefined') {
-        const geminiRes = await GeminiService.askLandingAgent(query, this.messageHistory);
+      const gemini = (typeof GeminiService !== 'undefined') ? GeminiService : (typeof window !== 'undefined' ? window.GeminiService : null);
+      if (gemini) {
+        const geminiRes = await gemini.askLandingAgent(query, this.messageHistory);
         if (geminiRes && geminiRes.success && geminiRes.text) {
           this.removeTypingIndicator();
-          const formatted = GeminiService.formatMarkdown(geminiRes.text);
+          responded = true;
+          const formatted = gemini.formatMarkdown(geminiRes.text);
           const html = `
-            <div style="font-size:10px;color:#a855f7;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:4px">
-              <i class="fa fa-sparkles"></i> Gemini AI &bull; Feature Concierge
+            <div style="font-size:11px;color:#818cf8;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <i class="fa fa-sparkles text-primary"></i> Gemini AI &bull; Feature Concierge (${geminiRes.model || 'Live'})
             </div>
-            <div>${formatted}</div>
-            <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-              <button class="btn btn-primary btn-xs" onclick="App.showTrial('Enterprise')" style="font-size:11px">
+            <div class="agent-ai-text" style="color:var(--color-text,#e2e8f0);line-height:1.65;font-size:13.5px">
+              ${formatted}
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="agent-action-btn-link" onclick="App.showTrial('Enterprise')">
                 <i class="fa fa-rocket"></i> Start Free Trial
               </button>
-              <button class="btn btn-secondary btn-xs" onclick="App.showLogin()" style="font-size:11px">
-                <i class="fa fa-key"></i> Try Live Demo
+              <button class="agent-action-btn-link" onclick="App.showLogin()">
+                <i class="fa fa-key"></i> Launch Live Demo
               </button>
             </div>
           `;
@@ -555,17 +710,25 @@ const LandingAgent = {
       }
     } catch (err) {
       console.warn('[LandingAgent] Gemini AI query failed, falling back to local knowledge:', err);
+    } finally {
+      this.removeTypingIndicator();
     }
 
-    // Fallback to local structured knowledge base
-    setTimeout(() => {
-      this.removeTypingIndicator();
+    // Immediate fallback to local knowledge base
+    if (!responded) {
       const matched = this.matchQueryToKnowledge(cleanQuery);
       this.appendMessage({ role: 'agent', html: matched });
-    }, 350);
+    }
   },
 
   matchQueryToKnowledge(query) {
+    const q = String(query || '').toLowerCase().trim();
+
+    // 0. Boundary Check: Guard against internal confidential workforce queries
+    if (this.isInternalWorkforceQuery(q)) {
+      return this.formatInternalBoundaryCard(q);
+    }
+
     // 1. Direct match in knowledge base
     let bestMatch = null;
     let highestScore = 0;
@@ -573,7 +736,7 @@ const LandingAgent = {
     for (const item of this.knowledgeBase) {
       let score = 0;
       for (const kw of item.keywords) {
-        if (query.includes(kw)) {
+        if (q.includes(kw)) {
           score += kw.length;
         }
       }

@@ -127,21 +127,37 @@ html[data-theme="light"] #landing-page {
 }
 
 /* ─── 2. BUTTONS & THEME TOGGLE ─── */
+.landing-header-actions {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-shrink: 0 !important;
+}
+
 .btn-automark-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
   background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 50%, var(--color-accent-cyan) 100%) !important;
   color: #FFFFFF !important;
   border-radius: 9999px !important;
-  padding: 13px 32px !important;
+  padding: 11px 24px !important;
   font-family: var(--font-primary) !important;
-  font-size: 14.5px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
   text-decoration: none !important;
   border: none !important;
   cursor: pointer;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  line-height: 1.2 !important;
+  box-sizing: border-box !important;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   box-shadow: 0 4px 20px rgba(99, 102, 241, 0.45);
 }
@@ -154,20 +170,27 @@ html[data-theme="light"] #landing-page {
 }
 
 .btn-automark-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
   background: var(--color-card-subtle) !important;
   color: var(--color-text-light) !important;
   border: 1.5px solid var(--color-border) !important;
   border-radius: 9999px !important;
-  padding: 12px 28px !important;
+  padding: 10px 22px !important;
   font-family: var(--font-primary) !important;
-  font-size: 14.5px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
   text-decoration: none !important;
   cursor: pointer;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+  line-height: 1.2 !important;
+  box-sizing: border-box !important;
   backdrop-filter: blur(12px);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
@@ -177,6 +200,17 @@ html[data-theme="light"] #landing-page {
   color: var(--color-primary) !important;
   box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
   transform: translateY(-2px);
+}
+
+.btn-automark-primary i,
+.btn-automark-outline i {
+  font-family: "Font Awesome 6 Free", FontAwesome !important;
+  font-weight: 900 !important;
+  font-style: normal !important;
+  display: inline-block !important;
+  line-height: 1 !important;
+  font-size: 12.5px !important;
+  vertical-align: middle !important;
 }
 
 /* ─── Premium Dual-Mode Sliding Capsule Theme Toggle ─── */
@@ -1798,10 +1832,21 @@ html[data-theme="light"] .landing-hero-subtitle,
   margin-bottom: 16px;
   overflow: hidden;
   transition: all 0.25s ease;
+  cursor: pointer;
 }
 
 .faq-item:hover {
   border-color: var(--color-border-glow);
+  transform: translateY(-1px);
+}
+
+.faq-item.active {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.12), inset 0 0 0 1px rgba(99, 102, 241, 0.2);
+}
+
+.faq-item.active .faq-question span {
+  color: var(--color-primary);
 }
 
 .faq-question {
@@ -1814,13 +1859,52 @@ html[data-theme="light"] .landing-hero-subtitle,
   justify-content: space-between;
   cursor: pointer;
   font-family: var(--font-secondary);
+  user-select: none;
+}
+
+.faq-question * {
+  pointer-events: none;
+}
+
+.faq-question i {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.faq-item .faq-answer {
+  display: none;
+}
+
+.faq-item.active .faq-answer {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.faq-item.active .faq-question i,
+.faq-item.active i.fa-chevron-down {
+  transform: rotate(180deg) !important;
 }
 
 .faq-answer {
-  padding: 0 28px 22px 28px;
-  font-size: 15px;
+  padding: 0 28px 24px 28px;
+  font-size: 15.5px;
   color: var(--color-text);
-  line-height: 1.6;
+  line-height: 1.65;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+  padding-top: 18px;
+  animation: faqFadeSlide 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes faqFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .landing-cta-section {
@@ -1919,10 +2003,24 @@ html[data-theme="light"] .landing-hero-subtitle,
   font-size: 13px;
 }
 
-@media (max-width: 991px) {
+@media (max-width: 1260px) {
+  .landing-nav-pill-wrapper {
+    gap: 1px;
+    padding: 3px 6px;
+  }
+  .landing-nav-link {
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+}
+
+@media (max-width: 1040px) {
   .landing-nav-pill-wrapper {
     display: none !important;
   }
+}
+
+@media (max-width: 991px) {
   .anim-3d-cube-wrapper,
   .anim-3d-orb-wrapper,
   .anim-3d-shield-wrapper {

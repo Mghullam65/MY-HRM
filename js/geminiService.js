@@ -10,9 +10,11 @@ const GeminiService = {
   // Prioritized models verified for live generateContent with 200 OK
   MODELS: [
     'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-flash-latest',
+    'gemini-3.5-flash-lite',
     'gemini-3.8-flash',
-    'gemini-flash-latest'
+    'gemini-3.5-flash'
   ],
 
   getApiKey() {
@@ -91,7 +93,7 @@ const GeminiService = {
         }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 12000);
+        const timeoutId = setTimeout(() => controller.abort(), 9000);
 
         const response = await fetch(url, {
           method: 'POST',
@@ -133,42 +135,54 @@ const GeminiService = {
   // 1. LANDING PAGE AGENT — Project Features & Modules Specialist
   // ════════════════════════════════════════════════════════════
   async askLandingAgent(userQuery, messageHistory = []) {
-    const systemPrompt = `You are the official Senior AI Product Specialist and Solutions Architect for "HRM Pro" (Cloud Human Resource Management & Payroll Information System).
+    const systemPrompt = `You are the official Senior AI Product Specialist and Solutions Architect for "HRM Pro" (Cloud Human Resource Management & Payroll Information System) on the public landing page.
 
-Your role:
-- Inform visitors and potential enterprise clients about HRM Pro's project features, architecture, 16 core modules, and business benefits.
-- Answer questions with technical accuracy, high enthusiasm, clear structure, and bullet points.
-- Highlight HRM Pro's unique competitive advantages:
-  1. Automated Gross-to-Net Payroll with built-in progressive Pakistan FBR statutory tax engine, Provident Fund trust calculations, and 1-click banking advice.
-  2. Biometric Attendance Gateway with hardware integration, grace periods, automated half-day policies, and peer-to-peer shift swaps.
-  3. Leave Management with multi-tier approvals, visual overlapping calendar, and automatic fiscal year-end encashment & rollover engine.
-  4. Statutory Industrial Relations: Show-Cause Notice (SCN) workflow, employee written defense portal, and formal inquiry committee proceedings.
-  5. 360° Performance Appraisals calibrated to an automated Merit Increment Matrix (+3% to +20% compensation revisions).
-  6. Recruitment ATS pipeline with stage drag-and-drop, interview scorecards, and 1-click formal job offer letters.
-  7. Digital Employee ID Card & Badge Generator with interactive 3D flip card, scannable QR verification, and high-res PNG / A4 lanyard print.
-  8. Corporate Document Engine: 1-click A4 PDF export for Payslips, Experience/Relieving Certificates, and Salary Verification letters.
-  9. Mobile Native Bottom Navigation Dock (< 768px) and Progressive Web App (PWA) with full offline support.
-  10. Security: Multi-tenant role-based access control (Superadmin, HR Director, Dept Manager, Employee, Onboarding), immutable audit trail, and zero data leakage.
+YOUR CORE ROLE (PUBLIC VISITOR CONCIERGE):
+- Provide prospective enterprise buyers, HR leaders, and IT evaluators with comprehensive information about HRM Pro's project features, system architecture, 16 core enterprise modules, and operational business benefits.
+- Answer questions with technical accuracy, welcoming energy, clear structure, and bullet points.
+- Highlight HRM Pro's flagship capabilities:
+  1. Multi-Company Model A Scoping: Isolates employee records, biometric logs, and payroll by corporate subsidiary while granting Group Super Admins cross-company global visibility and consolidated analytics.
+  2. Biometric Attendance Gateway: Real-time TCP/IP integration with physical ZKTeco, SilkID, and IP biometric turnstiles, grace periods, automated half-day policies, and peer-to-peer shift swaps.
+  3. SPMS Payroll & Pakistan Statutory Tax Engine: Native progressive tax slabs (FBR 2025-27), automated monthly withholding, Provident Fund (PF) and EOBI contributions, and 6 bank-ready salary disbursal CSV formats (Commercial Banks, 1Link, PayPak).
+  4. Statutory 30/26 Gratuity & Full & Final Exit Settlement: Automated (Last Gross Salary / 26 * 30) * Service Years formula with IT/Admin/Accounts multi-gate clearance checklists.
+  5. 16 Core Modules: Employees & e-DMS, Biometric Attendance, Shift Swaps, Statutory Payroll, Leave Encashment, Performance 360, Merit Increment Matrix, Show-Cause Inquiries, Probation Checkpoints, Recruitment ATS, Exit Settlements, Asset Inventory, Expense Claims, Helpdesk, Training & Events, Executive Reports.
+  6. Modern UI Pro: Obsidian Dark & Crisp Light themes, Table Density Modes, Spotlight Command Palette (Ctrl+K), and PWA offline capability.
+
+STRICT ACCESS BOUNDARY & PRIVACY POLICY:
+- You are strictly an EXTERNAL PRODUCT INFORMATION & FEATURE ADVISOR on the public landing page.
+- You do NOT have access to any internal company records, live employee databases, specific employee salaries, daily attendance records, or internal HR tickets.
+- If a user asks for live internal company data (e.g., "Who is absent today?", "How many employees are absent today?", "What is Sara's salary?", "Show me employee list", "How much did we spend on payroll this month?"):
+  * POLITELY DECLINE to provide internal company data.
+  * Explicitly explain that live company records and workforce metrics are strictly confidential and protected behind role-based access control inside the authenticated HRM Pro system.
+  * Clarify the role difference: Explain that you on the landing page are the public feature guide, whereas the internal "HR AI Co-Pilot" is located inside the authenticated dashboard to assist logged-in HR managers and leadership with real-time data queries.
+  * Explain the corresponding HRM Pro FEATURE/CAPABILITY (e.g., "HRM Pro features a live Biometric Attendance Gateway and an internal HR AI Co-Pilot that provides real-time absence tracking for authorized HR managers.").
+  * Guide the visitor to sign in or test the live demo accounts (Admin: admin/admin123, HR Director: sara.malik/hr123) to experience the internal HR Co-Pilot!
 
 Tone: Professional, articulate, welcoming, formatting answers with clear headings and emojis. Keep responses within 2 to 4 concise paragraphs. Always offer to guide them to start a Free Trial or test the live demo accounts (Admin: admin/admin123, HR Director: sara.malik/hr123, Dept Manager: usman.baig/mgr123, Employee: fatima.raza/emp123).`;
 
     const contents = [];
     
-    // Add up to 4 recent messages for context
-    const recent = messageHistory.slice(-4);
-    recent.forEach(m => {
-      contents.push({
-        role: m.role === 'user' ? 'user' : 'model',
-        parts: [{ text: m.text || (m.html ? m.html.replace(/<[^>]*>/g, '') : '') }]
-      });
-    });
+    // Add recent conversational context, strictly ensuring valid multi-turn roles starting with user
+    const recent = (messageHistory || []).slice(-4);
+    for (const m of recent) {
+      const role = m.role === 'user' ? 'user' : 'model';
+      // First message in Gemini conversation must be user
+      if (contents.length === 0 && role !== 'user') continue;
+      // Do not repeat same role twice in a row
+      if (contents.length > 0 && contents[contents.length - 1].role === role) continue;
+      const text = m.text || (m.html ? m.html.replace(/<[^>]*>/g, '').trim() : '');
+      if (text) {
+        contents.push({ role, parts: [{ text }] });
+      }
+    }
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: userQuery }]
-    });
+    if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+      contents[contents.length - 1] = { role: 'user', parts: [{ text: userQuery }] };
+    } else {
+      contents.push({ role: 'user', parts: [{ text: userQuery }] });
+    }
 
-    const res = await this.callGemini(contents, systemPrompt, 700);
+    const res = await this.callGemini(contents, systemPrompt, 450);
     return res;
   },
 
@@ -265,4 +279,9 @@ Instructions:
 };
 
 // Global export
-window.GeminiService = GeminiService;
+if (typeof window !== 'undefined') {
+  window.GeminiService = GeminiService;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = GeminiService;
+}
