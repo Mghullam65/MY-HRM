@@ -3,7 +3,7 @@
 // ============================================================
 
 const Landing = {
-  // ─── Complete Metadata for all 14 HRM Pro Modules ───
+  // ─── Complete Metadata for all 16 HRM Pro Modules + Integrated LMS Engine ───
   modulesData: {
     training: {
       id: 'training',
@@ -1046,10 +1046,12 @@ const Landing = {
             <!-- Floating Pill Navigation Bar -->
             <nav class="landing-nav-pill-wrapper" id="desktop-nav-pill">
               <a href="#why-us" class="landing-nav-link" onclick="Landing.scrollTo('why-us');return false;">Why HRM Pro</a>
+              <a href="#roles" class="landing-nav-link" onclick="Landing.scrollTo('roles');return false;">Roles</a>
               <a href="#values" class="landing-nav-link" onclick="Landing.scrollTo('values');return false;">Values</a>
               <a href="#modules-catalog" class="landing-nav-link" onclick="Landing.scrollTo('modules-catalog');return false;">
-                16 Modules <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
+                16 Modules + LMS <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
               </a>
+              <a href="#compare" class="landing-nav-link" onclick="Landing.scrollTo('compare');return false;">Compare</a>
               <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Pillars</a>
               <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Engine</a>
               <a href="#integrations" class="landing-nav-link" onclick="Landing.scrollTo('integrations');return false;">Integrations</a>
@@ -1138,8 +1140,16 @@ const Landing = {
           </div>
 
           <div class="landing-hero-content">
-            <div class="badge-automark">
-              <i class="fa fa-sparkles"></i> Automated Workforce Intelligence Platform
+            <div class="hero-badges-row">
+              <div class="badge-automark">
+                <i class="fa fa-sparkles"></i> Automated Workforce Intelligence
+              </div>
+              <div class="hero-web-native-badge">
+                <i class="fa fa-globe"></i> 100% Pure Web · Zero Downloads · Custom Domain
+              </div>
+              <div class="hero-ai-badge">
+                <i class="fa fa-robot"></i> Google Gemini AI Dual Copilots
+              </div>
             </div>
 
             <h1 class="landing-hero-title hasHighlight">
@@ -1157,6 +1167,15 @@ const Landing = {
               <button class="btn-automark-outline" onclick="App.showLogin()">
                 <i class="fa fa-shield-halved"></i> Access Portal Demo
               </button>
+            </div>
+
+            <!-- 1-Click Interactive Persona Demo Quicklaunch -->
+            <div class="hero-persona-quicklaunch">
+              <span class="persona-ql-label"><i class="fa fa-bolt" style="color:#f59e0b"></i> Instant Demo:</span>
+              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('admin')" title="Explore as Group Super Administrator"><i class="fa fa-shield-halved" style="color:#6366f1"></i> Super Admin</button>
+              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('sara.malik')" title="Explore as HR Director"><i class="fa fa-user-tie" style="color:#10b981"></i> HR Director</button>
+              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('usman.baig')" title="Explore as Department Manager"><i class="fa fa-users-gear" style="color:#0ea5e9"></i> Dept Manager</button>
+              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('fatima.raza')" title="Explore as Employee Self-Service"><i class="fa fa-user" style="color:#f59e0b"></i> Employee</button>
             </div>
           </div>
 
@@ -1309,6 +1328,109 @@ const Landing = {
           </div>
         </section>
 
+        <!-- ─── 4B. BUILT FOR EVERY STAKEHOLDER (ROLE SWITCHER) ─── -->
+        <section class="role-personas-section" id="roles">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-users-viewfinder"></i> Role-Specific Solutions</div>
+            <h2 class="hasHighlight">Engineered for <strong>Every Stakeholder</strong> in Your Company</h2>
+            <p>From the Boardroom and CFO to the factory supervisor and remote employee, HRM Pro delivers tailored experiences with zero training required.</p>
+          </div>
+
+          <div class="role-personas-grid">
+            <!-- Role 1: CFO / Accounts -->
+            <div class="role-persona-card">
+              <div class="role-persona-header">
+                <div class="role-persona-icon" style="background:rgba(99,102,241,0.15);color:#6366f1">
+                  <i class="fa fa-scale-balanced"></i>
+                </div>
+                <div>
+                  <h3 class="role-persona-title">CFO & Finance</h3>
+                  <div class="role-persona-subtitle">Audit Defense & Payroll</div>
+                </div>
+              </div>
+              <p class="role-persona-desc">Eliminate tax recalculation disputes, protect working capital from ghost punches, and disburse salaries via 6 bank CSV formats.</p>
+              <ul class="role-persona-list">
+                <li><i class="fa fa-check"></i> Exact FBR 2025–27 Progressive Tax Engine</li>
+                <li><i class="fa fa-check"></i> 6 Commercial Bank CSV / 1Link Batches</li>
+                <li><i class="fa fa-check"></i> Statutory EOBI & Provident Fund Trust Shares</li>
+                <li><i class="fa fa-check"></i> Consolidated Multi-Company Liabilities</li>
+              </ul>
+              <button class="role-persona-btn" onclick="Landing.launchDemoPersona('admin')">
+                <i class="fa fa-arrow-right"></i> Demo as Finance Lead
+              </button>
+            </div>
+
+            <!-- Role 2: HR Director -->
+            <div class="role-persona-card">
+              <div class="role-persona-header">
+                <div class="role-persona-icon" style="background:rgba(16,185,129,0.15);color:#10b981">
+                  <i class="fa fa-user-tie"></i>
+                </div>
+                <div>
+                  <h3 class="role-persona-title">HR Leadership</h3>
+                  <div class="role-persona-subtitle">Operations & Compliance</div>
+                </div>
+              </div>
+              <p class="role-persona-desc">Automate the entire employee journey from ATS recruitment and digital e-DMS contracts to 30/26 statutory exit gratuity settlements.</p>
+              <ul class="role-persona-list">
+                <li><i class="fa fa-check"></i> 360° Employee Master Directory & e-DMS Vault</li>
+                <li><i class="fa fa-check"></i> Statutory 30/26 Gratuity & Clearance Vouchers</li>
+                <li><i class="fa fa-check"></i> Multi-Tier Leave Quotas & Encashment Ledgers</li>
+                <li><i class="fa fa-check"></i> 5-Stage ATS Pipeline with Branded Offers</li>
+              </ul>
+              <button class="role-persona-btn" onclick="Landing.launchDemoPersona('sara.malik')">
+                <i class="fa fa-arrow-right"></i> Demo as HR Director
+              </button>
+            </div>
+
+            <!-- Role 3: Dept Manager -->
+            <div class="role-persona-card">
+              <div class="role-persona-header">
+                <div class="role-persona-icon" style="background:rgba(14,165,233,0.15);color:#0ea5e9">
+                  <i class="fa fa-users-gear"></i>
+                </div>
+                <div>
+                  <h3 class="role-persona-title">Department Head</h3>
+                  <div class="role-persona-subtitle">Team Roster & Productivity</div>
+                </div>
+              </div>
+              <p class="role-persona-desc">Monitor team presence in real time, endorse shift swap requests with one click, and track quarterly team OKRs effortlessly.</p>
+              <ul class="role-persona-list">
+                <li><i class="fa fa-check"></i> Real-Time Biometric Punch Stream Radar</li>
+                <li><i class="fa fa-check"></i> 1-Click Peer Shift Swap Endorsements</li>
+                <li><i class="fa fa-check"></i> 2-Tier Attendance Correction Approvals</li>
+                <li><i class="fa fa-check"></i> Team Appraisal Rubrics & OKR Tracking</li>
+              </ul>
+              <button class="role-persona-btn" onclick="Landing.launchDemoPersona('usman.baig')">
+                <i class="fa fa-arrow-right"></i> Demo as Dept Manager
+              </button>
+            </div>
+
+            <!-- Role 4: Employee Self-Service -->
+            <div class="role-persona-card">
+              <div class="role-persona-header">
+                <div class="role-persona-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b">
+                  <i class="fa fa-user"></i>
+                </div>
+                <div>
+                  <h3 class="role-persona-title">Staff Self-Service</h3>
+                  <div class="role-persona-subtitle">Autonomy & Speed</div>
+                </div>
+              </div>
+              <p class="role-persona-desc">Empower employees to clock in via browser geolocation, apply for leave in seconds, and download tax-ready salary slips anytime.</p>
+              <ul class="role-persona-list">
+                <li><i class="fa fa-check"></i> Geotagged Browser Web Clock-In</li>
+                <li><i class="fa fa-check"></i> Encrypted Digital Payslips with QR Code</li>
+                <li><i class="fa fa-check"></i> Leave Application with Live Quota Meter</li>
+                <li><i class="fa fa-check"></i> IT Helpdesk & Confidential Grievance Hub</li>
+              </ul>
+              <button class="role-persona-btn" onclick="Landing.launchDemoPersona('fatima.raza')">
+                <i class="fa fa-arrow-right"></i> Demo as Employee
+              </button>
+            </div>
+          </div>
+        </section>
+
         <!-- ─── 5. VALUE PROPOSITION CARDS ─── -->
         <section class="value-props-section" id="values">
           <div class="section-intro-automark">
@@ -1368,14 +1490,14 @@ const Landing = {
         <section class="modules-catalog-section" id="modules-catalog">
           <div class="section-intro-automark">
             <div class="badge-automark"><i class="fa fa-cubes"></i> Complete System Inventory</div>
-            <h2 class="hasHighlight">All 16 Enterprise Modules & <strong>Feature Details</strong></h2>
-            <p>Our platform delivers 16 interconnected operational modules with role-based governance. Click any module below to inspect full capabilities and workflows.</p>
+            <h2 class="hasHighlight">16 Core Modules + Integrated LMS & <strong>Feature Details</strong></h2>
+            <p>Our platform delivers 16 interconnected operational modules plus a dedicated training LMS engine with role-based governance. Click any module below to inspect full capabilities and workflows.</p>
           </div>
 
           <!-- Category Filter Bar -->
           <div class="catalog-filter-bar">
             <button class="catalog-filter-btn active" data-cat="all" onclick="Landing.filterModulesCatalog('all')">
-              All 16 Modules
+              All Modules (17)
             </button>
             <button class="catalog-filter-btn" data-cat="workforce" onclick="Landing.filterModulesCatalog('workforce')">
               Core Workforce
@@ -1394,6 +1516,72 @@ const Landing = {
           <!-- Dynamic 16 Modules Cards Grid -->
           <div class="modules-catalog-grid" id="modules-catalog-grid">
             ${this.getModulesCatalogHtml('all')}
+          </div>
+        </section>
+
+        <!-- ─── 6B. COMPETITIVE COMPARISON MATRIX ─── -->
+        <section class="competitive-matrix-section" id="compare">
+          <div class="section-intro-automark">
+            <div class="badge-automark"><i class="fa fa-table-list"></i> Market Benchmark</div>
+            <h2 class="hasHighlight">Why Enterprises Choose <strong>HRM Pro Over Others</strong></h2>
+            <p>See how HRM Pro compares with manual spreadsheets and generic foreign HR software that lack local statutory compliance.</p>
+          </div>
+
+          <div class="competitive-matrix-table-wrap">
+            <table class="competitive-table">
+              <thead>
+                <tr>
+                  <th class="col-feature">Key Enterprise Capability</th>
+                  <th class="col-excel">Spreadsheets (Excel)</th>
+                  <th class="col-foreign">Foreign SaaS (BambooHR / Deel)</th>
+                  <th class="col-hrm"><i class="fa fa-crown text-primary" style="margin-right:6px"></i> HRM Pro Enterprise</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Pakistan FBR 2025–27 Progressive Tax</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Manual Math / Formula Errors</span></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Unsupported</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Native FBR Slabs Engine</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Statutory 30/26 Exit Gratuity Formula</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Manual Labor Court Risk</span></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Unsupported</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Automated 4-Gate Clearances</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Physical ZKTeco / SilkID Hardware Push</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Manual USB Flash Logs</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Requires 3rd-Party Sync</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Native TCP/IP Live Ingestion</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Model A Multi-Company Subsidiary Scoping</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Unisolated Data Silos</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Extra Tier / Add-On</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Built-in Holding Isolation</span></td>
+                </tr>
+                <tr>
+                  <td><strong>6 Pakistani Bank Disbursal Batch Formats</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Manual Formatting Errors</span></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Unsupported (US/EU only)</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> 1-Click Formatted Batch CSVs</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Zero Download Pure Web Architecture</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Desktop Files Only</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Heavy Mobile App Required</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> 100% Browser Web Access</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Google Gemini AI Dual-Copilot Assistance</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> None</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Basic FAQ Bot</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Dual Gemini Agents (Web + App)</span></td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
@@ -1671,9 +1859,9 @@ const Landing = {
               <i class="fa-brands fa-slack"></i>
               <span>Slack Alerts</span>
             </div>
-            <div class="integration-bubble">
-              <i class="fa-brands fa-google"></i>
-              <span>Google Safe</span>
+            <div class="integration-bubble" style="border-color:rgba(139,92,246,0.4);background:rgba(139,92,246,0.08)">
+              <i class="fa fa-sparkles" style="color:#8b5cf6"></i>
+              <span style="font-weight:700">Google Gemini AI</span>
             </div>
             <div class="integration-bubble">
               <i class="fa-brands fa-whatsapp"></i>
@@ -2160,7 +2348,7 @@ const Landing = {
     const monthlyTaxable = Math.max(0, gross - pf - eobi - benefits);
     const annualTaxable = monthlyTaxable * 12;
 
-    // FBR 2026-27 Slabs calculation on annualTaxable
+    // FBR 2025-27 Statutory Slabs calculation on annualTaxable
     let annualTax = 0;
     let slabDesc = 'Slab 1 (Up to PKR 600,000: 0% Tax-Free)';
     let slabId = 1;
@@ -2178,25 +2366,17 @@ const Landing = {
       slabDesc = 'Slab 3 (PKR 1,200,001 – 2,200,000: PKR 6,000 + 11% of excess over PKR 1.2M)';
       slabId = 3;
     } else if (annualTaxable <= 3200000) {
-      annualTax = 116000 + (annualTaxable - 2200000) * 0.20;
-      slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 20% of excess over PKR 2.2M)';
+      annualTax = 116000 + (annualTaxable - 2200000) * 0.23;
+      slabDesc = 'Slab 4 (PKR 2,200,001 – 3,200,000: PKR 116,000 + 23% of excess over PKR 2.2M)';
       slabId = 4;
     } else if (annualTaxable <= 4100000) {
-      annualTax = 316000 + (annualTaxable - 3200000) * 0.25;
-      slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 316,000 + 25% of excess over PKR 3.2M)';
+      annualTax = 346000 + (annualTaxable - 3200000) * 0.30;
+      slabDesc = 'Slab 5 (PKR 3,200,001 – 4,100,000: PKR 346,000 + 30% of excess over PKR 3.2M)';
       slabId = 5;
-    } else if (annualTaxable <= 5600000) {
-      annualTax = 541000 + (annualTaxable - 4100000) * 0.29;
-      slabDesc = 'Slab 6 (PKR 4,100,001 – 5,600,000: PKR 541,000 + 29% of excess over PKR 4.1M)';
-      slabId = 6;
-    } else if (annualTaxable <= 7000000) {
-      annualTax = 976000 + (annualTaxable - 5600000) * 0.32;
-      slabDesc = 'Slab 7 (PKR 5,600,001 – 7,000,000: PKR 976,000 + 32% of excess over PKR 5.6M)';
-      slabId = 7;
     } else {
-      annualTax = 1424000 + (annualTaxable - 7000000) * 0.35;
-      slabDesc = 'Slab 8 (Above PKR 7,000,000: PKR 1,424,000 + 35% of excess over PKR 7.0M)';
-      slabId = 8;
+      annualTax = 616000 + (annualTaxable - 4100000) * 0.35;
+      slabDesc = 'Slab 6 (Above PKR 4,100,000: PKR 616,000 + 35% of excess over PKR 4.1M)';
+      slabId = 6;
     }
 
     const monthlyTax = Math.round(annualTax / 12);
@@ -2206,11 +2386,9 @@ const Landing = {
     let rawTax = 0;
     if (rawAnnual > 600000 && rawAnnual <= 1200000) rawTax = (rawAnnual - 600000) * 0.01;
     else if (rawAnnual > 1200000 && rawAnnual <= 2200000) rawTax = 6000 + (rawAnnual - 1200000) * 0.11;
-    else if (rawAnnual > 2200000 && rawAnnual <= 3200000) rawTax = 116000 + (rawAnnual - 2200000) * 0.20;
-    else if (rawAnnual > 3200000 && rawAnnual <= 4100000) rawTax = 316000 + (rawAnnual - 3200000) * 0.25;
-    else if (rawAnnual > 4100000 && rawAnnual <= 5600000) rawTax = 541000 + (rawAnnual - 4100000) * 0.29;
-    else if (rawAnnual > 5600000 && rawAnnual <= 7000000) rawTax = 976000 + (rawAnnual - 5600000) * 0.32;
-    else if (rawAnnual > 7000000) rawTax = 1424000 + (rawAnnual - 7000000) * 0.35;
+    else if (rawAnnual > 2200000 && rawAnnual <= 3200000) rawTax = 116000 + (rawAnnual - 2200000) * 0.23;
+    else if (rawAnnual > 3200000 && rawAnnual <= 4100000) rawTax = 346000 + (rawAnnual - 3200000) * 0.30;
+    else if (rawAnnual > 4100000) rawTax = 616000 + (rawAnnual - 4100000) * 0.35;
 
     const rawMonthlyTax = Math.round(rawTax / 12);
     const taxSaved = Math.max(0, rawMonthlyTax - monthlyTax);
@@ -3191,6 +3369,42 @@ const Landing = {
         </div>
       `
     });
+  },
+
+  launchDemoPersona(username) {
+    const creds = {
+      'admin': { pass: 'admin123', label: 'Super Admin / CFO' },
+      'sara.malik': { pass: 'hr123', label: 'HR Director' },
+      'usman.baig': { pass: 'mgr123', label: 'Engineering Dept Manager' },
+      'fatima.raza': { pass: 'emp123', label: 'Employee Self-Service' }
+    };
+    const target = creds[username] || { pass: 'admin123', label: username };
+
+    if (typeof Auth !== 'undefined' && typeof Auth.login === 'function') {
+      const res = Auth.login(username, target.pass);
+      if (res && res.success) {
+        if (typeof Toast !== 'undefined' && Toast.show) {
+          Toast.show(`Logged in as ${target.label}`, 'success', `Welcome! You are exploring HRM Pro with ${target.label} access.`);
+        }
+        window.location.hash = '#dashboard';
+        if (typeof App !== 'undefined') {
+          App.currentModule = 'dashboard';
+          if (typeof App.showApp === 'function') App.showApp();
+          if (typeof App.navigate === 'function') App.navigate('dashboard');
+        }
+        return;
+      }
+    }
+
+    if (typeof App !== 'undefined' && typeof App.showLogin === 'function') {
+      App.showLogin();
+      setTimeout(() => {
+        const u = document.getElementById('login-username');
+        const p = document.getElementById('login-password');
+        if (u) u.value = username;
+        if (p) p.value = target.pass;
+      }, 100);
+    }
   }
 };
 
