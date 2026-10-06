@@ -274,6 +274,9 @@ async function runCIAudit() {
   console.log(`- Template Undefined/NaN Strings: ${undefinedStringCount}`);
   console.log(`- Uncaught JS Exceptions: ${exceptions.length}`);
   console.log(`- Unhandled Console Errors: ${errors.length}`);
+  if (errors.length > 0) {
+    console.log('Detail of errors:', JSON.stringify(errors, null, 2));
+  }
   console.log('====================================================\n');
 
   if (overflowCount > 0 || undefinedStringCount > 0 || exceptions.length > 0 || errors.length > 0 || passedRoutes !== standardRoutes.length) {

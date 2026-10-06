@@ -1133,7 +1133,7 @@ const App = {
         // Keep module = 'employees' to render employee-scoped views
       } else {
         // Regular employees accessing employees without an allowed subview default to profile
-        setTimeout(() => Employees.renderProfile(Auth.employee.id, true), 50);
+        setTimeout(() => Employees.renderProfile(Auth.employee?.id || 1, true), 50);
         module = 'profile';
       }
     }
@@ -1235,7 +1235,7 @@ const App = {
               Settings.render();
             }
             break;
-          case 'profile':       Employees.renderProfile(Auth.employee.id, true); break;
+          case 'profile':       Employees.renderProfile(Auth.employee?.id || 1, true); break;
           default:
             if (typeof Dashboard !== 'undefined' && Dashboard.render) {
               Dashboard.render();
