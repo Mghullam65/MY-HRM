@@ -2200,7 +2200,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     Modal.show('Generate New API Bearer Token', `
       <div class="form-group">
         <label class="form-label required">Integration / Service Name</label>
-        <input class="form-control" id="token-name" placeholder="e.g. HR Mobile App or Biometric Device Gateway">
+        <input class="form-control" id="token-name" placeholder="e.g. Biometric Attendance Gateway or External ERP">
       </div>
       <div class="form-group">
         <label class="form-label">Granted Scope Permissions</label>

@@ -973,7 +973,7 @@ const Landing = {
     },
     {
       id: 2,
-      quote: "The real-time biometric gateway with grace period calculations has eliminated attendance disputes entirely. The mobile app clock-in with GPS geotagging is an indispensable tool for our operations.",
+      quote: "The real-time biometric gateway with grace period calculations has eliminated attendance disputes entirely. The mobile web clock-in with GPS geotagging is an indispensable tool for our operations.",
       author: "Ahmed Khan",
       role: "Chief Operating Officer, Horizon Tech Dynamics",
       avatar: "assets/avatars/ahmed_khan.jpg"
