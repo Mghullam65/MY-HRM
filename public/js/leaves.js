@@ -5,7 +5,7 @@
 const Leaves = {
   currentView: 'requests',
   calMode: 'employee',
-  calViewMode: 'month', // 'month' | 'year' (12-Month Interactive Annual Leave Planner)
+  calViewMode: 'year', // Exclusively 'year' (12-Month Interactive Annual Leave Planner)
   calDeptFilter: 'all',
   calEmpSearch: '',
   calYear: new Date().getFullYear(),
@@ -270,7 +270,7 @@ const Leaves = {
   },
 
   setCalViewMode(mode) {
-    this.calViewMode = mode;
+    this.calViewMode = 'year';
     this.renderView();
   },
 
@@ -359,10 +359,9 @@ const Leaves = {
 
     const today = new Date();
 
-    if (this.calViewMode === 'year') {
-      this.renderYearMatrix(container, year, displayLeaves, holidays, isMyMode, isManagement, isDeptMgr, myEmp, filteredStaff, depts, myQuotaRemaining);
-      return;
-    }
+    // Exclusively render 12-Month Annual Leave Planner Matrix (single month view removed)
+    this.renderYearMatrix(container, year, displayLeaves, holidays, isMyMode, isManagement, isDeptMgr, myEmp, filteredStaff, depts, myQuotaRemaining);
+    return;
 
     container.innerHTML = `
       <!-- Stage 2 Sub-Navigation -->
@@ -598,14 +597,11 @@ const Leaves = {
               <button class="btn btn-ghost btn-sm" onclick="Leaves.nextYear()" title="Next Year"><i class="fa fa-chevron-right"></i></button>
             </div>
 
-            <!-- View Switcher -->
-            <div style="display:flex;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:2px">
-              <button class="btn btn-xs ${this.calViewMode==='month'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('month')" title="Single Month Focus">
-                <i class="fa fa-calendar-days"></i> Month View
-              </button>
-              <button class="btn btn-xs ${this.calViewMode==='year'?'btn-primary':'btn-ghost'}" onclick="Leaves.setCalViewMode('year')" title="12-Month Annual Leave Planner">
+            <!-- 12-Month Planner View Indicator (Month view removed) -->
+            <div style="display:flex;align-items:center;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:2px">
+              <span class="btn btn-xs btn-primary" style="cursor:default;user-select:none;font-weight:700">
                 <i class="fa fa-table-cells"></i> 12-Month Planner
-              </button>
+              </span>
             </div>
           </div>
 

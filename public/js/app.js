@@ -365,27 +365,8 @@ const App = {
     this.navigate(activeMod, null, false);
   },
 
-  renderSidebar() {
-    const emp = Auth.employee || {};
-    const items = Auth.getSidebarItems();
-    const sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-    const avatarColor = Utils.avatarColor(emp.id);
-    const initials = Utils.avatarInitials(emp.fullName || Auth.user?.name || 'User');
-    const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
-    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
-    const companyLogoText = activeCo?.logoText || 'AT';
-    // Allowed modules lookup for active session
-    const allowed = new Set(items.map(i => i.id));
-    if (typeof Auth !== 'undefined') {
-      if (Auth.canAccessModule('settlement')) allowed.add('settlement');
-      if (Auth.canAccessModule('companies') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('companies');
-      if (Auth.canAccessModule('events')) allowed.add('events');
-      if (Auth.canAccessModule('administration') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('administration');
-    }
-
-    // 5 Executive Pillars (Option 1)
-    const pillars = [
+  getPillars() {
+    return [
       {
         id: 'dashboard',
         label: 'Dashboard',
@@ -400,10 +381,10 @@ const App = {
         icon: 'fa-users-gear',
         moduleIds: ['employees', 'recruitment', 'performance', 'profile'],
         items: [
-          { id: 'employees', label: 'Employees & e-DMS', icon: 'fa-users', sub: 'Directory, profiles & document vault' },
-          { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase', sub: 'Job pipelines, stages & applicants' },
-          { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line', sub: 'Appraisals, reviews & company goals' },
-          { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', sub: 'Personal records & induction checklist' }
+          { id: 'employees', label: 'Employees & e-DMS', icon: 'fa-users' },
+          { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase' },
+          { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line' },
+          { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip' }
         ]
       },
       {
@@ -412,9 +393,9 @@ const App = {
         icon: 'fa-clock',
         moduleIds: ['attendance', 'leaves', 'assets'],
         items: [
-          { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', sub: 'Biometric logs, roster & overtime' },
-          { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', sub: 'Leave requests, quotas & approvals' },
-          { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', sub: 'IT hardware, equipment & custodians' }
+          { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock' },
+          { id: 'leaves', label: 'Leaves & Absence', icon: 'fa-calendar-xmark' },
+          { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file' }
         ]
       },
       {
@@ -423,9 +404,9 @@ const App = {
         icon: 'fa-money-bill-wave',
         moduleIds: ['payroll', 'expenses', 'settlement'],
         items: [
-          { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', sub: 'FBR tax engine, payslips & salary sheets' },
-          { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', sub: 'Reimbursements, receipts & audit trails' },
-          { id: 'settlement', label: 'Exit & Settlements', icon: 'fa-file-invoice-dollar', sub: 'Final clearance, gratuity & PF calculations' }
+          { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave' },
+          { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt' },
+          { id: 'settlement', label: 'Final Settlement', icon: 'fa-file-invoice-dollar' }
         ]
       },
       {
@@ -434,24 +415,130 @@ const App = {
         icon: 'fa-sliders',
         moduleIds: ['helpdesk', 'reports', 'events', 'administration', 'companies'],
         items: [
-          { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', sub: 'Internal support tickets & SLA resolution' },
-          { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', sub: 'Workforce telemetry, payroll & BI exports' },
-          { id: 'events', label: 'Events & Notices', icon: 'fa-bullhorn', sub: 'Company circulars, holidays & culture' },
-          { id: 'administration', label: 'Administration', icon: 'fa-gear', sub: 'Access control, roles & system security' },
-          { id: 'companies', label: 'Multi-Company Holdings', icon: 'fa-building-shield', sub: 'Subsidiaries, NTN portfolios & bank accounts' }
+          { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset' },
+          { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column' },
+          { id: 'events', label: 'Events & Notices', icon: 'fa-bullhorn' },
+          { id: 'administration', label: 'Administration', icon: 'fa-gear' },
+          { id: 'companies', label: 'Multi-Company Holdings', icon: 'fa-building-shield' }
         ]
       }
     ];
+  },
 
+  getAllowedModules() {
+    const items = (typeof Auth !== 'undefined' && Auth.getSidebarItems) ? Auth.getSidebarItems() : [];
+    const allowed = new Set(items.map(i => i.id));
+    if (typeof Auth !== 'undefined') {
+      if (Auth.canAccessModule('settlement')) allowed.add('settlement');
+      if (Auth.canAccessModule('companies') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('companies');
+      if (Auth.canAccessModule('events')) allowed.add('events');
+      if (Auth.canAccessModule('administration') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('administration');
+      if (Auth.canAccessModule('profile')) allowed.add('profile');
+      allowed.add('dashboard');
+    }
+    return allowed;
+  },
+
+  getPillarForModule(moduleId) {
+    if (!moduleId || moduleId === 'dashboard') return 'dashboard';
+    const effectiveMod = (moduleId === 'settings') ? 'administration' : moduleId;
+    const pillars = this.getPillars();
+    for (const p of pillars) {
+      if (p.directModule === effectiveMod) return p.id;
+      if (p.moduleIds && p.moduleIds.includes(effectiveMod)) return p.id;
+    }
+    return 'dashboard';
+  },
+
+  selectPillar(pillarId) {
+    const pillars = this.getPillars();
+    const pillar = pillars.find(p => p.id === pillarId);
+    if (!pillar) return;
+
+    if (pillar.directModule) {
+      this.navigate(pillar.directModule);
+      return;
+    }
+
+    const allowed = this.getAllowedModules();
+    const activeSubs = pillar.items.filter(item => allowed.has(item.id));
+    if (activeSubs.length === 0) return;
+
+    // Check if current module is already in this pillar
+    const currentMod = (this.currentModule === 'settings') ? 'administration' : this.currentModule;
+    const isCurrentInPillar = activeSubs.some(s => s.id === currentMod);
+    const targetModule = isCurrentInPillar ? currentMod : activeSubs[0].id;
+
+    this.navigate(targetModule);
+  },
+
+  renderSubnavBar(pillarId, activeModuleId) {
+    const subnav = document.getElementById('subnav-bar');
+    if (!subnav) return;
+
+    if (!pillarId || pillarId === 'dashboard') {
+      subnav.style.display = 'none';
+      subnav.classList.add('hidden');
+      subnav.innerHTML = '';
+      return;
+    }
+
+    const pillars = this.getPillars();
+    const pillar = pillars.find(p => p.id === pillarId);
+    if (!pillar || !pillar.items || pillar.items.length === 0) {
+      subnav.style.display = 'none';
+      subnav.classList.add('hidden');
+      subnav.innerHTML = '';
+      return;
+    }
+
+    const allowed = this.getAllowedModules();
+    const activeSubs = pillar.items.filter(item => allowed.has(item.id));
+    if (activeSubs.length === 0) {
+      subnav.style.display = 'none';
+      subnav.classList.add('hidden');
+      subnav.innerHTML = '';
+      return;
+    }
+
+    const currentMod = (activeModuleId === 'settings') ? 'administration' : (activeModuleId || this.currentModule);
+
+    subnav.innerHTML = activeSubs.map(sub => {
+      const isActive = currentMod === sub.id;
+      return `
+        <div class="subnav-item ${isActive ? 'active' : ''}" data-module="${sub.id}" onclick="App.navigate('${sub.id}');">
+          <i class="fa ${sub.icon}"></i>
+          <span>${sub.label}</span>
+        </div>
+      `;
+    }).join('');
+
+    subnav.classList.remove('hidden');
+    subnav.style.display = 'flex';
+  },
+
+  renderSidebar() {
+    const emp = Auth.employee || {};
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    const avatarColor = Utils.avatarColor(emp.id);
+    const initials = Utils.avatarInitials(emp.fullName || Auth.user?.name || 'User');
+    const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
+    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
+    const companyLogoText = activeCo?.logoText || 'AT';
+
+    const allowed = this.getAllowedModules();
+    const pillars = this.getPillars();
     const currentMod = this.currentModule || 'dashboard';
+    const activePillarId = this.getPillarForModule(currentMod);
 
     const renderedPillars = pillars.map(p => {
       if (p.directModule) {
         if (!allowed.has(p.directModule) && p.directModule !== 'dashboard') return '';
-        const isActive = currentMod === p.directModule;
+        const isActive = activePillarId === p.id;
         return `
-          <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-module="${p.directModule}" data-label="${p.label}"
-            onclick="App.navigate('${p.directModule}'); App.closeMobileSidebar();"
+          <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-pillar="${p.id}" data-module="${p.directModule}" data-label="${p.label}"
+            onclick="App.selectPillar('${p.id}'); App.closeMobileSidebar();"
             data-tooltip="${p.label}">
             <i class="fa ${p.icon}"></i>
             <span>${p.label.toUpperCase()}</span>
@@ -462,30 +549,14 @@ const App = {
       // Filter sub-items by role permissions
       const activeSubs = p.items.filter(item => allowed.has(item.id));
       if (activeSubs.length === 0) return '';
-
       const activeIds = activeSubs.map(s => s.id);
-      const isPillarActive = activeIds.includes(currentMod) || (currentMod === 'settings' && activeIds.includes('administration'));
+      const isPillarActive = activePillarId === p.id;
 
       return `
-        <div class="nav-item nav-tab-item nav-pillar-dropdown ${isPillarActive ? 'active' : ''}" data-pillar="${p.id}" data-modules="${activeIds.join(',')}" tabindex="0">
-          <div class="nav-pillar-trigger" onclick="App.toggleNavPillar(this, event)">
-            <span>${p.label.toUpperCase()}</span>
-            <i class="fa fa-chevron-down nav-pillar-arrow"></i>
-          </div>
-          <div class="nav-dropdown-menu">
-            ${activeSubs.map(sub => {
-              const isSubActive = currentMod === sub.id;
-              return `
-                <div class="nav-dropdown-subitem nav-item ${isSubActive ? 'active' : ''}" data-module="${sub.id}" onclick="App.navigate('${sub.id}'); App.closeNavPillars(); App.closeMobileSidebar(); event.stopPropagation();">
-                  <div class="nav-dropdown-subitem-icon"><i class="fa ${sub.icon}"></i></div>
-                  <div class="nav-dropdown-subitem-text">
-                    <div class="nav-dropdown-subitem-title">${sub.label}</div>
-                    <div class="nav-dropdown-subitem-desc">${sub.sub}</div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
+        <div class="nav-item nav-tab-item ${isPillarActive ? 'active' : ''}" data-pillar="${p.id}" data-modules="${activeIds.join(',')}"
+          onclick="App.selectPillar('${p.id}'); App.closeMobileSidebar();"
+          data-tooltip="${p.label}">
+          <span>${p.label.toUpperCase()}</span>
         </div>
       `;
     }).join('');
@@ -532,6 +603,9 @@ const App = {
       </div>
     `;
 
+    // Render persistent subnav bar for active pillar
+    this.renderSubnavBar(activePillarId, currentMod);
+
     // Sidebar overlay for mobile
     let overlay = document.getElementById('sidebar-overlay');
     if (!overlay) {
@@ -554,20 +628,8 @@ const App = {
     }
   },
 
-  toggleNavPillar(triggerEl, event) {
-    if (event) event.stopPropagation();
-    const dropdown = triggerEl.closest('.nav-pillar-dropdown');
-    if (!dropdown) return;
-    const wasOpen = dropdown.classList.contains('open');
-    this.closeNavPillars();
-    if (!wasOpen) {
-      dropdown.classList.add('open');
-    }
-  },
-
-  closeNavPillars() {
-    document.querySelectorAll('.nav-pillar-dropdown.open').forEach(el => el.classList.remove('open'));
-  },
+  toggleNavPillar(triggerEl, event) {},
+  closeNavPillars() {},
 
   renderTopbar() {
     const topbar = document.getElementById('topbar');
@@ -579,23 +641,30 @@ const App = {
     const emp = Auth.employee || {};
     const fullName = emp.fullName || Auth.user?.name || 'Ahmed Khan';
     const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
-    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (DB.getObj('settings')?.companyName || 'ApexTech');
+    const companySettings = DB.getObj('settings') || {};
+    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (companySettings.companyName || 'ApexTech');
     const companyLogoText = activeCo?.logoText || 'AT';
+    const companyLogoUrl = activeCo?.logo || activeCo?.logoUrl || companySettings.companyLogo || null;
 
     topbar.innerHTML = `
-      <!-- Left: Mobile Menu Toggle & Dynamic Corporate Brand Logo -->
-      <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0">
+      <!-- Left: Mobile Menu Toggle & Corporate Brand Logo -->
+      <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0;padding-bottom:3px">
         <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="App.openMobileSidebar()" title="Toggle Menu">
           <i class="fa fa-bars"></i>
         </button>
 
-        <div class="brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:12px" title="${companyName}">
-          <div class="logo-icon" id="topbar-logo-badge" style="width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:17px;box-shadow:0 4px 12px var(--primary-glow);flex-shrink:0">
-            ${companyLogoText}
-          </div>
-          <div class="brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1.2">
+        <div class="brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:12px;padding-bottom:2px" title="${companyName}">
+          ${companyLogoUrl 
+            ? `<div class="logo-img-wrap" style="max-height:48px;max-width:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px">
+                <img src="${companyLogoUrl}" alt="${companyName}" style="max-height:48px;max-width:180px;object-fit:contain">
+               </div>`
+            : `<div class="logo-icon" id="topbar-logo-badge" style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:17px;box-shadow:0 4px 12px var(--primary-glow);flex-shrink:0">
+                ${companyLogoText}
+               </div>`
+          }
+          <div class="brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1.25">
             <h1 id="topbar-company-name" style="margin:0;font-size:18px;font-weight:900;letter-spacing:-0.3px;color:var(--text);font-family:'Inter',sans-serif">${companyName}</h1>
-            <span style="font-size:10.5px;font-weight:600;color:var(--primary);letter-spacing:0.5px;text-transform:uppercase">HR Management System</span>
+            <span style="font-size:10.5px;font-weight:600;color:var(--primary);letter-spacing:0.5px;text-transform:uppercase;margin-top:3px">HR Management System</span>
           </div>
         </div>
 
@@ -609,21 +678,18 @@ const App = {
         </div>
       </div>
 
-      <!-- Middle: Welcome User Greeting (Between Company Name and Search Box) -->
-      <div class="topbar-welcome-center" onclick="App.navigate('profile')" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px;cursor:pointer" title="View My Profile">
+      <!-- Middle: Welcome User Greeting (Informative Non-Clickable Pill) -->
+      <div class="topbar-welcome-center" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px;cursor:default;user-select:none" title="Logged in as ${fullName}">
         <i class="fa fa-circle-user" style="color:var(--primary);font-size:14px"></i>
         <span style="color:var(--text-3);font-size:12px">Welcome,</span>
         <strong style="color:var(--text);font-weight:700" id="header-user-fullname">${fullName}</strong>
         <span class="badge badge-primary" style="font-size:9.5px;padding:2px 7px;font-weight:700">${Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'User'}</span>
       </div>
 
-      <!-- Right: User Info, Change Password, Logout & Search Row -->
+      <!-- Right: User Controls & Search Row -->
       <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <!-- Top Row: My Profile + Change Password + Install App + Logout -->
+        <!-- Top Row: Change Password + Logout (Profile accessed via Dashboard card) -->
         <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
-          <a href="javascript:void(0)" onclick="App.navigate('profile')" class="header-action-link link-profile" style="color:var(--text-2);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
-            <i class="fa fa-user" style="font-size:11px"></i> My Profile
-          </a>
           <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" class="header-action-link link-pwd" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
             <i class="fa fa-key" style="font-size:11px"></i> Change Password
           </a>
@@ -1137,18 +1203,18 @@ const App = {
         module = 'profile';
       }
     }
-    // Update active nav item & parent pillars
+    // Update active nav item & parent pillars (Two-tier navigation)
     const activeSidebarMod = (module === 'settings') ? 'administration' : module;
-    document.querySelectorAll('.nav-item').forEach(el => {
-      const isDirectMatch = el.dataset.module === activeSidebarMod || (el.dataset.module === 'employees' && activeSidebarMod === 'settlement');
-      const pillarModules = el.dataset.modules ? el.dataset.modules.split(',') : [];
-      const isPillarMatch = pillarModules.includes(activeSidebarMod);
-      const isActive = isDirectMatch || isPillarMatch;
-      el.classList.toggle('active', isActive);
-      if (isActive && !isPillarMatch && el.offsetParent !== null && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
+    const activePillarId = this.getPillarForModule(activeSidebarMod);
+
+    // Update Row 1: Pillar tabs in #sidebar
+    document.querySelectorAll('#sidebar .nav-tab-item').forEach(el => {
+      const isPillarActive = el.dataset.pillar === activePillarId;
+      el.classList.toggle('active', isPillarActive);
     });
+
+    // Update Row 2: Persistent Sub-nav bar
+    this.renderSubnavBar(activePillarId, activeSidebarMod);
 
     this.currentModule = module;
 
@@ -1192,7 +1258,6 @@ const App = {
           case 'leaves':        Leaves.render(); break;
           case 'payroll':       Payroll.render(); break;
           case 'settlement':
-            this.currentModule = 'employees';
             if (typeof Employees !== 'undefined') {
               Employees.currentView = 'settlement';
               Employees.render();
@@ -1201,13 +1266,12 @@ const App = {
             }
             break;
           case 'companies':
-            this.currentModule = 'administration';
-            if (typeof Administration !== 'undefined') {
+            if (typeof Company !== 'undefined') {
+              Company.render();
+            } else if (typeof Administration !== 'undefined') {
               Administration.currentSection = 'settings';
               Administration.render();
               setTimeout(() => { if (typeof Settings !== 'undefined') Settings.switchSection('corporate_entities'); }, 50);
-            } else if (typeof Company !== 'undefined') {
-              Company.render();
             }
             break;
           case 'performance':   Performance.render(); break;
@@ -1216,12 +1280,11 @@ const App = {
           case 'expenses':      Expenses.render(); break;
           case 'helpdesk':      Helpdesk.render(); break;
           case 'events':
-            this.currentModule = 'reports';
-            if (typeof Reports !== 'undefined') {
+            if (typeof Events !== 'undefined') {
+              Events.render();
+            } else if (typeof Reports !== 'undefined') {
               Reports.currentTab = 'events_calendar';
               Reports.render();
-            } else if (typeof Events !== 'undefined') {
-              Events.render();
             }
             break;
           case 'reports':       Reports.render(); break;

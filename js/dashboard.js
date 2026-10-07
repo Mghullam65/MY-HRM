@@ -534,15 +534,15 @@ const Dashboard = {
     const curInitials = (typeof Utils !== 'undefined' && Utils.avatarInitials) ? Utils.avatarInitials(curFullName) : 'AK';
     const curRoleLabel = Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Super Admin';
     const curDesignation = curEmp.designationId && typeof Utils !== 'undefined' && Utils.getDesigName ? Utils.getDesigName(curEmp.designationId) : curRoleLabel;
-    const rawCode = curEmp.employeeId || curEmp.code || (curEmp.id ? String(curEmp.id).padStart(5, '0') : '00063');
-    const curEmpCode = String(rawCode).startsWith('EMP-') ? String(rawCode).replace('EMP-', '').padStart(5, '0') : String(rawCode).padStart(5, '0');
+    const rawCode = curEmp.empNo || curEmp.employeeId || curEmp.code || (curEmp.id ? `EMP-${String(curEmp.id).padStart(3, '0')}` : 'EMP-001');
+    const curEmpCode = String(rawCode).startsWith('EMP-') ? rawCode : `EMP-${String(rawCode).padStart(3, '0')}`;
 
     content.innerHTML = `
       <div class="animate-fade-in">
         <!-- Profile Card + Headlines Ticker side-by-side row -->
         <div class="dash-hero-row">
-          <!-- Left: Logged-in Person Profile Card -->
-          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="View My Profile">
+          <!-- Left: Logged-in Person Profile Card (Dedicated Gateway to My Profile) -->
+          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="Click to view My Profile" style="cursor:pointer">
             <div class="avatar" style="width:68px;height:68px;min-width:68px;border-radius:50%;overflow:hidden;background:${typeof Utils !== 'undefined' ? Utils.avatarColor(curEmp.id || 1) : '#00a2e8'};flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,0.15);border:2.5px solid #00a2e8">
               ${curPhoto ? `<img src="${curPhoto}" style="width:100%;height:100%;object-fit:cover" alt="${curFullName}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:24px;font-weight:700">${curInitials}</div>`}
             </div>
@@ -1720,8 +1720,8 @@ const Dashboard = {
         <!-- Employee Identity & Today's Attendance Hero Widget -->
         <div class="card" style="margin-bottom:20px;padding:20px;border:1.5px solid var(--border);border-radius:14px;background:linear-gradient(135deg, var(--card) 0%, rgba(99,102,241,0.04) 100%)">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px">
-            <!-- Left: Profile Summary -->
-            <div style="display:flex;align-items:center;gap:16px;min-width:260px">
+            <!-- Left: Profile Summary (Click to view Profile) -->
+            <div style="display:flex;align-items:center;gap:16px;min-width:260px;cursor:pointer" onclick="App.navigate('profile')" title="Click to view My Profile">
               <div style="position:relative">
                 <div style="width:68px;height:68px;border-radius:50%;background:${Utils.avatarColor(Auth.employee.id)};color:#fff;font-size:24px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.25);border:3px solid var(--primary)">
                   ${Utils.avatarInitials(Auth.employee.fullName)}
