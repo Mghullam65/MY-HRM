@@ -4,12 +4,37 @@
 
 const Settings = {
   currentSection: 'company',
+  currentCategory: 'org_access',
 
-  render(targetEl = null) {
-    const content = targetEl || document.getElementById('page-content');
-    if (!content) return;
+  categories: [
+    {
+      id: 'org_access',
+      label: 'Organization & Structure',
+      icon: 'fa-building',
+      sections: ['company', 'corporate_entities', 'roles_permissions', 'general']
+    },
+    {
+      id: 'policies_workflows',
+      label: 'Policies & Workflows',
+      icon: 'fa-sliders',
+      sections: ['attendance_rules', 'biometric_network', 'leave_policy', 'payroll_config', 'workflows']
+    },
+    {
+      id: 'security_integrations',
+      label: 'Security & Integrations',
+      icon: 'fa-shield-halved',
+      sections: ['audit_trail', 'security_telemetry', 'webhooks', 'notifications']
+    },
+    {
+      id: 'system_telemetry',
+      label: 'System & Maintenance',
+      icon: 'fa-server',
+      sections: ['appearance', 'backup', 'system']
+    }
+  ],
 
-    const sections = [
+  getAllSections() {
+    return [
       { id: 'company', label: 'Company Profile', icon: 'fa-building' },
       { id: 'corporate_entities', label: 'Corporate Entities & Holdings', icon: 'fa-building-shield' },
       { id: 'general', label: 'General Settings', icon: 'fa-sliders' },
@@ -27,20 +52,70 @@ const Settings = {
       { id: 'backup', label: 'Backup & Restore', icon: 'fa-database' },
       { id: 'system', label: 'System', icon: 'fa-server' },
     ];
+  },
+
+  getCategoryForSection(secId) {
+    for (const cat of this.categories) {
+      if (cat.sections.includes(secId)) return cat.id;
+    }
+    return this.categories[0].id;
+  },
+
+  selectCategory(catId) {
+    this.currentCategory = catId;
+    const cat = this.categories.find(c => c.id === catId);
+    if (cat && cat.sections && cat.sections.length > 0) {
+      if (!cat.sections.includes(this.currentSection)) {
+        this.switchSection(cat.sections[0]);
+        return;
+      }
+    }
+    this.render();
+  },
+
+  render(targetEl = null) {
+    const content = targetEl || document.getElementById('page-content');
+    if (!content) return;
+
+    if (!this.currentCategory) {
+      this.currentCategory = this.getCategoryForSection(this.currentSection);
+    }
+
+    const allSections = this.getAllSections();
+    const activeCat = this.categories.find(c => c.id === this.currentCategory) || this.categories[0];
+    const visibleSubSections = allSections.filter(s => activeCat.sections.includes(s.id));
+
+    if (!visibleSubSections.some(s => s.id === this.currentSection) && visibleSubSections.length > 0) {
+      this.currentSection = visibleSubSections[0].id;
+    }
 
     content.innerHTML = `
       <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:18px">
-        <!-- Top Sub-Categories Navigation Bar -->
-        <div class="settings-subnav-bar" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;-webkit-overflow-scrolling:touch;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-          ${sections.map(s => `
-            <button class="btn btn-sm ${this.currentSection === s.id ? 'btn-primary' : 'btn-ghost'}"
-              onclick="Settings.switchSection('${s.id}')"
-              data-section="${s.id}"
-              style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">
-              <i class="fa ${s.icon}"></i>
-              <span>${s.label}</span>
-            </button>
-          `).join('')}
+        <!-- Two-Tier Category Navigation Bar -->
+        <div class="settings-two-tier-nav" style="display:flex;flex-direction:column;gap:8px">
+          <!-- Tier 1: Main Setting Categories -->
+          <div class="report-tier1-bar">
+            ${this.categories.map(cat => `
+              <button class="report-cat-tab ${this.currentCategory === cat.id ? 'active' : ''}"
+                onclick="Settings.selectCategory('${cat.id}')">
+                <i class="fa ${cat.icon}"></i>
+                <span>${cat.label}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Tier 2: Specific Sub-Sections Bar -->
+          <div class="report-tier2-bar" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 10px">
+            <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1">
+              ${visibleSubSections.map(s => `
+                <button class="report-sub-tab ${this.currentSection === s.id ? 'active' : ''}"
+                  onclick="Settings.switchSection('${s.id}')">
+                  <i class="fa ${s.icon}"></i>
+                  <span>${s.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
         </div>
 
         <!-- Section Content Area -->
@@ -52,14 +127,8 @@ const Settings = {
 
   switchSection(section) {
     this.currentSection = section;
-    document.querySelectorAll('.settings-subnav-bar [data-section]').forEach(el => {
-      const isAct = el.getAttribute('data-section') === section;
-      el.className = `btn btn-sm ${isAct ? 'btn-primary' : 'btn-ghost'}`;
-      if (isAct && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    });
-    this.renderSection();
+    this.currentCategory = this.getCategoryForSection(section);
+    this.render();
   },
 
   renderSection() {

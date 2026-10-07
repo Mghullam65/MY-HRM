@@ -1117,6 +1117,9 @@ const Landing = {
             <canvas class="heroSporeCanvas"></canvas>
           </div>
 
+          <!-- Futuristic Background Grid Mesh -->
+          <div class="hero-grid-mesh" aria-hidden="true"></div>
+
           <!-- THREE (3) 3D ANIMATED MOVING OBJECTS -->
           <div class="hero-3d-scene-container">
             <!-- 3D Moving Object 1: Holographic Gyroscope Cube (Top Right) -->
@@ -1171,7 +1174,12 @@ const Landing = {
             </div>
 
             <h1 class="landing-hero-title hasHighlight">
-              The All-In-One Growth Software for <strong>Modern Enterprises</strong>
+              The All-In-One Growth Software for 
+              <span class="hero-typewriter-wrapper" data-theme-color="cyan">
+                <span class="hero-sparkle-dot"></span>
+                <span id="hero-typewriter-text" class="hero-typewriter-word">Modern Enterprises</span>
+                <span class="hero-typewriter-cursor"></span>
+              </span>
             </h1>
 
             <p class="landing-hero-subtitle">
@@ -1186,20 +1194,37 @@ const Landing = {
                 <i class="fa fa-shield-halved"></i> Access Portal Demo
               </button>
             </div>
-
-            <!-- 1-Click Interactive Persona Demo Quicklaunch -->
-            <div class="hero-persona-quicklaunch">
-              <span class="persona-ql-label"><i class="fa fa-bolt" style="color:#f59e0b"></i> Instant Demo:</span>
-              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('admin')" title="Explore as Group Super Administrator"><i class="fa fa-shield-halved" style="color:#6366f1"></i> Super Admin</button>
-              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('sara.malik')" title="Explore as HR Director"><i class="fa fa-user-tie" style="color:#10b981"></i> HR Director</button>
-              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('usman.baig')" title="Explore as Department Manager"><i class="fa fa-users-gear" style="color:#0ea5e9"></i> Dept Manager</button>
-              <button class="persona-ql-btn" onclick="Landing.launchDemoPersona('fatima.raza')" title="Explore as Employee Self-Service"><i class="fa fa-user" style="color:#f59e0b"></i> Employee</button>
-            </div>
           </div>
 
-          <!-- 3D Perspective Showcase Mockup -->
+          <!-- 3D Perspective Showcase Mockup with Ambient Spotlight & Satellites -->
           <div class="hero-showcase-perspective">
-            <div class="hero-dashboard-mockup">
+            <div class="mockup-ambient-spotlight" aria-hidden="true"></div>
+
+            <!-- Left Floating Satellite Telemetry Card -->
+            <div class="floating-satellite-card satellite-left">
+              <div class="sat-icon-wrap" style="background:rgba(16,185,129,0.15);color:#10b981">
+                <i class="fa fa-fingerprint"></i>
+              </div>
+              <div class="sat-details">
+                <div class="sat-title">Hardware Fleet Sync</div>
+                <div class="sat-sub"><span class="sat-pulse-dot"></span> 14ms push · 0 packet loss</div>
+              </div>
+              <div class="sat-tag live">LIVE</div>
+            </div>
+
+            <!-- Right Floating Satellite Telemetry Card -->
+            <div class="floating-satellite-card satellite-right">
+              <div class="sat-icon-wrap" style="background:rgba(99,102,241,0.15);color:#818cf8">
+                <i class="fa fa-shield-halved"></i>
+              </div>
+              <div class="sat-details">
+                <div class="sat-title">FBR Statutory Payroll</div>
+                <div class="sat-sub">FY 2025–27 tax slabs verified</div>
+              </div>
+              <div class="sat-tag pass">100% PASS</div>
+            </div>
+
+            <div class="hero-dashboard-mockup tilt-card-3d">
               <!-- Mockup Window Bar -->
               <div class="mockup-topbar">
                 <div class="mockup-window-controls">
@@ -1346,6 +1371,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 4B. BUILT FOR EVERY STAKEHOLDER (ROLE SWITCHER) ─── -->
         <section class="role-personas-section" id="roles">
           <div class="section-intro-automark">
@@ -1356,7 +1384,7 @@ const Landing = {
 
           <div class="role-personas-grid">
             <!-- Role 1: CFO / Accounts -->
-            <div class="role-persona-card">
+            <div class="role-persona-card tilt-card-3d">
               <div class="role-persona-header">
                 <div class="role-persona-icon" style="background:rgba(99,102,241,0.15);color:#6366f1">
                   <i class="fa fa-scale-balanced"></i>
@@ -1379,7 +1407,7 @@ const Landing = {
             </div>
 
             <!-- Role 2: HR Director -->
-            <div class="role-persona-card">
+            <div class="role-persona-card tilt-card-3d">
               <div class="role-persona-header">
                 <div class="role-persona-icon" style="background:rgba(16,185,129,0.15);color:#10b981">
                   <i class="fa fa-user-tie"></i>
@@ -1402,7 +1430,7 @@ const Landing = {
             </div>
 
             <!-- Role 3: Dept Manager -->
-            <div class="role-persona-card">
+            <div class="role-persona-card tilt-card-3d">
               <div class="role-persona-header">
                 <div class="role-persona-icon" style="background:rgba(14,165,233,0.15);color:#0ea5e9">
                   <i class="fa fa-users-gear"></i>
@@ -1425,7 +1453,7 @@ const Landing = {
             </div>
 
             <!-- Role 4: Employee Self-Service -->
-            <div class="role-persona-card">
+            <div class="role-persona-card tilt-card-3d">
               <div class="role-persona-header">
                 <div class="role-persona-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b">
                   <i class="fa fa-user"></i>
@@ -1449,6 +1477,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 5. VALUE PROPOSITION CARDS ─── -->
         <section class="value-props-section" id="values">
           <div class="section-intro-automark">
@@ -1458,7 +1489,7 @@ const Landing = {
           </div>
 
           <div class="value-cards-grid">
-            <div class="value-card-automark">
+            <div class="value-card-automark tilt-card-3d">
               <div class="value-card-icon-box"><i class="fa fa-building-shield"></i></div>
               <h3 class="value-card-title">Multi-Company Holdings</h3>
               <p class="value-card-desc">Govern parent holdings and autonomous subsidiary business units with strict Model A data isolation and unified group telemetry.</p>
@@ -1469,7 +1500,7 @@ const Landing = {
               </ul>
             </div>
 
-            <div class="value-card-automark">
+            <div class="value-card-automark tilt-card-3d">
               <div class="value-card-icon-box"><i class="fa fa-fingerprint"></i></div>
               <h3 class="value-card-title">Biometric Fleet Gateway</h3>
               <p class="value-card-desc">Direct hardware push integration with physical fingerprint/facial scanners across branches, remote IP gates, and overtime calculations.</p>
@@ -1480,7 +1511,7 @@ const Landing = {
               </ul>
             </div>
 
-            <div class="value-card-automark">
+            <div class="value-card-automark tilt-card-3d">
               <div class="value-card-icon-box"><i class="fa fa-money-bill-transfer"></i></div>
               <h3 class="value-card-title">SPMS Payroll & Tax</h3>
               <p class="value-card-desc">Error-free monthly pay runs with exact FBR income tax slabs, 6 exportable banking CSV batches, and cumulative EOBI ledgers.</p>
@@ -1491,7 +1522,7 @@ const Landing = {
               </ul>
             </div>
 
-            <div class="value-card-automark">
+            <div class="value-card-automark tilt-card-3d">
               <div class="value-card-icon-box"><i class="fa fa-file-invoice-dollar"></i></div>
               <h3 class="value-card-title">Statutory Exit & Gratuity</h3>
               <p class="value-card-desc">End-to-end offboarding with legal 30/26 gratuity computations, multi-department sign-offs, and printable settlement vouchers.</p>
@@ -1503,6 +1534,9 @@ const Landing = {
             </div>
           </div>
         </section>
+
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
         <!-- ─── 6. ALL 16 ENTERPRISE MODULES & DETAILED FEATURE CATALOG ─── -->
         <section class="modules-catalog-section" id="modules-catalog">
@@ -1536,6 +1570,9 @@ const Landing = {
             ${this.getModulesCatalogHtml('all')}
           </div>
         </section>
+
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
         <!-- ─── 6B. COMPETITIVE COMPARISON MATRIX ─── -->
         <section class="competitive-matrix-section" id="compare">
@@ -1602,6 +1639,9 @@ const Landing = {
             </table>
           </div>
         </section>
+
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
         <!-- ─── 7. INTERACTIVE 8-PILLAR CORE HR SHOWCASE ─── -->
         <section class="pillar-tabs-container" id="features">
@@ -1696,6 +1736,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 10. 3-STEP PATH TO AUTOMATED WORKFORCE GROWTH ─── -->
         <section class="growth-process-section" id="process">
           <div class="section-intro-automark">
@@ -1728,6 +1771,9 @@ const Landing = {
             </button>
           </div>
         </section>
+
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
         <!-- ─── 11. PAKISTAN STATUTORY TAX CALCULATOR ─── -->
         <section class="tax-calc-section" id="tax-calc">
@@ -1844,6 +1890,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 12. CONNECT ALL YOUR APPLICATIONS (INTEGRATIONS) ─── -->
         <section class="integrations-section" id="integrations">
           <div class="section-intro-automark">
@@ -1888,6 +1937,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 13. ENTERPRISE SECURITY & GOVERNANCE ─── -->
         <section class="section-box-automark" id="security" style="padding-top:40px;">
           <div class="section-intro-automark">
@@ -1919,6 +1971,9 @@ const Landing = {
             </div>
           </div>
         </section>
+
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
         <!-- ─── 14. RICH FAQ ACCORDION ─── -->
         <section class="landing-faq-section" id="faq">
@@ -2021,6 +2076,9 @@ const Landing = {
           </div>
         </section>
 
+        <!-- Luminous Section Divider -->
+        <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
+
         <!-- ─── 15. BOTTOM CALL TO ACTION ─── -->
         <section class="landing-cta-section">
           <h2 class="landing-cta-title hasHighlight">
@@ -2113,7 +2171,150 @@ const Landing = {
       if (typeof window.initSporeCanvas === 'function') {
         window.initSporeCanvas();
       }
+      Landing.initPageAnimations();
     }, 50);
+  },
+
+  // ─── Comprehensive Landing Page Animations Engine ───
+  initPageAnimations() {
+    this.initHeroRotator();
+    this.initScrollReveal();
+    this.initCounters();
+  },
+
+  initHeroRotator() {
+    if (this._typewriterTimeout) {
+      clearTimeout(this._typewriterTimeout);
+      this._typewriterTimeout = null;
+    }
+    const words = [
+      { text: 'Modern Enterprises', theme: 'cyan' },
+      { text: 'Multi-Branch Holdings', theme: 'violet' },
+      { text: 'Statutory FBR Payroll', theme: 'emerald' },
+      { text: 'Biometric Punch Fleets', theme: 'amber' },
+      { text: 'High-Growth Startups', theme: 'rose' },
+      { text: 'Distributed Teams', theme: 'indigo' }
+    ];
+
+    let wordIdx = 0;
+    let charIdx = words[0].text.length;
+    let isDeleting = false;
+
+    const tick = () => {
+      const targetEl = document.getElementById('hero-typewriter-text') || document.getElementById('hero-rotating-word');
+      const wrapper = document.querySelector('.hero-typewriter-wrapper');
+      if (!targetEl) return;
+
+      const current = words[wordIdx];
+      if (wrapper && current.theme && wrapper.getAttribute('data-theme-color') !== current.theme) {
+        wrapper.setAttribute('data-theme-color', current.theme);
+      }
+
+      if (isDeleting) {
+        charIdx--;
+        targetEl.textContent = current.text.substring(0, charIdx);
+        if (charIdx <= 0) {
+          isDeleting = false;
+          wordIdx = (wordIdx + 1) % words.length;
+          this._typewriterTimeout = setTimeout(tick, 280);
+          return;
+        }
+        this._typewriterTimeout = setTimeout(tick, 28);
+      } else {
+        charIdx++;
+        targetEl.textContent = current.text.substring(0, charIdx);
+        if (charIdx >= current.text.length) {
+          isDeleting = true;
+          this._typewriterTimeout = setTimeout(tick, 2200);
+          return;
+        }
+        this._typewriterTimeout = setTimeout(tick, 55);
+      }
+    };
+
+    this._typewriterTimeout = setTimeout(() => {
+      isDeleting = true;
+      tick();
+    }, 900);
+  },
+
+  initScrollReveal() {
+    const revealTargets = document.querySelectorAll(
+      '.section-intro-automark, .gap-chips-container, .ps-card-automark, ' +
+      '.role-personas-grid, .value-cards-grid, .modules-catalog-grid, ' +
+      '.competitive-matrix-table-wrap, .pillar-tabs-container, .ourstory-section, ' +
+      '.testimonials-section, .landing-cta-banner, .landing-trust-strip'
+    );
+
+    revealTargets.forEach(el => {
+      if (!el.classList.contains('landing-reveal')) {
+        el.classList.add('landing-reveal');
+      }
+      if (el.classList.contains('gap-chips-container') || 
+          el.classList.contains('role-personas-grid') || 
+          el.classList.contains('value-cards-grid')) {
+        el.classList.add('stagger-children');
+      }
+    });
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-in-view');
+            const counters = entry.target.querySelectorAll('[data-counter-target]');
+            counters.forEach(c => Landing.animateCounter(c));
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+      revealTargets.forEach(el => observer.observe(el));
+    } else {
+      revealTargets.forEach(el => el.classList.add('is-in-view'));
+    }
+  },
+
+  initCounters() {
+    const counterElements = document.querySelectorAll('.mockup-kpi-box .kpi-val, .kpi-val');
+    counterElements.forEach(el => {
+      const text = el.textContent.trim();
+      const numMatch = text.match(/\d[\d,]*/);
+      if (numMatch) {
+        const rawNum = parseInt(numMatch[0].replace(/,/g, ''), 10);
+        if (!isNaN(rawNum) && rawNum > 0) {
+          el.setAttribute('data-counter-target', rawNum);
+          el.setAttribute('data-counter-prefix', text.substring(0, text.indexOf(numMatch[0])));
+          el.setAttribute('data-counter-suffix', text.substring(text.indexOf(numMatch[0]) + numMatch[0].length));
+        }
+      }
+    });
+  },
+
+  animateCounter(el) {
+    if (el._counterAnimated) return;
+    el._counterAnimated = true;
+    const target = parseInt(el.getAttribute('data-counter-target'), 10);
+    const prefix = el.getAttribute('data-counter-prefix') || '';
+    const suffix = el.getAttribute('data-counter-suffix') || '';
+    if (isNaN(target)) return;
+
+    let start = 0;
+    const duration = 1200;
+    const startTime = performance.now();
+
+    const update = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - (1 - progress) * (1 - progress);
+      const current = Math.floor(eased * target);
+      el.textContent = `${prefix}${current.toLocaleString()}${suffix}`;
+      if (progress < 1) {
+        requestAnimationFrame(update);
+      } else {
+        el.textContent = `${prefix}${target.toLocaleString()}${suffix}`;
+      }
+    };
+    requestAnimationFrame(update);
   },
 
   // ─── Dynamic Pillar Content Generator ───
@@ -3389,39 +3590,15 @@ const Landing = {
     });
   },
 
-  launchDemoPersona(username) {
-    const creds = {
-      'admin': { pass: 'admin123', label: 'Super Admin / CFO' },
-      'sara.malik': { pass: 'hr123', label: 'HR Director' },
-      'usman.baig': { pass: 'mgr123', label: 'Engineering Dept Manager' },
-      'fatima.raza': { pass: 'emp123', label: 'Employee Self-Service' }
-    };
-    const target = creds[username] || { pass: 'admin123', label: username };
-
-    if (typeof Auth !== 'undefined' && typeof Auth.login === 'function') {
-      const res = Auth.login(username, target.pass);
-      if (res && res.success) {
-        if (typeof Toast !== 'undefined' && Toast.show) {
-          Toast.show(`Logged in as ${target.label}`, 'success', `Welcome! You are exploring HRM Pro with ${target.label} access.`);
-        }
-        window.location.hash = '#dashboard';
-        if (typeof App !== 'undefined') {
-          App.currentModule = 'dashboard';
-          if (typeof App.showApp === 'function') App.showApp();
-          if (typeof App.navigate === 'function') App.navigate('dashboard');
-        }
-        return;
-      }
-    }
-
+  launchDemoPersona(personaKey) {
     if (typeof App !== 'undefined' && typeof App.showLogin === 'function') {
       App.showLogin();
       setTimeout(() => {
-        const u = document.getElementById('login-username');
-        const p = document.getElementById('login-password');
-        if (u) u.value = username;
-        if (p) p.value = target.pass;
-      }, 100);
+        if (typeof Login !== 'undefined' && Login.selectAccount) {
+          const accKey = personaKey === 'admin' ? 'admin' : (personaKey.includes('sara') ? 'hr' : (personaKey.includes('usman') ? 'manager' : 'employee'));
+          Login.selectAccount(accKey);
+        }
+      }, 80);
     }
   },
 

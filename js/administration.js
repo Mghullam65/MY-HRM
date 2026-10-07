@@ -4,10 +4,85 @@
 
 const Administration = {
   currentSection: 'departments',
+  currentCategory: 'org_hierarchy',
   auditMonth: typeof Utils !== 'undefined' ? Utils.thisMonth() : new Date().toISOString().slice(0,7),
   auditStatusFilter: 'all',
   auditCategoryFilter: 'all',
   auditSearch: '',
+
+  categories: [
+    {
+      id: 'org_hierarchy',
+      label: 'Organization & Structure',
+      icon: 'fa-sitemap',
+      sections: ['departments', 'business_units', 'geo_locations', 'designations', 'branches', 'teams', 'projects']
+    },
+    {
+      id: 'shifts_audit',
+      label: 'Shifts & Compliance',
+      icon: 'fa-clock',
+      sections: ['shifts', 'discrepancies', 'holidays']
+    },
+    {
+      id: 'comp_masters',
+      label: 'Masters & Assets',
+      icon: 'fa-layer-group',
+      sections: ['banks', 'salary_grades', 'skills', 'assets']
+    },
+    {
+      id: 'security_arch',
+      label: 'Security & Governance',
+      icon: 'fa-shield-halved',
+      sections: ['users', 'roles', 'audit', 'governance', 'settings', 'blueprint']
+    }
+  ],
+
+  getCategoryForSection(secId) {
+    for (const cat of this.categories) {
+      if (cat.sections.includes(secId)) return cat.id;
+    }
+    return this.categories[0].id;
+  },
+
+  selectCategory(catId) {
+    this.currentCategory = catId;
+    const cat = this.categories.find(c => c.id === catId);
+    if (cat && cat.sections && cat.sections.length > 0) {
+      if (!cat.sections.includes(this.currentSection)) {
+        this.switchSection(cat.sections[0]);
+        return;
+      }
+    }
+    this.render();
+  },
+
+  getAllSections() {
+    const curMonth = this.auditMonth || (typeof Utils !== 'undefined' ? Utils.thisMonth() : '2026-09');
+    const unresolvedIssues = this.getAttendanceLeaveProblems(curMonth).filter(p => !p.isResolved);
+
+    return [
+      { id:'departments', label:'Departments', icon:'fa-building-user' },
+      { id:'business_units', label:'Business Units & Divisions', icon:'fa-sitemap' },
+      { id:'geo_locations', label:'Geo Hierarchy', icon:'fa-earth-asia' },
+      { id:'designations', label:'Designations', icon:'fa-id-badge' },
+      { id:'branches', label:'Branches', icon:'fa-building' },
+      { id:'teams', label:'Teams', icon:'fa-people-group' },
+      { id:'projects', label:'Projects', icon:'fa-diagram-project' },
+      { id:'shifts', label:'Shifts & Windows', icon:'fa-clock' },
+      { id:'discrepancies', label:'Attendance & Leave Audit', icon:'fa-triangle-exclamation', badge: unresolvedIssues.length },
+      { id:'holidays', label:'Holidays', icon:'fa-calendar-days' },
+      { id:'banks', label:'Banks', icon:'fa-landmark' },
+      { id:'salary_grades', label:'Salary Grades', icon:'fa-layer-group' },
+      { id:'skills', label:'Skills', icon:'fa-star' },
+      { id:'assets', label:'Assets', icon:'fa-laptop' },
+      { id:'users', label:'Users', icon:'fa-user-gear' },
+      { id:'roles', label:'Roles & Permissions', icon:'fa-shield-halved' },
+      { id:'audit', label:'Audit Logs', icon:'fa-scroll' },
+      { id:'governance', label:'Profile Governance', icon:'fa-sliders' },
+      { id:'settings', label:'System Settings', icon:'fa-gear' },
+      { id:'blueprint', label:'103-Model Blueprint Explorer', icon:'fa-diagram-project' },
+    ];
+  },
 
   render() {
     const content = document.getElementById('page-content');
@@ -29,46 +104,46 @@ const Administration = {
       return;
     }
 
-    const curMonth = this.auditMonth || (typeof Utils !== 'undefined' ? Utils.thisMonth() : '2026-09');
-    const unresolvedIssues = this.getAttendanceLeaveProblems(curMonth).filter(p => !p.isResolved);
+    if (!this.currentCategory) {
+      this.currentCategory = this.getCategoryForSection(this.currentSection);
+    }
 
-    const sections = [
-      { id:'departments', label:'Departments', icon:'fa-building-user' },
-      { id:'business_units', label:'Business Units & Divisions', icon:'fa-sitemap' },
-      { id:'geo_locations', label:'Geo & Country Hierarchy', icon:'fa-earth-asia' },
-      { id:'designations', label:'Designations', icon:'fa-id-badge' },
-      { id:'branches', label:'Branches', icon:'fa-building' },
-      { id:'shifts', label:'Shifts & Windows', icon:'fa-clock' },
-      { id:'discrepancies', label:'Attendance & Leave Audit', icon:'fa-triangle-exclamation', badge: unresolvedIssues.length },
-      { id:'banks', label:'Banks', icon:'fa-landmark' },
-      { id:'salary_grades', label:'Salary Grades', icon:'fa-layer-group' },
-      { id:'skills', label:'Skills', icon:'fa-star' },
-      { id:'projects', label:'Projects', icon:'fa-diagram-project' },
-      { id:'teams', label:'Teams', icon:'fa-people-group' },
-      { id:'assets', label:'Assets', icon:'fa-laptop' },
-      { id:'users', label:'Users', icon:'fa-user-gear' },
-      { id:'roles', label:'Roles & Permissions', icon:'fa-shield-halved' },
-      { id:'audit', label:'Audit Logs', icon:'fa-scroll' },
-      { id:'holidays', label:'Holidays', icon:'fa-calendar-days' },
-      { id:'governance', label:'Profile & Governance Masters', icon:'fa-sliders' },
-      { id:'settings', label:'System Settings & Holdings', icon:'fa-gear' },
-      { id:'blueprint', label:'103-Model Blueprint Explorer', icon:'fa-diagram-project' },
-    ];
+    const allSections = this.getAllSections();
+    const activeCat = this.categories.find(c => c.id === this.currentCategory) || this.categories[0];
+    const visibleSubSections = allSections.filter(s => activeCat.sections.includes(s.id));
+
+    if (!visibleSubSections.some(s => s.id === this.currentSection) && visibleSubSections.length > 0) {
+      this.currentSection = visibleSubSections[0].id;
+    }
 
     content.innerHTML = `
       <div class="animate-fade-in" style="display:flex;flex-direction:column;gap:18px">
-        <!-- Top Sub-Categories Navigation Bar -->
-        <div class="admin-subnav-bar" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;display:flex;align-items:center;gap:6px;overflow-x:auto;white-space:nowrap;scrollbar-width:thin;-webkit-overflow-scrolling:touch;box-shadow:0 1px 3px rgba(0,0,0,0.05)">
-          ${sections.map(s => `
-            <button class="btn btn-sm ${this.currentSection === s.id ? 'btn-primary' : 'btn-ghost'}"
-              onclick="Administration.switchSection('${s.id}')"
-              data-section="${s.id}"
-              style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;padding:6px 14px;border-radius:8px;white-space:nowrap;flex-shrink:0;transition:all 0.15s ease">
-              <i class="fa ${s.icon}" ${s.id === 'discrepancies' && s.badge > 0 ? 'style="color:var(--danger)"' : ''}></i>
-              <span>${s.label}</span>
-              ${s.badge ? `<span class="badge badge-danger" style="margin-left:4px;font-size:9.5px;padding:1px 6px;border-radius:10px">${s.badge}</span>` : ''}
-            </button>
-          `).join('')}
+        <!-- Two-Tier Category Navigation Bar -->
+        <div class="admin-two-tier-nav" style="display:flex;flex-direction:column;gap:8px">
+          <!-- Tier 1: Main Admin Categories -->
+          <div class="report-tier1-bar">
+            ${this.categories.map(cat => `
+              <button class="report-cat-tab ${this.currentCategory === cat.id ? 'active' : ''}"
+                onclick="Administration.selectCategory('${cat.id}')">
+                <i class="fa ${cat.icon}"></i>
+                <span>${cat.label}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <!-- Tier 2: Specific Sub-Sections Bar -->
+          <div class="report-tier2-bar" style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:6px 10px">
+            <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1">
+              ${visibleSubSections.map(s => `
+                <button class="report-sub-tab ${this.currentSection === s.id ? 'active' : ''}"
+                  onclick="Administration.switchSection('${s.id}')">
+                  <i class="fa ${s.icon}" ${s.id === 'discrepancies' && s.badge > 0 ? 'style="color:var(--danger)"' : ''}></i>
+                  <span>${s.label}</span>
+                  ${s.badge ? `<span class="badge badge-danger" style="margin-left:4px;font-size:9.5px;padding:1px 6px;border-radius:10px">${s.badge}</span>` : ''}
+                </button>
+              `).join('')}
+            </div>
+          </div>
         </div>
 
         <!-- Section Content Area -->
@@ -85,14 +160,8 @@ const Administration = {
       return;
     }
     this.currentSection = section;
-    document.querySelectorAll('.admin-subnav-bar [data-section]').forEach(el => {
-      const isAct = el.getAttribute('data-section') === section;
-      el.className = `btn btn-sm ${isAct ? 'btn-primary' : 'btn-ghost'}`;
-      if (isAct && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-      }
-    });
-    this.renderSection();
+    this.currentCategory = this.getCategoryForSection(section);
+    this.render();
   },
 
   renderSection() {

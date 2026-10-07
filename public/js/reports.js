@@ -4,6 +4,69 @@
 
 const Reports = {
   currentTab: 'employee_stats', // 'employee_stats' | 'office_layout' | 'employee_report' | 'performance_report' | 'token_report' | 'increment_details' | 'executive' | 'builder' | 'standard'
+  currentCategory: 'emp_org',
+  categories: [
+    {
+      id: 'emp_org',
+      label: 'Employee & Organization',
+      icon: 'fa-users',
+      reports: ['employee_stats', 'employee_report', 'office_layout', 'events_calendar']
+    },
+    {
+      id: 'talent',
+      label: 'Performance & Talent',
+      icon: 'fa-award',
+      reports: ['performance_report', 'recruitment_funnel', 'token_report']
+    },
+    {
+      id: 'compensation',
+      label: 'Salary & Increments',
+      icon: 'fa-money-bill-trend-up',
+      reports: ['increment_details']
+    },
+    {
+      id: 'bi_custom',
+      label: 'Executive BI & Custom',
+      icon: 'fa-chart-line',
+      reports: ['executive', 'builder']
+    }
+  ],
+  getAllTabs() {
+    return [
+      { id: 'employee_stats', label: 'Employee Stats', icon: 'fa-chart-pie', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { id: 'employee_report', label: 'Employee Report Management', icon: 'fa-users-gear', roles: ['superadmin', 'hr_manager'] },
+      { id: 'office_layout', label: 'Office Layout', icon: 'fa-building', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { id: 'events_calendar', label: 'Events & Company Calendar', icon: 'fa-calendar-days', roles: ['superadmin', 'hr_manager', 'dept_manager', 'employee', 'onboarding'] },
+      { id: 'performance_report', label: 'Performance Review Report', icon: 'fa-award', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar', roles: ['superadmin', 'hr_manager'] },
+      { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
+      { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up', roles: ['superadmin', 'hr_manager'] },
+      { id: 'executive', label: 'Executive BI Analytics', icon: 'fa-chart-line', roles: ['superadmin', 'hr_manager'] },
+      { id: 'builder', label: 'Custom Report Builder', icon: 'fa-wrench', roles: ['superadmin', 'hr_manager'] }
+    ];
+  },
+  getCategoryForTab(tabId) {
+    for (const cat of this.categories) {
+      if (cat.reports.includes(tabId)) return cat.id;
+    }
+    return this.categories[0].id;
+  },
+  selectCategory(catId) {
+    this.currentCategory = catId;
+    const cat = this.categories.find(c => c.id === catId);
+    if (cat && cat.reports && cat.reports.length > 0) {
+      const allTabs = this.getAllTabs();
+      const allowedTabIds = allTabs
+        .filter(t => cat.reports.includes(t.id) && t.roles.includes(Auth.role))
+        .map(t => t.id);
+
+      if (allowedTabIds.length > 0 && !allowedTabIds.includes(this.currentTab)) {
+        this.switchTab(allowedTabIds[0]);
+        return;
+      }
+    }
+    this.render();
+  },
   activeEntity: 'employees',
   selectedColumns: [],
   filterDept: '',
@@ -215,6 +278,37 @@ const Reports = {
       this.currentTab = 'performance_report';
     }
 
+    if (!this.currentCategory) {
+      this.currentCategory = this.getCategoryForTab(this.currentTab);
+    }
+
+    const allTabs = this.getAllTabs();
+
+    // Filter categories that contain at least one accessible report for the user's role
+    const visibleCategories = this.categories.filter(cat => {
+      return cat.reports.some(repId => {
+        const tabObj = allTabs.find(t => t.id === repId);
+        return tabObj && tabObj.roles.includes(Auth.role);
+      });
+    });
+
+    // Active category
+    let activeCat = this.categories.find(c => c.id === this.currentCategory);
+    if (!activeCat || !visibleCategories.some(c => c.id === activeCat.id)) {
+      activeCat = visibleCategories[0] || this.categories[0];
+      this.currentCategory = activeCat.id;
+    }
+
+    // Reports belonging to active category that are accessible
+    const visibleSubReports = allTabs.filter(t => 
+      activeCat.reports.includes(t.id) && t.roles.includes(Auth.role)
+    );
+
+    // If current tab is not in active category, select the first one in the category
+    if (!visibleSubReports.some(t => t.id === this.currentTab) && visibleSubReports.length > 0) {
+      this.currentTab = visibleSubReports[0].id;
+    }
+
     // Reset pagination
     this.page = 1;
     if (!this.selectedColumns.length) {
@@ -223,50 +317,53 @@ const Reports = {
 
     content.innerHTML = `
       <div class="animate-fade-in reports-container">
-        <!-- Header & Tab Navigation -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
-          <div class="report-suite-tabs">
-            ${[
-              { id: 'performance_report', label: 'Performance Review Report', icon: 'fa-award', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
-              { id: 'token_report', label: 'Token Report Management', icon: 'fa-ticket', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
-              { id: 'employee_stats', label: 'Employee Stats', icon: 'fa-chart-pie', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
-              { id: 'office_layout', label: 'Office Layout', icon: 'fa-building', roles: ['superadmin', 'hr_manager', 'dept_manager'] },
-              { id: 'events_calendar', label: 'Events & Company Calendar', icon: 'fa-calendar-days', roles: ['superadmin', 'hr_manager', 'dept_manager', 'employee', 'onboarding'] },
-              { id: 'employee_report', label: 'Employee Report Management', icon: 'fa-users-gear', roles: ['superadmin', 'hr_manager'] },
-              { id: 'increment_details', label: 'Employee Increment Details', icon: 'fa-arrow-trend-up', roles: ['superadmin', 'hr_manager'] },
-              { id: 'recruitment_funnel', label: 'Recruitment Funnel & Assessment', icon: 'fa-filter-circle-dollar', roles: ['superadmin', 'hr_manager'] },
-              { id: 'executive', label: 'Executive BI Analytics', icon: 'fa-chart-line', roles: ['superadmin', 'hr_manager'] },
-              { id: 'builder', label: 'Custom Report Builder', icon: 'fa-wrench', roles: ['superadmin', 'hr_manager'] }
-            ].filter(tab => tab.roles.includes(Auth.role)).map(tab => `
-              <button class="report-suite-tab ${this.currentTab === tab.id ? 'active' : ''}" onclick="Reports.switchTab('${tab.id}')">
-                <i class="fa ${tab.icon}"></i>${tab.label}
+        <!-- Two-Tier Category Bar: Tier 1 Categories + Tier 2 Sub-Reports -->
+        <div class="report-two-tier-nav">
+          <!-- Tier 1: Main Report Categories -->
+          <div class="report-tier1-bar">
+            ${visibleCategories.map(cat => `
+              <button class="report-cat-tab ${this.currentCategory === cat.id ? 'active' : ''}" onclick="Reports.selectCategory('${cat.id}')">
+                <i class="fa ${cat.icon}"></i>
+                <span>${cat.label}</span>
               </button>
             `).join('')}
           </div>
 
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-secondary btn-sm" onclick="Reports.render()">
-              <i class="fa fa-rotate-right"></i> Refresh
-            </button>
-            ${['executive', 'builder', 'standard'].includes(this.currentTab) ? `
-              <button class="btn btn-ghost btn-sm" onclick="Reports.exportCSV()">
-                <i class="fa fa-file-csv"></i> Export CSV
+          <!-- Tier 2: Specific Sub-Category Reports & Actions -->
+          <div class="report-tier2-bar">
+            <div class="report-tier2-tabs">
+              ${visibleSubReports.map(tab => `
+                <button class="report-sub-tab ${this.currentTab === tab.id ? 'active' : ''}" onclick="Reports.switchTab('${tab.id}')">
+                  <i class="fa ${tab.icon}"></i>
+                  <span>${tab.label}</span>
+                </button>
+              `).join('')}
+            </div>
+
+            <div class="report-tier2-actions">
+              <button class="btn btn-secondary btn-sm" onclick="Reports.render()">
+                <i class="fa fa-rotate-right"></i> Refresh
               </button>
-              <button class="btn btn-primary btn-sm" onclick="Reports.printExecutiveReport()">
-                <i class="fa fa-print"></i> Print Executive PDF
-              </button>
-            ` : this.currentTab === 'recruitment_funnel' ? `
-              <button class="btn btn-ghost btn-sm" onclick="Recruitment.exportAssessmentCSV()">
-                <i class="fa fa-file-csv"></i> Export CSV
-              </button>
-              <button class="btn btn-primary btn-sm" style="background:#0f3562" onclick="window.print()">
-                <i class="fa fa-print"></i> Print Assessment Sheet
-              </button>
-            ` : `
-              <button class="btn btn-primary btn-sm" style="background:#0099cc" onclick="window.print()">
-                <i class="fa fa-print"></i> Print Report
-              </button>
-            `}
+              ${['executive', 'builder', 'standard'].includes(this.currentTab) ? `
+                <button class="btn btn-ghost btn-sm" onclick="Reports.exportCSV()">
+                  <i class="fa fa-file-csv"></i> Export CSV
+                </button>
+                <button class="btn btn-primary btn-sm" onclick="Reports.printExecutiveReport()">
+                  <i class="fa fa-print"></i> Print Executive PDF
+                </button>
+              ` : this.currentTab === 'recruitment_funnel' ? `
+                <button class="btn btn-ghost btn-sm" onclick="Recruitment.exportAssessmentCSV()">
+                  <i class="fa fa-file-csv"></i> Export CSV
+                </button>
+                <button class="btn btn-primary btn-sm" style="background:#0f3562" onclick="window.print()">
+                  <i class="fa fa-print"></i> Print Assessment Sheet
+                </button>
+              ` : `
+                <button class="btn btn-primary btn-sm" style="background:#0099cc" onclick="window.print()">
+                  <i class="fa fa-print"></i> Print Report
+                </button>
+              `}
+            </div>
           </div>
         </div>
 
@@ -287,6 +384,7 @@ const Reports = {
     } else {
       this.currentTab = tab;
     }
+    this.currentCategory = this.getCategoryForTab(this.currentTab);
     this.render();
   },
 

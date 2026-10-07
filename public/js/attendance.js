@@ -847,19 +847,26 @@ const Attendance = {
 
               <div style="height:28px;width:1px;background:var(--border);margin:0 4px"></div>
 
-              <!-- Period View Dropdown Menu -->
-              <div style="display:flex;align-items:center;gap:8px">
-                <label for="myemp-att-period-select" style="font-size:12px;font-weight:700;color:var(--text-2);margin:0;display:flex;align-items:center;gap:4px">
-                  <i class="fa fa-filter" style="color:var(--primary);margin-right:4px"></i> Period View:
-                </label>
-                <select id="myemp-att-period-select" class="form-control" style="width:220px;font-weight:700;background:var(--surface);border-color:rgba(79,128,247,0.4)" onchange="Attendance.changeMyEmpAttPeriod(this.value)">
-                  <option value="daily"         ${period==='daily'        ?'selected':''}>📅 Daily (Single Date)</option>
-                  <option value="weekly"        ${period==='weekly'       ?'selected':''}>📆 Weekly (7-Day View)</option>
-                  <option value="monthly"       ${period==='monthly'      ?'selected':''}>🗓️ Monthly (Full Month)</option>
-                  <option value="employee_wise" ${period==='employee_wise'?'selected':''}>👤 Employee Wise (Summary)</option>
-                  <option value="dept_wise"     ${period==='dept_wise'    ?'selected':''}>🏢 Department Wise (Overview)</option>
-                  <option value="custom"        ${period==='custom'       ?'selected':''}>🔍 Custom Dates Range</option>
-                </select>
+              <!-- Period Sub-Navigation Button Group -->
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.5px">Period View:</span>
+                <div style="display:inline-flex;align-items:center;gap:3px;background:var(--surface);padding:3px;border-radius:8px;border:1px solid var(--border);flex-wrap:wrap">
+                  ${[
+                    { id: 'daily', label: 'Daily', icon: 'fa-calendar-day' },
+                    { id: 'weekly', label: 'Weekly', icon: 'fa-calendar-week' },
+                    { id: 'monthly', label: 'Monthly', icon: 'fa-calendar' },
+                    { id: 'employee_wise', label: 'Employee Wise', icon: 'fa-user' },
+                    { id: 'dept_wise', label: 'Dept Wise', icon: 'fa-building' },
+                    { id: 'custom', label: 'Custom', icon: 'fa-sliders' },
+                  ].map(p => `
+                    <button class="btn btn-sm ${period === p.id ? 'btn-primary' : 'btn-ghost'}"
+                      onclick="Attendance.changeMyEmpAttPeriod('${p.id}')"
+                      style="padding:4px 9px;font-size:11.5px;font-weight:600;border-radius:6px;gap:5px;display:inline-flex;align-items:center">
+                      <i class="fa ${p.icon}"></i>
+                      <span>${p.label}</span>
+                    </button>
+                  `).join('')}
+                </div>
               </div>
             </div>
 

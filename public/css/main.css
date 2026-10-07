@@ -5559,6 +5559,123 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 /* ══════════════════════════════════════════════════════════════
    ENTERPRISE REPORTS SUITE (MATCHING USER SCREENSHOTS)
 ══════════════════════════════════════════════════════════════ */
+/* ── TWO-TIER CATEGORY SUITE NAVIGATION (ZERO LENGTHY LISTS) ── */
+.report-two-tier-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.report-tier1-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 8px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.report-cat-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.report-cat-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.report-cat-tab.active {
+  background: var(--primary) !important;
+  color: #ffffff !important;
+  border-color: var(--primary) !important;
+  box-shadow: 0 2px 8px var(--primary-glow);
+}
+
+.report-cat-tab.active i {
+  color: #ffffff !important;
+}
+
+.report-tier2-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+
+.report-tier2-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1;
+}
+
+.report-tier2-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.report-sub-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.report-sub-tab:hover {
+  color: #009fe3;
+  background: rgba(0, 159, 227, 0.08);
+}
+
+.report-sub-tab.active {
+  background: #009fe3 !important;
+  color: #ffffff !important;
+  border-color: #009fe3;
+  box-shadow: 0 2px 6px rgba(0, 159, 227, 0.35);
+}
+
+.report-sub-tab.active i {
+  color: #ffffff !important;
+}
+
+.report-tier2-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
 .report-suite-tabs {
   display: flex;
   gap: 6px;
@@ -8030,10 +8147,46 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   text-decoration: none;
   color: inherit;
   margin-bottom: 24px;
+  animation: loginBrandReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes loginBrandReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .split-left-welcome-wrap {
   margin-bottom: 18px;
+}
+
+/* ── Login Page Text Animation & Dynamic Typography ── */
+.login-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  border-radius: 20px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  animation: loginPillReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+[data-theme="dark"] .login-badge-pill {
+  background: rgba(56, 189, 248, 0.12);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
 }
 
 .split-hero-title {
@@ -8049,15 +8202,108 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   color: #f8fafc;
 }
 
+.login-hero-animated {
+  position: relative;
+}
+
+.login-hero-animated .hero-title-prefix {
+  display: inline-block;
+  animation: loginTitlePrefixSlide 0.7s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.login-hero-animated .hero-title-dynamic {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25em;
+}
+
+.login-hero-animated .text-blue-highlight {
+  background: linear-gradient(135deg, #2563eb 0%, #38bdf8 35%, #8b5cf6 70%, #ec4899 100%);
+  background-size: 250% 250%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: loginGradientFlow 6s ease infinite;
+  display: inline-block;
+  filter: drop-shadow(0 2px 10px rgba(37, 99, 235, 0.2));
+}
+
+[data-theme="dark"] .login-hero-animated .text-blue-highlight {
+  background: linear-gradient(135deg, #60a5fa 0%, #38bdf8 30%, #a78bfa 70%, #f472b6 100%);
+  background-size: 250% 250%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(56, 189, 248, 0.35));
+}
+
+.login-typewriter-cursor {
+  display: inline-block;
+  color: #38bdf8;
+  font-weight: 300;
+  margin-left: 3px;
+  font-size: 0.95em;
+  animation: loginCursorBlink 0.85s ease-in-out infinite;
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+}
+
 .split-hero-subtitle {
   font-size: 13.5px;
   color: #64748b;
   line-height: 1.5;
   margin: 0;
+  animation: loginSubtitleFade 0.85s cubic-bezier(0.16, 1, 0.3, 1) 0.25s backwards;
 }
 
 [data-theme="dark"] .split-hero-subtitle {
   color: #94a3b8;
+}
+
+/* Keyframes for entrance & glowing effects */
+@keyframes loginCursorBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes loginGradientFlow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes loginPillReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes loginTitlePrefixSlide {
+  0% {
+    opacity: 0;
+    transform: translateX(-24px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes loginSubtitleFade {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
 }
 
 /* ── Interactive Scenario Stage (Matching Reference Image) ── */
@@ -8366,6 +8612,7 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
   color: var(--c-text-primary);
   letter-spacing: -0.5px;
   margin-bottom: 6px;
+  animation: loginCardTitleSlide 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.1s backwards;
 }
 
 [data-theme="dark"] .split-card-title {
@@ -8375,10 +8622,35 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 .split-card-subtitle {
   font-size: var(--font-sm);
   color: var(--c-text-secondary);
+  animation: loginCardSubSlide 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.2s backwards;
 }
 
 [data-theme="dark"] .split-card-subtitle {
   color: var(--c-text-dim);
+}
+
+@keyframes loginCardTitleSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes loginCardSubSlide {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Segmented Login Mode Tabs (Resolves Usability Issue 10) */
@@ -8814,6 +9086,302 @@ th.sort-desc::after { content: ' ↓'; opacity: 1; color: var(--primary); }
 
 .split-card-footer a:hover {
   color: var(--c-brand);
+}
+
+/* ══════════════════════════════════════════════════════════
+   LOGIN PAGE ALL TEXT ANIMATIONS — COMPLETE CHOREOGRAPHY
+   ══════════════════════════════════════════════════════════ */
+
+/* Brand Header & Tagline */
+.split-left-brand .landing-brand-name {
+  display: block;
+  animation: loginTextSlideIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.08s backwards;
+  transition: transform 0.25s ease, color 0.25s ease;
+}
+
+.split-left-brand:hover .landing-brand-name {
+  transform: translateX(2px);
+  color: var(--c-brand, #2563eb);
+}
+
+.split-left-brand .landing-brand-tag {
+  display: block;
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.16s backwards;
+}
+
+/* Badge Pill Glow Micro-Animation */
+.login-badge-pill {
+  animation: loginPillReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.12s backwards, loginBadgeGlow 4s ease-in-out infinite 1s;
+}
+
+@keyframes loginBadgeGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(37, 99, 235, 0);
+  }
+  50% {
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.22);
+  }
+}
+
+/* Floating Scenario KPI Badges Text */
+.scenario-floating-badge .badge-title {
+  animation: loginTextFadeIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
+}
+
+.scenario-floating-badge .badge-number {
+  animation: loginNumberPop 0.75s cubic-bezier(0.34, 1.56, 0.64, 1) 0.38s backwards;
+  display: inline-block;
+}
+
+.scenario-floating-badge .badge-subtext,
+.scenario-floating-badge .badge-trend {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.44s backwards;
+}
+
+/* Bottom Scenario Pillars Text */
+.scenario-bottom-pillars .scenario-pillar-item:nth-child(1) {
+  animation: loginCardSlideUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.35s backwards;
+}
+.scenario-bottom-pillars .scenario-pillar-item:nth-child(2) {
+  animation: loginCardSlideUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.42s backwards;
+}
+.scenario-bottom-pillars .scenario-pillar-item:nth-child(3) {
+  animation: loginCardSlideUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.49s backwards;
+}
+
+.scenario-pillar-item strong {
+  animation: loginTextSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.42s backwards;
+}
+
+.scenario-pillar-item span {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.48s backwards;
+}
+
+/* Back Button Text */
+.btn-split-back {
+  animation: loginTextSlideIn 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.08s backwards;
+}
+
+.btn-split-back i {
+  transition: transform 0.2s ease;
+}
+
+.btn-split-back:hover i {
+  transform: translateX(-3px);
+}
+
+/* Nav Tabs Text */
+.login-tab-nav {
+  animation: loginTextFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.24s backwards;
+}
+
+.login-nav-tab {
+  animation: loginTextFadeIn 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.28s backwards;
+}
+
+/* Active User Profile Text (Demo Mode) */
+.active-user-name {
+  animation: loginTextFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s backwards;
+}
+
+.active-user-role {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.34s backwards;
+}
+
+.active-user-preset-badge {
+  animation: loginNumberPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.36s backwards;
+}
+
+/* Demo Role Chips Text */
+.split-account-chips-row .split-account-chip {
+  animation: loginNumberPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+.split-account-chips-row .split-account-chip:nth-child(1) { animation-delay: 0.3s; }
+.split-account-chips-row .split-account-chip:nth-child(2) { animation-delay: 0.34s; }
+.split-account-chips-row .split-account-chip:nth-child(3) { animation-delay: 0.38s; }
+.split-account-chips-row .split-account-chip:nth-child(4) { animation-delay: 0.42s; }
+.split-account-chips-row .split-account-chip:nth-child(5) { animation-delay: 0.46s; }
+.split-account-chips-row .split-account-chip:nth-child(6) { animation-delay: 0.50s; }
+
+/* Form Labels & Inputs */
+.split-form-group:nth-of-type(1) .split-form-label {
+  animation: loginTextSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.32s backwards;
+}
+
+.split-form-group:nth-of-type(2) .split-form-label {
+  animation: loginTextSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.38s backwards;
+}
+
+.split-form-group:nth-of-type(1) .split-input-box {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.34s backwards;
+}
+
+.split-form-group:nth-of-type(2) .split-input-box {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.40s backwards;
+}
+
+/* Options Text: Remember me & Forgot Password */
+.split-checkbox-label {
+  animation: loginTextFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.42s backwards;
+}
+
+.split-forgot-link {
+  animation: loginTextFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.44s backwards;
+  transition: all 0.2s ease;
+}
+
+.split-forgot-link:hover {
+  text-shadow: 0 0 8px rgba(37, 99, 235, 0.4);
+}
+
+/* Submit Button Text & Shimmer */
+.split-submit-btn {
+  animation: loginCardSlideUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.46s backwards;
+  position: relative;
+  overflow: hidden;
+}
+
+.split-submit-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.28), transparent);
+  animation: loginBtnShimmer 4.5s ease-in-out infinite 1.8s;
+  pointer-events: none;
+}
+
+/* SSO Divider & Buttons Text */
+.split-or-divider {
+  animation: loginTextFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.5s backwards;
+}
+
+.split-or-divider span {
+  animation: loginTextScale 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.52s backwards;
+}
+
+.split-sso-grid {
+  animation: loginTextFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.54s backwards;
+}
+
+.split-sso-btn span {
+  animation: loginTextFadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.56s backwards;
+}
+
+.btn-demo-switch-link {
+  animation: loginTextFadeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.58s backwards;
+}
+
+/* MFA Banner Text */
+.split-mfa-banner {
+  animation: loginCardSlideUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.6s backwards;
+}
+
+.mfa-title {
+  animation: loginTextSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.63s backwards;
+}
+
+.mfa-desc {
+  animation: loginTextFadeUp 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.66s backwards;
+}
+
+/* Free Trial Prompt & Card Footer Text */
+.login-split-card > div[style*="text-align:center;margin:18px 0"] {
+  animation: loginTextFadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.68s backwards;
+}
+
+.split-card-footer {
+  animation: loginTextFadeUp 0.75s cubic-bezier(0.16, 1, 0.3, 1) 0.72s backwards;
+}
+
+/* Dynamic Text Pop on state switch */
+.animate-text-pop {
+  animation: loginTextPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+@keyframes loginTextPop {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.96) translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes loginTextSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes loginTextFadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loginTextFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes loginNumberPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(4px);
+  }
+  70% {
+    transform: scale(1.05) translateY(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes loginTextScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes loginCardSlideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loginBtnShimmer {
+  0% { left: -120%; }
+  25%, 100% { left: 150%; }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -11328,13 +11896,14 @@ html.compact-mode .nav-item {
     color: #ffffff !important;
   }
 
-  /* Active Menu Tab (Cyan Sky-Blue solid block) */
+  /* Active Menu Tab (Cyan Sky-Blue solid block with bottom attention accent) */
   body.nav-pos-top .nav-item.active,
   #app[data-sidebar-pos="top"] .nav-item.active {
     background: #00a2e8 !important;
     color: #ffffff !important;
     font-weight: 800 !important;
-    box-shadow: none !important;
+    box-shadow: inset 0 -3px 0 #ffffff, 0 2px 10px rgba(0, 162, 232, 0.45) !important;
+    position: relative !important;
   }
 
   body.nav-pos-top .nav-item:not(.nav-dropdown-subitem) > i:not(.nav-pillar-arrow),

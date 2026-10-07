@@ -2923,10 +2923,19 @@ const Login = {
               </div>
             </a>
 
-            <!-- Welcome Headline -->
+            <!-- Welcome Headline (Animated Entrance & Dynamic Typewriter) -->
             <div class="split-left-welcome-wrap">
-              <h1 class="split-hero-title">Welcome to<br><span class="text-blue-highlight">HR Suite Enterprise</span></h1>
-              <p class="split-hero-subtitle">for Human Resource Management System</p>
+              <div class="login-badge-pill animate-text-reveal">
+                <i class="fa fa-sparkles" style="color:#38bdf8"></i> Next-Gen Workforce Intelligence
+              </div>
+              <h1 class="split-hero-title login-hero-animated">
+                <span class="hero-title-prefix animate-text-slide">Welcome to</span><br>
+                <span class="hero-title-dynamic">
+                  <span class="text-blue-highlight" id="login-typewriter-text">HR Suite Enterprise</span>
+                  <span class="login-typewriter-cursor" aria-hidden="true">|</span>
+                </span>
+              </h1>
+              <p class="split-hero-subtitle animate-text-fade">for Human Resource Management System</p>
             </div>
 
             <!-- Central Visual Scenario Stage: All HR Functions Working Together -->
@@ -3164,6 +3173,8 @@ const Login = {
         </div>
       </div>
     `;
+
+    this.initTextAnimation();
   },
 
   activeTab: 'standard',
@@ -3183,6 +3194,11 @@ const Login = {
     }
     if (demoPane) {
       demoPane.classList.toggle('hidden', tab !== 'demo');
+      if (tab === 'demo') {
+        demoPane.classList.remove('animate-text-pop');
+        void demoPane.offsetWidth;
+        demoPane.classList.add('animate-text-pop');
+      }
     }
   },
 
@@ -3191,22 +3207,42 @@ const Login = {
     const acc = this.accounts[roleKey];
     if (!acc) return;
 
-    // Update Portal Subtitle
+    // Update Portal Subtitle with pop animation
     const sub = document.getElementById('login-portal-subtitle');
-    if (sub) sub.textContent = `Continue to ${acc.portal}`;
+    if (sub) {
+      sub.textContent = `Continue to ${acc.portal}`;
+      sub.classList.remove('animate-text-pop');
+      void sub.offsetWidth;
+      sub.classList.add('animate-text-pop');
+    }
 
     // Update Scope Box
     const scopeTitle = document.getElementById('active-scope-title');
     const scopeDesc = document.getElementById('active-scope-desc');
-    if (scopeTitle) scopeTitle.textContent = `${acc.role} Permissions`;
+    if (scopeTitle) {
+      scopeTitle.textContent = `${acc.role} Permissions`;
+      scopeTitle.classList.remove('animate-text-pop');
+      void scopeTitle.offsetWidth;
+      scopeTitle.classList.add('animate-text-pop');
+    }
     if (scopeDesc) scopeDesc.textContent = acc.scope;
 
-    // Update Active User Banner
+    // Update Active User Banner with pop animation
     const nameEl = document.getElementById('active-account-name');
     const roleEl = document.getElementById('active-account-role');
     const imgEl = document.querySelector('.active-user-img');
-    if (nameEl) nameEl.textContent = acc.name;
-    if (roleEl) roleEl.textContent = acc.role;
+    if (nameEl) {
+      nameEl.textContent = acc.name;
+      nameEl.classList.remove('animate-text-pop');
+      void nameEl.offsetWidth;
+      nameEl.classList.add('animate-text-pop');
+    }
+    if (roleEl) {
+      roleEl.textContent = acc.role;
+      roleEl.classList.remove('animate-text-pop');
+      void roleEl.offsetWidth;
+      roleEl.classList.add('animate-text-pop');
+    }
     if (imgEl) imgEl.src = acc.avatar;
 
     // Update Form Inputs
@@ -3299,6 +3335,69 @@ const Login = {
 
   showPersonaLimitsModal() {
     if (typeof App !== 'undefined' && App.showPersonaLimitsModal) App.showPersonaLimitsModal();
+  },
+
+  // ── Text Animation & Typewriter Engine for Login Page ──
+  _typeTimer: null,
+  _typeState: {
+    words: [
+      'HR Suite Enterprise',
+      'Workforce Intelligence',
+      'Statutory Payroll & Tax',
+      'People & Talent Ecosystem',
+      'Biometric Shift Fleets'
+    ],
+    wordIdx: 0,
+    charIdx: 0,
+    isDeleting: false
+  },
+
+  initTextAnimation() {
+    if (this._typeTimer) {
+      clearTimeout(this._typeTimer);
+      this._typeTimer = null;
+    }
+
+    const target = document.getElementById('login-typewriter-text');
+    if (!target) return;
+
+    // Reset typewriter state for fresh entrance animation
+    this._typeState.wordIdx = 0;
+    this._typeState.charIdx = 0;
+    this._typeState.isDeleting = false;
+    target.textContent = '';
+
+    const tick = () => {
+      const el = document.getElementById('login-typewriter-text');
+      if (!el) return;
+
+      const currentWord = this._typeState.words[this._typeState.wordIdx];
+
+      if (this._typeState.isDeleting) {
+        this._typeState.charIdx--;
+        el.textContent = currentWord.substring(0, this._typeState.charIdx);
+      } else {
+        this._typeState.charIdx++;
+        el.textContent = currentWord.substring(0, this._typeState.charIdx);
+      }
+
+      let speed = this._typeState.isDeleting ? 28 : 55;
+
+      if (!this._typeState.isDeleting && this._typeState.charIdx === currentWord.length) {
+        // Pause at full word
+        speed = 2200;
+        this._typeState.isDeleting = true;
+      } else if (this._typeState.isDeleting && this._typeState.charIdx === 0) {
+        this._typeState.isDeleting = false;
+        this._typeState.wordIdx = (this._typeState.wordIdx + 1) % this._typeState.words.length;
+        speed = 350;
+      }
+
+      this._typeTimer = setTimeout(tick, speed);
+    };
+
+    // Staggered start after hero title prefix entrance
+    this._typeTimer = setTimeout(tick, 220);
   }
 };
 
