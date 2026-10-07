@@ -1253,6 +1253,12 @@ const App = {
       chat: 'Team Chat & Instant Messaging'
     };
 
+    if (module === 'chat') {
+      document.body.classList.add('chat-workspace-active');
+    } else {
+      document.body.classList.remove('chat-workspace-active');
+    }
+    if (content && module !== 'chat') content.classList.remove('chat-fullscreen-page-content');
     if (title) title.textContent = moduleLabels[module] || module;
     if (subtitle) subtitle.textContent = `${new Date().toLocaleDateString('en-PK', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`;
     this.updateBreadcrumbs(module, subView);
@@ -1263,11 +1269,29 @@ const App = {
     // Close mobile sidebar if open
     this.closeMobileSidebar();
 
+    // Ensure floating launchers never overlap the dedicated chat workspace
+    const chatFloatingBtn = document.getElementById('chat-floating-launcher');
+    const landingAgentBtn = document.getElementById('landing-agent-launcher');
+    if (module === 'chat') {
+      if (chatFloatingBtn) chatFloatingBtn.style.display = 'none';
+      if (landingAgentBtn) landingAgentBtn.style.display = 'none';
+      if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
+    } else {
+      if (chatFloatingBtn && document.body.classList.contains('app-workspace-active')) {
+        chatFloatingBtn.style.display = 'flex';
+      }
+    }
+
     const doRender = () => {
       try {
         switch (module) {
           case 'dashboard':     Dashboard.render(); break;
-          case 'chat':          if (typeof Chat !== 'undefined') Chat.renderFullWorkspace(); break;
+          case 'chat':
+            if (content) {
+              content.classList.add('chat-fullscreen-page-content');
+            }
+            if (typeof Chat !== 'undefined') Chat.renderFullWorkspace();
+            break;
           case 'employees':     Employees.render(); break;
           case 'attendance':    Attendance.render(); break;
           case 'leaves':        Leaves.render(); break;
