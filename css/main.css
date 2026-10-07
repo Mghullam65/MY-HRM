@@ -11348,6 +11348,8 @@ html.compact-mode .nav-item {
   }
 
   /* ── Tier 2.5: Bright Cyan-Blue Horizontal Sub-Navigation Bar (Row 2 Sub-Categories) ── */
+  #subnav-bar,
+  .subnav-bar,
   body.nav-pos-top .subnav-bar,
   #app[data-sidebar-pos="top"] .subnav-bar {
     order: 3 !important;
