@@ -91,7 +91,7 @@ const App = {
         'dashboard', 'employees', 'attendance', 'leaves', 'payroll',
         'settlement', 'companies', 'performance', 'recruitment', 'assets',
         'expenses', 'helpdesk', 'events', 'reports', 'administration',
-        'settings', 'profile'
+        'settings', 'profile', 'chat'
       ];
 
       // ── Routing logic ───────────────────────────────────────────────────
@@ -2855,29 +2855,24 @@ const Login = {
 
   setPortal(portal) {
     this.activePortal = portal === 'chat' ? 'chat' : 'hrm';
-    const hrmCard = document.getElementById('gateway-card-hrm');
-    const chatCard = document.getElementById('gateway-card-chat');
+    const hrmPill = document.getElementById('portal-pill-hrm');
+    const chatPill = document.getElementById('portal-pill-chat');
     const subtitle = document.getElementById('login-portal-subtitle');
     const btn = document.getElementById('login-btn');
     const acc = this.accounts[this.activeAccount] || this.accounts.admin;
 
-    if (hrmCard) {
-      hrmCard.classList.toggle('active', this.activePortal === 'hrm');
-      hrmCard.setAttribute('aria-checked', this.activePortal === 'hrm');
+    if (hrmPill) {
+      hrmPill.classList.toggle('active', this.activePortal === 'hrm');
+      hrmPill.setAttribute('aria-checked', this.activePortal === 'hrm');
     }
-    if (chatCard) {
-      chatCard.classList.toggle('active', this.activePortal === 'chat');
-      chatCard.setAttribute('aria-checked', this.activePortal === 'chat');
+    if (chatPill) {
+      chatPill.classList.toggle('active', this.activePortal === 'chat');
+      chatPill.setAttribute('aria-checked', this.activePortal === 'chat');
     }
-
-    const hrmPillLabel = document.getElementById('gateway-hrm-pill-label');
-    const chatPillLabel = document.getElementById('gateway-chat-pill-label');
-    if (hrmPillLabel) hrmPillLabel.textContent = this.activePortal === 'hrm' ? 'Selected Gateway' : 'Access HRM';
-    if (chatPillLabel) chatPillLabel.textContent = this.activePortal === 'chat' ? 'Selected Gateway' : 'Launch Chat';
 
     if (subtitle) {
       subtitle.textContent = this.activePortal === 'chat'
-        ? 'Continue to Company Team Chatbox & Colleague Messaging'
+        ? 'Sign in to access Company Team Chatbox & Colleague Messaging'
         : ('Continue to ' + (acc.portal || 'HRM Pro Executive Portal'));
     }
 
@@ -2888,6 +2883,14 @@ const Login = {
       } else {
         btn.className = 'split-submit-btn';
         btn.innerHTML = '<i class="fa fa-arrow-right-to-bracket"></i> Sign In to HRM Suite';
+      }
+    }
+
+    if (window.location.hash === '#login' || window.location.hash === '#chat-login') {
+      const targetHash = this.activePortal === 'chat' ? '#chat-login' : '#login';
+      if (window.location.hash !== targetHash) {
+        if (history.replaceState) history.replaceState({ page: 'login', portal: this.activePortal }, '', targetHash);
+        else window.location.hash = targetHash;
       }
     }
   },
@@ -3101,37 +3104,34 @@ const Login = {
               <p class="split-card-subtitle" id="login-portal-subtitle">Continue to ${acc.portal}</p>
             </div>
 
-            <!-- Dual Entrance Gateway Selection Cards (Option 2: HRM vs Chatbox) -->
-            <div class="login-gateway-grid" role="radiogroup" aria-label="Select Portal Gateway">
-              <div class="gateway-card gateway-hrm ${this.activePortal==='hrm'?'active':''}" id="gateway-card-hrm" onclick="Login.setPortal('hrm')" role="radio" aria-checked="${this.activePortal==='hrm'}" tabindex="0" title="Sign in to full Enterprise HRM Suite">
-                <div class="gateway-badge">
-                  <i class="fa fa-building-columns"></i> Core HRM
+            <!-- Option 1: Segmented Capsule Portal Switch (HRM Suite vs Company Team Chat) -->
+            <div class="login-portal-capsule" role="radiogroup" aria-label="Choose Login Destination">
+              <button type="button" 
+                      class="portal-capsule-pill portal-hrm ${this.activePortal==='hrm'?'active':''}" 
+                      id="portal-pill-hrm" 
+                      onclick="Login.setPortal('hrm')" 
+                      role="radio" 
+                      aria-checked="${this.activePortal==='hrm'}"
+                      title="Access Full Enterprise HRM Management Suite">
+                <i class="fa fa-building-columns pill-icon"></i>
+                <div class="pill-text">
+                  <span class="pill-title">HRM Enterprise Suite</span>
+                  <span class="pill-subtitle">Management & Self-Service</span>
                 </div>
-                <div class="gateway-icon-box">
-                  <i class="fa fa-chart-line"></i>
+              </button>
+              <button type="button" 
+                      class="portal-capsule-pill portal-chat ${this.activePortal==='chat'?'active':''}" 
+                      id="portal-pill-chat" 
+                      onclick="Login.setPortal('chat')" 
+                      role="radio" 
+                      aria-checked="${this.activePortal==='chat'}"
+                      title="Access Dedicated Company Team Chatbox">
+                <i class="fa fa-comments pill-icon"></i>
+                <div class="pill-text">
+                  <span class="pill-title">Company Team Chat</span>
+                  <span class="pill-subtitle">Colleague Messaging Hub</span>
                 </div>
-                <h3 class="gateway-title">Enterprise HRM Suite</h3>
-                <p class="gateway-desc">Workforce master, biometric attendance, statutory payroll and leaves</p>
-                <div class="gateway-status-pill">
-                  <span id="gateway-hrm-pill-label">${this.activePortal==='hrm'?'Selected Gateway':'Access HRM'}</span>
-                  <i class="fa ${this.activePortal==='hrm'?'fa-circle-check':'fa-arrow-right'}"></i>
-                </div>
-              </div>
-
-              <div class="gateway-card gateway-chat ${this.activePortal==='chat'?'active':''}" id="gateway-card-chat" onclick="Login.setPortal('chat')" role="radio" aria-checked="${this.activePortal==='chat'}" tabindex="0" title="Sign in to Company Team Chatbox and Colleague Messaging">
-                <div class="gateway-badge">
-                  <i class="fa fa-comment-dots"></i> Team Hub
-                </div>
-                <div class="gateway-icon-box">
-                  <i class="fa fa-comments"></i>
-                </div>
-                <h3 class="gateway-title">Company Team Chatbox</h3>
-                <p class="gateway-desc">Instant colleague messaging, group channels, video calls and file sharing</p>
-                <div class="gateway-status-pill">
-                  <span id="gateway-chat-pill-label">${this.activePortal==='chat'?'Selected Gateway':'Launch Chat'}</span>
-                  <i class="fa ${this.activePortal==='chat'?'fa-circle-check':'fa-arrow-right'}"></i>
-                </div>
-              </div>
+              </button>
             </div>
 
             <!-- Access Mode Segmented Tabs (Resolves Usability Issue 10: Clutter & Density) -->
