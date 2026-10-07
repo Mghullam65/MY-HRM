@@ -26,7 +26,12 @@ const App = {
           loginEl.style.display = 'flex';
         }
         if (typeof Login !== 'undefined' && Login.render) {
-          try { Login.render(); } catch (e) { console.warn('Pre-paint login error:', e); }
+          try { Login.render();
+    if (targetPortal) {
+      Login.setPortal(targetPortal);
+    } else if (window.location.hash === '#chat-login' || window.location.search.includes('portal=chat')) {
+      Login.setPortal('chat');
+    } } catch (e) { console.warn('Pre-paint login error:', e); }
         }
       } else if (initialHash === 'trial') {
         const trialEl = document.getElementById('trial-page');
@@ -97,7 +102,9 @@ const App = {
         this.showApp();
         this.navigate(rawHash, null, false);
       } else if (rawHash === 'login') {
-        this.showLogin(false);
+        this.showLogin(false, 'hrm');
+      } else if (rawHash === 'chat-login') {
+        this.showLogin(false, 'chat');
       } else if (rawHash === 'trial') {
         this.showTrial('Pro', false);
       } else if (rawHash.startsWith('module-')) {
@@ -135,7 +142,7 @@ const App = {
             this.showLanding(false);
             break;
           case 'login':
-            this.showLogin(false);
+            this.showLogin(false, (state && state.portal) || (currentHash === '#chat-login' ? 'chat' : 'hrm'));
             break;
           case 'trial':
             this.showTrial(state.plan || 'Pro', false);
@@ -162,7 +169,9 @@ const App = {
         if (!currentHash || currentHash === '' || currentHash === '#' || currentHash === '#landing') {
           this.showLanding(false);
         } else if (currentHash === '#login') {
-          this.showLogin(false);
+          this.showLogin(false, 'hrm');
+        } else if (currentHash === '#chat-login') {
+          this.showLogin(false, 'chat');
         } else if (currentHash === '#trial') {
           this.showTrial('Pro', false);
         } else if (currentHash.startsWith('#module-')) {
@@ -252,7 +261,7 @@ const App = {
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 
-  showLogin(pushState = true) {
+  showLogin(pushState = true, targetPortal = null) {
     const landing = document.getElementById('landing-page');
     const modDetail = document.getElementById('module-detail-page');
     const login = document.getElementById('login-page');
@@ -275,8 +284,14 @@ const App = {
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
     Login.render();
+    if (targetPortal) {
+      Login.setPortal(targetPortal);
+    } else if (window.location.hash === '#chat-login' || window.location.search.includes('portal=chat')) {
+      Login.setPortal('chat');
+    }
     if (pushState && history.pushState) {
-      history.pushState({ page: 'login' }, '', '#login');
+      const targetHash = (targetPortal === 'chat' || Login.activePortal === 'chat') ? '#chat-login' : '#login';
+      history.pushState({ page: 'login', portal: Login.activePortal }, '', targetHash);
     }
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
@@ -2836,6 +2851,46 @@ const FormValidator = {
 // ── LOGIN MODULE (SPLIT-SCREEN SAAS PORTAL) ──
 const Login = {
   activeAccount: 'admin',
+  activePortal: 'hrm',
+
+  setPortal(portal) {
+    this.activePortal = portal === 'chat' ? 'chat' : 'hrm';
+    const hrmCard = document.getElementById('gateway-card-hrm');
+    const chatCard = document.getElementById('gateway-card-chat');
+    const subtitle = document.getElementById('login-portal-subtitle');
+    const btn = document.getElementById('login-btn');
+    const acc = this.accounts[this.activeAccount] || this.accounts.admin;
+
+    if (hrmCard) {
+      hrmCard.classList.toggle('active', this.activePortal === 'hrm');
+      hrmCard.setAttribute('aria-checked', this.activePortal === 'hrm');
+    }
+    if (chatCard) {
+      chatCard.classList.toggle('active', this.activePortal === 'chat');
+      chatCard.setAttribute('aria-checked', this.activePortal === 'chat');
+    }
+
+    const hrmPillLabel = document.getElementById('gateway-hrm-pill-label');
+    const chatPillLabel = document.getElementById('gateway-chat-pill-label');
+    if (hrmPillLabel) hrmPillLabel.textContent = this.activePortal === 'hrm' ? 'Selected Gateway' : 'Access HRM';
+    if (chatPillLabel) chatPillLabel.textContent = this.activePortal === 'chat' ? 'Selected Gateway' : 'Launch Chat';
+
+    if (subtitle) {
+      subtitle.textContent = this.activePortal === 'chat'
+        ? 'Continue to Company Team Chatbox & Colleague Messaging'
+        : ('Continue to ' + (acc.portal || 'HRM Pro Executive Portal'));
+    }
+
+    if (btn) {
+      if (this.activePortal === 'chat') {
+        btn.className = 'split-submit-btn btn-portal-chat';
+        btn.innerHTML = '<i class="fa fa-comments"></i> Launch Team Chatbox';
+      } else {
+        btn.className = 'split-submit-btn';
+        btn.innerHTML = '<i class="fa fa-arrow-right-to-bracket"></i> Sign In to HRM Suite';
+      }
+    }
+  },
 
   accounts: {
     admin: {
@@ -3046,6 +3101,39 @@ const Login = {
               <p class="split-card-subtitle" id="login-portal-subtitle">Continue to ${acc.portal}</p>
             </div>
 
+            <!-- Dual Entrance Gateway Selection Cards (Option 2: HRM vs Chatbox) -->
+            <div class="login-gateway-grid" role="radiogroup" aria-label="Select Portal Gateway">
+              <div class="gateway-card gateway-hrm ${this.activePortal==='hrm'?'active':''}" id="gateway-card-hrm" onclick="Login.setPortal('hrm')" role="radio" aria-checked="${this.activePortal==='hrm'}" tabindex="0" title="Sign in to full Enterprise HRM Suite">
+                <div class="gateway-badge">
+                  <i class="fa fa-building-columns"></i> Core HRM
+                </div>
+                <div class="gateway-icon-box">
+                  <i class="fa fa-chart-line"></i>
+                </div>
+                <h3 class="gateway-title">Enterprise HRM Suite</h3>
+                <p class="gateway-desc">Workforce master, biometric attendance, statutory payroll and leaves</p>
+                <div class="gateway-status-pill">
+                  <span id="gateway-hrm-pill-label">${this.activePortal==='hrm'?'Selected Gateway':'Access HRM'}</span>
+                  <i class="fa ${this.activePortal==='hrm'?'fa-circle-check':'fa-arrow-right'}"></i>
+                </div>
+              </div>
+
+              <div class="gateway-card gateway-chat ${this.activePortal==='chat'?'active':''}" id="gateway-card-chat" onclick="Login.setPortal('chat')" role="radio" aria-checked="${this.activePortal==='chat'}" tabindex="0" title="Sign in to Company Team Chatbox and Colleague Messaging">
+                <div class="gateway-badge">
+                  <i class="fa fa-comment-dots"></i> Team Hub
+                </div>
+                <div class="gateway-icon-box">
+                  <i class="fa fa-comments"></i>
+                </div>
+                <h3 class="gateway-title">Company Team Chatbox</h3>
+                <p class="gateway-desc">Instant colleague messaging, group channels, video calls and file sharing</p>
+                <div class="gateway-status-pill">
+                  <span id="gateway-chat-pill-label">${this.activePortal==='chat'?'Selected Gateway':'Launch Chat'}</span>
+                  <i class="fa ${this.activePortal==='chat'?'fa-circle-check':'fa-arrow-right'}"></i>
+                </div>
+              </div>
+            </div>
+
             <!-- Access Mode Segmented Tabs (Resolves Usability Issue 10: Clutter & Density) -->
             <div class="login-tab-nav" role="tablist" aria-label="Sign-in Mode">
               <button type="button" class="login-nav-tab ${this.activeTab==='standard'?'active':''}" id="login-tab-standard" role="tab" aria-selected="${this.activeTab==='standard'}" aria-controls="login-pane-standard" onclick="Login.setTab('standard')">
@@ -3118,8 +3206,8 @@ const Login = {
                 <a href="#" class="split-forgot-link" onclick="Login.showForgotPasswordModal();return false;">Forgot password?</a>
               </div>
 
-              <button type="submit" class="split-submit-btn" id="login-btn">
-                <i class="fa fa-arrow-right-to-bracket"></i> Sign In
+              <button type="submit" class="split-submit-btn ${this.activePortal==='chat'?'btn-portal-chat':''}" id="login-btn">
+                <i class="fa ${this.activePortal==='chat'?'fa-comments':'fa-arrow-right-to-bracket'}"></i> ${this.activePortal==='chat'?'Launch Team Chatbox':'Sign In to HRM Suite'}
               </button>
             </form>
 
@@ -3275,10 +3363,18 @@ const Login = {
     setTimeout(() => {
       const result = Auth.login(username, password);
       if (result.success) {
-        Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}!`);
-        window.location.hash = '#dashboard';
-        App.currentModule = 'dashboard';
-        App.showApp();
+        if (Login.activePortal === 'chat') {
+          Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}! Launching Company Team Chatbox...`);
+          window.location.hash = '#chat';
+          App.currentModule = 'chat';
+          App.showApp();
+          setTimeout(() => { if (typeof App.navigate === 'function') App.navigate('chat'); }, 50);
+        } else {
+          Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}!`);
+          window.location.hash = '#dashboard';
+          App.currentModule = 'dashboard';
+          App.showApp();
+        }
       } else {
         errEl.classList.remove('hidden');
         errMsg.textContent = result.message;

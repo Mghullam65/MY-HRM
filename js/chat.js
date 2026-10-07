@@ -1145,6 +1145,9 @@ const Chat = {
           <button class="wa-rail-btn teams-rail-btn" title="Media & Files" onclick="if(typeof Toast!=='undefined') Toast.show('Shared media gallery', 'info')">
             <i class="fa-regular fa-image"></i>
           </button>
+          <button class="wa-rail-btn teams-rail-btn wa-hrm-switch-btn" title="Return to HRM Suite" onclick="if (typeof App !== 'undefined') App.navigate('dashboard');">
+            <i class="fa fa-building-user"></i>
+          </button>
           <button class="wa-rail-btn teams-rail-btn" title="Settings" onclick="if (typeof App !== 'undefined') App.navigate('settings');">
             <i class="fa fa-gear"></i>
           </button>
