@@ -1,0 +1,30 @@
+# ============================================================
+# .ignore — Ripgrep & Workspace Search Exclusion
+# ============================================================
+node_modules/
+server/node_modules/
+desktop/node_modules/
+dist/
+dist-packages/
+build/
+android/
+downloads/
+public/downloads/
+public/
+Design Copy/
+scratch/
+.git/
+.github/
+package-lock.json
+server/package-lock.json
+*.log
+*.db
+*.sqlite
+assets/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.webm

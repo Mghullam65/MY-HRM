@@ -1081,6 +1081,24 @@ const Landing = {
               <button class="btn-automark-primary" style="padding:8px 20px;font-size:13.5px;white-space:nowrap;flex-shrink:0;display:inline-flex;align-items:center;gap:7px;" onclick="Trial.show()" title="Start 14-Day Free Enterprise Trial">
                 <i class="fa-solid fa-rocket" style="font-size:12px;line-height:1;"></i><span>Free Trial</span>
               </button>
+              <button class="landing-mobile-menu-btn" id="landing-mobile-toggle" onclick="Landing.toggleMobileMenu()" aria-label="Toggle navigation menu" title="Open navigation menu">
+                <i class="fa fa-bars"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Mobile Dropdown Navigation Drawer -->
+          <div class="landing-mobile-nav-drawer" id="landing-mobile-drawer">
+            <div class="landing-mobile-nav-inner">
+              <a href="#why-us" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('why-us');return false;"><i class="fa fa-bullseye"></i> Why HRM Pro</a>
+              <a href="#roles" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('roles');return false;"><i class="fa fa-users-viewfinder"></i> Roles & Personas</a>
+              <a href="#values" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('values');return false;"><i class="fa fa-gem"></i> Core Values</a>
+              <a href="#modules-catalog" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('modules-catalog');return false;"><i class="fa fa-cubes"></i> 16 Modules + LMS</a>
+              <a href="#compare" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('compare');return false;"><i class="fa fa-table-list"></i> Market Benchmark</a>
+              <a href="#features" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('features');return false;"><i class="fa fa-network-wired"></i> 8 Core Pillars</a>
+              <a href="#tax-calc" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('tax-calc');return false;"><i class="fa fa-calculator"></i> Tax Calculator</a>
+              <a href="#integrations" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('integrations');return false;"><i class="fa fa-puzzle-piece"></i> Integrations</a>
+              <a href="#faq" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('faq');return false;"><i class="fa fa-circle-question"></i> FAQ</a>
             </div>
           </div>
         </header>
@@ -3405,6 +3423,38 @@ const Landing = {
         if (p) p.value = target.pass;
       }, 100);
     }
+  },
+
+  scrollTo(id) {
+    const el = document.getElementById(id);
+    if (el) {
+      const headerOffset = 76;
+      const elementPosition = el.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + (window.pageYOffset || document.documentElement.scrollTop || 0) - headerOffset;
+      window.scrollTo({
+        top: Math.max(0, offsetPosition),
+        behavior: 'smooth'
+      });
+    }
+  },
+
+  toggleMobileMenu() {
+    const drawer = document.getElementById('landing-mobile-drawer');
+    const btn = document.getElementById('landing-mobile-toggle');
+    if (!drawer) return;
+    const isOpen = drawer.classList.contains('open');
+    drawer.classList.toggle('open', !isOpen);
+    if (btn) {
+      btn.innerHTML = !isOpen ? '<i class="fa fa-xmark"></i>' : '<i class="fa fa-bars"></i>';
+    }
+  },
+
+  navigateMobile(id) {
+    this.scrollTo(id);
+    const drawer = document.getElementById('landing-mobile-drawer');
+    const btn = document.getElementById('landing-mobile-toggle');
+    if (drawer) drawer.classList.remove('open');
+    if (btn) btn.innerHTML = '<i class="fa fa-bars"></i>';
   }
 };
 

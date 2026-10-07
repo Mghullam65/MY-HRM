@@ -370,7 +370,7 @@ html[data-theme="light"] #landing-page {
   left: 0;
   right: 0;
   z-index: 1000;
-  padding: 16px 24px;
+  padding: 12px 24px;
   background: var(--nav-bg) !important;
   backdrop-filter: blur(20px) !important;
   border-bottom: 1px solid var(--color-border) !important;
@@ -378,12 +378,13 @@ html[data-theme="light"] #landing-page {
 }
 
 .landing-nav-container {
-  max-width: 1380px;
+  max-width: 1440px;
   margin: 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
 }
 
 .landing-brand {
@@ -392,6 +393,7 @@ html[data-theme="light"] #landing-page {
   gap: 10px;
   text-decoration: none;
   flex-shrink: 0;
+  min-width: max-content;
 }
 
 .landing-brand-icon {
@@ -405,6 +407,7 @@ html[data-theme="light"] #landing-page {
   color: #FFFFFF;
   font-size: 18px;
   box-shadow: 0 4px 18px rgba(99, 102, 241, 0.5);
+  flex-shrink: 0;
 }
 
 .landing-brand-name {
@@ -420,26 +423,28 @@ html[data-theme="light"] #landing-page {
   color: var(--color-text-dark);
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .landing-nav-pill-wrapper {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 9999px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   gap: 2px;
   backdrop-filter: blur(16px);
   box-shadow: var(--card-shadow);
   flex-shrink: 1;
+  min-width: 0;
 }
 
 .landing-nav-link {
   color: var(--color-text) !important;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 6px 11px;
+  padding: 5px 9px;
   border-radius: 9999px;
   text-decoration: none;
   transition: all 0.25s ease;
@@ -448,8 +453,80 @@ html[data-theme="light"] #landing-page {
   border: none;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.landing-mobile-menu-btn {
+  display: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-card-subtle);
+  color: var(--color-heading);
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.landing-mobile-menu-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.landing-mobile-nav-drawer {
+  display: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease;
+  opacity: 0;
+  width: 100%;
+}
+
+.landing-mobile-nav-drawer.open {
+  max-height: 520px;
+  opacity: 1;
+  padding-top: 12px;
+}
+
+.landing-mobile-nav-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: var(--card-shadow);
+}
+
+.landing-mobile-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.landing-mobile-nav-link i {
+  width: 20px;
+  color: var(--color-primary);
+  font-size: 14px;
+}
+
+.landing-mobile-nav-link:hover {
+  background: var(--color-card-subtle);
+  color: var(--color-primary);
 }
 
 .landing-nav-link:hover {
@@ -2003,20 +2080,94 @@ html[data-theme="light"] .landing-hero-subtitle,
   font-size: 13px;
 }
 
-@media (max-width: 1260px) {
-  .landing-nav-pill-wrapper {
-    gap: 1px;
-    padding: 3px 6px;
+/* Tier 1: Laptop Screen (1366px - 1440px) */
+@media (max-width: 1440px) {
+  .landing-nav-container {
+    gap: 8px;
   }
   .landing-nav-link {
     font-size: 12px;
-    padding: 5px 8px;
+    padding: 5px 7px;
+  }
+  .btn-automark-primary {
+    padding: 8px 16px !important;
+  }
+  .btn-automark-outline {
+    padding: 8px 14px !important;
   }
 }
 
+/* Tier 2: Medium Laptop / 125% Display Scaling (1200px - 1320px) */
+@media (max-width: 1320px) {
+  .landing-brand-tag {
+    display: none; /* Hide subtitle to preserve logo space */
+  }
+  .theme-switch-text {
+    display: none; /* Collapse "Light" / "Dark" text to iconic capsule */
+  }
+  .theme-switch-track {
+    width: 66px;
+    height: 34px;
+    padding: 2px;
+  }
+  .theme-switch-opt {
+    padding: 0 7px;
+  }
+  .landing-nav-link[href="#values"],
+  .landing-nav-link[href="#integrations"] {
+    display: none; /* Hide secondary links from pill to prevent overflow */
+  }
+  .landing-nav-link {
+    font-size: 11.5px;
+    padding: 4px 6px;
+  }
+  .btn-automark-outline,
+  .btn-automark-primary {
+    padding: 7px 12px !important;
+    font-size: 12px !important;
+    gap: 5px !important;
+  }
+}
+
+/* Tier 3: Compact Laptop / Small Tablet Landscape (1040px - 1200px) */
+@media (max-width: 1200px) {
+  .landing-nav-link[href="#faq"],
+  .landing-nav-link[href="#why-us"] {
+    display: none; /* Keep high-value conversion links */
+  }
+  .landing-nav-pill-wrapper {
+    padding: 3px 6px;
+  }
+}
+
+/* Tier 4: Tablet / Mobile (< 1040px) */
 @media (max-width: 1040px) {
   .landing-nav-pill-wrapper {
     display: none !important;
+  }
+  .landing-mobile-menu-btn {
+    display: inline-flex;
+  }
+  .landing-mobile-nav-drawer {
+    display: block;
+  }
+}
+
+/* Tier 5: Small Mobile (< 640px) */
+@media (max-width: 640px) {
+  .landing-header {
+    padding: 10px 14px;
+  }
+  .btn-automark-primary {
+    padding: 6px 10px !important;
+    font-size: 11.5px !important;
+  }
+  .btn-automark-outline span {
+    display: none; /* Icon-only Sign In on small mobile */
+  }
+  .btn-automark-outline {
+    padding: 6px 10px !important;
+    min-width: 34px !important;
   }
 }
 

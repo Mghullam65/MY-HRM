@@ -77,3 +77,14 @@ Before finalizing any multi-file feature or fix:
 1. Verify no syntax or undefined errors exist across all modified modules.
 2. Run `node scripts/ci-audit.js` to ensure all 15 routes and components pass.
 3. Keep `git status` clean and free of leftover debug scratch scripts.
+
+---
+
+## 8. Model Switching & Targeted Token Optimization (CRITICAL FOR CLAUDE & FAST RESPONSES)
+- **Zero Full-Project Dumps:** Whenever switching models or starting a new turn (especially with Claude 3.5/3.7 Sonnet):
+  - **Never read or scan the entire repository at once.**
+  - **Ignore `public/` during exploratory analysis:** `public/` is an exact mirror of root `js/` and `css/`. Reading both doubles context size and response latency. Only inspect root `js/` or `css/` files, then mirror changes to `public/` upon saving.
+  - **Never read `node_modules/`, `server/node_modules/`, `Design Copy/`, `scratch/`, or `.git/`.**
+  - **Targeted Reading Only:** Read only the specific file(s) and specific line ranges needed for the current prompt (using `view_file` with `StartLine`/`EndLine`).
+  - **Fast Execution:** Address the user's specific request directly without unprompted mass audits of unrelated modules.
+

@@ -1,0 +1,53 @@
+# ============================================================
+# .claudeignore — Exclude Heavy / Duplicate Files for Claude
+# ============================================================
+# Prevents Claude and AI context tools from scanning bloated,
+# duplicate, or non-source directories, speeding up response times 10x.
+
+# Dependencies & Build Artifacts
+node_modules/
+server/node_modules/
+desktop/node_modules/
+dist/
+dist-packages/
+build/
+android/
+downloads/
+public/downloads/
+
+# Mirror Directory (Read only root js/ & css/, mirror when saving)
+public/
+
+# Large Archives, Scratch & Backups
+Design Copy/
+scratch/
+.git/
+.github/
+
+# Lock files & Large JSON logs
+package-lock.json
+server/package-lock.json
+*.log
+npm-debug.log*
+yarn-debug.log*
+server/data/sent_emails/
+server/data/daily_summary_job_log.json
+
+# SQLite & Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+server/prisma/*.db
+
+# Binary Media Files
+assets/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.mp4
+*.webm
+*.ico
+*.pdf
