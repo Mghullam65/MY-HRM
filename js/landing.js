@@ -1047,15 +1047,15 @@ const Landing = {
             <nav class="landing-nav-pill-wrapper" id="desktop-nav-pill">
               <a href="#why-us" class="landing-nav-link" onclick="Landing.scrollTo('why-us');return false;">Why HRM Pro</a>
               <a href="#roles" class="landing-nav-link" onclick="Landing.scrollTo('roles');return false;">Roles</a>
-              <a href="#values" class="landing-nav-link" onclick="Landing.scrollTo('values');return false;">Values</a>
+              <a href="#values" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('values');return false;">Values</a>
               <a href="#modules-catalog" class="landing-nav-link" onclick="Landing.scrollTo('modules-catalog');return false;">
                 16 Modules + LMS <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
               </a>
               <a href="#compare" class="landing-nav-link" onclick="Landing.scrollTo('compare');return false;">Compare</a>
               <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Pillars</a>
               <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Engine</a>
-              <a href="#integrations" class="landing-nav-link" onclick="Landing.scrollTo('integrations');return false;">Integrations</a>
-              <a href="#faq" class="landing-nav-link" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
+              <a href="#integrations" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('integrations');return false;">Integrations</a>
+              <a href="#faq" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
             </nav>
 
             <!-- Nav Action Buttons & Theme Switcher -->
