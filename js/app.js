@@ -71,7 +71,7 @@ const App = {
           }
           const appEl = document.getElementById('app');
           let navPos = localStorage.getItem('hrm_nav_position') || s.sidebarPosition || 'top';
-          if (navPos === 'right') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
+          if (navPos !== 'top') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
           this.setNavPosition(navPos, false);
         }
 
@@ -334,7 +334,7 @@ const App = {
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
     let navPos = localStorage.getItem('hrm_nav_position') || DB.getObj('settings')?.sidebarPosition || 'top';
-    if (navPos === 'right') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
+    if (navPos !== 'top') { navPos = 'top'; localStorage.setItem('hrm_nav_position', 'top'); }
     this.setNavPosition(navPos, false);
 
     this.renderSidebar();

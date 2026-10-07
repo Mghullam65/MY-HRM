@@ -2623,7 +2623,7 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     this.applyAppearance({
       theme: theme,
       accentColor: this._getSetting('accentColor', '#2563eb'),
-      sidebarPosition: this._getSetting('sidebarPosition', 'left'),
+      sidebarPosition: this._getSetting('sidebarPosition', 'top'),
       compactMode: this._getSetting('compactMode', false)
     });
 

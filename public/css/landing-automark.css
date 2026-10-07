@@ -2926,3 +2926,270 @@ html[data-theme="light"] .landing-hero-subtitle,
 .stagger-children > *:nth-child(6) { transition-delay: 0.40s; }
 .stagger-children > *:nth-child(7) { transition-delay: 0.47s; }
 .stagger-children > *:nth-child(8) { transition-delay: 0.54s; }
+
+/* ── 12. FUTURISTIC BACKGROUND GRID MESH ── */
+.hero-grid-mesh {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100%;
+  background-image: 
+    linear-gradient(to right, rgba(99, 102, 241, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(99, 102, 241, 0.05) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 35%, #000 30%, transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+[data-landing-theme="light"] .hero-grid-mesh {
+  background-image: 
+    linear-gradient(to right, rgba(79, 70, 229, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
+}
+
+/* ── 13. MOCKUP AMBIENT SPOTLIGHT ── */
+.mockup-ambient-spotlight {
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 85%;
+  height: 70%;
+  background: radial-gradient(ellipse, rgba(99, 102, 241, 0.38) 0%, rgba(6, 182, 212, 0.22) 40%, transparent 72%);
+  filter: blur(70px);
+  pointer-events: none;
+  z-index: 0;
+  animation: spotlightBreathing 7s ease-in-out infinite alternate;
+}
+
+[data-landing-theme="light"] .mockup-ambient-spotlight {
+  background: radial-gradient(ellipse, rgba(79, 70, 229, 0.22) 0%, rgba(8, 145, 178, 0.16) 40%, transparent 72%);
+  filter: blur(80px);
+}
+
+@keyframes spotlightBreathing {
+  0% { transform: translateX(-50%) scale(0.92); opacity: 0.65; }
+  100% { transform: translateX(-50%) scale(1.08); opacity: 1; }
+}
+
+/* ── 14. FLOATING SATELLITE TELEMETRY CARDS ── */
+.floating-satellite-card {
+  position: absolute;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.4), 0 0 25px rgba(99, 102, 241, 0.25);
+  pointer-events: auto;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-landing-theme="light"] .floating-satellite-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14), 0 0 20px rgba(79, 70, 229, 0.15);
+}
+
+.floating-satellite-card.satellite-left {
+  top: 18%;
+  left: -20px;
+  animation: satelliteFloatLeft 5.5s ease-in-out infinite alternate;
+}
+
+.floating-satellite-card.satellite-right {
+  bottom: 22%;
+  right: -20px;
+  animation: satelliteFloatRight 6.2s ease-in-out infinite alternate 0.8s;
+}
+
+@keyframes satelliteFloatLeft {
+  0% { transform: translateY(0) rotate(-1.5deg); }
+  100% { transform: translateY(-14px) rotate(1deg); }
+}
+
+@keyframes satelliteFloatRight {
+  0% { transform: translateY(0) rotate(1.5deg); }
+  100% { transform: translateY(-16px) rotate(-1deg); }
+}
+
+.floating-satellite-card:hover {
+  transform: translateY(-8px) scale(1.05) !important;
+  box-shadow: 0 22px 45px rgba(0, 0, 0, 0.5), 0 0 35px rgba(6, 182, 212, 0.35) !important;
+}
+
+.sat-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.sat-details {
+  text-align: left;
+}
+
+.sat-title {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-heading);
+  white-space: nowrap;
+}
+
+.sat-sub {
+  font-size: 11px;
+  color: var(--color-text-dark);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.sat-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 8px #34d399;
+  display: inline-block;
+  animation: satDotPulse 1.5s infinite;
+}
+
+@keyframes satDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+.sat-tag {
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  letter-spacing: 0.04em;
+}
+
+.sat-tag.live {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.sat-tag.pass {
+  background: rgba(99, 102, 241, 0.16);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+
+@media (max-width: 1140px) {
+  .floating-satellite-card {
+    display: none !important;
+  }
+}
+
+/* ── 15. INTERACTIVE 3D MOUSE-TRACKING TILT & GLARE ── */
+.tilt-card-3d {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease !important;
+  transform-style: preserve-3d;
+  position: relative;
+}
+
+.tilt-card-3d::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255, 255, 255, 0.14) 0%, transparent 65%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  z-index: 10;
+}
+
+[data-landing-theme="light"] .tilt-card-3d::after {
+  background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(79, 70, 229, 0.1) 0%, transparent 65%);
+}
+
+.tilt-card-3d:hover::after {
+  opacity: 1;
+}
+
+/* ── 16. LUMINOUS SECTION DIVIDERS ── */
+.landing-section-divider {
+  position: relative;
+  width: 100%;
+  max-width: 1160px;
+  margin: 64px auto 36px auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.6), rgba(99, 102, 241, 0.25), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.divider-node {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-glow);
+  color: var(--color-primary);
+  font-size: 11.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 18px rgba(99, 102, 241, 0.45);
+  animation: dividerNodePulse 3.5s ease-in-out infinite;
+}
+
+@keyframes dividerNodePulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 16px rgba(99, 102, 241, 0.3); }
+  50% { transform: scale(1.15); box-shadow: 0 0 26px rgba(6, 182, 212, 0.6); color: #38bdf8; }
+}
+
+/* ── 17. FLOATING BACK TO TOP INTERACTIVE BUTTON ── */
+.landing-floating-backtop {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-border-glow);
+  color: var(--color-primary);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 20px rgba(99, 102, 241, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 999;
+  opacity: 0;
+  transform: translateY(20px) scale(0.85);
+  pointer-events: none;
+  transition: all 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.landing-floating-backtop.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.landing-floating-backtop:hover {
+  background: var(--color-primary);
+  color: #ffffff;
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 16px 35px rgba(99, 102, 241, 0.5), 0 0 30px rgba(6, 182, 212, 0.6);
+}
