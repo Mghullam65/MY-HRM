@@ -25,20 +25,28 @@ const server = http.createServer((req, res) => {
 });
 
 function getChromePath() {
-  if (process.env.CHROME_BIN) return process.env.CHROME_BIN;
+  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
+  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
   if (process.platform === 'win32') {
     return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   }
   const linuxPaths = [
+    process.env.CHROME_BIN,
+    process.env.CHROME_PATH,
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
-    '/usr/bin/chromium-browser'
-  ];
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium'
+  ].filter(Boolean);
   for (const p of linuxPaths) {
     if (fs.existsSync(p)) return p;
   }
-  return 'google-chrome';
+  try {
+    const which = require('child_process').execSync('which google-chrome || which chrome || which chromium').toString().trim().split('\n')[0];
+    if (which && fs.existsSync(which)) return which;
+  } catch (e) {}
+  return process.env.CHROME_BIN || 'google-chrome';
 }
 
 async function runCIAudit() {
@@ -65,11 +73,20 @@ async function runCIAudit() {
     '--mute-audio',
     '--no-first-run',
     `--remote-debugging-port=${DEBUG_PORT}`,
+    '--remote-debugging-address=127.0.0.1',
     `--user-data-dir=${path.join(process.env.TEMP || '/tmp', 'hrm_ci_' + Date.now())}`,
     'about:blank'
   ];
 
-  const chrome = spawn(chromePath, chromeArgs, { stdio: 'ignore' });
+  const chrome = spawn(chromePath, chromeArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
+
+  chrome.stdout.on('data', d => console.log(`[Chrome] ${d.toString().trim()}`));
+  chrome.stderr.on('data', d => {
+    const str = d.toString().trim();
+    if (!str.includes('Created TensorFlow Lite') && !str.includes('font_family') && !str.includes('DevTools listening on')) {
+      console.log(`[Chrome log] ${str}`);
+    }
+  });
 
   chrome.on('error', (err) => {
     console.error('[CI] Chrome spawn error:', err.message);
