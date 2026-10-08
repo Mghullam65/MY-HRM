@@ -1788,6 +1788,14 @@ const Chat = {
     this.renderRosterList();
   },
 
+  startDirectChat(empId, name) {
+    if (!name && typeof DB !== 'undefined') {
+      const emp = DB.getEmployee ? DB.getEmployee(empId) : null;
+      if (emp) name = emp.firstName ? `${emp.firstName} ${emp.lastName}` : (emp.name || `Employee #${empId}`);
+    }
+    return this.startDirectChatWithEmployee(empId, name || `Employee #${empId}`);
+  },
+
   startDirectChatWithEmployee(empId, name) {
     const username = name.toLowerCase().replace(/\s+/g, '.');
     let channelId = 'chan-dm-' + username.split('.')[0];
@@ -1873,3 +1881,11 @@ const Chat = {
     if (typeof App !== 'undefined' && App.navigate) App.navigate('chat');
   }
 };
+
+if (typeof window !== 'undefined') {
+  window.Chat = Chat;
+}
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Chat;
+}
+
