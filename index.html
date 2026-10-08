@@ -66,8 +66,20 @@
     #subnav-bar[style*="display: none"],
     #subnav-bar[style*="display:none"],
     .subnav-bar[style*="display: none"],
-    .subnav-bar[style*="display:none"] {
+    .subnav-bar[style*="display:none"],
+    body.chat-workspace-active #subnav-bar,
+    body.chat-workspace-active .subnav-bar,
+    body.chat-workspace-active #topbar,
+    body.chat-workspace-active .topbar,
+    body.chat-workspace-active #sidebar,
+    body.chat-workspace-active .sidebar,
+    body.chat-workspace-active #mobile-bottom-nav,
+    body.chat-workspace-active .mobile-bottom-nav {
       display: none !important;
+      visibility: hidden !important;
+      height: 0 !important;
+      max-height: 0 !important;
+      overflow: hidden !important;
     }
     #subnav-bar::-webkit-scrollbar,
     .subnav-bar::-webkit-scrollbar {
@@ -127,25 +139,11 @@
       display: none !important;
     }
 
-    /* ── Floating Chat Launcher ── */
+    /* ── Floating Chat Launcher Suppressed (Dedicated Pro Teams Workspace) ── */
     .chat-floating-launcher {
-      position: fixed !important;
-      bottom: 24px !important;
-      right: 24px !important;
-      width: 58px !important;
-      height: 58px !important;
-      border-radius: 50% !important;
-      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%) !important;
-      color: #ffffff !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      font-size: 24px !important;
-      cursor: pointer !important;
-      box-shadow: 0 10px 30px rgba(79, 70, 229, 0.5), 0 2px 8px rgba(0, 0, 0, 0.25) !important;
-      z-index: 1040 !important;
-      border: 2px solid rgba(255, 255, 255, 0.2) !important;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
     }
     .chat-floating-launcher:hover {
       transform: scale(1.08) translateY(-3px) !important;
@@ -559,7 +557,7 @@
 ══════════════════════════════════════ -->
 <div id="chat-drawer-overlay" class="chat-drawer-overlay" style="display:none" onclick="Chat.closeDrawer()"></div>
 <aside id="chat-drawer" class="chat-drawer" style="display:none"></aside>
-<div id="chat-floating-launcher" class="chat-floating-launcher" style="display:none" onclick="Chat.toggleDrawer()" title="Team Chatbox (Ctrl+M)">
+<div id="chat-floating-launcher" class="chat-floating-launcher" style="display:none !important">
   <i class="fa fa-comments"></i>
   <span id="chat-floating-badge" class="chat-floating-badge" style="display:none">0</span>
 </div>

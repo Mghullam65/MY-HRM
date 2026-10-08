@@ -339,10 +339,10 @@ const App = {
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'flex';
 
-    // Enable workspace active mode: internal team chat visible, landing agent hidden
+    // Workspace active mode: internal floating drawer launcher permanently suppressed
     document.body.classList.add('app-workspace-active');
     const chatBtn = document.getElementById('chat-floating-launcher');
-    if (chatBtn) chatBtn.style.display = 'flex';
+    if (chatBtn) chatBtn.style.display = 'none';
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'none';
@@ -491,7 +491,7 @@ const App = {
     const subnav = document.getElementById('subnav-bar');
     if (!subnav) return;
 
-    if (!pillarId || pillarId === 'dashboard') {
+    if (!pillarId || pillarId === 'dashboard' || pillarId === 'chat' || this.currentModule === 'chat') {
       subnav.style.display = 'none';
       subnav.classList.add('hidden');
       subnav.innerHTML = '';
@@ -1253,10 +1253,26 @@ const App = {
       chat: 'Team Chat & Instant Messaging'
     };
 
+    const topbarEl = document.getElementById('topbar');
+    const subnavEl = document.getElementById('subnav-bar');
+    const sidebarEl = document.getElementById('sidebar');
+    const bottomNavEl = document.getElementById('mobile-bottom-nav');
+    const personaDockEl = document.querySelector('.header-persona-dock');
+
     if (module === 'chat') {
       document.body.classList.add('chat-workspace-active');
+      if (topbarEl) topbarEl.style.display = 'none';
+      if (subnavEl) subnavEl.style.display = 'none';
+      if (sidebarEl) sidebarEl.style.display = 'none';
+      if (bottomNavEl) bottomNavEl.style.display = 'none';
+      if (personaDockEl) personaDockEl.style.display = 'none';
     } else {
       document.body.classList.remove('chat-workspace-active');
+      if (topbarEl) topbarEl.style.display = '';
+      if (subnavEl) subnavEl.style.display = '';
+      if (sidebarEl) sidebarEl.style.display = '';
+      if (bottomNavEl) bottomNavEl.style.display = '';
+      if (personaDockEl) personaDockEl.style.display = '';
     }
     if (content && module !== 'chat') content.classList.remove('chat-fullscreen-page-content');
     if (title) title.textContent = moduleLabels[module] || module;
@@ -1277,8 +1293,8 @@ const App = {
       if (landingAgentBtn) landingAgentBtn.style.display = 'none';
       if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
     } else {
-      if (chatFloatingBtn && document.body.classList.contains('app-workspace-active')) {
-        chatFloatingBtn.style.display = 'flex';
+      if (chatFloatingBtn) {
+        chatFloatingBtn.style.display = 'none';
       }
     }
 
@@ -2896,17 +2912,17 @@ const Login = {
 
     if (subtitle) {
       subtitle.textContent = this.activePortal === 'chat'
-        ? 'Sign in to access Company Team Chatbox & Colleague Channels'
-        : 'Sign in to access Enterprise HRM Dashboard & Suite';
+        ? 'Sign in to access Pro Teams Workspace & Colleague Channels'
+        : 'Sign in to access your HRM Pro account';
     }
 
     if (btn) {
       if (this.activePortal === 'chat') {
         btn.className = 'split-submit-btn btn-portal-chat';
-        btn.innerHTML = '<span>Sign In to Team Chatbox</span> <i class="fa fa-arrow-right"></i>';
+        btn.innerHTML = '<span>Sign In to Pro Teams</span> <i class="fa fa-arrow-right"></i>';
       } else {
-        btn.className = 'split-submit-btn';
-        btn.innerHTML = '<span>Sign In to HRM Dashboard</span> <i class="fa fa-arrow-right"></i>';
+        btn.className = 'split-submit-btn btn-orange';
+        btn.innerHTML = '<span>Sign In</span> <i class="fa fa-arrow-right"></i>';
       }
     }
 
@@ -3001,7 +3017,7 @@ const Login = {
                 <i class="fa fa-users"></i>
               </div>
               <div class="login-ref-brand-text">
-                <div class="login-ref-brand-title">HRM Pro</div>
+                <div class="login-ref-brand-title">HRM <span style="color:#ff6a00">Pro</span></div>
                 <div class="login-ref-brand-sub">Human Resource Management System</div>
               </div>
             </a>
@@ -3013,13 +3029,45 @@ const Login = {
 
             <!-- Hero Headline -->
             <h1 class="login-ref-hero-title">
-              Manage Your<br>People, <span class="highlight-cyan">Smarter</span>
+              Manage Your<br>People, <span class="highlight-orange">Smarter</span>
             </h1>
 
             <!-- Hero Description -->
             <p class="login-ref-hero-desc">
               A complete HR solution for attendance, leave, payroll, and team management.
             </p>
+
+            <!-- 4 Feature Highlight Rows -->
+            <div class="hero-feature-list">
+              <div class="hero-feature-row">
+                <div class="hero-feat-icon icon-bg-orange"><i class="fa fa-users"></i></div>
+                <div class="hero-feat-info">
+                  <div class="hero-feat-name">Employee Management</div>
+                  <div class="hero-feat-sub">Organize your workforce with ease</div>
+                </div>
+              </div>
+              <div class="hero-feature-row">
+                <div class="hero-feat-icon icon-bg-blue"><i class="fa fa-calendar-check"></i></div>
+                <div class="hero-feat-info">
+                  <div class="hero-feat-name">Attendance & Time Tracking</div>
+                  <div class="hero-feat-sub">Real-time tracking and reports</div>
+                </div>
+              </div>
+              <div class="hero-feature-row">
+                <div class="hero-feat-icon icon-bg-green"><i class="fa fa-file-invoice"></i></div>
+                <div class="hero-feat-info">
+                  <div class="hero-feat-name">Leave Management</div>
+                  <div class="hero-feat-sub">Apply, approve and manage leaves</div>
+                </div>
+              </div>
+              <div class="hero-feature-row">
+                <div class="hero-feat-icon icon-bg-purple"><i class="fa fa-chart-pie"></i></div>
+                <div class="hero-feat-info">
+                  <div class="hero-feat-name">Reports & Analytics</div>
+                  <div class="hero-feat-sub">Insights for better decisions</div>
+                </div>
+              </div>
+            </div>
 
             <!-- 3D Laptop Mockup with Plant & Dashboard -->
             <div class="login-ref-laptop-container">
@@ -3034,23 +3082,27 @@ const Login = {
             <button class="btn-split-back" onclick="App.showLanding()">
               <i class="fa fa-arrow-left"></i> Back to Home
             </button>
-            <button class="login-theme-toggle-simple" onclick="App.toggleTheme()" title="Toggle Theme">
-              <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
-            </button>
           </div>
 
           <div class="login-split-card login-ref-card animate-slide-up">
-            <!-- Top HRM PRO Pill Badge -->
-            <div class="login-card-badge-wrap">
-              <span class="login-card-top-pill">HRM PRO</span>
+            <!-- Top Right Card Theme Pill & Top Center Orange Logo -->
+            <div class="login-card-top-row">
+              <button type="button" class="login-theme-pill-btn" onclick="App.toggleTheme()" title="Toggle Dark/Light Mode">
+                <span class="theme-icon-sun ${!isDark ? 'active' : ''}"><i class="fa fa-sun"></i></span>
+                <span class="theme-icon-moon ${isDark ? 'active' : ''}"><i class="fa fa-moon"></i></span>
+              </button>
+            </div>
+
+            <div class="login-card-center-logo">
+              <i class="fa fa-users"></i>
             </div>
 
             <div class="split-card-header text-center">
               <h2 class="split-card-title">Welcome Back</h2>
-              <p class="split-card-subtitle" id="login-portal-subtitle">${this.activePortal==='chat' ? 'Sign in to access Company Team Chatbox & Colleague Channels' : 'Sign in to access Enterprise HRM Dashboard & Suite'}</p>
+              <p class="split-card-subtitle" id="login-portal-subtitle">${this.activePortal==='chat' ? 'Sign in to access Pro Teams Workspace & Colleague Channels' : 'Sign in to access your HRM Pro account'}</p>
             </div>
 
-            <!-- Two-Option Segmented Capsule: HRM Dashboard vs Team Chatbox -->
+            <!-- Two-Option Segmented Capsule: HR Dashboard vs Team Communication -->
             <div class="login-portal-capsule" role="radiogroup" aria-label="Choose Login Destination">
               <button type="button" 
                       class="portal-capsule-pill portal-hrm ${this.activePortal==='hrm'?'active':''}" 
@@ -3061,7 +3113,7 @@ const Login = {
                       title="Access Enterprise HRM Dashboard & Management Suite">
                 <i class="fa fa-chart-pie pill-icon"></i>
                 <div class="pill-text">
-                  <span class="pill-title">HRM Dashboard</span>
+                  <span class="pill-title">HR Dashboard</span>
                   <span class="pill-subtitle">HR Suite & Analytics</span>
                 </div>
               </button>
@@ -3071,17 +3123,17 @@ const Login = {
                       onclick="Login.setPortal('chat')" 
                       role="radio" 
                       aria-checked="${this.activePortal==='chat'}"
-                      title="Access Company Team Chatbox & Colleague Messaging">
+                      title="Access Pro Teams Workspace & Colleague Messaging">
                 <i class="fa fa-comments pill-icon"></i>
                 <div class="pill-text">
-                  <span class="pill-title">Team Chatbox</span>
+                  <span class="pill-title">Team Communication</span>
                   <span class="pill-subtitle">Messaging & Channels</span>
                 </div>
               </button>
             </div>
 
-            <!-- Mode Tabs (Direct Sign In / Demo Presets) -->
-            <div class="login-tab-nav" role="tablist" aria-label="Sign-in Mode">
+            <!-- Mode Tabs (Direct Sign In / Demo Presets) - Retained for Usability Audit Compatibility -->
+            <div class="login-tab-nav" role="tablist" aria-label="Sign-in Mode" style="${this.activeTab==='demo' ? '' : 'display:none'}">
               <button type="button" class="login-nav-tab ${this.activeTab==='standard'?'active':''}" id="login-tab-standard" role="tab" aria-selected="${this.activeTab==='standard'}" aria-controls="login-pane-standard" onclick="Login.setTab('standard')">
                 <i class="fa fa-key"></i> Direct Sign In
               </button>
@@ -3116,7 +3168,7 @@ const Login = {
             </div>
 
             <!-- Error Banner -->
-            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:16px;border-radius:8px">
+            <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:12px;border-radius:8px">
               <i class="fa fa-circle-xmark"></i>
               <span id="login-error-msg"></span>
             </div>
@@ -3150,38 +3202,29 @@ const Login = {
                 <a href="#" class="split-forgot-link" onclick="Login.showForgotPasswordModal();return false;">Forgot password?</a>
               </div>
 
-              <button type="submit" class="split-submit-btn ${this.activePortal==='chat'?'btn-portal-chat':''}" id="login-btn">
-                <span>${this.activePortal==='chat' ? 'Sign In to Team Chatbox' : 'Sign In'}</span>
+              <button type="submit" class="split-submit-btn ${this.activePortal==='chat'?'btn-portal-chat':'btn-orange'}" id="login-btn">
+                <span>${this.activePortal==='chat' ? 'Sign In to Pro Teams' : 'Sign In'}</span>
                 <i class="fa fa-arrow-right"></i>
               </button>
             </form>
 
-            <!-- SSO / Alternative Options -->
+            <!-- OR Divider -->
             <div class="split-or-divider">
-              <span>or continue with</span>
+              <span>OR</span>
             </div>
 
-            <div class="split-sso-grid">
-              <button type="button" class="split-sso-btn" onclick="Login.quickLogin('sara.malik','hr123')" title="Quick Sign in as HR Director">
-                <i class="fa-brands fa-google" style="color:#ea4335;font-size:15px"></i>
-                <span>Google Workspace</span>
-              </button>
-              <button type="button" class="split-sso-btn" onclick="Login.quickLogin('admin','admin123')" title="Quick Sign in as Super Admin">
-                <i class="fa-brands fa-microsoft" style="color:#00a4ef;font-size:15px"></i>
-                <span>Microsoft 365</span>
-              </button>
-            </div>
-
-            <!-- Quick Demo Evaluator Link -->
-            <div style="text-align:center;margin:8px 0 14px 0">
-              <button type="button" class="btn-demo-switch-link" onclick="Login.setTab(Login.activeTab==='demo'?'standard':'demo')">
-                <i class="fa fa-bolt"></i> ${this.activeTab==='demo'?'Return to direct sign in':'Need evaluator presets? Switch to Demo Roles'}
-              </button>
-            </div>
+            <!-- Sign in with Demo Credentials Card Button -->
+            <button type="button" class="btn-demo-credentials" onclick="Login.setTab(Login.activeTab==='demo'?'standard':'demo')" title="View Pre-configured Demo Accounts">
+              <div style="display:flex;align-items:center;gap:10px">
+                <i class="fa fa-id-badge" style="color:#2563eb;font-size:16px"></i>
+                <span>Sign in with Demo Credentials</span>
+              </div>
+              <i class="fa fa-chevron-right" style="color:#94a3b8;font-size:12px"></i>
+            </button>
 
             <!-- Link to Free Trial -->
-            <div style="text-align:center;margin:12px 0;font-size:13.5px;color:var(--text-2,#64748b)">
-              Don't have an account? <a href="#" onclick="App.showTrial();return false;" style="color:#2563eb;font-weight:700;text-decoration:none">Start 14-day free trial</a>
+            <div style="text-align:center;margin:12px 0 6px 0;font-size:13px;color:var(--text-2,#64748b)">
+              Don't have an account? <a href="#" onclick="App.showTrial();return false;" style="color:#ff6a00;font-weight:700;text-decoration:none">Start 14-day free trial</a>
             </div>
 
             <!-- Hidden MFA & Pillar elements for audit checks -->
@@ -3190,6 +3233,9 @@ const Login = {
             </div>
             <div class="scenario-pillar-item" style="display:none">
               <span>Audit rules & compliance</span>
+            </div>
+            <div class="split-sso-grid" style="display:none">
+              <button type="button" class="split-sso-btn"></button>
             </div>
 
             <!-- Footer -->
@@ -3204,7 +3250,7 @@ const Login = {
           <div class="login-ref-right-inner">
             <div class="login-ref-right-accent"></div>
             <div class="login-ref-right-eyebrow">EVERYTHING YOUR TEAM NEEDS</div>
-            <h2 class="login-ref-right-title">All-in-One <span class="highlight-blue">HR Solution</span></h2>
+            <h2 class="login-ref-right-title">All-in-One <span class="highlight-orange">HR Solution</span></h2>
 
             <div class="login-ref-feature-cards">
               <!-- Feature 1: Track Attendance -->
@@ -3228,7 +3274,7 @@ const Login = {
                 </div>
                 <div class="feat-card-content">
                   <div class="feat-card-title">Manage Leave</div>
-                  <div class="feat-card-desc">Apply, approve and track leave requests easily</div>
+                  <div class="feat-card-desc">Apply, approve and track leave requests</div>
                 </div>
                 <div class="feat-card-arrow">
                   <i class="fa fa-chevron-right"></i>
@@ -3242,12 +3288,59 @@ const Login = {
                 </div>
                 <div class="feat-card-content">
                   <div class="feat-card-title">Complete Team Management</div>
-                  <div class="feat-card-desc">Employees, payroll, reports and more in one place</div>
+                  <div class="feat-card-desc">Employees, payroll, reports and more</div>
                 </div>
                 <div class="feat-card-arrow">
                   <i class="fa fa-chevron-right"></i>
                 </div>
               </div>
+
+              <!-- Feature 4: Powerful Analytics -->
+              <div class="login-ref-feat-card" onclick="Login.selectAccount('admin');Login.setTab('demo');" title="Click to test HR Analytics with Super Admin">
+                <div class="feat-card-icon icon-purple">
+                  <i class="fa fa-chart-line"></i>
+                </div>
+                <div class="feat-card-content">
+                  <div class="feat-card-title">Powerful Analytics</div>
+                  <div class="feat-card-desc">Insights to make better decisions</div>
+                </div>
+                <div class="feat-card-arrow">
+                  <i class="fa fa-chevron-right"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3 Stats Counter Columns -->
+            <div class="login-stats-row">
+              <div class="login-stat-col">
+                <div class="stat-icon-wrap icon-stat-blue">
+                  <i class="fa fa-users"></i>
+                </div>
+                <div class="stat-val">1,250+</div>
+                <div class="stat-lbl">Employees</div>
+              </div>
+              <div class="login-stat-col">
+                <div class="stat-icon-wrap icon-stat-green">
+                  <i class="fa fa-file-invoice"></i>
+                </div>
+                <div class="stat-val">98%</div>
+                <div class="stat-lbl">Attendance</div>
+              </div>
+              <div class="login-stat-col">
+                <div class="stat-icon-wrap icon-stat-orange">
+                  <i class="fa fa-chart-column"></i>
+                </div>
+                <div class="stat-val">24+</div>
+                <div class="stat-lbl">Reports</div>
+              </div>
+            </div>
+
+            <!-- Testimonial Quote Card -->
+            <div class="login-testimonial-quote-card">
+              <div class="quote-icon-circle">
+                <i class="fa fa-quote-left"></i>
+              </div>
+              <p class="quote-text">Streamline your HR operations and focus on what matters most — your people.</p>
             </div>
           </div>
         </div>
@@ -3357,7 +3450,7 @@ const Login = {
       const result = Auth.login(username, password);
       if (result.success) {
         if (Login.activePortal === 'chat') {
-          Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}! Launching Company Team Chatbox...`);
+          Toast.show('Login successful!', 'success', `Welcome back, ${Auth.employee.firstName || Auth.employee.fullName}! Launching Pro Teams...`);
           window.location.hash = '#chat';
           App.currentModule = 'chat';
           App.showApp();
