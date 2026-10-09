@@ -37,12 +37,12 @@ const HRAssistant = {
     const btn = document.createElement('button');
     btn.id = 'hr-copilot-launcher';
     btn.className = 'hr-copilot-btn';
-    btn.title = 'Open AI HR Co-Pilot';
-    btn.setAttribute('aria-label', 'Open AI HR Co-Pilot');
+    btn.title = 'Open HR Assistant';
+    btn.setAttribute('aria-label', 'Open HR Assistant');
     btn.innerHTML = `
       <div class="copilot-pulse"></div>
-      <i class="fa fa-wand-magic-sparkles"></i>
-      <span class="copilot-btn-label">HR Co-Pilot</span>
+      <i class="fa fa-robot"></i>
+      <span class="copilot-btn-label">HR Assistant</span>
     `;
     btn.onclick = () => this.toggle();
     document.body.appendChild(btn);
@@ -53,7 +53,7 @@ const HRAssistant = {
       this.messages.push({
         sender: 'ai',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        text: `Hello **${user.fullName || 'there'}**! I am your **HR AI Co-Pilot**.<br><br>I can analyze workforce metrics, query employee records in real-time, explain HR compliance policies, or draft official HR documents in seconds. How can I help you today?`
+        text: `Hello **${user.fullName || 'there'}**! I am your **HR Assistant**.<br><br>I can analyze workforce metrics, query employee records in real-time, explain HR compliance policies, or draft official HR documents in seconds. How can I help you today?`
       });
     }
   },
@@ -95,7 +95,7 @@ const HRAssistant = {
           </div>
           <div>
             <div style="font-weight:700;font-size:14.5px;color:var(--text);display:flex;align-items:center;gap:6px">
-              HR AI Co-Pilot
+              HR Assistant
               <span class="badge" style="background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff;font-size:10px;padding:2px 8px;border-radius:10px"><i class="fa fa-sparkles"></i> Gemini AI</span>
             </div>
             <div style="font-size:11.5px;color:var(--text-3)">Real-time Workforce Intelligence & Document Generator</div>

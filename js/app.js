@@ -27,11 +27,7 @@ const App = {
         }
         if (typeof Login !== 'undefined' && Login.render) {
           try { Login.render();
-    if (targetPortal) {
-      Login.setPortal(targetPortal);
-    } else if (window.location.hash === '#chat-login' || window.location.search.includes('portal=chat')) {
-      Login.setPortal('chat');
-    } } catch (e) { console.warn('Pre-paint login error:', e); }
+    if (window.location.hash === '#chat-login' || window.location.search.includes('portal=chat')) { Login.setPortal('chat'); } } catch (e) { console.warn('Pre-paint login error:', e); }
         }
       } else if (initialHash === 'trial') {
         const trialEl = document.getElementById('trial-page');
@@ -448,6 +444,7 @@ const App = {
       if (Auth.canAccessModule('companies') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('companies');
       if (Auth.canAccessModule('events')) allowed.add('events');
       if (Auth.canAccessModule('administration') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('administration');
+      if (Auth.canAccessModule('settings') || ['superadmin', 'hr_manager'].includes(Auth.role)) allowed.add('settings');
       if (Auth.canAccessModule('profile')) allowed.add('profile');
       allowed.add('dashboard');
     }
@@ -489,47 +486,11 @@ const App = {
 
   renderSubnavBar(pillarId, activeModuleId) {
     const subnav = document.getElementById('subnav-bar');
-    if (!subnav) return;
-
-    if (!pillarId || pillarId === 'dashboard' || pillarId === 'chat' || this.currentModule === 'chat') {
+    if (subnav) {
       subnav.style.display = 'none';
       subnav.classList.add('hidden');
       subnav.innerHTML = '';
-      return;
     }
-
-    const pillars = this.getPillars();
-    const pillar = pillars.find(p => p.id === pillarId);
-    if (!pillar || !pillar.items || pillar.items.length === 0) {
-      subnav.style.display = 'none';
-      subnav.classList.add('hidden');
-      subnav.innerHTML = '';
-      return;
-    }
-
-    const allowed = this.getAllowedModules();
-    const activeSubs = pillar.items.filter(item => allowed.has(item.id));
-    if (activeSubs.length === 0) {
-      subnav.style.display = 'none';
-      subnav.classList.add('hidden');
-      subnav.innerHTML = '';
-      return;
-    }
-
-    const currentMod = (activeModuleId === 'settings') ? 'administration' : (activeModuleId || this.currentModule);
-
-    subnav.innerHTML = activeSubs.map(sub => {
-      const isActive = currentMod === sub.id;
-      return `
-        <div class="subnav-item ${isActive ? 'active' : ''}" data-module="${sub.id}" onclick="App.navigate('${sub.id}');">
-          <i class="fa ${sub.icon}"></i>
-          <span>${sub.label}</span>
-        </div>
-      `;
-    }).join('');
-
-    subnav.classList.remove('hidden');
-    subnav.style.display = 'flex';
   },
 
   renderSidebar() {
@@ -543,35 +504,49 @@ const App = {
     const companyLogoText = activeCo?.logoText || 'AT';
 
     const allowed = this.getAllowedModules();
-    const pillars = this.getPillars();
     const currentMod = this.currentModule || 'dashboard';
-    const activePillarId = this.getPillarForModule(currentMod);
 
-    const renderedPillars = pillars.map(p => {
-      if (p.directModule) {
-        if (!allowed.has(p.directModule) && p.directModule !== 'dashboard') return '';
-        const isActive = activePillarId === p.id;
-        return `
-          <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-pillar="${p.id}" data-module="${p.directModule}" data-label="${p.label}"
-            onclick="App.selectPillar('${p.id}'); App.closeMobileSidebar();"
-            data-tooltip="${p.label}">
-            <i class="fa ${p.icon}"></i>
-            <span>${p.label.toUpperCase()}</span>
-          </div>
-        `;
-      }
+    // 10 Core Reference Modules from Reference Screenshot
+    const refTabs = [
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-house', direct: true },
+      { id: 'employees', label: 'Employees', icon: 'fa-users', chevron: true },
+      { id: 'attendance', label: 'Attendance', icon: 'fa-calendar-check', chevron: true },
+      { id: 'leaves', label: 'Leave', icon: 'fa-calendar-minus', chevron: true },
+      { id: 'payroll', label: 'Payroll', icon: 'fa-credit-card' },
+      { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', chevron: true },
+      { id: 'performance', label: 'Performance', icon: 'fa-chart-simple', chevron: true },
+      { id: 'reports', label: 'Reports', icon: 'fa-chart-line', chevron: true },
+      { id: 'administration', label: 'Master Data', icon: 'fa-database', chevron: true },
+      { id: 'settings', label: 'Settings', icon: 'fa-gear', chevron: true }
+    ];
 
-      // Filter sub-items by role permissions
-      const activeSubs = p.items.filter(item => allowed.has(item.id));
-      if (activeSubs.length === 0) return '';
-      const activeIds = activeSubs.map(s => s.id);
-      const isPillarActive = activePillarId === p.id;
+    const tabSubMenus = {"employees":[{"id":"employees","label":"Employee Directory","icon":"fa-id-card"},{"id":"employees","label":"Org Chart & Hierarchy","icon":"fa-sitemap"},{"id":"employees","label":"e-DMS Cloud Files","icon":"fa-folder-closed"}],"attendance":[{"id":"attendance","label":"Attendance & Shifts","icon":"fa-clock"},{"id":"attendance","label":"Biometric Machine Sync","icon":"fa-fingerprint"},{"id":"attendance","label":"Overtime & Grace Logs","icon":"fa-business-time"}],"leaves":[{"id":"leaves","label":"Leave Requests & Approvals","icon":"fa-calendar-check"},{"id":"leaves","label":"Public Holidays Calendar","icon":"fa-calendar-days"},{"id":"leaves","label":"Leave Balances & Accrual","icon":"fa-scale-balanced"}],"recruitment":[{"id":"recruitment","label":"Job Openings & ATS","icon":"fa-briefcase"},{"id":"recruitment","label":"Candidate Kanban Board","icon":"fa-table-columns"},{"id":"recruitment","label":"Interview Scheduling","icon":"fa-calendar-user"}],"performance":[{"id":"performance","label":"Performance Reviews","icon":"fa-chart-line"},{"id":"performance","label":"Corporate OKRs & Goals","icon":"fa-bullseye"},{"id":"performance","label":"360° Peer Feedback","icon":"fa-arrows-rotate"}],"reports":[{"id":"reports","label":"Workforce Analytics","icon":"fa-chart-pie"},{"id":"reports","label":"Pakistan Tax Summary (FBR)","icon":"fa-file-invoice-dollar"},{"id":"reports","label":"Bank Disbursal Checksums","icon":"fa-building-columns"}],"administration":[{"id":"administration","label":"Departments & Designations","icon":"fa-building"},{"id":"companies","label":"Multi-Company Legal Entities","icon":"fa-building-shield"},{"id":"administration","label":"Audit Trail Logs","icon":"fa-shield-halved"}],"settings":[{"id":"settings","label":"System Configuration","icon":"fa-sliders"},{"id":"settings","label":"Theme & Accent Palette","icon":"fa-palette"},{"id":"settings","label":"RBAC Permission Matrix","icon":"fa-user-shield"}]};
+
+    const renderedTabs = refTabs.map(t => {
+      if (!allowed.has(t.id) && t.id !== 'dashboard') return '';
+      const isActive = currentMod === t.id || (t.id === 'administration' && currentMod === 'master');
+      const subs = tabSubMenus[t.id] || [];
 
       return `
-        <div class="nav-item nav-tab-item ${isPillarActive ? 'active' : ''}" data-pillar="${p.id}" data-modules="${activeIds.join(',')}"
-          onclick="App.selectPillar('${p.id}'); App.closeMobileSidebar();"
-          data-tooltip="${p.label}">
-          <span>${p.label.toUpperCase()}</span>
+        <div class="nav-tab-dropdown-wrap" style="position:relative;display:inline-flex;align-items:center">
+          <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-module="${t.id}"
+            onclick="App.navigate('${t.id}'); App.closeMobileSidebar();"
+            style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:${isActive ? '700' : '500'};color:${isActive ? '#ea580c' : 'var(--text-2,#475569)'};background:${isActive ? '#fff7ed' : 'transparent'};border:${isActive ? '1px solid #fed7aa' : '1px solid transparent'};white-space:nowrap;transition:all 0.15s">
+            <i class="fa ${t.icon}" style="font-size:13px;color:${isActive ? '#f97316' : 'var(--text-3,#64748b)'}"></i>
+            <span>${t.label}</span>
+            ${t.chevron ? '<i class="fa fa-chevron-down" style="font-size:8px;opacity:0.6;margin-left:2px"></i>' : ''}
+          </div>
+
+          ${subs.length > 0 ? `
+            <div class="nav-tab-sub-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.1);min-width:190px;z-index:1060;padding:6px 0">
+              ${subs.map(s => `
+                <a href="javascript:void(0)" onclick="App.navigate('${s.id}'); App.closeMobileSidebar();" style="display:flex;align-items:center;gap:9px;padding:8px 14px;color:var(--text,#1e293b);font-size:12px;font-weight:600;text-decoration:none;transition:background 0.12s" onmouseover="this.style.background='var(--surface,#f8fafc)'" onmouseout="this.style.background='transparent'">
+                  <i class="fa ${s.icon}" style="font-size:12px;color:var(--primary,#2563eb);width:14px;text-align:center"></i>
+                  <span>${s.label}</span>
+                </a>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       `;
     }).join('');
@@ -579,11 +554,11 @@ const App = {
     sidebar.innerHTML = `
       <div class="sidebar-logo">
         <div class="brand-wrap" style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="App.navigate('dashboard')">
-          <div class="logo-icon" style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;box-shadow:0 3px 10px var(--primary-glow);flex-shrink:0">
-            ${companyLogoText}
+          <div class="logo-icon" style="width:34px;height:34px;border-radius:8px;background:#f97316;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:15px;box-shadow:0 3px 10px rgba(249,115,22,0.3);flex-shrink:0">
+            <i class="fa fa-users"></i>
           </div>
           <div class="logo-text">
-            <h1 id="company-sidebar-name" style="margin:0;font-size:15px;font-weight:800;color:var(--text);font-family:'Inter',sans-serif">${companyName}</h1>
+            <h1 id="company-sidebar-name" style="margin:0;font-size:15px;font-weight:800;color:var(--text);font-family:'Inter',sans-serif">HRM Pro</h1>
             <span style="font-size:10px;color:var(--text-3);text-transform:uppercase">HR Management</span>
           </div>
         </div>
@@ -605,9 +580,8 @@ const App = {
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <div class="nav-section-label">Main Menu</div>
-        ${renderedPillars}
+      <nav class="sidebar-nav" style="display:flex;align-items:center;overflow-x:auto;scrollbar-width:none">
+        ${renderedTabs}
       </nav>
 
       <div class="sidebar-footer" style="display:flex;flex-direction:column;gap:6px">
@@ -619,6 +593,7 @@ const App = {
     `;
 
     // Render persistent subnav bar for active pillar
+    const activePillarId = this.getPillarForModule(currentMod);
     this.renderSubnavBar(activePillarId, currentMod);
 
     // Sidebar overlay for mobile
@@ -646,157 +621,121 @@ const App = {
   toggleNavPillar(triggerEl, event) {},
   closeNavPillars() {},
 
+    toggleUserDropdown(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('user-menu-dropdown');
+    if (menu) {
+      menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+    }
+  },
+
   renderTopbar() {
     const topbar = document.getElementById('topbar');
     if (!topbar) return;
-    const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
     const isDark = currentTheme !== 'light';
     const currentDensity = document.body.getAttribute('data-table-density') || 'comfortable';
-    const currentAccent = document.documentElement.getAttribute('data-accent') || 'blue';
     const emp = Auth.employee || {};
-    const fullName = emp.fullName || Auth.user?.name || 'Ahmed Khan';
+    const fullName = emp.fullName || Auth.user?.name || 'Super Admin';
+    const curInitials = (typeof Utils !== 'undefined' && Utils.avatarInitials) ? Utils.avatarInitials(fullName) : 'SA';
+    const curRoleLabel = Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'Administrator';
     const activeCo = (typeof Company !== 'undefined' && Company.getActive) ? Company.getActive() : null;
-    const companySettings = DB.getObj('settings') || {};
-    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : (companySettings.companyName || 'ApexTech');
-    const companyLogoText = activeCo?.logoText || 'AT';
-    const companyLogoUrl = activeCo?.logo || activeCo?.logoUrl || companySettings.companyLogo || null;
+    const companyName = activeCo ? (activeCo.tradeName || activeCo.name) : 'Head Office';
 
     topbar.innerHTML = `
-      <!-- Left: Mobile Menu Toggle & Corporate Brand Logo -->
-      <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0;padding-bottom:3px">
-        <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="App.openMobileSidebar()" title="Toggle Menu">
+      <!-- Left: Brand Logo matching Reference Image -->
+      <div class="topbar-left-zone" style="display:flex;align-items:center;gap:12px;min-width:0;flex-shrink:0">
+        <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="App.openMobileSidebar()" title="Toggle Menu" style="display:none">
           <i class="fa fa-bars"></i>
         </button>
 
-        <div class="brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:12px;padding-bottom:2px" title="${companyName}">
-          ${companyLogoUrl 
-            ? `<div class="logo-img-wrap" style="max-height:48px;max-width:180px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:8px">
-                <img src="${companyLogoUrl}" alt="${companyName}" style="max-height:48px;max-width:180px;object-fit:contain">
-               </div>`
-            : `<div class="logo-icon" id="topbar-logo-badge" style="width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:900;font-size:17px;box-shadow:0 4px 12px var(--primary-glow);flex-shrink:0">
-                ${companyLogoText}
-               </div>`
-          }
-          <div class="brand-text" style="display:flex;flex-direction:column;justify-content:center;line-height:1.25">
-            <h1 id="topbar-company-name" style="margin:0;font-size:18px;font-weight:900;letter-spacing:-0.3px;color:var(--text);font-family:'Inter',sans-serif">${companyName}</h1>
-            <span style="font-size:10.5px;font-weight:600;color:var(--primary);letter-spacing:0.5px;text-transform:uppercase;margin-top:3px">HR Management System</span>
+        <div class="brand-wrap" onclick="App.navigate('dashboard')" style="cursor:pointer;display:inline-flex;align-items:center;gap:10px" title="HRM Pro">
+          <div style="width:38px;height:38px;border-radius:10px;background:#f97316;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 3px 10px rgba(249,115,22,0.3)">
+            <i class="fa fa-users"></i>
           </div>
-        </div>
-
-        <div class="topbar-breadcrumb-wrap" style="display:none">
-          <div class="topbar-title" id="topbar-title">Dashboard</div>
-          <div class="topbar-breadcrumbs" id="topbar-breadcrumbs">
-            <span class="crumb-home" onclick="App.navigate('dashboard')"><i class="fa fa-home"></i> Home</span>
-            <span class="crumb-sep">/</span>
-            <span class="crumb-active" id="topbar-crumb-active">Overview</span>
+          <div style="display:flex;flex-direction:column;justify-content:center;line-height:1.2">
+            <div style="margin:0;font-size:18px;font-weight:900;letter-spacing:-0.4px;color:#f97316;font-family:'Inter',sans-serif">HRM <span style="color:#ea580c">Pro</span></div>
+            <span style="font-size:10.5px;font-weight:500;color:var(--text-3);letter-spacing:0.1px">Human Resource Management</span>
           </div>
         </div>
       </div>
 
-      <!-- Middle: Welcome User Greeting (Informative Non-Clickable Pill) -->
-      <div class="topbar-welcome-center" style="display:inline-flex;align-items:center;gap:8px;padding:5px 16px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:24px;font-size:12.5px;white-space:nowrap;margin:0 14px;cursor:default;user-select:none" title="Logged in as ${fullName}">
-        <i class="fa fa-circle-user" style="color:var(--primary);font-size:14px"></i>
-        <span style="color:var(--text-3);font-size:12px">Welcome,</span>
-        <strong style="color:var(--text);font-weight:700" id="header-user-fullname">${fullName}</strong>
-        <span class="badge badge-primary" style="font-size:9.5px;padding:2px 7px;font-weight:700">${Auth.role ? Auth.role.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()) : 'User'}</span>
+      <!-- Center-Left: Wide Search Input matching Reference Image -->
+      <div style="position:relative;width:340px;max-width:30vw;min-width:180px;margin:0 10px" id="topbar-search-wrap">
+        <i class="fa fa-magnifying-glass" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:12px;pointer-events:none"></i>
+        <input type="text" placeholder="Search employees, departments, leave requests..." id="global-search"
+          oninput="App.handleGlobalSearch(this.value)"
+          onclick="App.openCommandPalette()"
+          autocomplete="off"
+          style="width:100%;height:38px;background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:0 14px 0 36px;font-size:12px;color:var(--text);outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,0.02)">
+        <div class="search-dropdown" id="search-dropdown"></div>
       </div>
 
-      <!-- Right: User Controls & Search Row -->
-      <div class="topbar-right-zone" style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
-        <!-- Top Row: Change Password + Logout (Profile accessed via Dashboard card) -->
-        <div class="topbar-user-line" style="display:flex;align-items:center;gap:18px;font-size:12.5px">
-          <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" class="header-action-link link-pwd" style="color:#0284c7;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
-            <i class="fa fa-key" style="font-size:11px"></i> Change Password
-          </a>
-          <a href="javascript:void(0)" onclick="App.logout()" class="header-action-link link-logout" style="color:#dc2626;text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer">
-            <i class="fa fa-right-from-bracket" style="font-size:12px"></i> Logout
-          </a>
-        </div>
+      <!-- Center-Right: Subsidiary / Office Switcher Pill matching Reference Image -->
+      <div onclick="typeof Company !== 'undefined' ? Company.showWorkspaceSwitchModal() : null" style="display:flex;align-items:center;gap:8px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.02)" title="Switch Subsidiary / Office">
+        <i class="fa fa-building" style="color:#2563eb;font-size:13px"></i>
+        <span>${companyName}</span>
+        <i class="fa fa-chevron-down" style="font-size:9px;color:var(--text-3)"></i>
+      </div>
 
-        <!-- Bottom Row: Search Box & System Controls -->
-        <div class="topbar-controls-line" style="display:flex;align-items:center;gap:10px">
-          <div class="sample-search-box" id="topbar-search-wrap" style="position:relative;width:220px">
-            <input type="text" placeholder="Search Here..." id="global-search"
-              oninput="App.handleGlobalSearch(this.value)"
-              onclick="App.openCommandPalette()"
-              autocomplete="off"
-              style="width:100%;height:30px;background:#ffffff;border:1px solid #d1d5db;border-radius:4px;padding:0 28px 0 10px;font-size:12px;color:#1f2937;outline:none;box-shadow:inset 0 1px 2px rgba(0,0,0,0.04)">
-            <i class="fa fa-magnifying-glass" style="position:absolute;right:9px;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:11.5px;pointer-events:none"></i>
-            <div class="search-dropdown" id="search-dropdown"></div>
-          </div>
+      <!-- Right: Utility Controls & User Profile matching Reference Image -->
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <!-- Fullscreen Button -->
+        <button class="topbar-btn" onclick="typeof Utils !== 'undefined' && Utils.toggleFullScreen ? Utils.toggleFullScreen() : (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())" title="Toggle Fullscreen" style="width:34px;height:34px">
+          <i class="fa fa-expand"></i>
+        </button>
 
-          <div class="topbar-actions" style="display:inline-flex;align-items:center;gap:6px">
-            ${typeof Company !== 'undefined' ? Company.renderSwitcherHTML() : ''}
+        <!-- Theme Toggle -->
+        <button class="theme-toggle-btn topbar-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}" style="width:34px;height:34px">
+          <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
+        </button>
 
-            <!-- Guided Product Tour -->
-            <button class="topbar-btn tour-trigger-btn" onclick="typeof HRMTour !== 'undefined' ? HRMTour.start(true) : null" title="Take Interactive Platform Tour" style="width:30px;height:30px;color:#a855f7">
-              <i class="fa fa-wand-magic-sparkles"></i>
-            </button>
-
-            <!-- Corporate Document Hub & PDF Generator -->
-            <button class="topbar-btn doc-hub-btn" onclick="typeof HRMDocumentEngine !== 'undefined' ? HRMDocumentEngine.openDocumentHub() : null" title="Corporate Document Hub & PDF Generator" style="width:30px;height:30px;color:#10b981">
-              <i class="fa fa-file-pdf"></i>
-            </button>
-
-            <!-- Digital Employee ID Badge Generator -->
-            <button class="topbar-btn badge-trigger-btn" onclick="typeof HRMBadgeGenerator !== 'undefined' ? HRMBadgeGenerator.openModal() : null" title="Digital Employee ID Card & Badge Generator" style="width:30px;height:30px;color:#f59e0b">
-              <i class="fa fa-id-card"></i>
-            </button>
-
-            <!-- Shortcuts Modal -->
-            <button class="topbar-btn" onclick="App.showShortcutsModal()" title="Keyboard Shortcuts Cheat Sheet (?)" style="width:30px;height:30px">
-              <i class="fa fa-keyboard"></i>
-            </button>
-
-            <!-- Table Density Toggle -->
-            <button class="topbar-btn" id="density-toggle-btn" onclick="App.toggleTableDensity()" title="Table Row Density: ${currentDensity === 'compact' ? 'Compact' : 'Spacious'}" style="width:30px;height:30px">
-              <i class="fa ${currentDensity === 'compact' ? 'fa-compress' : 'fa-expand'}"></i>
-            </button>
-
-            <!-- Theme Toggle -->
-            <button class="theme-toggle-btn topbar-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}" style="width:30px;height:30px">
-              <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
-            </button>
-
-            <!-- Activity History Drawer -->
-            <button class="topbar-btn" id="history-btn" onclick="App.toggleHistoryDrawer()" title="Activity History (Ctrl+H)" style="width:30px;height:30px">
-              <i class="fa fa-clock-rotate-left"></i>
-            </button>
-
-            <!-- Notifications -->
-            <div style="position:relative">
-              <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative;width:30px;height:30px">
-                <i class="fa fa-bell"></i>
-                <span class="badge-dot" id="notif-badge-dot"></span>
-                <span id="notif-badge-pill" style="display:none;position:absolute;top:1px;right:1px;background:var(--danger);color:#ffffff;font-size:9px;font-weight:800;border-radius:10px;padding:1px 4px;line-height:1.1"></span>
-              </button>
-              <div class="notif-dropdown" id="notif-dropdown" style="width:375px">
-                <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
-                  <div style="display:flex;align-items:center;gap:6px">
-                    <span style="font-weight:700">Notifications</span>
-                    <span class="badge badge-primary" id="notif-count" style="margin-left:2px">0</span>
-                    <span class="live-status-pill" title="Real-Time Synchronization Active"><span class="live-status-dot"></span> LIVE</span>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:4px">
-                    <button class="btn btn-ghost btn-xs" id="desktop-notif-btn" onclick="LiveNotifications.toggleDesktopPermission()" title="Enable Desktop Push Alerts" style="padding:2px 6px;font-size:11px">
-                      <i class="fa fa-bell"></i>
-                    </button>
-                    <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()" title="Mark all notifications as read">Mark all read</button>
-                  </div>
-                </div>
-                <div id="notif-list" style="max-height:380px;overflow-y:auto"></div>
-                <div style="padding:8px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);font-size:11px;color:var(--text-3)">
-                  <span><span class="live-status-dot" style="display:inline-block;vertical-align:middle;margin-right:4px"></span> Real-Time Live Sync</span>
-                  <a href="javascript:void(0)" onclick="LiveNotifications.sendTestAlert()" style="color:var(--primary);font-weight:700">⚡ Test Live Alert</a>
-                </div>
+        <!-- Notifications -->
+        <div style="position:relative">
+          <button class="topbar-btn" id="notif-btn" onclick="App.toggleNotifications()" title="Notifications" style="position:relative;width:34px;height:34px">
+            <i class="fa fa-bell"></i>
+            <span style="position:absolute;top:2px;right:2px;background:#ef4444;color:#ffffff;border-radius:50%;font-size:9.5px;font-weight:800;width:15px;height:15px;display:flex;align-items:center;justify-content:center;line-height:1">3</span>
+          </button>
+          <div class="notif-dropdown" id="notif-dropdown" style="width:360px">
+            <div class="notif-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-weight:700">Notifications</span>
+                <span class="badge badge-primary" id="notif-count" style="margin-left:2px">3</span>
               </div>
+              <button class="btn btn-ghost btn-xs" style="font-size:10.5px;padding:2px 6px;color:var(--text-3)" onclick="App.markAllNotificationsRead()">Mark all read</button>
             </div>
+            <div id="notif-list" style="max-height:360px;overflow-y:auto"></div>
+          </div>
+        </div>
+
+        <!-- Settings Cog -->
+        <button class="topbar-btn" onclick="App.navigate('settings')" title="System Settings" style="width:34px;height:34px">
+          <i class="fa fa-gear"></i>
+        </button>
+
+        <!-- User Profile Pill on Far Right -->
+        <div class="topbar-user-pill" onclick="App.toggleUserDropdown(event)" style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 8px;border-radius:8px;position:relative" title="Account Menu">
+          <div style="width:38px;height:38px;border-radius:50%;overflow:hidden;background:${typeof Utils!=='undefined'?Utils.avatarColor(emp.id||1):'#2563eb'};flex-shrink:0;border:1.5px solid var(--border,#e2e8f0)">
+            ${emp.photo ? '<img src="'+emp.photo+'" style="width:100%;height:100%;object-fit:cover" alt="'+fullName+'">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700">'+curInitials+'</div>'}
+          </div>
+          <div style="text-align:left;line-height:1.2">
+            <div style="font-size:13px;font-weight:800;color:var(--text);white-space:nowrap">${fullName}</div>
+            <div style="font-size:11px;color:var(--text-3);display:flex;align-items:center;gap:4px;white-space:nowrap">${curRoleLabel} <i class="fa fa-chevron-down" style="font-size:8px"></i></div>
+          </div>
+
+          <!-- User Menu Dropdown Popover -->
+          <div id="user-menu-dropdown" class="user-menu-popover" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.12);min-width:180px;z-index:1050;padding:6px 0">
+            <a href="javascript:void(0)" onclick="App.navigate('profile')" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-circle-user" style="color:var(--primary)"></i> My Profile</a>
+            <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-key" style="color:#0284c7"></i> Change Password</a>
+            <a href="javascript:void(0)" onclick="typeof HRMTour !== 'undefined' ? HRMTour.start(true) : null" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-wand-magic-sparkles" style="color:#a855f7"></i> Product Tour</a>
+            <a href="javascript:void(0)" onclick="App.toggleTableDensity()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-table-cells" style="color:#f59e0b"></i> Table Density</a>
+            <div style="height:1px;background:var(--border,#e2e8f0);margin:4px 0"></div>
+            <a href="javascript:void(0)" onclick="App.logout()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:#dc2626;font-size:12.5px;font-weight:700;text-decoration:none"><i class="fa fa-right-from-bracket"></i> Logout</a>
           </div>
         </div>
       </div>
     `;
 
-    // Load dynamic notifications
     this.refreshNotifications();
     if (typeof Chat !== 'undefined' && Chat.updateTopbarBadge) {
       Chat.updateTopbarBadge();
@@ -1269,7 +1208,7 @@ const App = {
     } else {
       document.body.classList.remove('chat-workspace-active');
       if (topbarEl) topbarEl.style.display = '';
-      if (subnavEl) subnavEl.style.display = '';
+      if (subnavEl) subnavEl.style.display = 'none';
       if (sidebarEl) sidebarEl.style.display = '';
       if (bottomNavEl) bottomNavEl.style.display = '';
       if (personaDockEl) personaDockEl.style.display = '';
