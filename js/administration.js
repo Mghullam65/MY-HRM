@@ -1723,28 +1723,6 @@ const Administration = {
     this.renderSection();
   },
 
-  // ── User ──
-  showAddUser() {
-    const emps = DB.get('employees').filter(e => e.status === 'active');
-    const roles = DB.get('roles');
-    this._genericForm('Add User', [
-      { id:'us-emp', label:'Employee', type:'select', required:true, options:emps.map(e=>({value:e.id,label:e.fullName})) },
-      { id:'us-user', label:'Username', required:true, placeholder:'e.g. john.doe' },
-      { id:'us-pass', label:'Password', required:true, type:'password', placeholder:'Enter password' },
-      { id:'us-role', label:'Role', type:'select', options:roles.map(r=>({value:r.code,label:r.name})) },
-    ], 'Administration.saveUser()');
-  },
-
-  saveUser() {
-    const username = document.getElementById('us-user').value.trim();
-    const password = document.getElementById('us-pass').value;
-    if (!username || !password) { Toast.show('Username and password required', 'error'); return; }
-    if (DB.get('users').find(u => u.username === username)) { Toast.show('Username already exists!', 'error'); return; }
-    DB.add('users', { id: DB.nextId('users'), employeeId: parseInt(document.getElementById('us-emp').value), username, password, role: document.getElementById('us-role').value, status: 'active', lastLogin: null });
-    Modal.close('dynamic-modal');
-    Toast.show('User account created!', 'success');
-    this.renderSection();
-  },
 
   // ── Holiday ──
   showAddHoliday() {

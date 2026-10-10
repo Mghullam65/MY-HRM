@@ -2545,29 +2545,6 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
     this.previewAccent(hex);
   },
 
-  previewSidebar(pos) {
-    const appEl = document.getElementById('app');
-    if (appEl) {
-      if (pos === 'right') {
-        appEl.style.flexDirection = '';
-        appEl.setAttribute('data-sidebar-pos', 'right');
-        document.body.classList.add('sidebar-pos-right');
-      } else {
-        appEl.style.flexDirection = '';
-        appEl.setAttribute('data-sidebar-pos', 'left');
-        document.body.classList.remove('sidebar-pos-right');
-      }
-    }
-  },
-
-  previewCompact(checked) {
-    document.body.classList.toggle('compact-mode', checked);
-    document.documentElement.classList.toggle('compact-mode', checked);
-    const statusEl = document.getElementById('s-compact-status');
-    if (statusEl) {
-      statusEl.textContent = checked ? 'Enabled (High Density)' : 'Standard Spacing';
-    }
-  },
 
   applyAppearance(settings = null) {
     if (!settings) {

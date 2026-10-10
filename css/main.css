@@ -20180,3 +20180,176 @@ body.chat-workspace-active #teams-workspace-container {
   font-family: inherit;
 }
 
+/* ============================================================
+   STRICT THEME POLICY:
+   1. Dashboard is STRICTLY Light Mode Only
+   2. Login Page is STRICTLY Light Mode Only
+   3. Landing Page supports BOTH Light and Dark Mode
+   ============================================================ */
+
+/* ── 1. Strict Light Mode for Dashboard ── */
+.dashboard-reference-layout,
+.dashboard-reference-layout * {
+  --bg: #f8fafc !important;
+  --surface: #f1f5f9 !important;
+  --card: #ffffff !important;
+  --card-bg: #ffffff !important;
+  --border: #e2e8f0 !important;
+  --border-subtle: #f1f5f9 !important;
+  --text: #0f172a !important;
+  --text-2: #334155 !important;
+  --text-3: #64748b !important;
+}
+
+.dashboard-reference-layout {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+.dashboard-reference-layout .card,
+.dashboard-reference-layout .dash-card,
+.dashboard-reference-layout .dash-user-profile-card,
+.dashboard-reference-layout .dash-ref-kpi-card,
+.dashboard-reference-layout .dash-ref-att-pill,
+.dashboard-reference-layout .hero-punch-clock-widget,
+.dashboard-reference-layout .punch-card-white {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.dashboard-reference-layout .hero-punch-clock-widget {
+  background: linear-gradient(135deg, #eefdf5 0%, #e0f2fe 100%) !important;
+  border: 1.5px solid #a7f3d0 !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.09) !important;
+}
+
+.dashboard-reference-layout .punch-card-white {
+  background: #ffffff !important;
+  border: 1px solid #d1fae5 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+}
+
+.dashboard-reference-layout .punch-badge-btn {
+  background: #ecfdf5 !important;
+  border-color: #6ee7b7 !important;
+  color: #047857 !important;
+}
+
+.dashboard-reference-layout .punch-badge-btn:hover {
+  background: #d1fae5 !important;
+  border-color: #34d399 !important;
+}
+
+.dashboard-reference-layout table th {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-color: #e2e8f0 !important;
+}
+
+.dashboard-reference-layout table td {
+  border-color: #f1f5f9 !important;
+  color: #1e293b !important;
+}
+
+.dashboard-reference-layout table tr:hover td {
+  background: #f8fafc !important;
+}
+
+/* ── 2. Strict Light Mode for Login Page ── */
+#login-page,
+#login-page * {
+  --bg: #ffffff !important;
+  --surface: #f8fafc !important;
+  --card: #ffffff !important;
+  --border: #e2e8f0 !important;
+  --text: #0f172a !important;
+  --text-2: #334155 !important;
+  --text-3: #64748b !important;
+}
+
+#login-page {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+#login-page .login-split-page {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+#login-page .login-split-left {
+  background: linear-gradient(135deg, #f0f7ff 0%, #e0effe 100%) !important;
+  border-right: 1px solid #dbeafe !important;
+}
+
+#login-page .login-split-center {
+  background: #f8fafc !important;
+}
+
+#login-page .login-split-card,
+#login-page .login-ref-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08) !important;
+  color: #0f172a !important;
+}
+
+#login-page .split-card-title {
+  color: #0f172a !important;
+}
+
+#login-page .split-card-subtitle {
+  color: #64748b !important;
+}
+
+#login-page .split-form-group label {
+  color: #334155 !important;
+}
+
+#login-page .split-input {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+#login-page .split-input:focus {
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+#login-page .active-user-badge-bar {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+#login-page .active-user-name {
+  color: #0f172a !important;
+}
+
+#login-page .active-user-role {
+  color: #64748b !important;
+}
+
+#login-page .portal-capsule-pill {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #475569 !important;
+}
+
+#login-page .portal-capsule-pill.active {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  color: #1e40af !important;
+}
+
+#login-page .portal-capsule-pill .pill-title {
+  color: #1e293b !important;
+}
+
+#login-page .portal-capsule-pill .pill-subtitle {
+  color: #64748b !important;
+}
+

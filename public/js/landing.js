@@ -3491,6 +3491,10 @@ const Landing = {
     toggleBtns.forEach(btn => {
       btn.setAttribute('title', 'Switch to ' + (theme === 'dark' ? 'Light' : 'Dark') + ' Mode');
       btn.setAttribute('aria-label', 'Toggle theme between Light and Dark mode (current: ' + theme + ')');
+      const optLight = btn.querySelector('.opt-light');
+      const optDark = btn.querySelector('.opt-dark');
+      if (optLight) optLight.classList.toggle('active', theme === 'light');
+      if (optDark) optDark.classList.toggle('active', theme === 'dark');
     });
 
     if (window.LandingParticles && typeof window.LandingParticles.setTheme === 'function') {

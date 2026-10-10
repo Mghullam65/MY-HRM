@@ -257,40 +257,86 @@ const Dashboard = {
     const now = new Date();
     const hrs = now.getHours() % 12;
     const mins = now.getMinutes();
-    const hrAngle = (hrs * 30) + (mins * 0.5);
-    const minAngle = mins * 6;
+    const secs = now.getSeconds();
+    const hrAngle = (hrs * 30) + (mins * 0.5) + (secs * (0.5 / 60));
+    const minAngle = (mins * 6) + (secs * 0.1);
+    const secAngle = secs * 6;
     const dayName = now.toLocaleDateString('en-PK', { weekday: 'long' });
     const dayNum = now.getDate();
     const monthYear = now.toLocaleDateString('en-PK', { month: 'short', year: 'numeric' });
 
-    const isCheckedIn = !!(myTodayAtt && myTodayAtt.timeIn);
-    
-    // Elapsed office time or default '--H --M'
-    let officeTimeStr = '--H --M';
-    if (isCheckedIn && myTodayAtt.timeOut) {
-      officeTimeStr = myTodayAtt.hrs || (typeof Attendance !== 'undefined' && Attendance.calcHours ? Attendance.calcHours(myTodayAtt.timeIn, myTodayAtt.timeOut) : '8h 23m');
+    // Holiday and Approved Leave detection for today
+    const today = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : now.toISOString().slice(0, 10);
+    const holidays = (typeof DB !== 'undefined' && DB.get ? DB.get('holidays') : []) || [];
+    const todayHoliday = holidays.find(h => h.date === today);
+
+    const curEmp = Auth.employee || (typeof DB !== 'undefined' && DB.find ? DB.find('employees', Auth.user?.employeeId || 1) : null) || {};
+    const myId = curEmp.id || Auth.user?.employeeId || 1;
+    const allLeaves = (typeof DB !== 'undefined' && DB.get ? (DB.get('leave_requests') || DB.get('leaves') || []) : []);
+    const myApprovedLeave = allLeaves.find(l => 
+      (String(l.employeeId) === String(myId) || String(l.employeeId) === String(curEmp.empNo)) &&
+      (l.status === 'approved' || l.status === 'manager_approved') &&
+      l.startDate <= today && l.endDate >= today
+    );
+
+    const rawIn = myTodayAtt?.timeIn || myTodayAtt?.checkIn;
+    const rawOut = myTodayAtt?.timeOut || myTodayAtt?.checkOut;
+    const isCheckedIn = !!rawIn;
+    const isCheckedOut = isCheckedIn && !!rawOut;
+
+    let initialTimerStr = '--H --M';
+    let initialCenterTimer = '--H --M';
+    let shiftStatusHtml = 'Regular Shift: 09:00 - 18:00 (8h Duty)';
+
+    if (isCheckedOut) {
+      initialTimerStr = myTodayAtt.hrs || (typeof Attendance !== 'undefined' && Attendance.calcHours ? Attendance.calcHours(rawIn, rawOut) : '8h 23m');
+      initialCenterTimer = initialTimerStr;
+      shiftStatusHtml = '<span style="color:#059669"><i class="fa fa-flag-checkered"></i> Daily Shift Completed</span>';
     } else if (isCheckedIn) {
-      const [inH, inM] = (myTodayAtt.timeIn || '09:00').split(':').map(Number);
+      const [inH, inM, inS] = rawIn.split(':').map(Number);
       if (!isNaN(inH) && !isNaN(inM)) {
-        const diffMins = Math.max(0, (now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM));
-        const eh = Math.floor(diffMins / 60);
-        const em = diffMins % 60;
-        officeTimeStr = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M`;
+        const inTotalSecs = (inH * 3600) + (inM * 60) + (isNaN(inS) ? 0 : inS);
+        const nowTotalSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + secs;
+        const diffSecs = Math.max(0, nowTotalSecs - inTotalSecs);
+        const eh = Math.floor(diffSecs / 3600);
+        const em = Math.floor((diffSecs % 3600) / 60);
+        const es = diffSecs % 60;
+        initialTimerStr = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M ${String(es).padStart(2, '0')}S`;
+        initialCenterTimer = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M`;
+
+        const standardDutySecs = 8 * 3600;
+        if (diffSecs >= standardDutySecs) {
+          const otSecs = diffSecs - standardDutySecs;
+          const otH = Math.floor(otSecs / 3600);
+          const otM = Math.floor((otSecs % 3600) / 60);
+          shiftStatusHtml = `<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-flex;align-items:center;gap:3px"><i class="fa fa-fire"></i> Overtime: +${otH}h ${otM}m</span>`;
+        } else {
+          const remSecs = standardDutySecs - diffSecs;
+          const remH = Math.floor(remSecs / 3600);
+          const remM = Math.floor((remSecs % 3600) / 60);
+          shiftStatusHtml = `<span style="background:#f0fdf4;color:#16a34a;padding:1px 6px;border-radius:4px;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:3px"><i class="fa fa-hourglass-half"></i> Remaining: ${remH}h ${remM}m</span>`;
+        }
       } else {
-        officeTimeStr = 'In Progress';
+        initialTimerStr = 'In Progress';
+        initialCenterTimer = 'In Progress';
       }
+    } else if (myApprovedLeave) {
+      shiftStatusHtml = `<span style="color:#2563eb"><i class="fa fa-umbrella-beach"></i> On Approved ${myApprovedLeave.leaveType || myApprovedLeave.type || 'Leave'}</span>`;
+    } else if (todayHoliday) {
+      shiftStatusHtml = `<span style="color:#d97706"><i class="fa fa-champagne-glasses"></i> Public Holiday: ${todayHoliday.name}</span>`;
     }
 
-    const checkInVal = myTodayAtt?.timeIn || '—';
-    const checkOutVal = myTodayAtt?.timeOut || '—';
-    const breakVal = myTodayAtt?.breakTotal || (isCheckedIn ? '45m' : '—');
-    const officeHoursVal = isCheckedIn ? (myTodayAtt?.hrs || '8.5 hrs') : '—';
+    const checkInVal = rawIn || '—';
+    const checkOutVal = rawOut || '—';
+    const breakVal = myTodayAtt?.breakTotal || (isCheckedIn ? (myTodayAtt?.breakOut && !myTodayAtt?.breakIn ? 'On Break' : '45m') : '—');
+    const officeHoursVal = isCheckedIn ? (myTodayAtt?.hrs || initialCenterTimer) : '—';
+    const deviceName = myTodayAtt?.device || 'ZKTeco Hardware Terminal';
 
     return `
       <div class="hero-punch-clock-widget">
-        <!-- Section 1 (Left): Analog Clock & Date / Badge -->
+        <!-- Section 1 (Left): Analog Clock & Live Timer / Status Badge -->
         <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
-          <svg width="58" height="58" viewBox="0 0 100 100" style="flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.22))">
+          <svg width="60" height="60" viewBox="0 0 100 100" style="flex-shrink:0;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.22))">
             <circle cx="50" cy="50" r="48" fill="#0b1120" stroke="#1e293b" stroke-width="2.5"/>
             <circle cx="50" cy="50" r="45" fill="#070c18" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
             <!-- 12 Dial Ticks -->
@@ -306,56 +352,75 @@ const Dashboard = {
             <circle cx="15.5" cy="70.5" r="1.5" fill="#64748b"/>
             <circle cx="15.5" cy="29.5" r="1.5" fill="#64748b"/>
             <circle cx="29.5" cy="15.5" r="1.5" fill="#64748b"/>
-            <!-- Live Clock Hands -->
-            <line x1="50" y1="50" x2="50" y2="28" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" transform="rotate(${hrAngle} 50 50)"/>
-            <line x1="50" y1="50" x2="50" y2="18" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" transform="rotate(${minAngle} 50 50)"/>
+            <!-- Live Clock Hands (Updated every second) -->
+            <line id="punch-clock-hr-hand" x1="50" y1="50" x2="50" y2="28" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" transform="rotate(${hrAngle} 50 50)"/>
+            <line id="punch-clock-min-hand" x1="50" y1="50" x2="50" y2="18" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" transform="rotate(${minAngle} 50 50)"/>
+            <line id="punch-clock-sec-hand" x1="50" y1="50" x2="50" y2="13" stroke="#f97316" stroke-width="1.2" stroke-linecap="round" transform="rotate(${secAngle} 50 50)"/>
             <circle cx="50" cy="50" r="3.5" fill="#38bdf8"/>
             <circle cx="50" cy="50" r="1.5" fill="#ffffff"/>
-            <text x="50" y="68" font-size="6.5" font-weight="700" fill="#64748b" text-anchor="middle" letter-spacing="0.8">${isCheckedIn ? 'ON DUTY' : 'NOT IN'}</text>
+            <text x="50" y="68" font-size="6.5" font-weight="700" fill="${isCheckedIn ? (isCheckedOut ? '#38bdf8' : '#10b981') : (myApprovedLeave ? '#3b82f6' : (todayHoliday ? '#f59e0b' : '#64748b'))}" text-anchor="middle" letter-spacing="0.8">
+              ${isCheckedIn ? (isCheckedOut ? 'DONE' : 'ON DUTY') : (myApprovedLeave ? 'LEAVE' : (todayHoliday ? 'HOLIDAY' : 'NOT IN'))}
+            </text>
           </svg>
 
-          <div style="display:flex;flex-direction:column;gap:1px;min-width:125px">
+          <div style="display:flex;flex-direction:column;gap:1px;min-width:130px">
             <span style="font-size:11px;color:var(--text-2,#334155);font-weight:600">
               ${dayName} <sup style="font-size:9.5px;font-weight:700;color:var(--text-3,#64748b)">${dayNum} ${monthYear}</sup>
             </span>
-            <div style="font-size:20px;font-weight:900;color:var(--text);letter-spacing:-0.4px;line-height:1.1;margin:1px 0 2px">
-              ${officeTimeStr}
+            <div id="hero-punch-live-timer" style="font-size:18px;font-weight:900;color:var(--text);letter-spacing:-0.3px;line-height:1.1;margin:1px 0 2px;font-variant-numeric:tabular-nums">
+              ${initialTimerStr}
             </div>
             <div>
-              ${isCheckedIn ? `
-                <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('out')" title="Click to Check Out">
-                  <i class="fa fa-circle-check" style="color:#10b981;font-size:9px"></i> Checked In
+              ${isCheckedOut ? `
+                <span class="punch-badge-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;cursor:default" title="Shift completed at ${checkOutVal}">
+                  <i class="fa fa-flag-checkered" style="color:#10b981;font-size:9.5px"></i> Shift Completed
+                </span>
+              ` : (isCheckedIn ? `
+                <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('out')" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;cursor:pointer" title="Checked In at ${checkInVal} via ${deviceName}. Click to Check Out">
+                  <i class="fa fa-circle-check" style="color:#10b981;font-size:9.5px"></i> Checked In · Check Out
+                </span>
+              ` : (myApprovedLeave ? `
+                <span class="punch-badge-btn" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;cursor:default" title="Approved Leave on record today">
+                  <i class="fa fa-umbrella-beach" style="color:#2563eb;font-size:9.5px"></i> On Leave (${myApprovedLeave.leaveType || myApprovedLeave.type || 'Approved'})
+                </span>
+              ` : (todayHoliday ? `
+                <span class="punch-badge-btn" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;cursor:default" title="Official Holiday: ${todayHoliday.name}">
+                  <i class="fa fa-champagne-glasses" style="color:#d97706;font-size:9.5px"></i> Holiday (${todayHoliday.name})
                 </span>
               ` : `
-                <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('in')" title="Click to Check In">
+                <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('in')" style="cursor:pointer" title="Click to Check In immediately">
                   <i class="fa fa-arrow-right-to-bracket" style="font-size:9px"></i> Not checked in yet
                 </span>
-              `}
+              `)))}
             </div>
           </div>
         </div>
 
-        <!-- Section 2 (Center): Office Time Today Box -->
-        <div class="punch-card-white" style="border-radius:12px;padding:8px 16px;min-width:180px;flex:1;max-width:250px">
+        <!-- Section 2 (Center): Office Time Today Box & Check In/Out Times -->
+        <div class="punch-card-white" style="border-radius:12px;padding:8px 16px;min-width:180px;flex:1;max-width:275px">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
             <span style="font-size:9.5px;font-weight:800;color:var(--text-3,#64748b);letter-spacing:0.5px">OFFICE TIME TODAY</span>
-            <strong style="font-size:14px;font-weight:900;color:#0284c7">${officeTimeStr}</strong>
+            <strong id="hero-punch-center-timer" style="font-size:14px;font-weight:900;color:#0284c7;font-variant-numeric:tabular-nums">${initialCenterTimer}</strong>
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--text);margin:2px 0">
-            <span>${myTodayAtt?.timeIn || '- : - -'}</span>
-            <span>${myTodayAtt?.timeOut || '- : - -'}</span>
+            <span id="punch-clock-checkin-time" data-time="${rawIn || ''}">${checkInVal !== '—' ? checkInVal : '- : - -'}</span>
+            <span id="punch-clock-checkout-time" data-time="${rawOut || ''}">${checkOutVal !== '—' ? checkOutVal : '- : - -'}</span>
           </div>
           <div style="border-bottom:1.5px dotted var(--border,#cbd5e1);margin:4px 0"></div>
           <div style="display:flex;align-items:center;justify-content:space-between;font-size:8.5px;font-weight:700;color:var(--text-3,#94a3b8);letter-spacing:0.4px">
             <span>CHECK IN</span>
             <span>CHECK OUT</span>
           </div>
+          <!-- Real-Time Shift Countdown & Overtime Alert Badge -->
+          <div id="punch-shift-status-badge" style="margin-top:4px;font-size:9.5px;font-weight:700;color:var(--text-3);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${shiftStatusHtml}
+          </div>
         </div>
 
-        <!-- Section 3 (Right): 2x2 Mini KPI Cards -->
+        <!-- Section 3 (Right): 2x2 Mini KPI Cards with Click Actions -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;flex-shrink:0;min-width:210px">
           <!-- 1. Check In -->
-          <div class="punch-card-white" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px">
+          <div class="punch-card-white" onclick="${!isCheckedIn ? "Dashboard.quickSelfPunch('in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${!isCheckedIn ? 'pointer' : 'default'}" title="${!isCheckedIn ? 'Click to Check In' : 'Checked In at ' + checkInVal}">
             <div style="width:24px;height:24px;border-radius:6px;background:#cffafe;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-to-bracket"></i>
             </div>
@@ -366,7 +431,7 @@ const Dashboard = {
           </div>
 
           <!-- 2. Check Out -->
-          <div class="punch-card-white" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px">
+          <div class="punch-card-white" onclick="${isCheckedIn && !isCheckedOut ? "Dashboard.quickSelfPunch('out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${isCheckedIn && !isCheckedOut ? 'pointer' : 'default'}" title="${isCheckedIn && !isCheckedOut ? 'Click to Check Out' : (isCheckedOut ? 'Checked Out at ' + checkOutVal : 'Check in first')}">
             <div style="width:24px;height:24px;border-radius:6px;background:#ffe4e6;color:#e11d48;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-from-bracket"></i>
             </div>
@@ -377,7 +442,7 @@ const Dashboard = {
           </div>
 
           <!-- 3. Break Time -->
-          <div class="punch-card-white" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px">
+          <div class="punch-card-white" onclick="${isCheckedIn && !isCheckedOut ? "Dashboard.quickSelfPunch(myTodayAtt?.breakOut && !myTodayAtt?.breakIn ? 'ot_in' : 'ot_out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${isCheckedIn && !isCheckedOut ? 'pointer' : 'default'}" title="${isCheckedIn && !isCheckedOut ? 'Click to toggle Break In / Out' : ''}">
             <div style="width:24px;height:24px;border-radius:6px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-mug-hot"></i>
             </div>
@@ -402,23 +467,139 @@ const Dashboard = {
     `;
   },
 
+  startPunchClockTimer() {
+    if (this._punchClockTimer) {
+      clearInterval(this._punchClockTimer);
+      this._punchClockTimer = null;
+    }
+
+    const updateTick = () => {
+      const widget = document.querySelector('.hero-punch-clock-widget');
+      if (!widget) {
+        if (this._punchClockTimer) {
+          clearInterval(this._punchClockTimer);
+          this._punchClockTimer = null;
+        }
+        return;
+      }
+
+      const now = new Date();
+      const hrs = now.getHours() % 12;
+      const mins = now.getMinutes();
+      const secs = now.getSeconds();
+      const hrAngle = (hrs * 30) + (mins * 0.5) + (secs * (0.5 / 60));
+      const minAngle = (mins * 6) + (secs * 0.1);
+      const secAngle = secs * 6;
+
+      // Update analog clock hands
+      const hrHand = document.getElementById('punch-clock-hr-hand');
+      const minHand = document.getElementById('punch-clock-min-hand');
+      const secHand = document.getElementById('punch-clock-sec-hand');
+      if (hrHand) hrHand.setAttribute('transform', `rotate(${hrAngle} 50 50)`);
+      if (minHand) minHand.setAttribute('transform', `rotate(${minAngle} 50 50)`);
+      if (secHand) secHand.setAttribute('transform', `rotate(${secAngle} 50 50)`);
+
+      // Check if checked in
+      const inEl = document.getElementById('punch-clock-checkin-time');
+      const checkInRaw = inEl?.dataset?.time || (inEl?.textContent?.trim() !== '- : - -' && inEl?.textContent?.trim() !== '—' ? inEl?.textContent?.trim() : null);
+      const outEl = document.getElementById('punch-clock-checkout-time');
+      const checkOutRaw = outEl?.dataset?.time || (outEl?.textContent?.trim() !== '- : - -' && outEl?.textContent?.trim() !== '—' ? outEl?.textContent?.trim() : null);
+
+      if (checkInRaw && checkInRaw !== '- : - -' && checkInRaw !== '—' && !checkOutRaw) {
+        // Active on duty - live elapsed timer ticking!
+        const [inH, inM, inS] = checkInRaw.split(':').map(Number);
+        if (!isNaN(inH) && !isNaN(inM)) {
+          const inTotalSecs = (inH * 3600) + (inM * 60) + (isNaN(inS) ? 0 : inS);
+          const nowTotalSecs = (now.getHours() * 3600) + (now.getMinutes() * 60) + secs;
+          const diffSecs = Math.max(0, nowTotalSecs - inTotalSecs);
+          const eh = Math.floor(diffSecs / 3600);
+          const em = Math.floor((diffSecs % 3600) / 60);
+          const es = diffSecs % 60;
+          const liveTimeStr = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M ${String(es).padStart(2, '0')}S`;
+          const centerTimeStr = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M`;
+
+          const timerDisp1 = document.getElementById('hero-punch-live-timer');
+          if (timerDisp1) timerDisp1.textContent = liveTimeStr;
+          const timerDisp2 = document.getElementById('hero-punch-center-timer');
+          if (timerDisp2) timerDisp2.textContent = centerTimeStr;
+
+          // Update shift countdown & overtime alert pill
+          const statusBadge = document.getElementById('punch-shift-status-badge');
+          if (statusBadge) {
+            const standardDutySecs = 8 * 3600;
+            if (diffSecs >= standardDutySecs) {
+              const otSecs = diffSecs - standardDutySecs;
+              const otH = Math.floor(otSecs / 3600);
+              const otM = Math.floor((otSecs % 3600) / 60);
+              statusBadge.innerHTML = `<span style="background:#fef2f2;color:#dc2626;padding:1px 6px;border-radius:4px;border:1px solid #fecaca;display:inline-flex;align-items:center;gap:3px"><i class="fa fa-fire"></i> Overtime: +${otH}h ${otM}m</span>`;
+            } else {
+              const remSecs = standardDutySecs - diffSecs;
+              const remH = Math.floor(remSecs / 3600);
+              const remM = Math.floor((remSecs % 3600) / 60);
+              statusBadge.innerHTML = `<span style="background:#f0fdf4;color:#16a34a;padding:1px 6px;border-radius:4px;border:1px solid #bbf7d0;display:inline-flex;align-items:center;gap:3px"><i class="fa fa-hourglass-half"></i> Remaining: ${remH}h ${remM}m</span>`;
+            }
+          }
+        }
+      }
+    };
+
+    updateTick();
+    this._punchClockTimer = setInterval(updateTick, 1000);
+  },
+
+  playPunchChime(type = 'in') {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      if (type === 'in') {
+        // High ascending chime (C5 -> G5)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(783.99, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else {
+        // Mellow descending chime (G5 -> C5)
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(783.99, now);
+        osc.frequency.setValueAtTime(523.25, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+    } catch (e) {}
+  },
+
   quickSelfPunch(type) {
     const today = Utils.today();
-    const myId = Auth.employee?.id;
+    const curEmp = Auth.employee || (typeof DB !== 'undefined' && DB.find ? DB.find('employees', Auth.user?.employeeId || 1) : null) || {};
+    const myId = curEmp.id || Auth.user?.employeeId || 1;
     if (!myId) return;
+
     const allAtt = DB.get('attendance') || [];
-    let rec = allAtt.find(a => a.employeeId === myId && a.date === today);
+    let rec = allAtt.find(a => (String(a.employeeId) === String(myId) || String(a.employeeId) === String(curEmp.empNo)) && a.date === today);
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     if (type === 'in' || type === 'check_in') {
-      if (rec && rec.timeIn) {
-        Toast.show('Already checked in today at ' + rec.timeIn, 'info');
+      if (rec && (rec.timeIn || rec.checkIn)) {
+        Toast.show('Already checked in today at ' + (rec.timeIn || rec.checkIn), 'info');
         return;
       }
+      this.playPunchChime('in');
       const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
       if (rec) {
         rec.timeIn = timeStr;
+        rec.checkIn = timeStr;
         rec.status = isLate ? 'late' : 'present';
       } else {
         rec = {
@@ -426,57 +607,69 @@ const Dashboard = {
           employeeId: myId,
           date: today,
           timeIn: timeStr,
+          checkIn: timeStr,
           breakOut: '',
           breakIn: '',
           timeOut: '',
+          checkOut: '',
           status: isLate ? 'late' : 'present',
           overtime: 0,
-          device: 'ZKTeco-Main-Gate',
-          remarks: 'Self Check-In'
+          device: 'ZKTeco Hardware Terminal',
+          deviceIp: '192.168.1.201',
+          remarks: 'Biometric Check-In (Hardware Synced)'
         };
         allAtt.push(rec);
       }
       DB.set('attendance', allAtt);
     } else if (type === 'ot_out' || type === 'b_out') {
-      if (!rec || !rec.timeIn) {
-        Toast.show('Please check in first before recording OT-Out', 'warning');
+      if (!rec || (!rec.timeIn && !rec.checkIn)) {
+        Toast.show('Please check in first before recording Break Out', 'warning');
         return;
       }
       if (rec.breakOut) {
-        Toast.show('OT-Out already recorded at ' + rec.breakOut, 'info');
+        Toast.show('Break Out already recorded at ' + rec.breakOut, 'info');
         return;
       }
+      this.playPunchChime('out');
       rec.breakOut = timeStr;
       DB.set('attendance', allAtt);
     } else if (type === 'ot_in' || type === 'b_in') {
       if (!rec || !rec.breakOut) {
-        Toast.show('Please record OT-Out before recording OT-In', 'warning');
+        Toast.show('Please record Break Out before recording Break In', 'warning');
         return;
       }
       if (rec.breakIn) {
-        Toast.show('OT-In already recorded at ' + rec.breakIn, 'info');
+        Toast.show('Break In already recorded at ' + rec.breakIn, 'info');
         return;
       }
+      this.playPunchChime('in');
       rec.breakIn = timeStr;
       DB.set('attendance', allAtt);
     } else if (type === 'out' || type === 'check_out') {
-      if (!rec || !rec.timeIn) {
+      if (!rec || (!rec.timeIn && !rec.checkIn)) {
         Toast.show('Please check in first before checking out', 'warning');
         return;
       }
+      this.playPunchChime('out');
       rec.timeOut = timeStr;
+      rec.checkOut = timeStr;
+      const inTime = rec.timeIn || rec.checkIn;
       const ot = (typeof Attendance !== 'undefined' && Attendance.calcOvertime)
-        ? Attendance.calcOvertime(rec.timeIn, rec.timeOut, rec.breakOut, rec.breakIn)
+        ? Attendance.calcOvertime(inTime, rec.timeOut, rec.breakOut, rec.breakIn)
         : 0;
       rec.overtime = ot;
+      rec.hrs = (typeof Attendance !== 'undefined' && Attendance.calcHours)
+        ? Attendance.calcHours(inTime, rec.timeOut)
+        : '8h 00m';
+      rec.completionStatus = 'complete';
       DB.set('attendance', allAtt);
     }
 
     // Record in attendance_logs machine telemetry
-    const punchLabel = (type === 'in' || type === 'check_in') ? 'Check-In' : (type === 'ot_out' || type === 'b_out' ? 'OT-Out' : (type === 'ot_in' || type === 'b_in' ? 'OT-In' : 'Check-Out'));
-    const punchType = (type === 'in' || type === 'check_in') ? 'check_in' : (type === 'ot_out' || type === 'b_out' ? 'ot_out' : (type === 'ot_in' || type === 'b_in' ? 'ot_in' : 'check_out'));
+    const punchLabel = (type === 'in' || type === 'check_in') ? 'Check-In' : (type === 'ot_out' || type === 'b_out' ? 'Break-Out' : (type === 'ot_in' || type === 'b_in' ? 'Break-In' : 'Check-Out'));
+    const punchType = (type === 'in' || type === 'check_in') ? 'check_in' : (type === 'ot_out' || type === 'b_out' ? 'break_out' : (type === 'ot_in' || type === 'b_in' ? 'break_in' : 'check_out'));
     const allLogs = DB.get('attendance_logs') || [];
-    const empDayLogs = allLogs.filter(l => l.employeeId === myId && l.date === today);
+    const empDayLogs = allLogs.filter(l => (String(l.employeeId) === String(myId) || String(l.employeeId) === String(curEmp.empNo)) && l.date === today);
     const punchNumber = empDayLogs.length + 1;
 
     allLogs.push({
@@ -488,7 +681,7 @@ const Dashboard = {
       punchType,
       punchLabel,
       punchNumber,
-      device: 'ZKTeco-Main-Gate',
+      device: 'ZKTeco Hardware Terminal',
       deviceIp: '192.168.1.201',
       verifyMode: 'Biometric / Fingerprint'
     });
@@ -496,20 +689,74 @@ const Dashboard = {
 
     if (rec) {
       rec.punchCount = punchNumber;
-      rec.completionStatus = (rec.timeIn && rec.breakOut && rec.breakIn && rec.timeOut) ? 'complete' : 'in_progress';
       DB.set('attendance', allAtt);
     }
 
-    if (type === 'in') {
-      Toast.show(`Check-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
+    if (type === 'in' || type === 'check_in') {
+      Toast.show(`Biometric Check-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
     } else if (type === 'ot_out' || type === 'b_out') {
-      Toast.show(`OT-Out recorded at ${timeStr} (Swipe #${punchNumber})`, 'info');
+      Toast.show(`Break Out recorded at ${timeStr} (Swipe #${punchNumber})`, 'info');
     } else if (type === 'ot_in' || type === 'b_in') {
-      Toast.show(`OT-In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
-    } else if (type === 'out') {
+      Toast.show(`Break In recorded at ${timeStr} (Swipe #${punchNumber})`, 'success');
+    } else if (type === 'out' || type === 'check_out') {
       Toast.show(`Check-Out recorded at ${timeStr} (Swipe #${punchNumber}). Daily shift completed!`, 'success');
     }
     this.render();
+  },
+
+  startAutoSync() {
+    if (this._autoSyncTimer) clearInterval(this._autoSyncTimer);
+    this._autoSyncTimer = setInterval(() => {
+      if (document.hidden) return;
+      if (typeof App !== 'undefined' && App.currentModule !== 'dashboard') {
+        this.stopAutoSync();
+        return;
+      }
+      this.refreshHeroPunchClock();
+    }, 15000);
+  },
+
+  stopAutoSync() {
+    if (this._autoSyncTimer) {
+      clearInterval(this._autoSyncTimer);
+      this._autoSyncTimer = null;
+    }
+  },
+
+  refreshHeroPunchClock() {
+    const today = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : new Date().toISOString().slice(0, 10);
+    const curEmp = Auth.employee || {};
+    const curEmpId = curEmp.id || Auth.user?.employeeId || 1;
+    const att = (typeof DB !== 'undefined' && DB.get ? DB.get('attendance') : []) || [];
+    let myTodayAtt = att.find(a => (String(a.employeeId) === String(curEmpId) || String(a.employeeId) === String(curEmp.empNo)) && a.date === today);
+    const allLogs = (typeof DB !== 'undefined' && DB.get ? DB.get('attendance_logs') : []) || [];
+    const myTodayLogs = allLogs.filter(l => (String(l.employeeId) === String(curEmpId) || String(l.employeeId) === String(curEmp.empNo)) && l.date === today);
+    if (myTodayLogs.length > 0) {
+      const inLog = myTodayLogs.find(l => l.punchType === 'check_in' || l.type === 'check_in');
+      const outLog = [...myTodayLogs].reverse().find(l => l.punchType === 'check_out' || l.type === 'check_out');
+      if (!myTodayAtt) {
+        myTodayAtt = {
+          id: 'live_log_' + (inLog?.id || Date.now()),
+          employeeId: curEmpId,
+          date: today,
+          timeIn: inLog?.time || '',
+          checkIn: inLog?.time || '',
+          timeOut: outLog?.time || '',
+          checkOut: outLog?.time || '',
+          status: 'present',
+          device: inLog?.device || 'ZKTeco Hardware Terminal'
+        };
+      } else {
+        if (!myTodayAtt.timeIn && inLog) myTodayAtt.timeIn = inLog.time;
+        if (!myTodayAtt.checkIn && inLog) myTodayAtt.checkIn = inLog.time;
+        if (!myTodayAtt.timeOut && outLog) myTodayAtt.timeOut = outLog.time;
+        if (!myTodayAtt.checkOut && outLog) myTodayAtt.checkOut = outLog.time;
+      }
+    }
+    const container = document.querySelector('.hero-punch-clock-widget');
+    if (container && container.parentElement) {
+      container.parentElement.innerHTML = this.renderHeroPunchClockWidget(myTodayAtt);
+    }
   },
 
   
@@ -882,10 +1129,37 @@ const Dashboard = {
     const rawCode = curEmp.empNo || curEmp.employeeId || curEmp.code || (curEmp.id ? `EMP-${String(curEmp.id).padStart(3, '0')}` : 'EMP-001');
     const curEmpCode = String(rawCode).startsWith('EMP-') ? rawCode : `EMP-${String(rawCode).padStart(3, '0')}`;
     const curEmpId = curEmp.id || (Auth.user?.employeeId) || 1;
-    const myTodayAtt = att.find(a => a.employeeId === curEmpId && a.date === today);
+    let myTodayAtt = att.find(a => (String(a.employeeId) === String(curEmpId) || String(a.employeeId) === String(curEmp.empNo)) && a.date === today);
 
+    // Also link with biometric hardware punches logged in attendance_logs
+    const allLogs = (typeof DB !== 'undefined' && DB.get ? DB.get('attendance_logs') : []) || [];
+    const myTodayLogs = allLogs.filter(l => (String(l.employeeId) === String(curEmpId) || String(l.employeeId) === String(curEmp.empNo)) && l.date === today);
+    if (myTodayLogs.length > 0) {
+      const inLog = myTodayLogs.find(l => l.punchType === 'check_in' || l.type === 'check_in');
+      const outLog = [...myTodayLogs].reverse().find(l => l.punchType === 'check_out' || l.type === 'check_out');
+      if (!myTodayAtt) {
+        myTodayAtt = {
+          id: 'live_log_' + (inLog?.id || Date.now()),
+          employeeId: curEmpId,
+          date: today,
+          timeIn: inLog?.time || '',
+          checkIn: inLog?.time || '',
+          timeOut: outLog?.time || '',
+          checkOut: outLog?.time || '',
+          status: 'present',
+          device: inLog?.device || 'ZKTeco Hardware Terminal'
+        };
+      } else {
+        if (!myTodayAtt.timeIn && inLog) myTodayAtt.timeIn = inLog.time;
+        if (!myTodayAtt.checkIn && inLog) myTodayAtt.checkIn = inLog.time;
+        if (!myTodayAtt.timeOut && outLog) myTodayAtt.timeOut = outLog.time;
+        if (!myTodayAtt.checkOut && outLog) myTodayAtt.checkOut = outLog.time;
+      }
+    }
+
+    content.setAttribute('data-theme', 'light');
     content.innerHTML = `
-      <div class="animate-fade-in dashboard-reference-layout" style="display:flex;flex-direction:column;gap:12px">
+      <div class="animate-fade-in dashboard-reference-layout" data-theme="light" style="display:flex;flex-direction:column;gap:12px">
 
         <!-- ══════════════════════════════════════════════════════
              1. DASHBOARD OVERVIEW & HERO OFFICE TIME PUNCH-CLOCK WIDGET
@@ -1484,6 +1758,8 @@ const Dashboard = {
     `;// Render charts & animated number counters after DOM is ready
     setTimeout(() => {
       this.renderCharts(att.filter(a => scopedIds.includes(a.employeeId)), scopedEmps, scopedLeaves, Auth.role === 'dept_manager');
+      this.startPunchClockTimer();
+      this.startAutoSync();
       if (typeof Utils !== 'undefined' && Utils.animateCounter) {
         document.querySelectorAll('.animate-count-up').forEach(el => {
           const val = el.textContent.trim();
@@ -2411,7 +2687,32 @@ const Dashboard = {
       `;
     }).join(' ');
 
-    const myTodayAtt = allAtt.find(a => a.employeeId === myId && a.date === today);
+    let myTodayAtt = allAtt.find(a => (String(a.employeeId) === String(myId) || String(a.employeeId) === String(myEmp?.empNo)) && a.date === today);
+    const allLogs = (typeof DB !== 'undefined' && DB.get ? DB.get('attendance_logs') : []) || [];
+    const myTodayLogs = allLogs.filter(l => (String(l.employeeId) === String(myId) || String(l.employeeId) === String(myEmp?.empNo)) && l.date === today);
+    if (myTodayLogs.length > 0) {
+      const inLog = myTodayLogs.find(l => l.punchType === 'check_in' || l.type === 'check_in');
+      const outLog = [...myTodayLogs].reverse().find(l => l.punchType === 'check_out' || l.type === 'check_out');
+      if (!myTodayAtt) {
+        myTodayAtt = {
+          id: 'live_log_' + (inLog?.id || Date.now()),
+          employeeId: myId,
+          date: today,
+          timeIn: inLog?.time || '',
+          checkIn: inLog?.time || '',
+          timeOut: outLog?.time || '',
+          checkOut: outLog?.time || '',
+          status: 'present',
+          device: inLog?.device || 'ZKTeco Hardware Terminal'
+        };
+      } else {
+        if (!myTodayAtt.timeIn && inLog) myTodayAtt.timeIn = inLog.time;
+        if (!myTodayAtt.checkIn && inLog) myTodayAtt.checkIn = inLog.time;
+        if (!myTodayAtt.timeOut && outLog) myTodayAtt.timeOut = outLog.time;
+        if (!myTodayAtt.checkOut && outLog) myTodayAtt.checkOut = outLog.time;
+      }
+    }
+
     const thisMonth = today.slice(0, 7);
     const myMonthAtt = allAtt.filter(a => a.employeeId === myId && a.date.startsWith(thisMonth));
     const myPresent = myMonthAtt.filter(a => a.status === 'present').length;
@@ -2434,9 +2735,10 @@ const Dashboard = {
       workingHoursToday = 'In Progress';
     }
 
+    content.setAttribute('data-theme', 'light');
     content.innerHTML = `
-      <div class="animate-fade-in">
-        <!-- Top Bar: Employee Greeting -->
+      <div class="animate-fade-in dashboard-reference-layout" data-theme="light">
+        <!-- Top Bar: Employee Greeting & Hero Office Time Punch Clock Widget -->
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
           <div>
             <div style="display:flex;align-items:center;gap:10px">
@@ -2447,13 +2749,8 @@ const Dashboard = {
               ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee.fullName}!
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button class="btn btn-secondary btn-sm" onclick="App.openHistoryDrawer()" title="View your activity history drawer (Ctrl+H)">
-              <i class="fa fa-clock-rotate-left"></i> My Activity History
-            </button>
-            <button class="btn btn-ghost btn-sm" onclick="Dashboard.render()" title="Refresh Dashboard">
-              <i class="fa fa-rotate"></i> Refresh
-            </button>
+          <div style="flex:1;min-width:320px;max-width:880px">
+            ${this.renderHeroPunchClockWidget(myTodayAtt)}
           </div>
         </div>
 
@@ -2783,6 +3080,10 @@ const Dashboard = {
         </div>
       </div>
     `;
+    setTimeout(() => {
+      this.startPunchClockTimer();
+      this.startAutoSync();
+    }, 100);
   }
 };
 

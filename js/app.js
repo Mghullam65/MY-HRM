@@ -188,6 +188,10 @@ const App = {
     const login = document.getElementById('login-page');
     const trial = document.getElementById('trial-page');
     const savedLandingTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedLandingTheme);
+    document.documentElement.setAttribute('data-landing-theme', savedLandingTheme);
+    document.body.setAttribute('data-theme', savedLandingTheme);
+    document.body.setAttribute('data-landing-theme', savedLandingTheme);
     if (landing) {
       landing.style.display = 'block';
       landing.setAttribute('data-landing-theme', savedLandingTheme);
@@ -227,6 +231,10 @@ const App = {
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
     const savedLandingTheme = localStorage.getItem('landing_theme') || localStorage.getItem('hrm_landing_theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedLandingTheme);
+    document.documentElement.setAttribute('data-landing-theme', savedLandingTheme);
+    document.body.setAttribute('data-theme', savedLandingTheme);
+    document.body.setAttribute('data-landing-theme', savedLandingTheme);
     if (modDetail) {
       modDetail.style.display = 'block';
       modDetail.setAttribute('data-landing-theme', savedLandingTheme);
@@ -265,7 +273,17 @@ const App = {
     const app = document.getElementById('app');
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'none';
-    if (login) login.style.display = 'flex';
+    
+    // Login Page is STRICTLY Light Mode Only
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.removeAttribute('data-landing-theme');
+    document.body.setAttribute('data-theme', 'light');
+    document.body.removeAttribute('data-landing-theme');
+    
+    if (login) {
+      login.style.display = 'flex';
+      login.setAttribute('data-theme', 'light');
+    }
     if (trial) trial.style.display = 'none';
     if (app) app.style.display = 'none';
 
@@ -506,7 +524,7 @@ const App = {
     const allowed = this.getAllowedModules();
     const currentMod = this.currentModule || 'dashboard';
 
-    // 10 Core Reference Modules from Reference Screenshot
+    // 11 Core Reference Navigation Tabs & Groupings
     const refTabs = [
       { id: 'dashboard', label: 'Dashboard', icon: 'fa-house', direct: true },
       { id: 'employees', label: 'Employees', icon: 'fa-users', chevron: true },
@@ -516,21 +534,72 @@ const App = {
       { id: 'recruitment', label: 'Recruitment', icon: 'fa-briefcase', chevron: true },
       { id: 'performance', label: 'Performance', icon: 'fa-chart-simple', chevron: true },
       { id: 'reports', label: 'Reports', icon: 'fa-chart-line', chevron: true },
+      { id: 'operations', label: 'Operations', icon: 'fa-cubes', chevron: true },
       { id: 'administration', label: 'Master Data', icon: 'fa-database', chevron: true },
       { id: 'settings', label: 'Settings', icon: 'fa-gear', chevron: true }
     ];
 
-    const tabSubMenus = {"employees":[{"id":"employees","label":"Employee Directory","icon":"fa-id-card"},{"id":"employees","label":"Org Chart & Hierarchy","icon":"fa-sitemap"},{"id":"employees","label":"e-DMS Cloud Files","icon":"fa-folder-closed"}],"attendance":[{"id":"attendance","label":"Attendance & Shifts","icon":"fa-clock"},{"id":"attendance","label":"Biometric Machine Sync","icon":"fa-fingerprint"},{"id":"attendance","label":"Overtime & Grace Logs","icon":"fa-business-time"}],"leaves":[{"id":"leaves","label":"Leave Requests & Approvals","icon":"fa-calendar-check"},{"id":"leaves","label":"Public Holidays Calendar","icon":"fa-calendar-days"},{"id":"leaves","label":"Leave Balances & Accrual","icon":"fa-scale-balanced"}],"recruitment":[{"id":"recruitment","label":"Job Openings & ATS","icon":"fa-briefcase"},{"id":"recruitment","label":"Candidate Kanban Board","icon":"fa-table-columns"},{"id":"recruitment","label":"Interview Scheduling","icon":"fa-calendar-user"}],"performance":[{"id":"performance","label":"Performance Reviews","icon":"fa-chart-line"},{"id":"performance","label":"Corporate OKRs & Goals","icon":"fa-bullseye"},{"id":"performance","label":"360° Peer Feedback","icon":"fa-arrows-rotate"}],"reports":[{"id":"reports","label":"Workforce Analytics","icon":"fa-chart-pie"},{"id":"reports","label":"Pakistan Tax Summary (FBR)","icon":"fa-file-invoice-dollar"},{"id":"reports","label":"Bank Disbursal Checksums","icon":"fa-building-columns"}],"administration":[{"id":"administration","label":"Departments & Designations","icon":"fa-building"},{"id":"companies","label":"Multi-Company Legal Entities","icon":"fa-building-shield"},{"id":"administration","label":"Audit Trail Logs","icon":"fa-shield-halved"}],"settings":[{"id":"settings","label":"System Configuration","icon":"fa-sliders"},{"id":"settings","label":"Theme & Accent Palette","icon":"fa-palette"},{"id":"settings","label":"RBAC Permission Matrix","icon":"fa-user-shield"}]};
+    const tabSubMenus = {
+      employees: [
+        { id: 'employees', view: 'directory', label: 'Employee Directory', icon: 'fa-id-card' },
+        { id: 'employees', view: 'orgchart', label: 'Org Chart & Hierarchy', icon: 'fa-sitemap' },
+        { id: 'employees', view: 'edms', label: 'e-DMS Cloud Files', icon: 'fa-folder-closed' }
+      ],
+      attendance: [
+        { id: 'attendance', view: 'daily', label: 'Daily Timesheet & Shifts', icon: 'fa-clock' },
+        { id: 'attendance', view: 'machine', label: 'Biometric Machine Sync', icon: 'fa-fingerprint' },
+        { id: 'attendance', view: 'roster', label: 'Duty Rosters & Overtime', icon: 'fa-business-time' }
+      ],
+      leaves: [
+        { id: 'leaves', view: 'requests', label: 'Leave Requests & Approvals', icon: 'fa-calendar-check' },
+        { id: 'leaves', view: 'calendar', label: 'Public Holidays Calendar', icon: 'fa-calendar-days' },
+        { id: 'leaves', view: 'balances', label: 'Leave Quotas & Balances', icon: 'fa-scale-balanced' }
+      ],
+      recruitment: [
+        { id: 'recruitment', view: 'openings', label: 'Job Openings & ATS', icon: 'fa-briefcase' },
+        { id: 'recruitment', view: 'pipeline', label: 'Candidate Kanban Board', icon: 'fa-table-columns' },
+        { id: 'recruitment', view: 'interviews', label: 'Interview Scheduling', icon: 'fa-calendar-user' }
+      ],
+      performance: [
+        { id: 'performance', view: 'reviews', label: 'Performance Reviews', icon: 'fa-chart-line' },
+        { id: 'performance', view: 'goals', label: 'Corporate OKRs & Goals', icon: 'fa-bullseye' },
+        { id: 'performance', view: '360', label: '360° Peer Feedback', icon: 'fa-arrows-rotate' }
+      ],
+      reports: [
+        { id: 'reports', view: 'workforce', label: 'Workforce Analytics', icon: 'fa-chart-pie' },
+        { id: 'reports', view: 'tax', label: 'Pakistan Tax Summary (FBR)', icon: 'fa-file-invoice-dollar' },
+        { id: 'reports', view: 'bank', label: 'Bank Disbursal Checksums', icon: 'fa-building-columns' }
+      ],
+      operations: [
+        { id: 'assets', view: '', label: 'Assets & Inventory', icon: 'fa-laptop-file' },
+        { id: 'expenses', view: '', label: 'Expense Claims', icon: 'fa-receipt' },
+        { id: 'helpdesk', view: '', label: 'Helpdesk Tickets', icon: 'fa-headset' },
+        { id: 'events', view: '', label: 'Events & Notices', icon: 'fa-bullhorn' },
+        { id: 'settlement', view: '', label: 'Final Settlement', icon: 'fa-file-invoice-dollar' }
+      ],
+      administration: [
+        { id: 'administration', view: 'departments', label: 'Departments & Designations', icon: 'fa-building' },
+        { id: 'companies', view: '', label: 'Multi-Company Legal Entities', icon: 'fa-building-shield' },
+        { id: 'administration', view: 'audit', label: 'Audit Trail Logs', icon: 'fa-shield-halved' }
+      ],
+      settings: [
+        { id: 'settings', view: 'general', label: 'System Configuration', icon: 'fa-sliders' },
+        { id: 'settings', view: 'appearance', label: 'Theme & Accent Palette', icon: 'fa-palette' },
+        { id: 'settings', view: 'roles', label: 'RBAC Permission Matrix', icon: 'fa-user-shield' }
+      ]
+    };
 
     const renderedTabs = refTabs.map(t => {
-      if (!allowed.has(t.id) && t.id !== 'dashboard') return '';
-      const isActive = currentMod === t.id || (t.id === 'administration' && currentMod === 'master');
+      const isOps = t.id === 'operations';
+      if (!isOps && !allowed.has(t.id) && t.id !== 'dashboard') return '';
       const subs = tabSubMenus[t.id] || [];
+      const isSubActive = subs.some(s => s.id === currentMod);
+      const isActive = currentMod === t.id || (t.id === 'administration' && currentMod === 'master') || (isOps && ['assets', 'expenses', 'helpdesk', 'events', 'settlement'].includes(currentMod)) || isSubActive;
 
       return `
         <div class="nav-tab-dropdown-wrap" style="position:relative;display:inline-flex;align-items:center">
           <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-module="${t.id}"
-            onclick="App.navigate('${t.id}'); App.closeMobileSidebar();"
+            onclick="${t.chevron ? "/* Toggle or navigate */ App.navigate('" + (subs[0]?.id || t.id) + "', '" + (subs[0]?.view || '') + "');" : "App.navigate('" + t.id + "');"} App.closeMobileSidebar();"
             style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:${isActive ? '700' : '500'};color:${isActive ? '#ea580c' : 'var(--text-2,#475569)'};background:${isActive ? '#fff7ed' : 'transparent'};border:${isActive ? '1px solid #fed7aa' : '1px solid transparent'};white-space:nowrap;transition:all 0.15s">
             <i class="fa ${t.icon}" style="font-size:13px;color:${isActive ? '#f97316' : 'var(--text-3,#64748b)'}"></i>
             <span>${t.label}</span>
@@ -538,9 +607,9 @@ const App = {
           </div>
 
           ${subs.length > 0 ? `
-            <div class="nav-tab-sub-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.1);min-width:190px;z-index:1060;padding:6px 0">
+            <div class="nav-tab-sub-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,0.1);min-width:195px;z-index:1060;padding:6px 0">
               ${subs.map(s => `
-                <a href="javascript:void(0)" onclick="App.navigate('${s.id}'); App.closeMobileSidebar();" style="display:flex;align-items:center;gap:9px;padding:8px 14px;color:var(--text,#1e293b);font-size:12px;font-weight:600;text-decoration:none;transition:background 0.12s" onmouseover="this.style.background='var(--surface,#f8fafc)'" onmouseout="this.style.background='transparent'">
+                <a href="javascript:void(0)" onclick="App.navigate('${s.id}', '${s.view || ''}'); App.closeMobileSidebar();" style="display:flex;align-items:center;gap:9px;padding:8px 14px;color:var(--text,#1e293b);font-size:12px;font-weight:600;text-decoration:none;transition:background 0.12s" onmouseover="this.style.background='var(--surface,#f8fafc)'" onmouseout="this.style.background='transparent'">
                   <i class="fa ${s.icon}" style="font-size:12px;color:var(--primary,#2563eb);width:14px;text-align:center"></i>
                   <span>${s.label}</span>
                 </a>
@@ -1237,19 +1306,61 @@ const App = {
       }
     }
 
+    if (module === 'dashboard') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.setAttribute('data-theme', 'light');
+    } else {
+      if (typeof Dashboard !== 'undefined') {
+        if (Dashboard._punchClockTimer) {
+          clearInterval(Dashboard._punchClockTimer);
+          Dashboard._punchClockTimer = null;
+        }
+        if (typeof Dashboard.stopAutoSync === 'function') {
+          Dashboard.stopAutoSync();
+        }
+      }
+    }
+
     const doRender = () => {
       try {
         switch (module) {
-          case 'dashboard':     Dashboard.render(); break;
+          case 'dashboard':
+            document.documentElement.setAttribute('data-theme', 'light');
+            document.body.setAttribute('data-theme', 'light');
+            Dashboard.render();
+            break;
           case 'chat':
             if (content) {
               content.classList.add('chat-fullscreen-page-content');
             }
             if (typeof Chat !== 'undefined') Chat.renderFullWorkspace();
             break;
-          case 'employees':     Employees.render(); break;
-          case 'attendance':    Attendance.render(); break;
-          case 'leaves':        Leaves.render(); break;
+          case 'employees':
+            if (subView && typeof Employees !== 'undefined') {
+              Employees.currentView = subView;
+            }
+            Employees.render();
+            break;
+          case 'attendance':
+            Attendance.render();
+            if (subView && typeof Attendance !== 'undefined' && Attendance.switchTab) {
+              setTimeout(() => {
+                if (subView === 'machine') Attendance.switchTab('machine');
+                else if (subView === 'roster') Attendance.switchTab('shifts');
+                else Attendance.switchTab('daily');
+              }, 40);
+            }
+            break;
+          case 'leaves':
+            Leaves.render();
+            if (subView && typeof Leaves !== 'undefined' && Leaves.switchTab) {
+              setTimeout(() => {
+                if (subView === 'calendar') Leaves.switchTab('holidays');
+                else if (subView === 'balances') Leaves.switchTab('balances');
+                else Leaves.switchTab('requests');
+              }, 40);
+            }
+            break;
           case 'payroll':       Payroll.render(); break;
           case 'settlement':
             if (typeof Employees !== 'undefined') {
@@ -1268,8 +1379,18 @@ const App = {
               setTimeout(() => { if (typeof Settings !== 'undefined') Settings.switchSection('corporate_entities'); }, 50);
             }
             break;
-          case 'performance':   Performance.render(); break;
-          case 'recruitment':   Recruitment.render(); break;
+          case 'performance':
+            Performance.render();
+            if (subView && typeof Performance !== 'undefined' && Performance.switchTab) {
+              setTimeout(() => Performance.switchTab(subView), 40);
+            }
+            break;
+          case 'recruitment':
+            Recruitment.render();
+            if (subView && typeof Recruitment !== 'undefined' && Recruitment.switchTab) {
+              setTimeout(() => Recruitment.switchTab(subView), 40);
+            }
+            break;
           case 'assets':        Assets.render(); break;
           case 'expenses':      Expenses.render(); break;
           case 'helpdesk':      Helpdesk.render(); break;
@@ -1281,15 +1402,33 @@ const App = {
               Reports.render();
             }
             break;
-          case 'reports':       Reports.render(); break;
-          case 'administration':Administration.render(); break;
+          case 'reports':
+            if (subView && typeof Reports !== 'undefined') {
+              if (subView === 'tax') Reports.currentTab = 'tax_summary';
+              else if (subView === 'bank') Reports.currentTab = 'bank_advice';
+              else Reports.currentTab = 'workforce';
+            }
+            Reports.render();
+            break;
+          case 'administration':
+            Administration.render();
+            if (subView && typeof Administration !== 'undefined' && Administration.switchSection) {
+              setTimeout(() => Administration.switchSection(subView), 40);
+            }
+            break;
           case 'settings':
             this.currentModule = 'administration';
             if (typeof Administration !== 'undefined') {
               Administration.currentSection = 'settings';
               Administration.render();
+              if (subView && typeof Settings !== 'undefined' && Settings.switchSection) {
+                setTimeout(() => Settings.switchSection(subView), 40);
+              }
             } else if (typeof Settings !== 'undefined') {
               Settings.render();
+              if (subView && Settings.switchSection) {
+                setTimeout(() => Settings.switchSection(subView), 40);
+              }
             }
             break;
           case 'profile':       Employees.renderProfile(Auth.employee?.id || 1, true); break;
@@ -1366,6 +1505,12 @@ const App = {
   },
 
   toggleTheme() {
+    if (this.currentModule === 'dashboard') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.body.setAttribute('data-theme', 'light');
+      if (typeof Toast !== 'undefined') Toast.show('Dashboard is designed exclusively for Light Mode.', 'info');
+      return;
+    }
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     const next = current === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
@@ -2941,11 +3086,17 @@ const Login = {
     const container = document.getElementById('login-page');
     if (!container) return;
 
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    // Login page is STRICTLY Light Mode Only
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.documentElement.removeAttribute('data-landing-theme');
+    document.body.setAttribute('data-theme', 'light');
+    document.body.removeAttribute('data-landing-theme');
+    container.setAttribute('data-theme', 'light');
+
     const acc = this.accounts[this.activeAccount] || this.accounts.admin;
 
     container.innerHTML = `
-      <div class="login-split-page login-tri-page">
+      <div class="login-split-page login-tri-page" data-theme="light">
         <!-- ─── 1. LEFT HERO & BRAND PANE ─── -->
         <div class="login-split-left login-ref-left">
           <div class="login-ref-dot-pattern"></div>
@@ -3023,15 +3174,7 @@ const Login = {
             </button>
           </div>
 
-          <div class="login-split-card login-ref-card animate-slide-up">
-            <!-- Top Right Card Theme Pill & Top Center Orange Logo -->
-            <div class="login-card-top-row">
-              <button type="button" class="login-theme-pill-btn" onclick="App.toggleTheme()" title="Toggle Dark/Light Mode">
-                <span class="theme-icon-sun ${!isDark ? 'active' : ''}"><i class="fa fa-sun"></i></span>
-                <span class="theme-icon-moon ${isDark ? 'active' : ''}"><i class="fa fa-moon"></i></span>
-              </button>
-            </div>
-
+          <div class="login-split-card login-ref-card animate-slide-up" data-theme="light">
             <div class="login-card-center-logo">
               <i class="fa fa-users"></i>
             </div>
