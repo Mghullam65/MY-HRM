@@ -195,6 +195,60 @@ const Dashboard = {
     }
   },
 
+  quickApproveLeave(leaveId) {
+    if (typeof Leaves !== 'undefined' && Leaves.approve) {
+      Leaves.approve(leaveId);
+      Toast.show('Leave request approved instantly', 'success');
+    } else {
+      DB.update('leave_requests', leaveId, { status: 'approved' });
+      Toast.show('Leave request approved', 'success');
+    }
+    this.refreshInbox();
+  },
+
+  quickRejectLeave(leaveId) {
+    if (typeof Leaves !== 'undefined' && Leaves.reject) {
+      Leaves.reject(leaveId);
+      Toast.show('Leave request rejected', 'info');
+    } else {
+      DB.update('leave_requests', leaveId, { status: 'rejected' });
+      Toast.show('Leave request rejected', 'info');
+    }
+    this.refreshInbox();
+  },
+
+  quickApproveOT(name) {
+    const list = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_approved_ot') || '[]' : '[]');
+    list.push({ name, approvedAt: new Date().toISOString() });
+    if (typeof localStorage !== 'undefined') localStorage.setItem('hrm_approved_ot', JSON.stringify(list));
+    Toast.show(`Overtime approved for ${name}`, 'success');
+    this.refreshInbox();
+  },
+
+  quickRejectOT(name) {
+    const list = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_rejected_ot') || '[]' : '[]');
+    list.push({ name, rejectedAt: new Date().toISOString() });
+    if (typeof localStorage !== 'undefined') localStorage.setItem('hrm_rejected_ot', JSON.stringify(list));
+    Toast.show(`Overtime claim rejected for ${name}`, 'info');
+    this.refreshInbox();
+  },
+
+  quickApproveReg(name) {
+    const list = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_approved_reg') || '[]' : '[]');
+    list.push({ name, approvedAt: new Date().toISOString() });
+    if (typeof localStorage !== 'undefined') localStorage.setItem('hrm_approved_reg', JSON.stringify(list));
+    Toast.show(`Missed punch regularized for ${name}`, 'success');
+    this.refreshInbox();
+  },
+
+  quickRejectReg(name) {
+    const list = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_rejected_reg') || '[]' : '[]');
+    list.push({ name, rejectedAt: new Date().toISOString() });
+    if (typeof localStorage !== 'undefined') localStorage.setItem('hrm_rejected_reg', JSON.stringify(list));
+    Toast.show(`Regularization rejected for ${name}`, 'info');
+    this.refreshInbox();
+  },
+
   renderHeadlinesTicker(tickerItemsHtml) {
     const defaultItems = `
       <span class="ticker-item holiday" onclick="App.navigate('events')" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0">
@@ -336,8 +390,10 @@ const Dashboard = {
     const officeHoursVal = isCheckedIn ? (myTodayAtt?.hrs || initialCenterTimer) : '—';
     const deviceName = myTodayAtt?.device || 'ZKTeco Hardware Terminal';
 
+    const isActiveDuty = isCheckedIn && !isCheckedOut;
+
     return `
-      <div class="hero-punch-clock-widget">
+      <div class="hero-punch-clock-widget ${isActiveDuty ? 'is-active' : ''}">
         <!-- Section 1 (Left): Analog Clock & Live Timer / Status Badge -->
         <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
           <svg width="60" height="60" viewBox="0 0 100 100" style="flex-shrink:0;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.22))">
@@ -521,7 +577,10 @@ const Dashboard = {
       const outEl = document.getElementById('punch-clock-checkout-time');
       const checkOutRaw = outEl?.dataset?.time || (outEl?.textContent?.trim() !== '- : - -' && outEl?.textContent?.trim() !== '—' ? outEl?.textContent?.trim() : null);
 
-      if (checkInRaw && checkInRaw !== '- : - -' && checkInRaw !== '—' && !checkOutRaw) {
+      const isOnDuty = Boolean(checkInRaw && checkInRaw !== '- : - -' && checkInRaw !== '—' && !checkOutRaw);
+      widget.classList.toggle('is-active', isOnDuty);
+
+      if (isOnDuty) {
         // Active on duty - live elapsed timer ticking!
         const [inH, inM, inS] = checkInRaw.split(':').map(Number);
         if (!isNaN(inH) && !isNaN(inM)) {
@@ -852,30 +911,36 @@ const Dashboard = {
   kpiCard(label, value, icon, color, change, changeDir, sparklinePoints) {
     const isUp = changeDir === 'up';
     const trendColor = isUp ? '#10b981' : '#ef4444';
+    const trendBg = isUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    const trendBorder = isUp ? 'rgba(16, 185, 129, 0.22)' : 'rgba(239, 68, 68, 0.22)';
     const arrowIcon = isUp ? '↑' : '↓';
+    const gradId = 'kpi-grad-' + Math.random().toString(36).substr(2, 9);
     
     // Generate smooth SVG sparkline path
-    const w = 70, h = 26;
+    const w = 74, h = 28;
     const min = Math.min(...sparklinePoints);
     const max = Math.max(...sparklinePoints);
     const range = (max - min) || 1;
     const coords = sparklinePoints.map((pt, i) => {
       const x = (i / (sparklinePoints.length - 1)) * w;
-      const y = h - ((pt - min) / range) * (h - 6) - 3;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
+      const y = h - ((pt - min) / range) * (h - 8) - 4;
+      return [x, y];
     });
-    const d = coords.reduce((acc, curr, i, arr) => {
-      if (i === 0) return `M ${curr}`;
-      const prev = arr[i - 1].split(',');
-      const c = curr.split(',');
-      const mx = ((parseFloat(prev[0]) + parseFloat(c[0])) / 2).toFixed(1);
-      return `${acc} C ${mx},${prev[1]} ${mx},${c[1]} ${curr}`;
+    const linePath = coords.reduce((acc, curr, i, arr) => {
+      if (i === 0) return `M ${curr[0].toFixed(1)},${curr[1].toFixed(1)}`;
+      const prev = arr[i - 1];
+      const mx = ((prev[0] + curr[0]) / 2).toFixed(1);
+      return `${acc} C ${mx},${prev[1].toFixed(1)} ${mx},${curr[1].toFixed(1)} ${curr[0].toFixed(1)},${curr[1].toFixed(1)}`;
     }, '');
 
+    const lastCoord = coords[coords.length - 1];
+    const firstCoord = coords[0];
+    const areaPath = `${linePath} L ${lastCoord[0].toFixed(1)},${h} L ${firstCoord[0].toFixed(1)},${h} Z`;
+
     return `
-      <div class="dash-ref-kpi-card" style="background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden">
+      <div class="dash-ref-kpi-card" style="background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 20px -4px rgba(0,0,0,0.03);display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden">
         <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:38px;height:38px;border-radius:10px;background:${color}18;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">
+          <div style="width:40px;height:40px;border-radius:10px;background:${color}18;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:inset 0 0 0 1px ${color}28">
             <i class="fa ${icon}"></i>
           </div>
           <div style="min-width:0;flex:1">
@@ -884,11 +949,19 @@ const Dashboard = {
           </div>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
-          <span style="font-size:11px;font-weight:700;color:${trendColor};display:flex;align-items:center;gap:2px">
+          <span style="font-size:10.5px;font-weight:700;color:${trendColor};background:${trendBg};border:1px solid ${trendBorder};padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px">
             <span>${arrowIcon}</span> ${change}
           </span>
           <svg width="${w}" height="${h}" style="overflow:visible">
-            <path d="${d}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <defs>
+              <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
+                <stop offset="100%" stop-color="${color}" stop-opacity="0.0"/>
+              </linearGradient>
+            </defs>
+            <path d="${areaPath}" fill="url(#${gradId})"/>
+            <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="${lastCoord[0].toFixed(1)}" cy="${lastCoord[1].toFixed(1)}" r="3" fill="#ffffff" stroke="${color}" stroke-width="2"/>
           </svg>
         </div>
       </div>
@@ -1941,11 +2014,14 @@ const Dashboard = {
     }
 
     // Overtime approvals
+    const approvedOT = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_approved_ot') || '[]' : '[]');
+    const rejectedOT = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_rejected_ot') || '[]' : '[]');
     const otList = [
       { name: 'Ali Raza', hrs: '3.5 hrs', date: 'Yesterday', reason: 'Critical server migration deployment' },
       { name: 'Usman Ali', hrs: '2.0 hrs', date: '07 Oct', reason: 'Month-end ledger balancing' },
       { name: 'Fatima Noor', hrs: '4.0 hrs', date: '06 Oct', reason: 'Mobile UI redesign sprint' }
-    ];
+    ].filter(ot => !approvedOT.some(a => a.name === ot.name) && !rejectedOT.some(r => r.name === ot.name));
+
     otList.forEach(ot => {
       actions.push({
         type: 'overtime',
@@ -1955,17 +2031,20 @@ const Dashboard = {
         title: `${ot.name}: ${ot.hrs} Overtime Claim`,
         sub: `Date: ${ot.date} • Reason: ${ot.reason}`,
         actions: `
-          <button class="btn btn-success btn-xs" onclick="Toast.show('Overtime approved for ${ot.name}', 'success')"><i class="fa fa-check"></i> Approve</button>
-          <button class="btn btn-secondary btn-xs" onclick="Toast.show('Overtime rejected for ${ot.name}', 'info')"><i class="fa fa-times"></i> Reject</button>
+          <button class="btn btn-success btn-xs" onclick="Dashboard.quickApproveOT('${ot.name}')"><i class="fa fa-check"></i> Approve</button>
+          <button class="btn btn-secondary btn-xs" onclick="Dashboard.quickRejectOT('${ot.name}')"><i class="fa fa-times"></i> Reject</button>
         `
       });
     });
 
     // Attendance Regularization approvals
+    const approvedReg = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_approved_reg') || '[]' : '[]');
+    const rejectedReg = JSON.parse(typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_rejected_reg') || '[]' : '[]');
     const regList = [
       { name: 'Bilal Ahmad', date: 'Yesterday', reason: 'Biometric device timeout / missed punch' },
       { name: 'Maria Khan', date: '07 Oct', reason: 'Client site audit visit check-in' }
-    ];
+    ].filter(reg => !approvedReg.some(a => a.name === reg.name) && !rejectedReg.some(r => r.name === reg.name));
+
     regList.forEach(reg => {
       actions.push({
         type: 'regularization',
@@ -1975,8 +2054,8 @@ const Dashboard = {
         title: `${reg.name}: Missed Punch Regularization`,
         sub: `Date: ${reg.date} • Note: ${reg.reason}`,
         actions: `
-          <button class="btn btn-success btn-xs" onclick="Toast.show('Regularization approved for ${reg.name}', 'success')"><i class="fa fa-check"></i> Approve</button>
-          <button class="btn btn-secondary btn-xs" onclick="Toast.show('Regularization rejected for ${reg.name}', 'info')"><i class="fa fa-times"></i> Reject</button>
+          <button class="btn btn-success btn-xs" onclick="Dashboard.quickApproveReg('${reg.name}')"><i class="fa fa-check"></i> Approve</button>
+          <button class="btn btn-secondary btn-xs" onclick="Dashboard.quickRejectReg('${reg.name}')"><i class="fa fa-times"></i> Reject</button>
         `
       });
     });
@@ -1994,8 +2073,8 @@ const Dashboard = {
           title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
           sub: `${l.from} → ${l.to} • "${l.reason || 'Personal emergency'}"`,
           actions: Auth.can('leaves.approve') ? `
-            <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Approve</button>
-            <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
+            <button class="btn btn-success btn-xs" onclick="Dashboard.quickApproveLeave(${l.id})"><i class="fa fa-check"></i> Approve</button>
+            <button class="btn btn-danger btn-xs" onclick="Dashboard.quickRejectLeave(${l.id})"><i class="fa fa-times"></i> Reject</button>
           ` : `<span class="badge badge-secondary">Pending Approval</span>`
         });
       });
@@ -2010,8 +2089,8 @@ const Dashboard = {
           title: `${u?.fullName || 'Employee'} requested ${l.days || 1} day(s) ${Utils.getLeaveTypeName(l.leaveTypeId)}`,
           sub: `${l.from} → ${l.to} ${l.status === 'manager_approved' ? '(Endorsed by Dept Manager)' : ''}`,
           actions: Auth.can('leaves.approve') ? `
-            <button class="btn btn-success btn-xs" onclick="Leaves.approve(${l.id})"><i class="fa fa-check"></i> Final Approve</button>
-            <button class="btn btn-danger btn-xs" onclick="Leaves.reject(${l.id})"><i class="fa fa-times"></i> Reject</button>
+            <button class="btn btn-success btn-xs" onclick="Dashboard.quickApproveLeave(${l.id})"><i class="fa fa-check"></i> Final Approve</button>
+            <button class="btn btn-danger btn-xs" onclick="Dashboard.quickRejectLeave(${l.id})"><i class="fa fa-times"></i> Reject</button>
           ` : `<span class="badge badge-secondary">Pending Corporate Signoff</span>`
         });
       });
@@ -2300,7 +2379,7 @@ const Dashboard = {
           ${filteredActions.length === 0 ? `
             <div style="text-align:center;padding:12px;color:var(--text-3);font-size:12px">No pending items in this category.</div>
           ` : filteredActions.map(act => `
-            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;gap:10px;transition:border-color .15s">
+            <div class="action-inbox-item-row" style="display:flex;justify-content:space-between;align-items:center;padding:7px 11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;gap:10px;transition:all .18s ease">
               <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
                 <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;min-width:24px;border-radius:6px;background:rgba(99,102,241,0.1);color:${act.color};font-size:11px">
                   <i class="fa ${act.icon}"></i>

@@ -20223,6 +20223,56 @@ body.chat-workspace-active #teams-workspace-container {
   background: linear-gradient(135deg, #eefdf5 0%, #e0f2fe 100%) !important;
   border: 1.5px solid #a7f3d0 !important;
   box-shadow: 0 4px 14px rgba(16, 185, 129, 0.09) !important;
+  transition: all 0.25s ease !important;
+}
+
+.hero-punch-clock-widget.is-active,
+.dashboard-reference-layout .hero-punch-clock-widget.is-active {
+  background: linear-gradient(135deg, #ecfdf5 0%, #e0f7fa 100%) !important;
+  border-color: #34d399 !important;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25), 0 8px 24px -4px rgba(16, 185, 129, 0.22) !important;
+  animation: heroPulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes heroPulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25), 0 8px 24px -4px rgba(16, 185, 129, 0.22);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.45), 0 12px 28px -4px rgba(16, 185, 129, 0.32);
+  }
+}
+
+.dashboard-reference-layout .dash-ref-kpi-card {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 20px -4px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease !important;
+}
+
+.dashboard-reference-layout .dash-ref-kpi-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.08), 0 12px 28px -6px rgba(0, 0, 0, 0.04) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.dashboard-reference-layout .dash-ref-att-pill {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+.dashboard-reference-layout .dash-ref-att-pill:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.action-inbox-item-row {
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.action-inbox-item-row:hover {
+  background: #ffffff !important;
+  border-color: #94a3b8 !important;
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .dashboard-reference-layout .punch-card-white {
