@@ -118,16 +118,25 @@ const PWA = {
     this.syncOfflinePunches();
   },
 
+  getOfflineQueue() {
+    try {
+      return JSON.parse(localStorage.getItem('hrm_offline_punches') || '[]');
+    } catch (e) {
+      return [];
+    }
+  },
+
   recordOfflinePunch(punchRecord) {
     try {
-      const queue = JSON.parse(localStorage.getItem('hrm_offline_punches') || '[]');
+      const queue = this.getOfflineQueue();
       queue.push({
         ...punchRecord,
         queuedAt: new Date().toISOString()
       });
       localStorage.setItem('hrm_offline_punches', JSON.stringify(queue));
+      window.dispatchEvent(new CustomEvent('hrm:offline-queue-changed', { detail: { count: queue.length } }));
       if (window.Toast) {
-        Toast.show('💾 Attendance recorded locally (Offline). Will auto-sync when reconnected.', 'warning');
+        Toast.show(`💾 Offline Punch Stored (${queue.length} in queue). Will auto-sync when internet reconnects.`, 'warning');
       }
       return true;
     } catch (err) {
@@ -138,24 +147,109 @@ const PWA = {
 
   async syncOfflinePunches() {
     try {
-      const queue = JSON.parse(localStorage.getItem('hrm_offline_punches') || '[]');
+      const queue = this.getOfflineQueue();
       if (!queue.length) return;
 
       console.log(`[PWA] Syncing ${queue.length} offline punches to database...`);
       if (window.DB && typeof DB.get === 'function') {
-        const attendance = DB.get('attendance') || [];
+        const allAtt = DB.get('attendance') || [];
+        const allLogs = DB.get('attendance_logs') || [];
+
         queue.forEach((item) => {
-          attendance.unshift(item);
+          const dateStr = item.date || (typeof Utils !== 'undefined' ? Utils.today() : new Date().toISOString().slice(0, 10));
+          const timeStr = item.time || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+          const empId = item.employeeId || (typeof Auth !== 'undefined' && Auth.employee ? Auth.employee.id : 1);
+          const type = item.type || item.punchType || 'in';
+
+          const isCheckIn  = type === 'in' || type === 'check_in';
+          const isCheckOut = type === 'out' || type === 'check_out';
+          const isBreakOut = type === 'ot_out' || type === 'b_out' || type === 'break_out';
+          const isBreakIn  = type === 'ot_in' || type === 'b_in' || type === 'break_in';
+
+          // Record in attendance_logs
+          allLogs.push({
+            id: DB.nextId ? DB.nextId('attendance_logs') : Date.now(),
+            employeeId: empId,
+            date: dateStr,
+            time: timeStr,
+            timestamp: item.timestamp || new Date().toISOString(),
+            punchType: isCheckIn ? 'check_in' : (isCheckOut ? 'check_out' : (isBreakOut ? 'break_out' : 'break_in')),
+            punchLabel: isCheckIn ? 'Check-In' : (isCheckOut ? 'Check-Out' : (isBreakOut ? 'Break-Out' : 'Break-In')),
+            punchNumber: allLogs.filter(l => l.employeeId === empId && l.date === dateStr).length + 1,
+            device: 'Mobile PWA (Offline Sync)',
+            deviceIp: '127.0.0.1 (Offline Synced)',
+            verifyMode: 'Offline Cache Crypt-Hash'
+          });
+
+          // Correctly resolve into attendance register
+          let att = allAtt.find(a => (String(a.employeeId) === String(empId)) && a.date === dateStr);
+          if (isCheckIn) {
+            if (!att) {
+              att = {
+                id: DB.nextId ? DB.nextId('attendance') : Date.now(),
+                employeeId: empId,
+                date: dateStr,
+                timeIn: timeStr,
+                checkIn: timeStr,
+                clockIn: timeStr,
+                breakOut: '',
+                breakIn: '',
+                timeOut: '',
+                checkOut: '',
+                status: 'present',
+                overtime: 0,
+                device: 'Mobile PWA (Offline Synced)',
+                remarks: 'Queued offline; auto-synced with cloud'
+              };
+              allAtt.push(att);
+            } else {
+              att.timeIn = timeStr;
+              att.checkIn = timeStr;
+              att.clockIn = timeStr;
+            }
+          } else if (isCheckOut) {
+            if (att) {
+              att.timeOut = timeStr;
+              att.checkOut = timeStr;
+              att.clockOut = timeStr;
+              att.completionStatus = 'complete';
+              if (att.timeIn || att.checkIn) {
+                const inTime = att.timeIn || att.checkIn;
+                att.hrs = (typeof Attendance !== 'undefined' && Attendance.calcHours) ? Attendance.calcHours(inTime, timeStr) : '8h 00m';
+                att.overtime = (typeof Attendance !== 'undefined' && Attendance.calcOvertime) ? Attendance.calcOvertime(inTime, timeStr) : 0;
+              }
+            }
+          } else if (isBreakOut && att) {
+            att.breakOut = timeStr;
+          } else if (isBreakIn && att) {
+            att.breakIn = timeStr;
+          }
         });
-        DB.set('attendance', attendance);
+
+        DB.set('attendance', allAtt);
+        DB.set('attendance_logs', allLogs);
         if (typeof DB.syncToSupabase === 'function') {
           await DB.syncToSupabase('attendance');
         }
       }
 
+      const count = queue.length;
       localStorage.removeItem('hrm_offline_punches');
+      window.dispatchEvent(new CustomEvent('hrm:offline-queue-changed', { detail: { count: 0 } }));
+
       if (window.Toast) {
-        Toast.show(`✅ Successfully synced ${queue.length} offline attendance records with the cloud!`, 'success');
+        Toast.show(`✅ Network Restored: Successfully synced ${count} offline attendance punch(es) to cloud!`, 'success');
+      }
+
+      // Refresh Dashboard and Attendance interfaces
+      if (typeof Dashboard !== 'undefined' && Dashboard.renderHeroPunchClock) {
+        Dashboard.renderHeroPunchClock();
+      }
+      if (typeof Dashboard !== 'undefined' && Dashboard.refreshHeroPunchClock) {
+        Dashboard.refreshHeroPunchClock();
+      }
+      if (typeof Attendance !== 'undefined' && typeof App !== 'undefined' && App.currentModule === 'attendance' && Attendance.renderView) {
+        Attendance.renderView();
       }
     } catch (err) {
       console.error('[PWA] Error syncing offline punches:', err);

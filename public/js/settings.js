@@ -4168,6 +4168,104 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
         </div>
       </div>
 
+      <!-- CARD 2.5: OFFICE GPS GEOFENCING PERIMETERS & RESTRICTIONS -->
+      <div class="card" style="margin-bottom:20px;border-top:3px solid #10b981">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px">
+              <i class="fa fa-location-crosshairs" style="color:#10b981"></i>
+              Office GPS Geofencing Perimeters &amp; Mobile Web Restrictions
+            </div>
+            <div style="font-size:12px;color:var(--text-3);margin-top:3px">
+              Enforce strict GPS proximity limits (e.g. 200m radius) preventing self-service clock-in from home or remote locations
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="Settings.detectCurrentGPSLocation()">
+              <i class="fa fa-crosshairs"></i> Get Current GPS Position
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Settings.openGeofenceBranchModal()">
+              <i class="fa fa-plus"></i> Add Office Branch Perimeter
+            </button>
+          </div>
+        </div>
+
+        <!-- Master Geofence Toggle & Admin Bypass Switch -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <label class="toggle-switch">
+              <input type="checkbox" id="s-geofence-master-toggle" ${this._getSetting('geofenceEnabled', true) ? 'checked' : ''} onchange="Settings.toggleGeofenceEnforcement(this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+            <div>
+              <div style="font-weight:700;font-size:13px;color:var(--text)">Enforce GPS Location Geofencing</div>
+              <div style="font-size:11.5px;color:var(--text-3)">When enabled, non-admin web clock-in is strictly validated against branch GPS radius</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:12px;border-left:1px solid var(--border);padding-left:20px">
+            <label class="toggle-switch">
+              <input type="checkbox" id="s-geofence-bypass-toggle" ${this._getSetting('geofenceAdminBypass', true) ? 'checked' : ''} onchange="Settings._setSetting('geofenceAdminBypass', this.checked); Toast.show('Admin Bypass ' + (this.checked?'Enabled':'Disabled'), 'info')">
+              <span class="toggle-slider"></span>
+            </label>
+            <div>
+              <div style="font-weight:700;font-size:13px;color:var(--text)">Allow Admin &amp; Manager Override</div>
+              <div style="font-size:11.5px;color:var(--text-3)">Super Admins &amp; HR Managers can record punches remotely without GPS rejection</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Branch Geofences Table -->
+        <div class="table-responsive">
+          <table class="table" style="font-size:12.5px;margin:0">
+            <thead>
+              <tr style="background:var(--surface-2)">
+                <th>Branch Name &amp; Address</th>
+                <th>Center GPS Coordinates</th>
+                <th>Permitted Radius</th>
+                <th>Enforce GPS</th>
+                <th>Status</th>
+                <th style="text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(DB.get('branch_geofences') || []).map(g => `
+                <tr>
+                  <td>
+                    <div style="font-weight:700;color:var(--text)">${g.branchName}</div>
+                    <div style="font-size:11px;color:var(--text-3);margin-top:2px"><i class="fa fa-map-pin" style="color:#ef4444;margin-right:4px"></i>${g.address || 'Corporate Office'}</div>
+                  </td>
+                  <td>
+                    <code style="font-size:11.5px;font-weight:700;color:var(--primary)">${g.latitude?.toFixed(4)}° N, ${g.longitude?.toFixed(4)}° E</code>
+                  </td>
+                  <td>
+                    <span class="badge" style="background:rgba(16,185,129,0.1);color:#10b981;font-weight:700;font-size:11.5px;padding:3px 8px">
+                      <i class="fa fa-circle-dot" style="font-size:9px;margin-right:3px"></i> ${g.radiusMeters || 200} Meters
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge ${g.enforceGeo !== false ? 'badge-success' : 'badge-secondary'}" style="font-size:11px;cursor:pointer" onclick="Attendance.toggleBranchGeofence(${g.id}); Settings.renderSection()">
+                      <i class="fa ${g.enforceGeo !== false ? 'fa-check' : 'fa-xmark'}"></i> ${g.enforceGeo !== false ? 'Enforced' : 'Optional'}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge badge-success" style="font-size:11px">Active</span>
+                  </td>
+                  <td style="text-align:right">
+                    <button class="btn btn-ghost btn-sm" title="Edit Perimeter" onclick="Settings.editGeofenceBranch(${g.id})" style="padding:4px 8px;font-size:11px">
+                      <i class="fa fa-pen"></i>
+                    </button>
+                    <button class="btn btn-ghost btn-sm" title="Test Coordinate Distance" onclick="Settings.testBranchDistance(${g.id})" style="padding:4px 8px;font-size:11px;color:var(--primary)">
+                      <i class="fa fa-location-arrow"></i>
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- CARD 3: EMPLOYEE BIOMETRIC MACHINE ID MAPPING MATRIX -->
       <div class="card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;flex-wrap:wrap;gap:12px">
@@ -5479,8 +5577,131 @@ X-HRM-Signature: sha256=${w.secret ? 'valid_hmac_signature' : 'none'}</pre>
       const c = document.getElementById('settings-content');
       if (c) this.renderAuditTrail(c);
     });
-  }
+  },
 
+  toggleGeofenceEnforcement(enabled) {
+    this._setSetting('geofenceEnabled', enabled);
+    Toast.show(`Office GPS Geofencing ${enabled ? 'ENABLED' : 'DISABLED'}`, enabled ? 'success' : 'warning');
+  },
+
+  detectCurrentGPSLocation() {
+    if (!navigator.geolocation) {
+      Toast.show('Geolocation is not supported by your browser', 'error');
+      return;
+    }
+    Toast.show('Acquiring precise satellite GPS fix...', 'info');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const acc = Math.round(pos.coords.accuracy);
+        Modal.show('Current GPS Position', `
+          <div style="padding:16px 0;text-align:center">
+            <div style="font-size:36px;color:#10b981;margin-bottom:8px"><i class="fa fa-location-dot"></i></div>
+            <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px">${lat.toFixed(6)}° N, ${lng.toFixed(6)}° E</div>
+            <div style="font-size:12px;color:var(--text-3);margin-bottom:16px">Sensor Accuracy: within ${acc} meters</div>
+            <p style="font-size:12.5px;color:var(--text-2);max-width:360px;margin:0 auto 16px">You can copy or apply these coordinates to your Head Office or Branch perimeter.</p>
+            <button class="btn btn-primary" onclick="Modal.close()"><i class="fa fa-check"></i> OK</button>
+          </div>
+        `);
+      },
+      (err) => {
+        Toast.show('GPS Access Error: ' + err.message, 'warning');
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  },
+
+  testBranchDistance(branchId) {
+    const branches = DB.get('branch_geofences') || [];
+    const b = branches.find(x => x.id === branchId);
+    if (!b) return;
+    if (!navigator.geolocation) {
+      Toast.show('Geolocation not supported', 'error');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const dist = DB.calculateGeoDistance ? DB.calculateGeoDistance(pos.coords.latitude, pos.coords.longitude, b.latitude, b.longitude) : 45;
+        const inside = dist <= (b.radiusMeters || 200);
+        Toast.show(inside ? `Within ${b.branchName}: ${dist}m (Allowed: ${b.radiusMeters}m)` : `Outside ${b.branchName}: ${dist}m (Allowed: ${b.radiusMeters}m)`, inside ? 'success' : 'warning');
+      },
+      (err) => Toast.show('Could not get GPS position: ' + err.message, 'error')
+    );
+  },
+
+  openGeofenceBranchModal(branch = null) {
+    const b = branch || { branchName: '', address: '', latitude: 24.8607, longitude: 67.0011, radiusMeters: 200, enforceGeo: true };
+    Modal.show(branch ? 'Edit Office Perimeter' : 'Add Office Branch Perimeter', `
+      <div style="display:flex;flex-direction:column;gap:14px;padding:8px 0">
+        <div class="form-group">
+          <label class="form-label required">Branch / Office Name</label>
+          <input class="form-control" id="geo-branch-name" value="${b.branchName || ''}" placeholder="e.g. Islamabad Regional Office">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Physical Address</label>
+          <input class="form-control" id="geo-branch-addr" value="${b.address || ''}" placeholder="e.g. Blue Area, Islamabad">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="form-group">
+            <label class="form-label required">Latitude (° N)</label>
+            <input class="form-control" type="number" step="0.0001" id="geo-branch-lat" value="${b.latitude}">
+          </div>
+          <div class="form-group">
+            <label class="form-label required">Longitude (° E)</label>
+            <input class="form-control" type="number" step="0.0001" id="geo-branch-lng" value="${b.longitude}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label required">Allowed Radius (Meters)</label>
+          <input class="form-control" type="number" id="geo-branch-radius" value="${b.radiusMeters || 200}" min="50" max="2000">
+          <small style="color:var(--text-3);font-size:11px">Radius around coordinate center within which punches are approved (Default: 200m)</small>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+          <button class="btn btn-ghost" onclick="Modal.close()">Cancel</button>
+          <button class="btn btn-primary" onclick="Settings.saveBranchPerimeter(${b.id || 0})"><i class="fa fa-save"></i> Save Perimeter</button>
+        </div>
+      </div>
+    `);
+  },
+
+  editGeofenceBranch(branchId) {
+    const branches = DB.get('branch_geofences') || [];
+    const b = branches.find(x => x.id === branchId);
+    if (b) this.openGeofenceBranchModal(b);
+  },
+
+  saveBranchPerimeter(id) {
+    const name = document.getElementById('geo-branch-name')?.value?.trim();
+    if (!name) { Toast.show('Branch name is required', 'warning'); return; }
+    const addr = document.getElementById('geo-branch-addr')?.value?.trim() || '';
+    const lat = parseFloat(document.getElementById('geo-branch-lat')?.value) || 24.8607;
+    const lng = parseFloat(document.getElementById('geo-branch-lng')?.value) || 67.0011;
+    const radius = parseInt(document.getElementById('geo-branch-radius')?.value) || 200;
+
+    let branches = DB.get('branch_geofences') || [];
+    if (id) {
+      const idx = branches.findIndex(x => x.id === id);
+      if (idx !== -1) {
+        branches[idx] = { ...branches[idx], branchName: name, address: addr, latitude: lat, longitude: lng, radiusMeters: radius };
+      }
+    } else {
+      branches.push({
+        id: Date.now(),
+        branchName: name,
+        address: addr,
+        latitude: lat,
+        longitude: lng,
+        radiusMeters: radius,
+        enforceGeo: true,
+        status: 'active'
+      });
+    }
+    DB.set('branch_geofences', branches);
+    Modal.close();
+    Toast.show('Office Branch Perimeter Saved Successfully!', 'success');
+    this.renderSection();
+  },
 };
 
 window.Settings = Settings;

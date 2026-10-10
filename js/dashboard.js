@@ -286,6 +286,10 @@ const Dashboard = {
 
     let initialTimerStr = '--H --M';
     let initialCenterTimer = '--H --M';
+    const offlineQueue = (typeof PWA !== 'undefined' && PWA.getOfflineQueue) ? PWA.getOfflineQueue() : [];
+    const settings = (typeof DB !== 'undefined' && DB.getObj) ? DB.getObj('settings') : {};
+    const geofences = (typeof DB !== 'undefined' && DB.get) ? DB.get('branch_geofences') : [];
+    const isGeofenceActive = settings.geofenceEnabled !== false && geofences.some(g => g.enforceGeo !== false);
     let shiftStatusHtml = 'Regular Shift: 09:00 - 18:00 (8h Duty)';
 
     if (isCheckedOut) {
@@ -371,6 +375,13 @@ const Dashboard = {
               ${initialTimerStr}
             </div>
             <div>
+              ${offlineQueue.length > 0 ? `
+                <div style="margin-bottom:4px;display:flex;align-items:center;gap:5px;font-size:9.5px;font-weight:700;color:#d97706;background:#fef3c7;border:1px solid #fde68a;padding:2px 7px;border-radius:6px">
+                  <i class="fa fa-cloud-arrow-up" style="font-size:9px"></i>
+                  <span>${offlineQueue.length} punch(es) queued offline</span>
+                  <button class="btn btn-warning btn-xs" onclick="PWA.syncOfflinePunches()" style="padding:1px 5px;font-size:8.5px;line-height:1;margin-left:auto"><i class="fa fa-rotate"></i> Sync</button>
+                </div>
+              ` : ''}
               ${isCheckedOut ? `
                 <span class="punch-badge-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;cursor:default" title="Shift completed at ${checkOutVal}">
                   <i class="fa fa-flag-checkered" style="color:#10b981;font-size:9.5px"></i> Shift Completed
@@ -460,6 +471,11 @@ const Dashboard = {
             <div style="min-width:0;line-height:1.15">
               <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Office Hours</div>
               <div style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${officeHoursVal}</div>
+              ${isGeofenceActive ? `
+                <div style="font-size:8px;color:#059669;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px">
+                  <i class="fa fa-shield-halved" style="font-size:7.5px"></i> Geofence Enforced
+                </div>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -585,10 +601,83 @@ const Dashboard = {
     const myId = curEmp.id || Auth.user?.employeeId || 1;
     if (!myId) return;
 
-    const allAtt = DB.get('attendance') || [];
-    let rec = allAtt.find(a => (String(a.employeeId) === String(myId) || String(a.employeeId) === String(curEmp.empNo)) && a.date === today);
+    const isOffline = (typeof navigator !== 'undefined' && !navigator.onLine);
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    // 0. GPS Geofence Check (if online and policy enforced for non-admin)
+    const settings = (typeof DB !== 'undefined' && DB.getObj) ? DB.getObj('settings') : {};
+    const geofences = (typeof DB !== 'undefined' && DB.get) ? DB.get('branch_geofences') : [];
+    const isGeofenceEnforced = settings.geofenceEnabled !== false && geofences.some(g => g.enforceGeo !== false);
+    const isAdmin = Auth.role === 'superadmin' || Auth.role === 'hr_manager';
+    const bypass = settings.geofenceAdminBypass !== false && isAdmin;
+
+    if (!isOffline && isGeofenceEnforced && !bypass && !this._geofenceApproved) {
+      if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const userLat = pos.coords.latitude;
+            const userLng = pos.coords.longitude;
+            let nearest = null;
+            let minDist = Infinity;
+            geofences.forEach(g => {
+              if (g.enforceGeo === false) return;
+              const d = DB.calculateGeoDistance ? DB.calculateGeoDistance(userLat, userLng, g.latitude, g.longitude) : 50;
+              if (d < minDist) {
+                minDist = d;
+                nearest = g;
+              }
+            });
+            const allowed = nearest ? (nearest.radiusMeters || 200) : 200;
+            if (minDist > allowed) {
+              Modal.show('Geofence Perimeter Violation', `
+                <div style="padding:16px 0;text-align:center">
+                  <div style="width:56px;height:56px;border-radius:50%;background:rgba(239,68,68,0.1);color:#ef4444;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px">
+                    <i class="fa fa-location-crosshairs"></i>
+                  </div>
+                  <h3 style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:6px">Out-of-Perimeter Punch Attempt</h3>
+                  <p style="font-size:12.5px;color:var(--text-3);max-width:380px;margin:0 auto 16px">
+                    You are <strong>${Math.round(minDist)} meters</strong> away from <strong>${nearest?.branchName || 'Head Office'}</strong> (Permitted radius: ${allowed}m). Self-service clock-in requires presence on office premises.
+                  </p>
+                  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+                    <button class="btn btn-ghost" onclick="Modal.close()">Dismiss</button>
+                    <button class="btn btn-primary" onclick="Modal.close(); if (typeof Attendance !== 'undefined') Attendance.showApplyCorrectionModal();">
+                      <i class="fa fa-file-signature"></i> Request WFH / Correction
+                    </button>
+                  </div>
+                </div>
+              `);
+              return;
+            }
+            this._geofenceApproved = true;
+            this.quickSelfPunch(type);
+            this._geofenceApproved = false;
+          },
+          (err) => {
+            console.warn('[Geofence] GPS error or timeout:', err);
+            this._geofenceApproved = true;
+            this.quickSelfPunch(type);
+            this._geofenceApproved = false;
+          },
+          { timeout: 5000 }
+        );
+        return;
+      }
+    }
+
+    // 1. Offline PWA Queue Handler
+    if (isOffline && typeof PWA !== 'undefined' && PWA.recordOfflinePunch) {
+      PWA.recordOfflinePunch({
+        employeeId: myId,
+        date: today,
+        time: timeStr,
+        type: type,
+        device: 'Mobile PWA (Offline Queue)'
+      });
+    }
+
+    const allAtt = DB.get('attendance') || [];
+    let rec = allAtt.find(a => (String(a.employeeId) === String(myId) || String(a.employeeId) === String(curEmp.empNo)) && a.date === today);
 
     if (type === 'in' || type === 'check_in') {
       if (rec && (rec.timeIn || rec.checkIn)) {

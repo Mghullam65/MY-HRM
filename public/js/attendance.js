@@ -457,7 +457,7 @@ const Attendance = {
       const wStart = new Date(dateList[0]).toLocaleDateString('en-PK', { month:'short', day:'numeric' });
       const wEnd   = new Date(dateList[6]).toLocaleDateString('en-PK', { month:'short', day:'numeric', year:'numeric' });
       periodLabel = `${wStart} – ${wEnd}`;
-    } else if (period === 'monthly' || period === 'employee_wise') {
+    } else if (period === 'monthly' || period === 'employee_wise' || period === 'muster_roll') {
       const [y, m] = (this.myEmpAttMonth || Utils.thisMonth()).split('-').map(Number);
       const daysInMonth = new Date(y, m, 0).getDate();
       for (let i = 1; i <= daysInMonth; i++) {
@@ -499,6 +499,7 @@ const Attendance = {
       periodControls = `
         <div style="display:flex;align-items:center;gap:6px">
           <button class="btn btn-ghost btn-icon btn-sm" onclick="Attendance.prevMyEmpAttMonth()" title="Previous Month"><i class="fa fa-chevron-left"></i></button>
+          <select class="filter-select" style="width:170px;height:34px" onchange="Attendance.setMyEmpAttMonth(this.value)"> title="Previous Month"><i class="fa fa-chevron-left"></i></button>
           <select class="filter-select" style="width:170px;height:34px" onchange="Attendance.setMyEmpAttMonth(this.value)">
             ${allMonths.map(mo => `<option value="${mo}" ${mo===selM?'selected':''}>${new Date(mo+'-01').toLocaleDateString('en',{month:'long',year:'numeric'})}</option>`).join('')}
           </select>
@@ -534,7 +535,9 @@ const Attendance = {
     // Build Table or View HTML based on period
     let tableHTML = '';
 
-    if (period === 'employee_wise') {
+    if (period === 'muster_roll') {
+      tableHTML = this.renderMusterRollTable(displayEmps, this.myEmpAttMonth || Utils.thisMonth());
+    } else if (period === 'employee_wise') {
       // 1. Employee Wise Summary View
       const selMonth = this.myEmpAttMonth || Utils.thisMonth();
       tableHTML = `
@@ -855,6 +858,7 @@ const Attendance = {
                     { id: 'daily', label: 'Daily', icon: 'fa-calendar-day' },
                     { id: 'weekly', label: 'Weekly', icon: 'fa-calendar-week' },
                     { id: 'monthly', label: 'Monthly', icon: 'fa-calendar' },
+                    { id: 'muster_roll', label: 'Monthly Muster Roll', icon: 'fa-table-cells' },
                     { id: 'employee_wise', label: 'Employee Wise', icon: 'fa-user' },
                     { id: 'dept_wise', label: 'Dept Wise', icon: 'fa-building' },
                     { id: 'custom', label: 'Custom', icon: 'fa-sliders' },
@@ -2477,167 +2481,7 @@ const Attendance = {
     `;
   },
 
-  showMachinePunchDetail(empId, date) {
-    const emp = DB.find('employees', empId);
-    if (!emp) return;
-
-    const allLogs = DB.get('attendance_logs') || [];
-    const empLogs = allLogs.filter(l => l.employeeId === empId && l.date === date);
-    empLogs.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
-
-    const allAtt = DB.get('attendance') || [];
-    const attRec = allAtt.find(a => a.employeeId === empId && a.date === date);
-
-    const checkInLog  = empLogs.find(l => l.punchType === 'check_in');
-    const otOutLog    = empLogs.find(l => l.punchType === 'ot_out');
-    const otInLog     = empLogs.find(l => l.punchType === 'ot_in');
-    const checkOutLog = empLogs.find(l => l.punchType === 'check_out');
-
-    const totalSwipes = empLogs.length;
-    const isComplete = checkInLog && otOutLog && otInLog && checkOutLog;
-    const isInProgress = checkInLog && !checkOutLog;
-
-    Modal.show(`Biometric Machine Swipe Dossier &bull; ${emp.fullName}`, `
-      <div style="margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding-bottom:14px;border-bottom:1px solid var(--border)">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div class="avatar avatar-md" style="background:${Utils.avatarColor(emp.id)}">${Utils.avatarInitials(emp.fullName)}</div>
-          <div>
-            <div style="font-size:16px;font-weight:800;color:var(--text)">${emp.fullName} <span style="font-family:monospace;font-size:13px;color:var(--primary);margin-left:6px">(${emp.empNo})</span></div>
-            <div style="font-size:12px;color:var(--text-3);margin-top:2px">${emp.designation || 'Staff'} &bull; ${Utils.getDeptName(emp.departmentId)} &bull; ${Utils.formatDate(date)}</div>
-          </div>
-        </div>
-
-        <div style="display:flex;align-items:center;gap:8px">
-          <div style="background:var(--surface);padding:8px 14px;border-radius:8px;border:1px solid var(--border);text-align:center">
-            <div style="font-size:10px;color:var(--text-3);font-weight:700;text-transform:uppercase">Total Swipes Today</div>
-            <div style="font-size:20px;font-weight:800;color:var(--primary);margin-top:2px">${totalSwipes} Times</div>
-          </div>
-          <div style="background:var(--surface);padding:8px 14px;border-radius:8px;border:1px solid var(--border);text-align:center">
-            <div style="font-size:10px;color:var(--text-3);font-weight:700;text-transform:uppercase">Shift Status</div>
-            <div style="font-size:13px;font-weight:700;margin-top:4px">
-              ${isComplete ? '<span style="color:var(--success)">Complete (4/4)</span>' : isInProgress ? '<span style="color:var(--primary)">In Progress</span>' : '<span style="color:var(--warning)">Incomplete</span>'}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4 Machine Option Punch Matrix Strip -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-        <!-- Punch #1 Check-In -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid var(--success)">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
-            <i class="fa fa-arrow-right-to-bracket" style="color:var(--success)"></i> Punch #1: Check-In
-          </div>
-          <div style="font-size:19px;font-weight:800;color:${checkInLog ? 'var(--success)' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
-            ${checkInLog?.time || '—'}
-          </div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
-            ${checkInLog ? `${checkInLog.device || 'ZKTeco'} &bull; ${checkInLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
-          </div>
-        </div>
-
-        <!-- Punch #2 OT-Out -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid #f59e0b">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
-            <i class="fa fa-mug-hot" style="color:#f59e0b"></i> Punch #2: OT-Out
-          </div>
-          <div style="font-size:19px;font-weight:800;color:${otOutLog ? '#f59e0b' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
-            ${otOutLog?.time || '—'}
-          </div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
-            ${otOutLog ? `${otOutLog.device || 'ZKTeco'} &bull; ${otOutLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
-          </div>
-        </div>
-
-        <!-- Punch #3 OT-In -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid #0284c7">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
-            <i class="fa fa-rotate-left" style="color:#0284c7"></i> Punch #3: OT-In
-          </div>
-          <div style="font-size:19px;font-weight:800;color:${otInLog ? '#0284c7' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
-            ${otInLog?.time || '—'}
-          </div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
-            ${otInLog ? `${otInLog.device || 'ZKTeco'} &bull; ${otInLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
-          </div>
-        </div>
-
-        <!-- Punch #4 Check-Out -->
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;border-top:3px solid var(--danger)">
-          <div style="font-size:11px;font-weight:700;color:var(--text-3);display:flex;align-items:center;gap:5px">
-            <i class="fa fa-arrow-right-from-bracket" style="color:var(--danger)"></i> Punch #4: Check-Out
-          </div>
-          <div style="font-size:19px;font-weight:800;color:${checkOutLog ? 'var(--danger)' : 'var(--text-muted)'};margin-top:6px;font-family:monospace">
-            ${checkOutLog?.time || '—'}
-          </div>
-          <div style="font-size:10.5px;color:var(--text-3);margin-top:3px">
-            ${checkOutLog ? `${checkOutLog.device || 'ZKTeco'} &bull; ${checkOutLog.verifyMode || 'Fingerprint'}` : 'Not swiped'}
-          </div>
-        </div>
-      </div>
-
-      <!-- Chronological Visual Swipe Timeline -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px">
-        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:14px;display:flex;align-items:center;gap:8px">
-          <i class="fa fa-clock-rotate-left" style="color:var(--primary)"></i>
-          Chronological Machine Swipe Timeline (${empLogs.length} Events)
-        </div>
-
-        ${empLogs.length === 0 ? `
-          <div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">
-            No machine swipes recorded on this date.
-          </div>
-        ` : `
-          <div style="position:relative;padding-left:24px;border-left:2px dashed var(--border);margin-left:12px;display:flex;flex-direction:column;gap:16px">
-            ${empLogs.map((log, idx) => {
-              const prev = idx > 0 ? empLogs[idx - 1] : null;
-              let elapsedText = '';
-              if (prev && prev.time && log.time) {
-                const [h1, m1] = prev.time.split(':').map(Number);
-                const [h2, m2] = log.time.split(':').map(Number);
-                const diffMin = (h2 * 60 + m2) - (h1 * 60 + m1);
-                if (diffMin > 0) {
-                  const hrs = Math.floor(diffMin / 60);
-                  const mins = diffMin % 60;
-                  elapsedText = `${hrs > 0 ? hrs + 'h ' : ''}${mins}m interval`;
-                }
-              }
-
-              const badge = log.punchType === 'check_in' ? '#10b981' : log.punchType === 'ot_out' ? '#f59e0b' : log.punchType === 'ot_in' ? '#0284c7' : '#ef4444';
-
-              return `
-                <div style="position:relative">
-                  <div style="position:absolute;left:-31px;top:2px;width:14px;height:14px;border-radius:50%;background:${badge};box-shadow:0 0 0 3px var(--card)"></div>
-                  <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px">
-                    <div style="display:flex;justify-content:space-between;align-items:center">
-                      <div style="display:flex;align-items:center;gap:8px">
-                        <strong style="font-size:13px;color:var(--text)">Swipe #${idx + 1}: ${log.punchLabel || log.punchType}</strong>
-                        <span class="chip" style="font-size:10.5px">${log.device || 'ZKTeco'}</span>
-                      </div>
-                      <div style="font-family:monospace;font-weight:800;font-size:13.5px;color:${badge}">
-                        ${log.time}
-                      </div>
-                    </div>
-                    <div style="font-size:11px;color:var(--text-3);margin-top:4px;display:flex;justify-content:space-between">
-                      <span>Terminal: <strong>${log.deviceIp || '192.168.1.201'}</strong> &bull; Mode: <strong>${log.verifyMode || 'Fingerprint'}</strong></span>
-                      ${elapsedText ? `<span style="font-weight:600;color:var(--text-2)"><i class="fa fa-hourglass-half"></i> ${elapsedText}</span>` : ''}
-                    </div>
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `}
-      </div>
-    `, {
-      footer: `
-        <button class="btn btn-ghost" onclick="Modal.close('dynamic-modal')">Close</button>
-        <button class="btn btn-primary" onclick="Attendance.exportSingleEmployeePunches(${empId}, '${date}')">
-          <i class="fa fa-download"></i> Export Employee Punches CSV
-        </button>
-      `
-    });
-  },
+  // Canonical implementation of showMachinePunchDetail is defined below (around line 5720)
 
   exportSingleEmployeePunches(empId, date) {
     const emp = DB.find('employees', empId);
@@ -6128,7 +5972,13 @@ const Attendance = {
     const emps = this.getScopedEmployees();
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    const nowHHMM = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
     const dateStr = Utils.today ? Utils.today() : now.toISOString().slice(0, 10);
+    const devices = (typeof DB !== 'undefined' && DB.get ? DB.get('biometric_devices') : []) || [
+      { id: 1, name: 'ZKTeco-01 Main Lobby', ip: '192.168.1.201', location: 'Ground Floor Reception' },
+      { id: 2, name: 'ZKTeco-02 Engineering Wing', ip: '192.168.2.201', location: 'Floor 2 Entry Gate' },
+      { id: 3, name: 'ZKTeco-03 Executive Suites', ip: '192.168.3.201', location: 'Floor 7 Turnstile' }
+    ];
 
     const html = `
       <div style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 100%);color:white;border-radius:12px;padding:24px;border:1px solid rgba(255,255,255,0.15)">
@@ -6138,13 +5988,13 @@ const Attendance = {
               <i class="fa fa-fingerprint"></i>
             </div>
             <div>
-              <div style="font-weight:800;font-size:16px;letter-spacing:0.5px">ZKTeco SilkBio-101 Pro</div>
-              <div style="font-size:11px;color:#94a3b8">Biometric Terminal Simulator • IP: 192.168.10.45 • ADMS Online</div>
+              <div style="font-weight:800;font-size:16px;letter-spacing:0.5px">Enterprise Biometric Hardware Gateway</div>
+              <div style="font-size:11px;color:#94a3b8">ZKTeco & Suprema Direct Simulation • ADMS Protocol v2.4 • Live Sensor Ingestion</div>
             </div>
           </div>
           <div style="text-align:right">
             <div id="bio-live-clock" style="font-family:monospace;font-size:20px;font-weight:800;color:#38bdf8">${timeStr}</div>
-            <div style="font-size:11px;color:#94a3b8">${dateStr}</div>
+            <div style="font-size:11px;color:#94a3b8">${dateStr} &bull; <span style="color:#34d399"><i class="fa fa-circle" style="font-size:8px"></i> Online</span></div>
           </div>
         </div>
 
@@ -6156,186 +6006,242 @@ const Attendance = {
             </select>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Terminal Gate / Location</label>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Hardware Terminal &amp; IP</label>
             <select id="bio-sim-device" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
-              <option value="Main Gate Turnstile 01">Main Gate Turnstile 01 (Head Office)</option>
-              <option value="IT Wing Glass Door Scanner">IT Wing Glass Door Scanner</option>
-              <option value="Factory Floor Entrance A">Factory Floor Entrance A</option>
-              <option value="Executive Suites Turnstile">Executive Suites Turnstile</option>
+              ${devices.map(d => `<option value="${d.name}" data-ip="${d.ip || '192.168.1.201'}">${d.name} (${d.ip || '192.168.1.201'}) — ${d.location || 'Entrance'}</option>`).join('')}
             </select>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px">
           <div>
             <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Punch Mode</label>
             <select id="bio-sim-punch-type" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
               <option value="Check-In">🟢 Check-In (Time In)</option>
+              <option value="Break-Out">☕ Break-Out / OT-Out</option>
+              <option value="Break-In">🥪 Break-In / OT-In</option>
               <option value="Check-Out">🔴 Check-Out (Time Out)</option>
-              <option value="Break-Out">☕ Break-Out</option>
-              <option value="Break-In">🥪 Break-In</option>
-              <option value="Overtime-In">⏱️ Overtime-In</option>
-              <option value="Overtime-Out">🏁 Overtime-Out</option>
             </select>
           </div>
           <div>
-            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Verification Sensor</label>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Sensor Verification</label>
             <select id="bio-sim-mode" class="form-control" style="background:#1e293b;color:white;border-color:#475569">
               <option value="Fingerprint (SilkID Optical)">Fingerprint (SilkID Optical)</option>
               <option value="Facial Recognition 3D">Facial Recognition 3D</option>
               <option value="RFID Proximity Card (Mifare)">RFID Proximity Card (Mifare)</option>
+              <option value="Passcode / PIN Keypad">Passcode / PIN Keypad</option>
             </select>
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#cbd5e1;display:block;margin-bottom:6px">Punch Timestamp</label>
+            <input type="time" id="bio-sim-time" class="form-control" value="${nowHHMM}" style="background:#1e293b;color:white;border-color:#475569;font-weight:700;font-family:monospace">
           </div>
         </div>
 
-        <div style="text-align:center;padding:12px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;margin-bottom:20px">
+        <div style="text-align:center;padding:16px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.2);border-radius:10px;margin-bottom:20px">
           <div id="bio-scan-indicator" style="font-size:42px;color:#818cf8;margin-bottom:8px">
             <i class="fa fa-fingerprint"></i>
           </div>
-          <div id="bio-scan-status" style="font-size:13px;font-weight:600;color:#94a3b8">Ready for optical or proximity scan</div>
+          <div id="bio-scan-status" style="font-size:13px;font-weight:600;color:#94a3b8">Ready for optical, facial, or proximity RFID scan</div>
+          <div id="bio-scan-telemetry" style="font-size:11px;color:#64748b;margin-top:4px;font-family:monospace">TCP/IP Socket: Connected &bull; Port: 4370 &bull; Baud: 115200</div>
         </div>
 
         <div style="display:flex;gap:12px;justify-content:flex-end">
           <button class="btn btn-ghost" onclick="Modal.close()" style="color:#cbd5e1">Dismiss</button>
           <button class="btn btn-primary" onclick="Attendance.triggerBiometricScan()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);padding:10px 24px;font-weight:700">
-            <i class="fa fa-bolt"></i> Scan & Punch Now
+            <i class="fa fa-bolt"></i> Trigger Hardware Punch
           </button>
         </div>
       </div>
     `;
 
-    Modal.show('Virtual Hardware Biometric Ingestion Terminal', html);
+    Modal.show('Biometric Terminal Simulator & Test Gateway', html);
   },
 
   triggerBiometricScan() {
     const empId = Number(document.getElementById('bio-sim-emp')?.value);
-    const device = document.getElementById('bio-sim-device')?.value || 'Main Gate Turnstile 01';
+    const devSelect = document.getElementById('bio-sim-device');
+    const device = devSelect?.value || 'ZKTeco-01 Main Lobby';
+    const deviceIp = devSelect?.selectedOptions[0]?.getAttribute('data-ip') || '192.168.1.201';
     const punchType = document.getElementById('bio-sim-punch-type')?.value || 'Check-In';
-    const verifyMode = document.getElementById('bio-sim-mode')?.value || 'Fingerprint';
+    const verifyMode = document.getElementById('bio-sim-mode')?.value || 'Fingerprint (SilkID Optical)';
+    const customTime = document.getElementById('bio-sim-time')?.value;
 
     const indicator = document.getElementById('bio-scan-indicator');
     const statusText = document.getElementById('bio-scan-status');
+    const telemetry = document.getElementById('bio-scan-telemetry');
 
     if (indicator) {
       indicator.innerHTML = '<i class="fa fa-spinner fa-spin" style="color:#38bdf8"></i>';
     }
-    if (statusText) statusText.innerText = 'Scanning biometric template...';
+    if (statusText) statusText.innerText = 'Transmitting biometric payload to ADMS gateway...';
+    if (telemetry) telemetry.innerText = 'POST /iclock/cdata?SN=ZK-MB20&table=ATTLOG -> HTTP 200 OK';
 
     setTimeout(() => {
-      this.processBiometricPunch(empId, punchType, device, verifyMode);
+      this.processBiometricPunch(empId, punchType, device, verifyMode, deviceIp, customTime);
       if (indicator) indicator.innerHTML = '<i class="fa fa-circle-check" style="color:#10b981"></i>';
-      if (statusText) statusText.innerText = 'Verified! Punch recorded successfully.';
-      setTimeout(() => Modal.close(), 800);
-    }, 500);
+      if (statusText) statusText.innerText = 'Hardware Verified! Telemetry logged & Attendance synchronized.';
+      setTimeout(() => Modal.close(), 700);
+    }, 450);
   },
 
-  processBiometricPunch(empId, punchType, device, verifyMode) {
+  processBiometricPunch(empId, punchType, device, verifyMode, deviceIp = '192.168.1.201', customTime = null) {
     const emp = DB.find('employees', empId);
     if (!emp) return;
 
     const now = new Date();
-    const dateStr = Utils.today ? Utils.today() : now.toISOString().slice(0, 10);
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+    const dateStr = (typeof Utils !== 'undefined' && Utils.today) ? Utils.today() : now.toISOString().slice(0, 10);
+    const timeStr = customTime || now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 
-    // 1. Record raw machine punch
-    const machineLogs = DB.get('machine_attendance_logs') || [];
+    const isCheckIn  = punchType.includes('In')  && !punchType.includes('Break') && !punchType.includes('OT-In');
+    const isCheckOut = punchType.includes('Out') && !punchType.includes('Break') && !punchType.includes('OT-Out');
+    const isBreakOut = punchType.includes('Break-Out') || punchType.includes('OT-Out') || punchType === 'Break-Out';
+    const isBreakIn  = punchType.includes('Break-In')  || punchType.includes('OT-In')  || punchType === 'Break-In';
+
+    const normalizedPunchType = isCheckIn ? 'check_in' : (isCheckOut ? 'check_out' : (isBreakOut ? 'break_out' : 'break_in'));
+    const punchLabel = isCheckIn ? 'Check-In' : (isCheckOut ? 'Check-Out' : (isBreakOut ? 'Break-Out' : 'Break-In'));
+
+    // 1. Record raw hardware machine log in attendance_logs
+    const allLogs = DB.get('attendance_logs') || [];
+    const empDayLogs = allLogs.filter(l => (String(l.employeeId) === String(empId) || String(l.employeeId) === String(emp.empNo)) && l.date === dateStr);
+    const punchNumber = empDayLogs.length + 1;
+
     const newLog = {
-      id: Date.now(),
+      id: DB.nextId ? DB.nextId('attendance_logs') : Date.now(),
       date: dateStr,
       time: timeStr,
+      timestamp: now.toISOString(),
       employeeId: empId,
-      punchType: punchType,
-      punchLabel: punchType,
-      punchNumber: machineLogs.filter(l => l.employeeId === empId && l.date === dateStr).length + 1,
-      device: device,
-      deviceIp: '192.168.10.45',
-      verifyMode: verifyMode,
+      punchType: normalizedPunchType,
+      punchLabel: punchLabel,
+      punchNumber: punchNumber,
+      device: device || 'ZKTeco Hardware Terminal',
+      deviceIp: deviceIp || '192.168.1.201',
+      verifyMode: verifyMode || 'Fingerprint',
       syncStatus: 'synced',
       createdAt: now.toISOString()
     };
-    machineLogs.unshift(newLog);
+    allLogs.push(newLog);
+    DB.set('attendance_logs', allLogs);
+
+    // Keep machine_attendance_logs in sync for legacy views
+    const machineLogs = DB.get('machine_attendance_logs') || [];
+    machineLogs.unshift({ ...newLog, id: Date.now() + 5 });
     DB.save('machine_attendance_logs', machineLogs);
 
     // 2. Synchronize into Attendance Register
     const allAtt = DB.get('attendance') || [];
-    let att = allAtt.find(a => a.employeeId === empId && a.date === dateStr);
-
-    const isCheckIn  = punchType.includes('In')  && !punchType.includes('Break');
-    const isCheckOut = punchType.includes('Out') && !punchType.includes('Break');
-    const isBreakOut = punchType.includes('Break-Out') || punchType === 'Break-Out';
-    const isBreakIn  = punchType.includes('Break-In')  || punchType === 'Break-In';
+    let att = allAtt.find(a => (String(a.employeeId) === String(empId) || String(a.employeeId) === String(emp.empNo)) && a.date === dateStr);
 
     if (isCheckIn || (!att && !isCheckOut)) {
       if (!att) {
-        // BUG-02 FIX: use evaluateTimeIn for unified cutoff — was hardcoded timeStr > '10:00'
-        const evalRes = this.evaluateTimeIn(empId, timeStr, null);
+        const evalRes = (this.evaluateTimeIn) ? this.evaluateTimeIn(empId, timeStr, null) : { isLate: timeStr > '09:30', autoRemark: 'Late arrival' };
         att = {
-          id: Date.now() + 1,
+          id: DB.nextId ? DB.nextId('attendance') : (Date.now() + 1),
           employeeId: empId,
           date: dateStr,
           timeIn: timeStr,
+          checkIn: timeStr,
           clockIn: timeStr,
+          breakOut: '',
+          breakIn: '',
+          timeOut: '',
+          checkOut: '',
           clockOut: null,
           status: evalRes.isLate ? 'late' : 'present',
           overtime: 0,
+          hrs: '—',
           device: device,
-          remarks: evalRes.isLate ? evalRes.autoRemark : `Punch via ${device} (${verifyMode})`
+          deviceIp: deviceIp,
+          punchCount: 1,
+          remarks: evalRes.isLate ? (evalRes.autoRemark || 'Biometric Late Check-In') : `Biometric punch via ${device} (${verifyMode})`
         };
         allAtt.push(att);
-      } else if (!att.clockIn && !att.timeIn) {
+      } else {
         att.clockIn = timeStr;
-        att.timeIn = timeStr;
+        att.checkIn = timeStr;
+        att.timeIn  = timeStr;
+        att.punchCount = punchNumber;
       }
     } else if (isCheckOut) {
-      // BUG-05 FIX: warn operator if Check-Out arrives without a prior Check-In
-      if (!att || (!att.clockIn && !att.timeIn)) {
-        Toast.show(`Check-Out recorded for ${emp.fullName} — no prior Check-In found. Please verify.`, 'warning');
-        if (!att) {
-          att = { id: Date.now() + 1, employeeId: empId, date: dateStr, timeIn: null, clockIn: null, overtime: 0, device: device, remarks: `Orphan Check-Out via ${device}` };
-          allAtt.push(att);
-        }
-      }
-      att.clockOut = timeStr;
-      att.timeOut  = timeStr;
-      if (att.clockIn || att.timeIn) {
-        const inTime = att.clockIn || att.timeIn;
-        const [inH, inM] = inTime.split(':').map(Number);
-        const [outH, outM] = timeStr.split(':').map(Number);
-        const diffHours = (outH + outM / 60) - (inH + inM / 60);
-        if (diffHours > 8.5) {
-          att.overtime = Math.round((diffHours - 8) * 10) / 10;
+      if (!att) {
+        att = {
+          id: DB.nextId ? DB.nextId('attendance') : (Date.now() + 1),
+          employeeId: empId,
+          date: dateStr,
+          timeIn: '',
+          checkIn: '',
+          clockIn: null,
+          breakOut: '',
+          breakIn: '',
+          timeOut: timeStr,
+          checkOut: timeStr,
+          clockOut: timeStr,
+          status: 'present',
+          overtime: 0,
+          hrs: '—',
+          device: device,
+          deviceIp: deviceIp,
+          punchCount: 1,
+          remarks: `Direct Check-Out via ${device}`
+        };
+        allAtt.push(att);
+      } else {
+        att.clockOut = timeStr;
+        att.checkOut = timeStr;
+        att.timeOut  = timeStr;
+        att.punchCount = punchNumber;
+        att.completionStatus = 'complete';
+
+        const inTime = att.checkIn || att.clockIn || att.timeIn;
+        if (inTime) {
+          att.hrs = (this.calcHours) ? this.calcHours(inTime, timeStr, att.breakOut, att.breakIn) : '8h 00m';
+          att.overtime = (this.calcOvertime) ? this.calcOvertime(inTime, timeStr, att.breakOut, att.breakIn) : 0;
         }
       }
     } else if (isBreakOut) {
-      // BUG-04 FIX: sync Break-Out punch into attendance register
       if (att) {
         att.breakOut = timeStr;
+        att.punchCount = punchNumber;
         if (!att.breaks) att.breaks = [];
         att.breaks.push({ breakOut: timeStr, breakIn: null });
       }
     } else if (isBreakIn) {
-      // BUG-04 FIX: sync Break-In punch into attendance register
       if (att) {
         att.breakIn = timeStr;
-        const lastBreak = att.breaks && att.breaks[att.breaks.length - 1];
-        if (lastBreak && !lastBreak.breakIn) lastBreak.breakIn = timeStr;
+        att.punchCount = punchNumber;
+        if (att.breaks && att.breaks.length > 0) {
+          att.breaks[att.breaks.length - 1].breakIn = timeStr;
+        }
       }
     }
-    DB.save('attendance', allAtt);
 
-    // 3. Broadcast real-time event
+    DB.set('attendance', allAtt);
+
+    // 3. Play Web Audio Chime
+    if (typeof Dashboard !== 'undefined' && Dashboard.playPunchChime) {
+      Dashboard.playPunchChime(isCheckIn ? 'in' : 'out');
+    }
+
+    // 4. Real-time WebSocket Dispatch & Refresh
     if (typeof HRMWebSocket !== 'undefined' && HRMWebSocket.send) {
       HRMWebSocket.send({
         type: 'attendance:punch',
         employeeId: empId,
         employeeName: emp.fullName,
-        punchType,
-        device,
+        punchType: punchLabel,
+        device: device,
         time: timeStr
       });
     }
 
-    Toast.show(`Biometric ${punchType} recorded for ${emp.fullName} (${timeStr})`, 'success');
+    // 5. Refresh Hero Punch Clock if current logged-in user was punched
+    const curEmpId = Auth.employee?.id || Auth.user?.employeeId || 1;
+    if (String(curEmpId) === String(empId) && typeof Dashboard !== 'undefined' && Dashboard.refreshHeroPunchClock) {
+      Dashboard.refreshHeroPunchClock();
+    }
+
+    Toast.show(`Biometric ${punchLabel} recorded for ${emp.fullName} via ${device} (${timeStr})`, 'success');
     this.render();
   },
 
@@ -6479,7 +6385,305 @@ const Attendance = {
     Toast.show(`Imported ${created + overwritten} attendance records!${overwriteNote}`, 'success');
     Modal.close();
     this.render();
-  }
+  },
 
+  renderMusterRollTable(displayEmps, selectedMonth) {
+    const allAtt = DB.get('attendance') || [];
+    const holidays = DB.get('holidays') || [];
+    const leaves = DB.get('leaves') || DB.get('leave_requests') || [];
+    const [y, m] = (selectedMonth || Utils.thisMonth()).split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const today = Utils.today();
+
+    const days = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dt = new Date(dStr);
+      const isSun = dt.getDay() === 0;
+      const isSat = dt.getDay() === 6;
+      const isWeekend = isSun || isSat;
+      const holiday = holidays.find(h => h.date === dStr);
+      const dayName = dt.toLocaleDateString('en', { weekday: 'narrow' });
+      days.push({ day: d, dStr, isWeekend, isSun, holiday, dayName });
+    }
+
+    const rows = displayEmps.map((emp) => {
+      let pCount = 0;
+      let aCount = 0;
+      let lCount = 0;
+      let hdCount = 0;
+      let hCount = 0;
+      let woCount = 0;
+      let lateCount = 0;
+      let totalOT = 0;
+
+      const cells = days.map(d => {
+        const att = allAtt.find(a => (String(a.employeeId) === String(emp.id) || String(a.employeeId) === String(emp.empNo)) && a.date === d.dStr);
+        const approvedLeave = leaves.find(l => 
+          (String(l.employeeId) === String(emp.id) || String(l.employeeId) === String(emp.empNo)) &&
+          (l.status === 'approved' || l.status === 'manager_approved') &&
+          l.startDate <= d.dStr && l.endDate >= d.dStr
+        );
+
+        let mark = '';
+        let badgeStyle = '';
+        let title = '';
+
+        if (d.holiday) {
+          mark = 'H';
+          badgeStyle = 'background:#cffafe;color:#0891b2;border:1px solid #a5f3fc';
+          title = `Public Holiday: ${d.holiday.name}`;
+          hCount++;
+        } else if (approvedLeave) {
+          mark = 'LV';
+          badgeStyle = 'background:#dbeafe;color:#2563eb;border:1px solid #bfdbfe';
+          title = `Approved Leave: ${approvedLeave.leaveType || approvedLeave.type || 'Leave'}`;
+          lCount++;
+        } else if (att) {
+          if (att.status === 'present') {
+            mark = 'P';
+            badgeStyle = 'background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0';
+            title = `Present: In ${att.checkIn || att.timeIn || '—'}, Out ${att.checkOut || att.timeOut || '—'}`;
+            pCount++;
+          } else if (att.status === 'late') {
+            mark = 'L';
+            badgeStyle = 'background:#fef3c7;color:#d97706;border:1px solid #fde68a';
+            title = `Late Arrival: In ${att.checkIn || att.timeIn || '—'}, Out ${att.checkOut || att.timeOut || '—'}`;
+            lateCount++;
+            pCount++;
+          } else if (att.status === 'half_day') {
+            mark = 'HD';
+            badgeStyle = 'background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff';
+            title = `Half Day: ${att.hrs || '4h'}`;
+            hdCount++;
+          } else {
+            mark = 'A';
+            badgeStyle = 'background:#fee2e2;color:#dc2626;border:1px solid #fecaca';
+            title = 'Absent';
+            aCount++;
+          }
+          if (att.overtime) totalOT += Number(att.overtime);
+        } else {
+          if (d.isWeekend) {
+            mark = 'WO';
+            badgeStyle = 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0';
+            title = `Weekly Off (${d.isSun ? 'Sunday' : 'Saturday'})`;
+            woCount++;
+          } else if (d.dStr <= today) {
+            mark = 'A';
+            badgeStyle = 'background:#fee2e2;color:#dc2626;border:1px solid #fecaca';
+            title = 'Absent: Unrecorded';
+            aCount++;
+          } else {
+            mark = '·';
+            badgeStyle = 'color:#cbd5e1';
+            title = 'Future Date';
+          }
+        }
+
+        return `<td style="text-align:center;padding:4px 1px;min-width:24px" title="${title}">
+          <span style="display:inline-block;width:20px;height:19px;line-height:18px;border-radius:4px;font-size:9.5px;font-weight:800;font-family:monospace;${badgeStyle}">
+            ${mark}
+          </span>
+        </td>`;
+      }).join('');
+
+      const payableDays = pCount + lCount + hCount + woCount + (hdCount * 0.5);
+
+      return `
+        <tr class="muster-row" style="border-bottom:1px solid var(--border)">
+          <td style="position:sticky;left:0;background:var(--card);z-index:2;border-right:1px solid var(--border);padding:6px 10px;font-weight:700">
+            <code style="font-size:11px;color:var(--primary)">${emp.empNo}</code>
+          </td>
+          <td style="position:sticky;left:65px;background:var(--card);z-index:2;border-right:1.5px solid var(--border);padding:6px 10px;white-space:nowrap">
+            <div style="font-size:12px;font-weight:700;color:var(--text)">${emp.fullName}</div>
+            <div style="font-size:10px;color:var(--text-3)">${Utils.getDeptName(emp.departmentId)}</div>
+          </td>
+          ${cells}
+          <td style="text-align:center;font-weight:700;color:#16a34a;background:rgba(22,163,74,0.04);font-size:12px">${pCount}</td>
+          <td style="text-align:center;font-weight:700;color:#dc2626;background:rgba(220,38,38,0.04);font-size:12px">${aCount}</td>
+          <td style="text-align:center;font-weight:700;color:#2563eb;font-size:12px">${lCount}</td>
+          <td style="text-align:center;font-weight:700;color:#0891b2;font-size:12px">${hCount + woCount}</td>
+          <td style="text-align:center;font-weight:700;color:#d97706;font-size:12px">${lateCount}</td>
+          <td style="text-align:center;font-weight:700;color:#7c3aed;font-size:12px">${totalOT ? totalOT + 'h' : '0h'}</td>
+          <td style="text-align:center;font-weight:900;color:var(--primary);background:rgba(37,99,235,0.06);font-size:12.5px">${payableDays}</td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="badge" style="background:rgba(99,102,241,0.12);color:var(--primary);font-size:10.5px;padding:3px 8px;font-weight:800">STATUTORY FORM II</span>
+              <h3 style="font-size:16px;font-weight:800;color:var(--text);margin:0">Monthly Attendance Register &amp; Muster Roll</h3>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-3);margin-top:3px">
+              Period: <strong>${new Date(selectedMonth + '-01').toLocaleDateString('en-PK', { month: 'long', year: 'numeric' })}</strong> • Total Month Days: <strong>${daysInMonth}</strong> • Employees Logged: <strong>${displayEmps.length}</strong>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="Attendance.exportMusterRollCSV()">
+              <i class="fa fa-file-csv"></i> Export Muster Roll (CSV)
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="Attendance.printMusterRoll()">
+              <i class="fa fa-print"></i> Print Statutory Register / PDF
+            </button>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:14px;font-size:11px;font-weight:700;flex-wrap:wrap">
+          <span style="color:var(--text-3);text-transform:uppercase;font-size:10px;letter-spacing:0.5px">Marks Legend:</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0;font-size:9.5px;margin-right:4px">P</span> Present</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#fef3c7;color:#d97706;border:1px solid #fde68a;font-size:9.5px;margin-right:4px">L</span> Late</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#f3e8ff;color:#7c3aed;border:1px solid #e9d5ff;font-size:9.5px;margin-right:4px">HD</span> Half Day</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#dbeafe;color:#2563eb;border:1px solid #bfdbfe;font-size:9.5px;margin-right:4px">LV</span> Leave</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#cffafe;color:#0891b2;border:1px solid #a5f3fc;font-size:9.5px;margin-right:4px">H</span> Holiday</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-size:9.5px;margin-right:4px">WO</span> Weekly Off</span>
+          <span><span style="display:inline-block;width:18px;height:16px;line-height:15px;text-align:center;border-radius:3px;background:#fee2e2;color:#dc2626;border:1px solid #fecaca;font-size:9.5px;margin-right:4px">A</span> Absent</span>
+        </div>
+
+        <div class="table-responsive" style="max-height:600px;overflow-x:auto;overflow-y:auto;border:1px solid var(--border);border-radius:8px">
+          <table class="table" style="font-size:11.5px;margin:0;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--surface-2);position:sticky;top:0;z-index:3">
+                <th style="position:sticky;left:0;background:var(--surface-2);z-index:4;border-right:1px solid var(--border);width:65px">Emp #</th>
+                <th style="position:sticky;left:65px;background:var(--surface-2);z-index:4;border-right:1.5px solid var(--border);min-width:140px">Employee Details</th>
+                ${days.map(d => `
+                  <th style="text-align:center;padding:4px 1px;min-width:24px;${d.isWeekend ? 'background:rgba(241,245,249,0.9);color:#64748b' : ''}">
+                    <div style="font-size:11px;font-weight:800">${d.day}</div>
+                    <div style="font-size:9px;color:var(--text-3);font-weight:600">${d.dayName}</div>
+                  </th>
+                `).join('')}
+                <th style="text-align:center;color:#16a34a;background:rgba(22,163,74,0.06);min-width:32px" title="Present Days">P</th>
+                <th style="text-align:center;color:#dc2626;background:rgba(220,38,38,0.06);min-width:32px" title="Absent Days">A</th>
+                <th style="text-align:center;color:#2563eb;min-width:32px" title="Approved Leaves">LV</th>
+                <th style="text-align:center;color:#0891b2;min-width:36px" title="Weekly Off &amp; Holidays">WO/H</th>
+                <th style="text-align:center;color:#d97706;min-width:34px" title="Late Arrival Count">Late</th>
+                <th style="text-align:center;color:#7c3aed;min-width:34px" title="Overtime Hours">OT</th>
+                <th style="text-align:center;color:var(--primary);background:rgba(37,99,235,0.08);min-width:50px" title="Net Payable Days">Payable</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
+  exportMusterRollCSV() {
+    const selectedMonth = this.myEmpAttMonth || Utils.thisMonth();
+    const emps = this.getScopedEmployees();
+    const allAtt = DB.get('attendance') || [];
+    const holidays = DB.get('holidays') || [];
+    const leaves = DB.get('leaves') || DB.get('leave_requests') || [];
+    const [y, m] = selectedMonth.split('-').map(Number);
+    const daysInMonth = new Date(y, m, 0).getDate();
+    const today = Utils.today();
+
+    const headers = ['Employee Code', 'Full Name', 'Department'];
+    for (let d = 1; d <= daysInMonth; d++) {
+      headers.push(`Day ${d}`);
+    }
+    headers.push('Present (P)', 'Absent (A)', 'Leaves (LV)', 'Holidays & Offs', 'Late Count', 'Overtime (Hrs)', 'Net Payable Days');
+
+    const rows = emps.map(emp => {
+      let pCount = 0, aCount = 0, lCount = 0, hCount = 0, woCount = 0, lateCount = 0, otHours = 0, hdCount = 0;
+      const row = [emp.empNo, `"${emp.fullName.replace(/"/g, '""')}"`, `"${Utils.getDeptName(emp.departmentId)}"`];
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const dt = new Date(dStr);
+        const isWeekend = dt.getDay() === 0 || dt.getDay() === 6;
+        const holiday = holidays.find(h => h.date === dStr);
+        const approvedLeave = leaves.find(l => (String(l.employeeId) === String(emp.id)) && (l.status === 'approved' || l.status === 'manager_approved') && l.startDate <= dStr && l.endDate >= dStr);
+        const att = allAtt.find(a => (String(a.employeeId) === String(emp.id)) && a.date === dStr);
+
+        let mark = '';
+        if (holiday) { mark = 'H'; hCount++; }
+        else if (approvedLeave) { mark = 'LV'; lCount++; }
+        else if (att) {
+          if (att.status === 'present') { mark = 'P'; pCount++; }
+          else if (att.status === 'late') { mark = 'L'; pCount++; lateCount++; }
+          else if (att.status === 'half_day') { mark = 'HD'; hdCount++; }
+          else { mark = 'A'; aCount++; }
+          if (att.overtime) otHours += Number(att.overtime);
+        } else {
+          if (isWeekend) { mark = 'WO'; woCount++; }
+          else if (dStr <= today) { mark = 'A'; aCount++; }
+          else { mark = '-'; }
+        }
+        row.push(mark);
+      }
+
+      const payable = pCount + lCount + hCount + woCount + (hdCount * 0.5);
+      row.push(pCount, aCount, lCount, hCount + woCount, lateCount, otHours, payable);
+      return row.join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const filename = `statutory_muster_roll_${selectedMonth}.csv`;
+    Utils.downloadCSV(csvContent, filename);
+    Toast.show(`Exported Muster Roll for ${emps.length} employees to ${filename}`, 'success');
+  },
+
+  printMusterRoll() {
+    const selectedMonth = this.myEmpAttMonth || Utils.thisMonth();
+    const emps = this.getScopedEmployees();
+    const tableHtml = this.renderMusterRollTable(emps, selectedMonth);
+    const settings = DB.getObj ? DB.getObj('settings') : {};
+    const companyName = settings.companyName || 'HRM Enterprise Suite';
+    const monthName = new Date(selectedMonth + '-01').toLocaleDateString('en-PK', { month: 'long', year: 'numeric' });
+
+    const printWin = window.open('', '_blank');
+    if (!printWin) {
+      Toast.show('Please allow popups to open print preview', 'warning');
+      return;
+    }
+
+    printWin.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Muster Roll - ${monthName} - ${companyName}</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; color: #0f172a; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #0f172a; padding-bottom: 12px; }
+          .header h1 { margin: 0; font-size: 20px; text-transform: uppercase; }
+          .header h2 { margin: 4px 0; font-size: 14px; font-weight: 600; color: #475569; }
+          .footer-signs { display: flex; justify-content: space-between; margin-top: 50px; padding-top: 20px; }
+          .sign-box { text-align: center; width: 200px; border-top: 1.5px solid #0f172a; padding-top: 8px; font-size: 12px; font-weight: 700; }
+          table { width: 100%; border-collapse: collapse; font-size: 10px; }
+          th, td { border: 1px solid #cbd5e1; padding: 4px 2px; text-align: center; }
+          th { background: #f1f5f9; }
+          @media print {
+            button { display: none; }
+            @page { size: landscape; margin: 10mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${companyName}</h1>
+          <h2>FORM II / FACTORIES ACT — STATUTORY MONTHLY ATTENDANCE REGISTER / MUSTER ROLL</h2>
+          <div>Period: <strong>${monthName}</strong> &bull; Printed On: ${new Date().toLocaleDateString('en-PK')}</div>
+        </div>
+        ${tableHtml}
+        <div class="footer-signs">
+          <div class="sign-box">Prepared By<br><small style="font-weight:400">HR Assistant</small></div>
+          <div class="sign-box">Verified By<br><small style="font-weight:400">HR Manager</small></div>
+          <div class="sign-box">Approved By<br><small style="font-weight:400">Accounts &amp; Finance</small></div>
+        </div>
+        <script>
+          setTimeout(() => { window.print(); }, 500);
+        </script>
+      </body>
+      </html>
+    `);
+    printWin.document.close();
+  },
 };
 
