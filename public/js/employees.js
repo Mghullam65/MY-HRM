@@ -5887,6 +5887,9 @@ const Employees = {
   orgPanStartY: 0,
 
   renderOrgChart(container) {
+    container = container || document.getElementById('emp-content') || document.getElementById('page-content');
+    if (!container) return;
+
     const allEmps = DB.get('employees') || [];
     const activeEmps = allEmps.filter(e => e.status === 'active');
     const depts = DB.get('departments') || [];

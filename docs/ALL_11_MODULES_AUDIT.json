@@ -1,0 +1,194 @@
+{
+  "timestamp": "2026-10-12T10:05:56.786Z",
+  "total": 31,
+  "passed": 31,
+  "failed": 0,
+  "results": [
+    {
+      "navPillar": "Dashboard",
+      "viewLabel": "Executive Overview & Widgets",
+      "passed": true,
+      "details": "KPI Cards: 18, Punch Clock: Active, Action Inbox: Ready"
+    },
+    {
+      "navPillar": "Employees",
+      "viewLabel": "Employee Directory",
+      "passed": true,
+      "details": "Active Records: 7, + Add Employee Modal: Ready"
+    },
+    {
+      "navPillar": "Employees",
+      "viewLabel": "Org Chart & Hierarchy Tree",
+      "passed": true,
+      "details": "Visual Department & Hierarchy Nodes: Rendered"
+    },
+    {
+      "navPillar": "Employees",
+      "viewLabel": "e-DMS Cloud Digital Dossiers",
+      "passed": true,
+      "details": "Cloud Document Vault: 9 Verified Attachments"
+    },
+    {
+      "navPillar": "Attendance",
+      "viewLabel": "Daily Timesheet & Shifts",
+      "passed": true,
+      "details": "Timesheet Logs: 7 Daily Punches"
+    },
+    {
+      "navPillar": "Attendance",
+      "viewLabel": "Biometric Terminal Simulator (TCP/IP ZKTeco)",
+      "passed": true,
+      "details": "Live Machine Gateway Simulator: Active"
+    },
+    {
+      "navPillar": "Attendance",
+      "viewLabel": "Duty Rosters & 31-Day Muster Roll",
+      "passed": true,
+      "details": "Monthly Muster Roll Matrix: 100% Calculated"
+    },
+    {
+      "navPillar": "Leave",
+      "viewLabel": "Leave Requests & Approval Queue",
+      "passed": true,
+      "details": "Active Leave Records: 3, 2-Tier Approvals Active"
+    },
+    {
+      "navPillar": "Leave",
+      "viewLabel": "Public Holidays & Calendar",
+      "passed": true,
+      "details": "Gazetted Holidays: 8 Scheduled"
+    },
+    {
+      "navPillar": "Leave",
+      "viewLabel": "Statutory Leave Quotas (Annual/Casual/Sick)",
+      "passed": true,
+      "details": "Employee Quota Balances: 6 Tracked"
+    },
+    {
+      "navPillar": "Payroll",
+      "viewLabel": "Salaries, FBR Tax & Bank Disbursals",
+      "passed": true,
+      "details": "Structures: 6, FBR Progressive Tax 2025-27: Applied"
+    },
+    {
+      "navPillar": "Recruitment",
+      "viewLabel": "Job Openings & Requisitions",
+      "passed": true,
+      "details": "Job Requisitions: 0 Managed"
+    },
+    {
+      "navPillar": "Recruitment",
+      "viewLabel": "Candidate Pipeline (ATS & Scoring)",
+      "passed": true,
+      "details": "Candidate Workflow: Pipeline Ready"
+    },
+    {
+      "navPillar": "Recruitment",
+      "viewLabel": "Interview Scheduling & Offer Generator",
+      "passed": true,
+      "details": "Panel Interviews & Offer Letter Generator: Ready"
+    },
+    {
+      "navPillar": "Performance",
+      "viewLabel": "Manager Appraisal Reviews",
+      "passed": true,
+      "details": "Appraisal Cycles: 0 Reviews Logged"
+    },
+    {
+      "navPillar": "Performance",
+      "viewLabel": "Corporate OKRs & Goals",
+      "passed": true,
+      "details": "Department OKRs & Sprint Goals: 5 Active"
+    },
+    {
+      "navPillar": "Performance",
+      "viewLabel": "360° Peer Feedback System",
+      "passed": true,
+      "details": "Peer Competency Review Framework: Ready"
+    },
+    {
+      "navPillar": "Reports",
+      "viewLabel": "Workforce Analytics & Headcount Charts",
+      "passed": true,
+      "details": "Telemetry Charts: 1 Visualizations"
+    },
+    {
+      "navPillar": "Reports",
+      "viewLabel": "Pakistan Tax Summary (FBR Salaried Slabs)",
+      "passed": true,
+      "details": "Annual Progressive Tax Ledger: Available"
+    },
+    {
+      "navPillar": "Reports",
+      "viewLabel": "Bank Disbursal Batch Checksums",
+      "passed": true,
+      "details": "6 Disbursal Formats (HBL, MCB, 1Link): Validated"
+    },
+    {
+      "navPillar": "Operations",
+      "viewLabel": "Assets & Equipment Inventory",
+      "passed": true,
+      "details": "Cataloged Assets: 8 Hardware Items"
+    },
+    {
+      "navPillar": "Operations",
+      "viewLabel": "Expense Claims & Reimbursements",
+      "passed": true,
+      "details": "Claim Vouchers: 5 Records"
+    },
+    {
+      "navPillar": "Operations",
+      "viewLabel": "Helpdesk Support & SLA Ticketing",
+      "passed": true,
+      "details": "Support Tickets: 5 Tracked"
+    },
+    {
+      "navPillar": "Operations",
+      "viewLabel": "Events & Corporate Noticeboard",
+      "passed": true,
+      "details": "Corporate Notices: 6 Published"
+    },
+    {
+      "navPillar": "Operations",
+      "viewLabel": "Statutory Exit Gratuity Settlement (30/26)",
+      "passed": true,
+      "details": "30/26 Gratuity & 3-Gate Clearance: Verified"
+    },
+    {
+      "navPillar": "Master Data",
+      "viewLabel": "Departments & Designations",
+      "passed": true,
+      "details": "Departments: 8, Designations: 13"
+    },
+    {
+      "navPillar": "Master Data",
+      "viewLabel": "Multi-Company Legal Entities",
+      "passed": true,
+      "details": "Holding & Subsidiaries: 3 Entities"
+    },
+    {
+      "navPillar": "Master Data",
+      "viewLabel": "Security Audit Trail Logs",
+      "passed": true,
+      "details": "Immutable Audit Logs: 22 Actions Captured"
+    },
+    {
+      "navPillar": "Settings",
+      "viewLabel": "System Configuration & Company Profile",
+      "passed": true,
+      "details": "Enterprise Policy & Organization Profile: Active"
+    },
+    {
+      "navPillar": "Settings",
+      "viewLabel": "Theme & Visual Styling Engine",
+      "passed": true,
+      "details": "Dual Theme Mode (Obsidian / Crisp): Active (dark)"
+    },
+    {
+      "navPillar": "Settings",
+      "viewLabel": "RBAC Permission Matrix",
+      "passed": true,
+      "details": "Enterprise Roles: 5, Permissions: 126"
+    }
+  ]
+}

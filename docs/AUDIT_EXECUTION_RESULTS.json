@@ -1,0 +1,190 @@
+{
+  "timestamp": "2026-10-12T09:44:14.601Z",
+  "targetUrl": "http://localhost:3000",
+  "suites": [
+    {
+      "name": "Superadmin",
+      "tests": [
+        {
+          "id": "SA-01",
+          "title": "Login & Topbar Role Verification",
+          "passed": true,
+          "details": "Role: superadmin, User: admin"
+        },
+        {
+          "id": "SA-02",
+          "title": "Dashboard KPI Telemetry & Zero NaN",
+          "passed": true,
+          "details": "Employees: 27, NaN/Undefined: None"
+        },
+        {
+          "id": "SA-03",
+          "title": "Two-Tier Navigation Bar (Pillars -> Flat Sub-tabs)",
+          "passed": true,
+          "details": "Pillars active: Yes, Dropdown overlapping: Zero"
+        },
+        {
+          "id": "SA-04",
+          "title": "Multi-Company Switcher Scoping",
+          "passed": true,
+          "details": "Tested entity: Apex Digital Payments (Pvt) Ltd"
+        },
+        {
+          "id": "SA-05",
+          "title": "FBR Progressive Salaried Tax (PKR 150K)",
+          "passed": true,
+          "details": "Computed Monthly Withholding: PKR 10000"
+        },
+        {
+          "id": "SA-06",
+          "title": "30/26 Gratuity Settlement Formula Calculation",
+          "passed": true,
+          "details": "Computed 5-yr Gratuity on 100k: PKR 576923"
+        },
+        {
+          "id": "SA-07",
+          "title": "Administration Module & Security Audit Logs Access",
+          "passed": true,
+          "details": "Users: 6, Audit records: 43"
+        }
+      ]
+    },
+    {
+      "name": "HR Director",
+      "tests": [
+        {
+          "id": "HR-01",
+          "title": "HR Director Login & Workforce Directory Access",
+          "passed": true,
+          "details": "Role: hr_manager, Directory count: 27"
+        },
+        {
+          "id": "HR-02",
+          "title": "e-DMS Digital Profile & Statutory Vault",
+          "passed": true,
+          "details": "Inspected record: Fatima Raza (CNIC: 42201-4567890-4)"
+        },
+        {
+          "id": "HR-03",
+          "title": "Recruitment ATS Kanban Board & Pipeline",
+          "passed": true,
+          "details": "Pipeline active, Candidate items: 0"
+        },
+        {
+          "id": "HR-04",
+          "title": "Tier-2 Final Leave Approval Authority",
+          "passed": true,
+          "details": "HR Final Approval Gate: Authorized"
+        }
+      ]
+    },
+    {
+      "name": "Dept Manager",
+      "tests": [
+        {
+          "id": "DM-01",
+          "title": "Department Manager Team Scoping (IT Dept Only)",
+          "passed": true,
+          "details": "Team scoped count: 8, Cross-dept leak: 0"
+        },
+        {
+          "id": "DM-02",
+          "title": "Tier-1 Manager Leave Endorsement Authority",
+          "passed": true,
+          "details": "Manager Gate-1 Endorsement: Authorized for reporting team"
+        },
+        {
+          "id": "DM-03",
+          "title": "Security Boundary: Forbidden from Company Salaries & Admin",
+          "passed": true,
+          "details": "Company Payroll & Master Admin locked: Yes"
+        }
+      ]
+    },
+    {
+      "name": "Employee",
+      "tests": [
+        {
+          "id": "EMP-01",
+          "title": "Employee Self-Service Authentication",
+          "passed": true,
+          "details": "User: Fatima Raza, Role: employee"
+        },
+        {
+          "id": "EMP-02",
+          "title": "Punch Clock Live Timer & Clock In/Out Capability",
+          "passed": true,
+          "details": "Biometric Self Clocking: Active on 2026-10-12"
+        },
+        {
+          "id": "EMP-03",
+          "title": "Submit 2-Day Casual Leave Application",
+          "passed": true,
+          "details": "Leave ID: 1791798261491, Initial Status: pending"
+        },
+        {
+          "id": "EMP-04",
+          "title": "Strict Confidential Payslip Isolation (Zero Peer Leak)",
+          "passed": true,
+          "details": "Peer Salary Access: STRICTLY BLOCKED (Zero Leakage)"
+        },
+        {
+          "id": "EMP-05",
+          "title": "Negative Security: Direct URL Jump to #administration",
+          "passed": true,
+          "details": "Route redirected / protected: payroll"
+        }
+      ]
+    },
+    {
+      "name": "Onboarding",
+      "tests": [
+        {
+          "id": "ONB-01",
+          "title": "Onboarding Candidate Portal & Module Restrictions",
+          "passed": true,
+          "details": "Role: onboarding, Operational & Admin modules restricted: Yes"
+        }
+      ]
+    },
+    {
+      "name": "Junior HR",
+      "tests": [
+        {
+          "id": "JHR-01",
+          "title": "Junior HR Directory Read vs Master Admin Restriction",
+          "passed": true,
+          "details": "Directory View: Allowed, High-stakes actions revoked: Yes"
+        }
+      ]
+    },
+    {
+      "name": "UI General",
+      "tests": [
+        {
+          "id": "UI-01",
+          "title": "Obsidian Dark Mode <-> Crisp Light Mode Persistence",
+          "passed": true,
+          "details": "Persisted via localStorage: Validated"
+        },
+        {
+          "id": "UI-02",
+          "title": "Spotlight Command Palette (Ctrl+K Engine)",
+          "passed": true,
+          "details": "Global Command Palette: Ready"
+        },
+        {
+          "id": "UI-03",
+          "title": "Mobile Viewport Reflow & Bottom Navigation Dock (390px)",
+          "passed": true,
+          "details": "Body width: 390px, Bottom dock responsive: Yes"
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "total": 24,
+    "passed": 24,
+    "failed": 0
+  }
+}

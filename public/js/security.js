@@ -15,13 +15,18 @@ const Security = {
     if (this.initialized) return;
     this.initialized = true;
 
-    this.setupAntiInspect();
-    this.setupShortcutBlocker();
-    this.setupConsoleProtection();
-    this.setupSecureLinks();
-    this.sanitizeStorage();
+    if (typeof document !== 'undefined') {
+      this.setupAntiInspect();
+      this.setupShortcutBlocker();
+      this.setupConsoleProtection();
+      this.setupSecureLinks();
+      this.sanitizeStorage();
+      this.setupIdleTimeout();
+    }
 
-    console.log('%c🔒 HRM Pro Enterprise Security Engine Active', 'color:#2563eb;font-weight:800;font-size:13px');
+    if (typeof console !== 'undefined' && console.log) {
+      console.log('%c🔒 HRM Pro Enterprise Security Engine Active (v2.5.0 Hardened)', 'color:#2563eb;font-weight:800;font-size:13px');
+    }
   },
 
   // Notify user with rate-limited toast
@@ -169,6 +174,120 @@ const Security = {
     }
   },
 
+  // 6. Enterprise Idle Session Timeout (15-Minute Auto-Logout Guard)
+  idleTimeoutMs: 15 * 60 * 1000, // 15 minutes
+  idleWarningMs: 60 * 1000,      // 60s warning before logout
+  idleTimer: null,
+  idleWarningTimer: null,
+  lastActivity: Date.now(),
+  isWarningShowing: false,
+
+  setupIdleTimeout() {
+    if (typeof window === 'undefined') return;
+
+    const resetTimer = () => {
+      this.lastActivity = Date.now();
+      if (this.isWarningShowing) {
+        this.dismissIdleWarning();
+      }
+      this.scheduleIdleTimers();
+    };
+
+    let throttleTimeout = null;
+    const onUserActivity = () => {
+      if (throttleTimeout) return;
+      throttleTimeout = setTimeout(() => {
+        throttleTimeout = null;
+        if (typeof Auth !== 'undefined' && Auth.isLoggedIn && Auth.isLoggedIn()) {
+          resetTimer();
+        }
+      }, 1000);
+    };
+
+    ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart'].forEach(evt => {
+      window.addEventListener(evt, onUserActivity, { passive: true });
+    });
+
+    this.scheduleIdleTimers();
+  },
+
+  scheduleIdleTimers() {
+    if (typeof window === 'undefined') return;
+    clearTimeout(this.idleTimer);
+    clearTimeout(this.idleWarningTimer);
+
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn || !Auth.isLoggedIn()) {
+      return;
+    }
+
+    const timeUntilWarning = Math.max(0, this.idleTimeoutMs - this.idleWarningMs);
+    this.idleWarningTimer = setTimeout(() => {
+      this.showIdleWarning();
+    }, timeUntilWarning);
+
+    this.idleTimer = setTimeout(() => {
+      this.handleIdleExpiration();
+    }, this.idleTimeoutMs);
+  },
+
+  showIdleWarning() {
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn || !Auth.isLoggedIn()) return;
+    this.isWarningShowing = true;
+
+    if (typeof Toast !== 'undefined' && Toast.show) {
+      Toast.show('⚠️ Security Notice: Session will expire in 60s due to inactivity. Move mouse to stay signed in.', 'warning', 10000);
+    }
+  },
+
+  dismissIdleWarning() {
+    this.isWarningShowing = false;
+  },
+
+  handleIdleExpiration() {
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn || !Auth.isLoggedIn()) return;
+    console.warn('[Security] Idle session timeout reached (15m). Performing secure logout.');
+    this.isWarningShowing = false;
+    
+    if (typeof Auth.logout === 'function') {
+      Auth.logout();
+    }
+    if (typeof Toast !== 'undefined' && Toast.show) {
+      Toast.show('🔒 Session Expired: Automatically logged out due to 15 minutes of inactivity.', 'danger', 8000);
+    }
+    if (typeof App !== 'undefined' && App.showLogin) {
+      App.showLogin();
+    }
+  },
+
+  // 7. Client-Side Login Brute-Force Shield
+  clientLoginAttempts: {},
+
+  recordFailedLoginAttempt(username) {
+    const key = (username || '').toLowerCase();
+    const now = Date.now();
+    const rec = this.clientLoginAttempts[key] || { count: 0, lockedUntil: 0 };
+    rec.count += 1;
+    if (rec.count >= 5) {
+      rec.lockedUntil = now + (60 * 1000); // 60s client lock
+    }
+    this.clientLoginAttempts[key] = rec;
+    return rec;
+  },
+
+  clearFailedLoginAttempt(username) {
+    const key = (username || '').toLowerCase();
+    delete this.clientLoginAttempts[key];
+  },
+
+  isLoginLocked(username) {
+    const key = (username || '').toLowerCase();
+    const rec = this.clientLoginAttempts[key];
+    if (rec && rec.lockedUntil && Date.now() < rec.lockedUntil) {
+      return Math.ceil((rec.lockedUntil - Date.now()) / 1000);
+    }
+    return 0;
+  },
+
   // Public summary of active security controls
   getSecurityAuditReport() {
     return {
@@ -181,7 +300,9 @@ const Security = {
         { name: 'Password Sanitization in Storage', status: 'Enabled' },
         { name: 'Secure Link Referrer Policy', status: 'Enabled' },
         { name: 'Server HTTP Security Headers (Helmet, X-Frame-Options)', status: 'Enabled' },
-        { name: 'Candidate CV File Preservation (Original Binaries)', status: 'Enabled' }
+        { name: 'Idle Session Auto-Logout (15m)', status: 'Enabled' },
+        { name: 'Brute-Force Rate Limiting (5 Attempts / 5m)', status: 'Enabled' },
+        { name: 'Strict Origin Whitelisting (CORS)', status: 'Enabled' }
       ]
     };
   }
@@ -189,3 +310,7 @@ const Security = {
 
 // Initialize immediately upon script execution
 Security.init();
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = Security;
+}

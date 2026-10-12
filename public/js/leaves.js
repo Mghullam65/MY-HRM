@@ -295,6 +295,8 @@ const Leaves = {
   },
 
   renderCalendar(container) {
+    container = container || document.getElementById('leaves-content') || document.getElementById('page-content');
+    if (!container) return;
     const year = this.calYear;
     const month = this.calMonth;
     const allLeaves = DB.get('leave_requests') || [];
@@ -548,6 +550,8 @@ const Leaves = {
   },
 
   renderYearMatrix(container, year, displayLeaves, holidays, isMyMode, isManagement, isDeptMgr, myEmp, filteredStaff, depts, myQuotaRemaining) {
+    container = container || document.getElementById('leaves-content') || document.getElementById('page-content');
+    if (!container) return;
     const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;

@@ -43,6 +43,17 @@ const Auth = {
   },
 
   login(username, password) {
+    // 0. Client-Side Security Brute-Force Check
+    if (typeof Security !== 'undefined' && Security.isLoginLocked) {
+      const waitSec = Security.isLoginLocked(username);
+      if (waitSec > 0) {
+        return {
+          success: false,
+          message: `Too many failed login attempts. Security lock active. Please wait ${waitSec}s.`
+        };
+      }
+    }
+
     // Attempt background API login to synchronize JWT session
     if (typeof API !== 'undefined') {
       API.login(username, password)
@@ -54,7 +65,18 @@ const Auth = {
 
     const users = DB.get('users');
     const matchedUser = users.find(u => u.username === username && u.password === password);
-    if (!matchedUser) return { success: false, message: 'Invalid username or password.' };
+    if (!matchedUser) {
+      if (typeof Security !== 'undefined' && Security.recordFailedLoginAttempt) {
+        Security.recordFailedLoginAttempt(username);
+      }
+      return { success: false, message: 'Invalid username or password.' };
+    }
+
+    // Clear failed login counter & activate idle session monitoring
+    if (typeof Security !== 'undefined') {
+      if (Security.clearFailedLoginAttempt) Security.clearFailedLoginAttempt(username);
+      if (Security.scheduleIdleTimers) Security.scheduleIdleTimers();
+    }
 
     const employee = DB.find('employees', matchedUser.employeeId);
     
@@ -91,6 +113,11 @@ const Auth = {
 
   logout() {
     if (typeof API !== 'undefined') API.logout();
+    if (typeof Security !== 'undefined') {
+      clearTimeout(Security.idleTimer);
+      clearTimeout(Security.idleWarningTimer);
+      Security.isWarningShowing = false;
+    }
     DB.log('LOGOUT', 'Auth', `${this._employee?.fullName} logged out`, this._user?.id);
     this._user = null;
     this._employee = null;

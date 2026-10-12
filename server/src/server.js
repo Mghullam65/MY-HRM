@@ -39,11 +39,50 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff'); // Prevent MIME-type sniffing
   res.setHeader('X-XSS-Protection', '1; mode=block'); // XSS filter protection
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin'); // Prevent link/token referrer leaks
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=(), geolocation=(self)'); // Limit hardware capabilities
   res.removeHeader('X-Powered-By'); // Hide Express signature from fingerprinting
   next();
 });
 
-app.use(cors());
+// Production-Grade CORS Whitelist Configuration
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests or same-origin requests (origin is undefined)
+    if (!origin) return callback(null, true);
+
+    // Allow localhost and local loopbacks on any port
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow configured deployment origins
+    if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    // Allow vercel preview deployments if applicable
+    if (/^https:\/\/.*\.vercel\.app$/.test(origin)) {
+      return callback(null, true);
+    }
+
+    // In development mode, allow with warning
+    if (process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+
+    callback(new Error(`CORS policy violation: origin ${origin} is not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'X-Client-Id']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 

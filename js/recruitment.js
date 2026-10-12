@@ -871,6 +871,8 @@ const Recruitment = {
   },
 
   renderPipeline(container) {
+    container = container || document.getElementById('rec-content') || document.getElementById('page-content');
+    if (!container) return;
     if (!this.isHROrAdmin()) {
       Toast.show('Access Denied: Candidate ATS pipeline is managed exclusively by HR & Admin.', 'error');
       this.currentView = 'requisitions';
@@ -5847,6 +5849,8 @@ Docker, Kubernetes, AWS, CI/CD, Terraform, Linux, PostgreSQL, Git, Python, Bash,
   // ═══════════════════════════════════════════════
 
   renderInterviews(container) {
+    container = container || document.getElementById('rec-content') || document.getElementById('page-content');
+    if (!container) return;
     if (!this.isHROrAdmin()) {
       Toast.show('Access Denied: Interview panels and scheduling are restricted to HR & Admin.', 'error');
       this.currentView = 'requisitions';

@@ -7,12 +7,68 @@ const { authenticate, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
 
+// ── In-Memory Brute-Force Rate Limiter ──
+const loginAttempts = new Map(); // key: `${ip}_${username}` => { count, firstAttempt, lockedUntil }
+const MAX_FAILED_ATTEMPTS = 5;
+const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5-minute lockout
+const ATTEMPT_WINDOW_MS = 5 * 60 * 1000;  // 5-minute rolling window
+
+function checkRateLimit(ip, username) {
+  const cleanIp = (ip || '127.0.0.1').replace(/^.*:/, '');
+  const key = `${cleanIp}_${(username || '').toLowerCase()}`;
+  const now = Date.now();
+  const record = loginAttempts.get(key);
+
+  if (record) {
+    if (record.lockedUntil && now < record.lockedUntil) {
+      const waitSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+      return {
+        blocked: true,
+        waitSeconds,
+        message: `Too many failed login attempts. Security lockout active. Please try again in ${waitSeconds} seconds.`
+      };
+    }
+    if (now - record.firstAttempt > ATTEMPT_WINDOW_MS && (!record.lockedUntil || now >= record.lockedUntil)) {
+      loginAttempts.delete(key);
+    }
+  }
+  return { blocked: false };
+}
+
+function recordFailedLogin(ip, username) {
+  const cleanIp = (ip || '127.0.0.1').replace(/^.*:/, '');
+  const key = `${cleanIp}_${(username || '').toLowerCase()}`;
+  const now = Date.now();
+  const record = loginAttempts.get(key) || { count: 0, firstAttempt: now, lockedUntil: null };
+
+  record.count += 1;
+  if (record.count >= MAX_FAILED_ATTEMPTS) {
+    record.lockedUntil = now + LOCKOUT_DURATION_MS;
+    console.warn(`[Security Alert] IP ${cleanIp} locked out for 5 minutes after ${record.count} failed login attempts for user '${username}'.`);
+  }
+  loginAttempts.set(key, record);
+}
+
+function clearFailedLogin(ip, username) {
+  const cleanIp = (ip || '127.0.0.1').replace(/^.*:/, '');
+  const key = `${cleanIp}_${(username || '').toLowerCase()}`;
+  loginAttempts.delete(key);
+}
+
 // Helper to authenticate using central StoreService
 function loginWithStore(username, password, req, res) {
   try {
+    const clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    const rateCheck = checkRateLimit(clientIp, username);
+    if (rateCheck.blocked) {
+      res.setHeader('Retry-After', String(rateCheck.waitSeconds));
+      return res.status(429).json({ success: false, message: rateCheck.message, retryAfter: rateCheck.waitSeconds });
+    }
+
     const users = store.getTable('users') || [];
     const user = users.find(u => u.username === username);
     if (!user || user.status !== 'active') {
+      recordFailedLogin(clientIp, username);
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
 
@@ -34,8 +90,12 @@ function loginWithStore(username, password, req, res) {
     }
 
     if (!isValid) {
+      recordFailedLogin(clientIp, username);
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
+
+    // Login succeeded: clear failed counter
+    clearFailedLogin(clientIp, username);
 
     // Update lastLogin
     user.lastLogin = new Date().toISOString();
@@ -68,6 +128,13 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Username and password are required.' });
     }
 
+    const clientIp = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    const rateCheck = checkRateLimit(clientIp, username);
+    if (rateCheck.blocked) {
+      res.setHeader('Retry-After', String(rateCheck.waitSeconds));
+      return res.status(429).json({ success: false, message: rateCheck.message, retryAfter: rateCheck.waitSeconds });
+    }
+
     // Fast fallback: if PostgreSQL is not active or Prisma fails, use StoreService
     let user = null;
     try {
@@ -90,6 +157,7 @@ router.post('/login', async (req, res) => {
     }
 
     if (!user || user.status !== 'active') {
+      recordFailedLogin(clientIp, username);
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
 
@@ -114,8 +182,12 @@ router.post('/login', async (req, res) => {
     }
 
     if (!isValid) {
+      recordFailedLogin(clientIp, username);
       return res.status(401).json({ success: false, message: 'Invalid username or password.' });
     }
+
+    // Clear failed login attempts upon success
+    clearFailedLogin(clientIp, username);
 
     // Update lastLogin
     await prisma.user.update({
