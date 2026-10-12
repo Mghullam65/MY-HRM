@@ -39,3 +39,15 @@ jobs:
           CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
           DISPLAY: ''
         run: node scripts/ci-audit.js
+
+      - name: Verify Security & Rate Limiting Hardening
+        run: node scripts/verify-security-hardening.js
+
+      - name: Verify System-Wide Health & Architecture
+        run: node scripts/system-wide-health-audit.js
+
+      - name: Verify Cloud Serverless & Production Blueprints
+        run: node scripts/verify-cloud-deployment-health.js
+
+      - name: Verify End-of-Month Payroll & FBR Tax Staging
+        run: node scripts/staging-payroll-fbr-run.js

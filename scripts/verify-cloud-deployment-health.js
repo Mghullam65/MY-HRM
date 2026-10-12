@@ -89,9 +89,10 @@ console.log('\n▶ CATEGORY 5: Live Local Server Health & Response Validation...
 
 function checkHttp(urlPath) {
   return new Promise(resolve => {
+    const port = Number(process.env.PORT) || 3000;
     const req = http.get({
       hostname: '127.0.0.1',
-      port: 5000,
+      port,
       path: urlPath,
       timeout: 3000
     }, res => {

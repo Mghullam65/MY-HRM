@@ -11,7 +11,9 @@
     "postinstall": "prisma generate --schema=server/prisma/schema.prisma",
     "seed": "node server/prisma/seed.js",
     "test": "node scripts/simulate-e2e-lifecycle.js && node scripts/system-wide-health-audit.js",
-    "test:ci": "node scripts/ci-audit.js"
+    "test:ci": "node scripts/ci-audit.js",
+    "test:payroll": "node scripts/staging-payroll-fbr-run.js",
+    "test:modules": "node scripts/test-all-11-navbar-modules.js"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
