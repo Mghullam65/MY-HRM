@@ -17,6 +17,8 @@ const App = {
           landingEl.setAttribute('data-landing-theme', savedLandingTheme);
           landingEl.setAttribute('data-theme', savedLandingTheme);
         }
+        const waBtn = document.getElementById('landing-whatsapp-launcher');
+        if (waBtn) waBtn.style.display = 'flex';
         if (typeof Landing !== 'undefined' && Landing.render) {
           try { Landing.render(); } catch (e) { console.warn('Pre-paint landing error:', e); }
         }
@@ -25,6 +27,8 @@ const App = {
         if (loginEl) {
           loginEl.style.display = 'flex';
         }
+        const waBtn = document.getElementById('landing-whatsapp-launcher');
+        if (waBtn) waBtn.style.display = 'none';
         if (typeof Login !== 'undefined' && Login.render) {
           try { Login.render();
     if (window.location.hash === '#chat-login' || window.location.search.includes('portal=chat')) { Login.setPortal('chat'); } } catch (e) { console.warn('Pre-paint login error:', e); }
@@ -34,6 +38,8 @@ const App = {
         if (trialEl) {
           trialEl.style.display = 'flex';
         }
+        const waBtn = document.getElementById('landing-whatsapp-launcher');
+        if (waBtn) waBtn.style.display = 'none';
       }
 
       await DB.init();
@@ -204,12 +210,15 @@ const App = {
 
     // Chat Isolation & Landing Agent Control
     document.body.classList.remove('app-workspace-active');
+    document.body.classList.remove('login-view-active');
     const chatBtn = document.getElementById('chat-floating-launcher');
     if (chatBtn) chatBtn.style.display = 'none';
     if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'flex';
+    const waBtn = document.getElementById('landing-whatsapp-launcher');
+    if (waBtn) waBtn.style.display = 'flex';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.init) {
       LandingAgent.init();
     }
@@ -246,12 +255,15 @@ const App = {
 
     // Chat Isolation & Landing Agent Control
     document.body.classList.remove('app-workspace-active');
+    document.body.classList.remove('login-view-active');
     const chatBtn = document.getElementById('chat-floating-launcher');
     if (chatBtn) chatBtn.style.display = 'none';
     if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'flex';
+    const waBtn = document.getElementById('landing-whatsapp-launcher');
+    if (waBtn) waBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.init) {
       LandingAgent.init();
     }
@@ -274,11 +286,12 @@ const App = {
     if (landing) landing.style.display = 'none';
     if (modDetail) modDetail.style.display = 'none';
     
-    // Login Page is STRICTLY Light Mode Only
+    // Login Page is STRICTLY Light Mode Only & Single Page
     document.documentElement.setAttribute('data-theme', 'light');
     document.documentElement.removeAttribute('data-landing-theme');
     document.body.setAttribute('data-theme', 'light');
     document.body.removeAttribute('data-landing-theme');
+    document.body.classList.add('login-view-active');
     
     if (login) {
       login.style.display = 'flex';
@@ -295,6 +308,8 @@ const App = {
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'none';
+    const waBtn = document.getElementById('landing-whatsapp-launcher');
+    if (waBtn) waBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
     Login.render();
@@ -324,12 +339,15 @@ const App = {
 
     // Suppress internal chat & close agent
     document.body.classList.remove('app-workspace-active');
+    document.body.classList.remove('login-view-active');
     const chatBtn = document.getElementById('chat-floating-launcher');
     if (chatBtn) chatBtn.style.display = 'none';
     if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'none';
+    const waBtn = document.getElementById('landing-whatsapp-launcher');
+    if (waBtn) waBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
     if (typeof Trial !== 'undefined' && Trial.render) {
@@ -355,11 +373,16 @@ const App = {
 
     // Workspace active mode: internal floating drawer launcher permanently suppressed
     document.body.classList.add('app-workspace-active');
+    document.body.classList.remove('login-view-active');
+    document.body.style.overflow = '';
+    document.documentElement.style.overflow = '';
     const chatBtn = document.getElementById('chat-floating-launcher');
     if (chatBtn) chatBtn.style.display = 'none';
 
     const agentBtn = document.getElementById('landing-agent-launcher');
     if (agentBtn) agentBtn.style.display = 'none';
+    const waBtn = document.getElementById('landing-whatsapp-launcher');
+    if (waBtn) waBtn.style.display = 'none';
     if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
 
     let navPos = localStorage.getItem('hrm_nav_position') || DB.getObj('settings')?.sidebarPosition || 'top';
@@ -752,11 +775,6 @@ const App = {
         <!-- Fullscreen Button -->
         <button class="topbar-btn" onclick="typeof Utils !== 'undefined' && Utils.toggleFullScreen ? Utils.toggleFullScreen() : (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen())" title="Toggle Fullscreen" style="width:34px;height:34px">
           <i class="fa fa-expand"></i>
-        </button>
-
-        <!-- Theme Toggle -->
-        <button class="theme-toggle-btn topbar-btn" onclick="App.toggleTheme()" title="${isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}" style="width:34px;height:34px">
-          <i class="fa ${isDark ? 'fa-sun' : 'fa-moon'}"></i>
         </button>
 
         <!-- Notifications -->
@@ -3102,36 +3120,6 @@ const Login = {
           <i class="fa fa-arrow-left"></i> Back to Home
         </a>
 
-        <!-- Right side photographic backdrop (Office desk & laptop) -->
-        <div class="login-backdrop-desk"></div>
-        <div class="login-backdrop-overlay"></div>
-        <div class="login-ambient-flare"></div>
-
-        <!-- SVG curved gradient shapes & bottom ribbons -->
-        <svg class="login-svg-waves" viewBox="0 0 1600 1000" preserveAspectRatio="none">
-          <defs>
-            <linearGradient id="bgBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#022863" />
-              <stop offset="50%" stop-color="#053b8c" />
-              <stop offset="100%" stop-color="#094ca3" />
-            </linearGradient>
-            <linearGradient id="cyanWaveGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#0284c7" stop-opacity="0.85" />
-              <stop offset="60%" stop-color="#0ea5e9" stop-opacity="0.5" />
-              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
-            </linearGradient>
-            <linearGradient id="orangeRibbonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#ea580c" />
-              <stop offset="45%" stop-color="#f97316" />
-              <stop offset="100%" stop-color="#fb923c" />
-            </linearGradient>
-          </defs>
-          <path d="M 0 0 L 820 0 C 760 300, 840 680, 710 1000 L 0 1000 Z" fill="url(#bgBlueGrad)"/>
-          <path d="M 0 780 C 240 760, 520 840, 760 1000 L 0 1000 Z" fill="url(#cyanWaveGrad)"/>
-          <path d="M -20 870 C 260 820, 500 890, 740 1000 L 560 1000 C 400 930, 220 900, -20 950 Z" fill="url(#orangeRibbonGrad)"/>
-          <path d="M -20 920 C 180 880, 360 930, 520 1000 L 320 1000 C 180 960, 80 950, -20 970 Z" fill="#c2410c" opacity="0.6"/>
-        </svg>
-
         <div class="login-content-wrapper">
           <!-- ── LEFT COLUMN: Brand & 4 Feature Cards ── -->
           <div class="login-left-col">
@@ -3269,44 +3257,6 @@ const Login = {
                   <span>Sign In</span> <i class="fa fa-arrow-right"></i>
                 </button>
               </form>
-
-              <!-- OR Divider -->
-              <div class="card-or-divider">
-                <span>OR CONTINUE WITH</span>
-              </div>
-
-              <!-- SSO Grid -->
-              <div class="card-sso-grid">
-                <!-- Microsoft -->
-                <button type="button" class="card-sso-btn" onclick="Login.loginAsSSO('microsoft')">
-                  <svg width="17" height="17" viewBox="0 0 21 21">
-                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                  </svg>
-                  <span>Microsoft</span>
-                </button>
-
-                <!-- Google -->
-                <button type="button" class="card-sso-btn" onclick="Login.loginAsSSO('google')">
-                  <svg width="17" height="17" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z"/>
-                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.13C3.26 21.36 7.33 24 12 24z"/>
-                    <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.58H1.26C.46 8.18 0 9.99 0 12s.46 3.82 1.26 5.42l4.02-3.13z"/>
-                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.26 6.58l4.02 3.13c.95-2.83 3.6-4.96 6.72-4.96z"/>
-                  </svg>
-                  <span>Google</span>
-                </button>
-              </div>
-
-              <!-- 1-Click Role Presets for Demo -->
-              <div class="card-demo-presets">
-                <span style="font-size:10px;font-weight:700;color:#64748b">Demo:</span>
-                <button type="button" class="card-demo-pill" onclick="Login.selectAccount('admin')">Admin</button>
-                <button type="button" class="card-demo-pill" onclick="Login.selectAccount('manager')">Manager</button>
-                <button type="button" class="card-demo-pill" onclick="Login.selectAccount('employee')">Employee</button>
-              </div>
 
               <!-- Help Footer -->
               <div class="card-help-footer">

@@ -1324,7 +1324,7 @@ const Dashboard = {
       <div class="animate-fade-in dashboard-reference-layout" data-theme="light" style="display:flex;flex-direction:column;gap:12px">
 
         <!-- ══════════════════════════════════════════════════════
-             1. DASHBOARD OVERVIEW & HERO OFFICE TIME PUNCH-CLOCK WIDGET
+             1. DASHBOARD OVERVIEW & HEADLINES TICKER
         ══════════════════════════════════════════════════════ -->
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
           <div style="flex-shrink:0">
@@ -1339,18 +1339,18 @@ const Dashboard = {
             </div>
           </div>
 
-          <!-- The Given Function in Mention Space (Hero Punch Clock & Office Hours Widget) -->
-          <div style="flex:1;min-width:320px;max-width:880px">
-            ${this.renderHeroPunchClockWidget(myTodayAtt)}
+          <!-- Headlines Ticker (Moved to Row 1) -->
+          <div style="flex:1;min-width:320px;max-width:880px;display:flex;align-items:center">
+            ${this.renderHeadlinesTicker(tickerItemsHtml)}
           </div>
         </div>
 
         <!-- ══════════════════════════════════════════════════════
-             2. AHMED KHAN PROFILE CARD (LARGER SIZE + SHOWS EMP ID) & HEADLINES
+             2. AHMED KHAN PROFILE CARD & HERO PUNCH CLOCK WIDGET
         ══════════════════════════════════════════════════════ -->
-        <div class="dash-ref-hero-row" style="display:flex;align-items:stretch;gap:10px">
+        <div class="dash-ref-hero-row" style="display:flex;align-items:stretch;gap:10px;flex-wrap:wrap">
           <!-- Left: Ahmed Khan User Profile Card (Increased size + Shows Employee ID Code) -->
-          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="View My Profile" style="cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--card,#ffffff);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;padding:6px 16px;height:56px;min-width:240px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.04);transition:all .15s">
+          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="View My Profile" style="cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--card,#ffffff);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;padding:6px 16px;min-height:68px;min-width:240px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.04);transition:all .15s">
             <div style="width:42px;height:42px;min-width:42px;border-radius:50%;overflow:hidden;background:#2563eb;flex-shrink:0;border:2px solid var(--border,#e2e8f0)">
               ${curPhoto ? '<img src="'+curPhoto+'" style="width:100%;height:100%;object-fit:cover" alt="'+curFullName+'">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800">'+curInitials+'</div>'}
             </div>
@@ -1367,9 +1367,9 @@ const Dashboard = {
             </div>
           </div>
 
-          <!-- Center/Full: Headlines Ticker (Single Speed Adjustment Control) -->
-          <div style="flex:1;min-width:280px;display:flex;align-items:center">
-            ${this.renderHeadlinesTicker(tickerItemsHtml)}
+          <!-- Right: Hero Punch Clock & Office Hours Widget (Moved to Row 2) -->
+          <div style="flex:1;min-width:320px;display:flex;align-items:stretch">
+            ${this.renderHeroPunchClockWidget(myTodayAtt)}
           </div>
         </div>
 
@@ -2918,12 +2918,14 @@ const Dashboard = {
             </div>
           </div>
           <div style="flex:1;min-width:320px;max-width:880px">
-            ${this.renderHeroPunchClockWidget(myTodayAtt)}
+            ${this.renderHeadlinesTicker(tickerItemsHtml)}
           </div>
         </div>
 
-        <!-- MOVING HEADLINES TICKER (0.5x / 1x Speed) -->
-        ${this.renderHeadlinesTicker(tickerItemsHtml)}
+        <!-- HERO PUNCH-CLOCK & OFFICE HOURS WIDGET -->
+        <div style="margin-bottom:16px">
+          ${this.renderHeroPunchClockWidget(myTodayAtt)}
+        </div>
 
         ${Auth.role === 'onboarding' ? `
           <!-- New Joiner Induction Banner -->

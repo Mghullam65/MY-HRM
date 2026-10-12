@@ -20409,20 +20409,25 @@ body.chat-workspace-active #teams-workspace-container {
 #login-page:has(.login-container-modern) {
   padding: 0 !important;
   margin: 0 !important;
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  min-height: 100vh !important;
-  width: 100% !important;
+  overflow: hidden !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100vw !important;
   background: #022055 !important;
+}
+
+body.login-view-active {
+  overflow: hidden !important;
 }
 
 .login-container-modern {
   position: relative;
-  width: 100%;
-  min-height: 100vh;
+  width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   align-items: center;
-  background: #031e4e;
+  background: #022055 url('../assets/login_bg_hero.jpg') center center / cover no-repeat;
   overflow: hidden;
 }
 
@@ -20504,22 +20509,25 @@ body.chat-workspace-active #teams-workspace-container {
   position: relative;
   z-index: 10;
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 40px 60px;
-  max-width: 1600px;
-  margin: 0 auto;
+  justify-content: flex-start;
+  padding: 0 4vw 0 5vw;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Left Branding & Features Column */
 .login-left-col {
-  flex: 0 0 460px;
-  max-width: 480px;
+  position: relative;
+  width: 440px;
+  max-width: 36vw;
   color: #ffffff;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   z-index: 12;
 }
 
@@ -20529,19 +20537,19 @@ body.chat-workspace-active #teams-workspace-container {
   align-items: center;
   gap: 12px;
   text-decoration: none;
-  margin-bottom: 30px;
+  margin-bottom: clamp(14px, 2.5vh, 26px);
 }
 
 .login-brand-icon-box {
-  width: 44px;
-  height: 44px;
+  width: clamp(38px, 4.2vh, 44px);
+  height: clamp(38px, 4.2vh, 44px);
   border-radius: 12px;
   background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 20px;
+  font-size: clamp(16px, 2vh, 20px);
   box-shadow: 0 6px 18px rgba(234, 88, 12, 0.45);
 }
 
@@ -20551,7 +20559,7 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 .login-brand-title {
-  font-size: 20px;
+  font-size: clamp(17px, 2.1vh, 20px);
   font-weight: 900;
   letter-spacing: -0.5px;
   color: #ffffff;
@@ -20563,7 +20571,7 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 .login-brand-tag {
-  font-size: 9.5px;
+  font-size: clamp(8.5px, 1.1vh, 9.5px);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.7);
   letter-spacing: 1.5px;
@@ -20576,12 +20584,12 @@ body.chat-workspace-active #teams-workspace-container {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
+  font-size: clamp(10px, 1.2vh, 11px);
   font-weight: 800;
   color: #ff8a3d;
   letter-spacing: 2px;
   text-transform: uppercase;
-  margin-bottom: 12px;
+  margin-bottom: clamp(6px, 1.2vh, 12px);
 }
 
 .login-eyebrow-dash {
@@ -20593,11 +20601,11 @@ body.chat-workspace-active #teams-workspace-container {
 
 /* Big Headline */
 .login-headline {
-  font-size: 38px;
+  font-size: clamp(26px, 3.2vw, 38px);
   font-weight: 900;
   line-height: 1.15;
   color: #ffffff;
-  margin-bottom: 14px;
+  margin-bottom: clamp(8px, 1.4vh, 14px);
   letter-spacing: -0.5px;
 }
 
@@ -20607,10 +20615,10 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 .login-subdesc {
-  font-size: 13.5px;
-  line-height: 1.55;
+  font-size: clamp(11.5px, 1.1vw, 13.5px);
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.78);
-  margin-bottom: 28px;
+  margin-bottom: clamp(14px, 2.4vh, 24px);
   max-width: 420px;
 }
 
@@ -20618,8 +20626,8 @@ body.chat-workspace-active #teams-workspace-container {
 .login-feat-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-bottom: 26px;
+  gap: clamp(8px, 1.4vh, 15px);
+  margin-bottom: clamp(10px, 1.8vh, 20px);
 }
 
 .login-feat-item {
@@ -20629,14 +20637,14 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 .login-feat-icon {
-  width: 44px;
-  height: 44px;
+  width: clamp(34px, 3.8vh, 42px);
+  height: clamp(34px, 3.8vh, 42px);
   border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  font-size: 18px;
+  font-size: clamp(14px, 1.6vh, 17px);
   flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
@@ -20652,14 +20660,14 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 .login-feat-name {
-  font-size: 14px;
+  font-size: clamp(12.5px, 1.5vh, 14px);
   font-weight: 800;
   color: #ffffff;
   line-height: 1.2;
 }
 
 .login-feat-desc {
-  font-size: 11.5px;
+  font-size: clamp(10.5px, 1.2vh, 11.5px);
   color: rgba(255, 255, 255, 0.7);
   margin-top: 2px;
 }
@@ -20669,7 +20677,7 @@ body.chat-workspace-active #teams-workspace-container {
   display: grid;
   grid-template-columns: repeat(6, 6px);
   gap: 8px;
-  margin: 8px 0 16px;
+  margin: 6px 0 clamp(8px, 1.4vh, 14px);
   opacity: 0.35;
 }
 
@@ -20684,29 +20692,33 @@ body.chat-workspace-active #teams-workspace-container {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: clamp(10.5px, 1.3vh, 12px);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
 }
 
-/* Center Floating White Card */
+/* Center Floating White Card (Exact Middle of Page) */
 .login-center-col {
-  flex: 0 0 430px;
-  max-width: 430px;
-  z-index: 15;
-  margin-left: 40px;
-  margin-right: auto;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  max-width: 440px;
+  z-index: 25;
+  margin: 0;
 }
 
 .login-card-modern {
   background: #ffffff !important;
   border-radius: 24px !important;
-  padding: 34px 34px 26px !important;
-  box-shadow: 0 25px 60px -10px rgba(0, 20, 60, 0.35), 0 0 1px 1px rgba(255, 255, 255, 0.9) !important;
+  padding: clamp(26px, 3.8vh, 38px) 36px clamp(20px, 3vh, 30px) !important;
+  box-shadow: 0 25px 60px -10px rgba(0, 20, 60, 0.45), 0 0 50px rgba(249, 115, 22, 0.14), 0 0 0 1px rgba(255, 255, 255, 0.95) !important;
   width: 100% !important;
   text-align: center !important;
   position: relative !important;
   color: #0f172a !important;
+  box-sizing: border-box !important;
 }
 
 .card-hrm-pill {
@@ -20938,6 +20950,14 @@ body.chat-workspace-active #teams-workspace-container {
 }
 
 @media (max-width: 1080px) {
+  #login-page:has(.login-container-modern),
+  .login-container-modern,
+  .login-content-wrapper {
+    height: auto !important;
+    max-height: none !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
   .login-content-wrapper {
     flex-direction: column;
     justify-content: center;
@@ -20945,12 +20965,17 @@ body.chat-workspace-active #teams-workspace-container {
     padding: 30px 20px;
   }
   .login-left-col {
+    position: static;
     flex: none;
     max-width: 100%;
     text-align: center;
     align-items: center;
   }
   .login-center-col {
+    position: static;
+    transform: none;
+    left: auto;
+    top: auto;
     margin: 0 auto;
   }
   .login-subdesc {
@@ -20963,5 +20988,154 @@ body.chat-workspace-active #teams-workspace-container {
     display: none;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   LANDING WHATSAPP FLOATING WIDGET
+═══════════════════════════════════════════════ */
+.landing-whatsapp-launcher {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1040;
+  display: flex;
+  align-items: center;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.app-workspace-active #landing-whatsapp-launcher,
+body.login-view-active #landing-whatsapp-launcher,
+body:not([data-landing-theme]) #landing-whatsapp-launcher {
+  display: none !important;
+}
+
+.whatsapp-btn-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  outline: none;
+}
+
+.whatsapp-icon-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 28px;
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.45), 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s ease;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.whatsapp-icon-circle svg {
+  width: 28px;
+  height: 28px;
+  fill: #ffffff;
+  display: block;
+}
+
+.whatsapp-btn-link:hover .whatsapp-icon-circle,
+.whatsapp-btn-link:focus .whatsapp-icon-circle {
+  transform: scale(1.08) translateY(-2px);
+  box-shadow: 0 12px 30px rgba(37, 211, 102, 0.6), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.whatsapp-badge-pulse {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: rgba(37, 211, 102, 0.45);
+  animation: waPulse 2s infinite;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes waPulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  70% { transform: scale(1.38); opacity: 0; }
+  100% { transform: scale(1.38); opacity: 0; }
+}
+
+.whatsapp-hover-popup {
+  position: absolute;
+  left: 66px;
+  bottom: 0;
+  width: 220px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-8px) scale(0.95);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+  z-index: 10;
+  color: #0f172a;
+}
+
+.whatsapp-btn-link:hover .whatsapp-hover-popup,
+.whatsapp-btn-link:focus .whatsapp-hover-popup,
+.whatsapp-btn-link:focus-within .whatsapp-hover-popup {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0) scale(1);
+  pointer-events: auto;
+}
+
+.whatsapp-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #128C7E;
+  margin-bottom: 3px;
+}
+
+.whatsapp-popup-desc {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.35;
+  margin-bottom: 6px;
+}
+
+.whatsapp-popup-number {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.3px;
+  margin-bottom: 6px;
+}
+
+.whatsapp-popup-action {
+  font-size: 11px;
+  font-weight: 700;
+  color: #25D366;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 600px) {
+  .landing-whatsapp-launcher {
+    bottom: 20px;
+    left: 16px;
+  }
+  .whatsapp-hover-popup {
+    left: 0;
+    bottom: 62px;
+  }
+}
+
 
 
