@@ -11,10 +11,65 @@
  */
 
 const http = require('http');
+const path = require('path');
+const { spawn } = require('child_process');
 
-const APP_URL = 'http://localhost:3000';
+let APP_URL = process.env.APP_URL || 'http://localhost:3000';
 let passedTests = 0;
 let totalTests = 0;
+let embeddedServerProcess = null;
+
+async function checkServerAvailable(urlStr) {
+  return new Promise(resolve => {
+    try {
+      const u = new URL(urlStr);
+      const req = http.get({
+        hostname: u.hostname,
+        port: u.port || (u.protocol === 'https:' ? 443 : 80),
+        path: '/api/health',
+        timeout: 1500
+      }, res => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(false);
+      });
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
+
+async function ensureServerRunning() {
+  const isUp = await checkServerAvailable(APP_URL);
+  if (isUp) {
+    console.log(`[Security Audit] Target server is active at ${APP_URL}`);
+    return;
+  }
+
+  const u = new URL(APP_URL);
+  const targetPort = u.port || '3000';
+  console.log(`[Security Audit] Server at ${APP_URL} not detected. Auto-launching background Express server on port ${targetPort}...`);
+  const serverPath = path.join(__dirname, '../server/src/server.js');
+  embeddedServerProcess = spawn(process.execPath, [serverPath], {
+    env: { ...process.env, PORT: targetPort },
+    stdio: 'inherit'
+  });
+
+  // Poll for up to 15s (30 x 500ms)
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 500));
+    const ready = await checkServerAvailable(APP_URL);
+    if (ready) {
+      console.log(`[Security Audit] Background server ready at ${APP_URL} (Attempt ${i + 1})`);
+      return;
+    }
+  }
+
+  throw new Error(`Failed to connect to ${APP_URL} after auto-spawning server/src/server.js`);
+}
 
 function assert(condition, message) {
   totalTests++;
@@ -62,6 +117,8 @@ function makeRequest(path, method = 'GET', body = null, headers = {}) {
 }
 
 async function runSecurityAudit() {
+  await ensureServerRunning();
+
   console.log('════════════════════════════════════════════════════════════');
   console.log('🔒 ENTERPRISE SECURITY & HARDENING VERIFICATION AUDIT');
   console.log('════════════════════════════════════════════════════════════\n');
@@ -136,9 +193,22 @@ async function runSecurityAudit() {
   console.log('\n════════════════════════════════════════════════════════════');
   console.log(`📊 SECURITY HARDENING AUDIT: ${passedTests} OF ${totalTests} CHECKS PASSED`);
   console.log('════════════════════════════════════════════════════════════\n');
+  if (passedTests !== totalTests) {
+    process.exitCode = 1;
+  }
 }
 
-runSecurityAudit().catch(err => {
-  console.error('[Audit Error]', err);
-  process.exit(1);
-});
+runSecurityAudit()
+  .catch(err => {
+    console.error('[Audit Error]', err);
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    if (embeddedServerProcess) {
+      console.log('[Security Audit] Terminating auto-launched background server...');
+      embeddedServerProcess.kill();
+    }
+    if (process.exitCode) {
+      process.exit(process.exitCode);
+    }
+  });
