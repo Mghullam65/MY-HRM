@@ -178,6 +178,14 @@ class StoreService {
     return this.store[name] || null;
   }
 
+  get(name) {
+    return this.getTable(name);
+  }
+
+  set(name, data, clientId = null) {
+    return this.setTable(name, data, clientId);
+  }
+
   getTables(names = []) {
     const result = {};
     names.forEach(name => {
@@ -226,7 +234,14 @@ class StoreService {
           if (Array.isArray(rows) && rows.length > 0) {
             rows.forEach(r => {
               if (r.id && r.data) {
-                this.store[r.id] = r.data;
+                // Preserve local validated seed users and tax_table
+                if (r.id === 'users' || r.id === 'tax_table') {
+                  if (!this.store[r.id] || this.store[r.id].length === 0) {
+                    this.store[r.id] = r.data;
+                  }
+                } else {
+                  this.store[r.id] = r.data;
+                }
               }
             });
             console.log(`[StoreService] ⚡ Hydrated ${rows.length} master tables from Supabase Cloud!`);

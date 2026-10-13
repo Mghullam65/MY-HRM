@@ -1382,83 +1382,110 @@ const Dashboard = {
              4. TOTAL EMPLOYEES, ACTIVE EMPLOYEES SO ON (6 KPI CARDS)
         ══════════════════════════════════════════════════════ -->
         <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
-          ${this.kpiCard('Total Employees', scopedEmps.length || 128, 'fa-users', '#2563eb', '12%', 'up', [65,70,68,74,80,88,128])}
-          ${this.kpiCard('Active Employees', totalEmps || 112, 'fa-box', '#10b981', '8%', 'up', [75,82,85,90,95,105,112])}
-          ${this.kpiCard('Inactive Employees', inactiveEmps || 16, 'fa-user-slash', '#ef4444', '5%', 'down', [25,22,20,19,18,17,16])}
-          ${this.kpiCard('New Joiners', newJoiners || 6, 'fa-comment-dots', '#8b5cf6', '50%', 'up', [2,3,2,4,3,5,6])}
-          ${this.kpiCard('On Leave Today', onLeave || 18, 'fa-clock', '#f97316', '10%', 'down', [24,22,21,20,22,19,18])}
-          ${this.kpiCard('Pending Requests', pendingLeaves || 24, 'fa-file-lines', '#06b6d4', '20%', 'up', [14,16,18,19,21,22,24])}
+          ${Auth.role === 'dept_manager' ? `
+            ${this.kpiCard('Team Headcount', scopedEmps.length || 24, 'fa-users', '#0ea5e9', 'IT Dept', 'up', [20,22,22,23,24,24,scopedEmps.length || 24])}
+            ${this.kpiCard('Present Today', scopedEmps.filter(e => att.some(a => a.employeeId === e.id && a.date === today && a.status === 'present')).length || 21, 'fa-user-check', '#10b981', '88%', 'up', [18,19,20,21,20,22,21])}
+            ${this.kpiCard('On Leave Today', onLeave || 2, 'fa-clock', '#f97316', 'Scheduled', 'down', [4,3,2,3,2,1,2])}
+            ${this.kpiCard('Late Arrivals', att.filter(a => scopedEmps.some(e => e.id === a.employeeId) && a.date === today && a.status === 'late').length || 1, 'fa-user-clock', '#ef4444', 'Punctual', 'down', [2,1,2,1,0,1,1])}
+            ${this.kpiCard('Pending Leaves', pendingLeaves || 3, 'fa-file-lines', '#8b5cf6', 'Endorse', 'up', [1,2,3,2,4,3,3])}
+            ${this.kpiCard('Active Shift', 'General 9-6', 'fa-business-time', '#06b6d4', 'Day Roster', 'up', [1,1,1,1,1,1,1])}
+          ` : Auth.role === 'payroll_accountant' ? `
+            ${this.kpiCard('Gross Payroll', '₨ 5.45M', 'fa-money-bill-wave', '#10b981', 'Aug 2026', 'up', [5.1,5.2,5.2,5.3,5.4,5.4,5.45])}
+            ${this.kpiCard('Disbursed Net', '₨ 4.85M', 'fa-credit-card', '#2563eb', '100% Cleared', 'up', [4.5,4.6,4.6,4.7,4.8,4.8,4.85])}
+            ${this.kpiCard('FBR Salaried Tax', '₨ 412.5K', 'fa-scale-balanced', '#ef4444', 'Progressive', 'up', [380,390,395,400,410,412,412.5])}
+            ${this.kpiCard('EOBI & PF Pool', '₨ 184.2K', 'fa-piggy-bank', '#8b5cf6', 'Statutory', 'up', [170,175,178,180,182,184,184.2])}
+            ${this.kpiCard('Pending Claims', 8, 'fa-receipt', '#f97316', 'Review', 'up', [12,10,9,8,11,9,8])}
+            ${this.kpiCard('Disbursal Batch', 'PK-26', 'fa-building-columns', '#06b6d4', '1Link Done', 'up', [1,1,1,1,1,1,1])}
+          ` : `
+            ${this.kpiCard('Total Employees', scopedEmps.length || 128, 'fa-users', '#2563eb', '12%', 'up', [65,70,68,74,80,88,128])}
+            ${this.kpiCard('Active Employees', totalEmps || 112, 'fa-user-check', '#10b981', '8%', 'up', [75,82,85,90,95,105,112])}
+            ${this.kpiCard('Inactive Employees', inactiveEmps || 16, 'fa-user-slash', '#ef4444', '5%', 'down', [25,22,20,19,18,17,16])}
+            ${this.kpiCard('New Joiners', newJoiners || 6, 'fa-user-plus', '#8b5cf6', '50%', 'up', [2,3,2,4,3,5,6])}
+            ${this.kpiCard('On Leave Today', onLeave || 18, 'fa-clock', '#f97316', '10%', 'down', [24,22,21,20,22,19,18])}
+            ${this.kpiCard('Pending Requests', pendingLeaves || 24, 'fa-file-lines', '#06b6d4', '20%', 'up', [14,16,18,19,21,22,24])}
+          `}
         </div>
 
         <!-- ══════════════════════════════════════════════════════
              5. QUICK ACTIONS IN 6-COLUMN GRID (LIKE EMPLOYEES DETAILS ABOVE)
         ══════════════════════════════════════════════════════ -->
         <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
-          <!-- Action 1: Add Employee -->
-          <div onclick="App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s,box-shadow .15s" title="Add New Employee">
-            <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-user-plus"></i>
+          ${Auth.role === 'dept_manager' ? `
+            <div onclick="App.navigate('attendance')" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Team Attendance">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-clock"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Team Attendance</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Daily Register</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Add Employee</div>
-              <div style="font-size:9.5px;color:#3b82f6;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Onboard Staff</div>
+            <div onclick="App.navigate('leaves')" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="Review Leave Requests">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-calendar-check"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Review Leaves</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">Endorse Team</div></div>
             </div>
-          </div>
-
-          <!-- Action 2: Apply Leave -->
-          <div onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s,box-shadow .15s" title="Submit Leave Request">
-            <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-file-lines"></i>
+            <div onclick="App.navigate('attendance', 'roster')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="Duty Rosters">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-business-time"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Duty Roster</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">Shift Schedule</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apply Leave</div>
-              <div style="font-size:9.5px;color:#15803d;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Submit Request</div>
+            <div onclick="App.navigate('expenses')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Team Expense Claims">
+              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-receipt"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Review Claims</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Team Expenses</div></div>
             </div>
-          </div>
-
-          <!-- Action 3: Attendance -->
-          <div onclick="App.navigate('attendance')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s,box-shadow .15s" title="Attendance Log & Machine Sync">
-            <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-clock"></i>
+            <div onclick="App.navigate('employees', 'orgchart')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Org Chart & Hierarchy">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-sitemap"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Team Hierarchy</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Org Chart</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Attendance</div>
-              <div style="font-size:9.5px;color:#c2410c;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Daily Register</div>
+            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
             </div>
-          </div>
-
-          <!-- Action 4: Payroll -->
-          <div onclick="App.navigate('payroll')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s,box-shadow .15s" title="Salary Processing & Disbursals">
-            <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-credit-card"></i>
+          ` : Auth.role === 'payroll_accountant' ? `
+            <div onclick="App.navigate('payroll')" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Salary Processing">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-credit-card"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Payroll Run</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Salary Processing</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Payroll</div>
-              <div style="font-size:9.5px;color:#7e22ce;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Disbursements</div>
+            <div onclick="App.navigate('payroll', 'bank_advice')" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="1Link Bank Advice Batches">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-building-columns"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bank Advice</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">1Link Disbursals</div></div>
             </div>
-          </div>
-
-          <!-- Action 5: Reports -->
-          <div onclick="App.navigate('reports')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s,box-shadow .15s" title="Enterprise Reports & Exports">
-            <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-file-chart-column"></i>
+            <div onclick="App.navigate('payroll', 'tax')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="FBR Tax Slabs & Form 16">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-scale-balanced"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tax Slabs</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">FBR 2025-27</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</div>
-              <div style="font-size:9.5px;color:#0f766e;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Analytics &amp; Export</div>
+            <div onclick="App.navigate('reports', 'bank')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Audit Checksums">
+              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-shield-halved"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Audit Batches</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Disbursal Checksums</div></div>
             </div>
-          </div>
-
-          <!-- Action 6: AI Assistant -->
-          <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s,box-shadow .15s" title="Ask AI HR Assistant">
-            <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">
-              <i class="fa fa-robot"></i>
+            <div onclick="App.navigate('expenses')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Expense Claim Audits">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-receipt"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Expense Audit</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Claim Clearances</div></div>
             </div>
-            <div style="min-width:0">
-              <div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div>
-              <div style="font-size:9.5px;color:#6d28d9;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Ask Co-Pilot</div>
+            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
             </div>
-          </div>
+          ` : `
+            <div onclick="App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Add New Employee">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-user-plus"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Add Employee</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Onboard Staff</div></div>
+            </div>
+            <div onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="Submit Leave Request">
+              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-file-lines"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apply Leave</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">Submit Request</div></div>
+            </div>
+            <div onclick="App.navigate('attendance')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="Attendance Log & Machine Sync">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-clock"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Attendance</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">Daily Register</div></div>
+            </div>
+            <div onclick="App.navigate('payroll')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Salary Processing & Disbursals">
+              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-credit-card"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Payroll</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Disbursements</div></div>
+            </div>
+            <div onclick="App.navigate('reports')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Enterprise Reports & Exports">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-file-chart-column"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Analytics & Export</div></div>
+            </div>
+            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
+              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
+              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
+            </div>
+          `}
         </div>
 
         <!-- ══════════════════════════════════════════════════════
@@ -1510,28 +1537,30 @@ const Dashboard = {
           </div>
 
           <!-- Bottom Split: 6-Month Hiring Chart (Left 58%) + Department Progress Bars (Right 42%) -->
-          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:start">
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px 12px">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px">
-                  <i class="fa fa-chart-simple" style="color:#3b82f6"></i> 6-Month Joining Trend
-                </span>
-                <span style="font-size:10px;color:var(--text-3);font-weight:600">Past 2 Quarters</span>
+          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:stretch">
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-chart-simple" style="color:#3b82f6"></i> 6-Month Joining Trend
+                  </span>
+                  <span style="font-size:10px;color:var(--text-3);font-weight:600">Past 2 Quarters</span>
+                </div>
               </div>
-              <div style="height:140px;position:relative">
-                <canvas id="chart-monthly-joining" height="140"></canvas>
+              <div style="height:175px;position:relative">
+                <canvas id="chart-monthly-joining" height="175"></canvas>
               </div>
             </div>
 
             <!-- Department Wise Employees Progress Bars -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px 12px">
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
               <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px">
+                <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
                   <i class="fa fa-sitemap" style="color:#2563eb"></i> Staff by Department
                 </span>
                 <span style="font-size:10px;color:var(--text-3);font-weight:700">Total: ${totalEmps} Staff</span>
               </div>
-              <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;flex-direction:column;gap:6.5px;margin-top:2px">
                 ${[
                   { name: 'IT & Dev', count: 32, max: 40, color: '#3b82f6' },
                   { name: 'HR & Admin', count: 18, max: 40, color: '#f97316' },
@@ -1602,44 +1631,58 @@ const Dashboard = {
           </div>
 
           <!-- Bottom: Donut Chart + Category Breakdown + Department Utilization Matrix (3 Columns) -->
-          <div style="display:grid;grid-template-columns:1fr 1.2fr 1.3fr;gap:16px;align-items:center">
+          <div style="display:grid;grid-template-columns:1fr 1.2fr 1.3fr;gap:16px;align-items:stretch">
             <!-- Col 1: Donut Chart -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;align-items:center;justify-content:center;position:relative">
-              <div style="position:relative;width:125px;height:125px">
-                <canvas id="chart-leave-stats" width="125" height="125"></canvas>
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
-                  <div style="font-size:18px;font-weight:900;color:var(--text);line-height:1">${onLeave || 18}</div>
-                  <div style="font-size:9px;color:var(--text-3);font-weight:700">On Leave</div>
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+              <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-chart-pie" style="color:#3b82f6"></i> Leave Utilization
+              </div>
+              <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:130px">
+                <div style="position:relative;width:125px;height:125px">
+                  <canvas id="chart-leave-stats" width="125" height="125"></canvas>
+                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+                    <div style="font-size:18px;font-weight:900;color:var(--text);line-height:1">${onLeave || 18}</div>
+                    <div style="font-size:9px;color:var(--text-3);font-weight:700">On Leave</div>
+                  </div>
                 </div>
               </div>
+              <div style="font-size:9.5px;color:var(--text-3);text-align:center;margin-top:6px;font-weight:600">Active Daily Absences</div>
             </div>
 
             <!-- Col 2: Leave Categories breakdown -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px">
-              <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px">Leave Category Split</div>
-              <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+              <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-layer-group" style="color:#10b981"></i> Leave Category Split
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
                 <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6"></span><span style="font-size:11px;color:var(--text-2)">Annual Leave</span></div><strong style="font-size:11px;color:var(--text)">10 (55%)</strong></div>
                 <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#10b981"></span><span style="font-size:11px;color:var(--text-2)">Sick Leave</span></div><strong style="font-size:11px;color:var(--text)">4 (22%)</strong></div>
                 <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b"></span><span style="font-size:11px;color:var(--text-2)">Casual Leave</span></div><strong style="font-size:11px;color:var(--text)">2 (11%)</strong></div>
                 <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444"></span><span style="font-size:11px;color:var(--text-2)">Unpaid Leave</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
                 <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#8b5cf6"></span><span style="font-size:11px;color:var(--text-2)">Others</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
               </div>
+              <div style="font-size:9.5px;color:var(--text-3);text-align:right;margin-top:6px;font-weight:600">Total: 18 Requests</div>
             </div>
 
             <!-- Col 3: Department Absence Distribution & Policies -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="font-size:11.5px;font-weight:700;color:var(--text)">Absence by Department</span>
-                <span style="font-size:9.5px;color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe">Statutory Policy</span>
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+              <div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sitemap" style="color:#8b5cf6"></i> Absence by Department
+                  </span>
+                  <span style="font-size:9.5px;color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe">Statutory Policy</span>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10.5px">
+                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">IT &amp; Dev</span><strong style="color:#ef4444">6 Away</strong></div>
+                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Operations</span><strong style="color:#f97316">5 Away</strong></div>
+                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">HR &amp; Admin</span><strong style="color:#10b981">3 Away</strong></div>
+                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Sales</span><strong style="color:#8b5cf6">2 Away</strong></div>
+                </div>
               </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10.5px">
-                <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">IT &amp; Dev</span><strong style="color:#ef4444">6 Away</strong></div>
-                <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Operations</span><strong style="color:#f97316">5 Away</strong></div>
-                <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">HR &amp; Admin</span><strong style="color:#10b981">3 Away</strong></div>
-                <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Sales</span><strong style="color:#8b5cf6">2 Away</strong></div>
-              </div>
-              <div style="font-size:9.5px;color:var(--text-3);margin-top:8px;line-height:1.3">
-                <i class="fa fa-info-circle" style="color:#3b82f6"></i> Pakistan Labor Law: 14 consecutive days earned annual leave entitlement applies to confirmed personnel.
+              <div style="font-size:9.5px;color:var(--text-3);margin-top:8px;line-height:1.3;display:flex;align-items:center;gap:6px">
+                <i class="fa fa-info-circle" style="color:#3b82f6;flex-shrink:0"></i>
+                <span>Pakistan Labor Law: 14 consecutive days earned annual leave entitlement applies to confirmed personnel.</span>
               </div>
             </div>
           </div>
@@ -1676,9 +1719,9 @@ const Dashboard = {
           </div>
 
           <!-- Bottom Split: Attendance Table with Break In/Out & Remarks (Left) + Late Arrivals Chart (Right) -->
-          <div style="display:grid;grid-template-columns:minmax(0, 1fr) 270px;gap:12px;align-items:stretch">
+          <div style="display:grid;grid-template-columns:minmax(0, 1fr) 320px;gap:12px;align-items:stretch">
             <!-- Full Space Recent Attendance Table -->
-            <div class="table-responsive" style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px 10px;overflow-x:auto">
+            <div class="table-responsive" style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px 10px;overflow-x:auto;height:100%;display:flex;flex-direction:column">
               <table class="table" style="font-size:11px;margin:0;width:100%;min-width:640px">
                 <thead>
                   <tr style="border-bottom:1.5px solid var(--border,#e2e8f0);color:var(--text-3);font-size:9.5px;text-transform:uppercase;letter-spacing:0.2px">
@@ -1712,20 +1755,22 @@ const Dashboard = {
                           </div>
                         </div>
                       </td>
-                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap">${r.in}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap">${r.breakOut}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap">${r.breakIn}</td>
-                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap">${r.out}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);font-weight:600;text-align:center;white-space:nowrap">${r.breakTotal}</td>
-                      <td style="padding:6px 4px;color:#2563eb;font-weight:800;text-align:center;white-space:nowrap">${r.hrs}</td>
+                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.in}</td>
+                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakOut}</td>
+                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakIn}</td>
+                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.out}</td>
+                      <td style="padding:6px 4px;color:var(--text-2);font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakTotal}</td>
+                      <td style="padding:6px 4px;color:#2563eb;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.hrs}</td>
                       <td style="padding:6px 6px;white-space:nowrap" title="${r.remarks}">
-                        <span style="font-size:9.5px;color:var(--text-2);font-weight:600;display:inline-flex;align-items:center;gap:4px">
-                          ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#06b6d4"></i>' : '<i class="fa fa-circle-check" style="color:#10b981"></i>'}
-                          ${r.remarks}
+                        <span style="font-size:9.5px;color:var(--text-2);font-weight:600;display:inline-flex;align-items:center;gap:6px">
+                          <span style="width:14px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+                            ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#06b6d4"></i>' : '<i class="fa fa-circle-check" style="color:#10b981"></i>'}
+                          </span>
+                          <span>${r.remarks}</span>
                         </span>
                       </td>
                       <td style="padding:6px 4px;text-align:center;white-space:nowrap">
-                        <span style="background:${r.color}15;color:${r.color};font-size:9.5px;font-weight:800;padding:2px 6px;border-radius:4px;border:1px solid ${r.color}30">${r.status}</span>
+                        <span style="background:${r.color}15;color:${r.color};font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:4px;border:1px solid ${r.color}30;display:inline-block;min-width:64px;text-align:center">${r.status}</span>
                       </td>
                     </tr>
                   `).join('')}
@@ -1733,24 +1778,24 @@ const Dashboard = {
               </table>
             </div>
 
-            <!-- Late Arrivals by Department Chart & Telemetry (No empty space!) -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between">
+            <!-- Late Arrivals by Department Chart & Telemetry -->
+            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
               <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
                     <i class="fa fa-business-time" style="color:#f59e0b"></i> Late Arrivals by Dept
                   </span>
                   <span style="font-size:9.5px;font-weight:700;color:#d97706;background:#fffbeb;padding:1px 6px;border-radius:4px;border:1px solid #fde68a">
                     Aug 2026
                   </span>
                 </div>
-                <div style="height:140px;position:relative">
-                  <canvas id="chart-late-arrivals" height="140"></canvas>
+                <div style="height:155px;position:relative">
+                  <canvas id="chart-late-arrivals" height="155"></canvas>
                 </div>
               </div>
 
-              <!-- Punctuality Telemetry filling the empty space below chart -->
-              <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border,#e2e8f0);display:flex;flex-direction:column;gap:5px">
+              <!-- Punctuality Telemetry seamlessly positioned below chart -->
+              <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e2e8f0);display:flex;flex-direction:column;gap:5px">
                 <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
                   <span style="color:var(--text-3);font-weight:600">Punctuality Rate</span>
                   <strong style="color:#10b981;font-weight:800">91.4% Punctual</strong>
@@ -1769,6 +1814,7 @@ const Dashboard = {
                 </div>
               </div>
             </div>
+          </div>
         </div>
 
         <!-- ══════════════════════════════════════════════════════
@@ -1779,8 +1825,9 @@ const Dashboard = {
           <div class="card" style="padding:14px 16px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;justify-content:space-between">
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">
-                  <i class="fa fa-cake-candles" style="color:#ec4899;font-size:13px"></i> Upcoming Birthdays
+                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+                  <span style="width:26px;height:26px;border-radius:6px;background:rgba(236,72,153,0.12);color:#ec4899;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fa fa-cake-candles"></i></span>
+                  <span>Upcoming Birthdays</span>
                 </div>
                 <button class="btn btn-ghost btn-xs" onclick="App.navigate('events')" style="color:#ec4899;font-weight:700;font-size:10.5px">Events Hub</button>
               </div>
@@ -1823,14 +1870,19 @@ const Dashboard = {
                 `).join('')}
               </div>
             </div>
+            <div style="font-size:9.5px;color:var(--text-3);margin-top:10px;display:flex;align-items:center;gap:5px">
+              <i class="fa fa-gift" style="color:#ec4899;flex-shrink:0"></i>
+              <span>Automated Birthday Slack &amp; Email Cards Scheduled</span>
+            </div>
           </div>
 
           <!-- Card 2: Upcoming Holidays (Separate Card) -->
           <div class="card" style="padding:14px 16px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;justify-content:space-between">
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">
-                  <i class="fa fa-umbrella-beach" style="color:#2563eb;font-size:13px"></i> Upcoming Holidays
+                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+                  <span style="width:26px;height:26px;border-radius:6px;background:rgba(37,99,235,0.12);color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fa fa-umbrella-beach"></i></span>
+                  <span>Upcoming Holidays</span>
                 </div>
                 <button class="btn btn-ghost btn-xs" onclick="App.navigate('leaves')" style="color:#2563eb;font-weight:700;font-size:10.5px">Leave Calendar</button>
               </div>
@@ -1853,8 +1905,9 @@ const Dashboard = {
                 `).join('')}
               </div>
             </div>
-            <div style="font-size:9px;color:var(--text-3);margin-top:8px">
-              <i class="fa fa-check-double" style="color:#10b981"></i> Pakistan Federal Gazetted Calendar Synced
+            <div style="font-size:9.5px;color:var(--text-3);margin-top:10px;display:flex;align-items:center;gap:5px">
+              <i class="fa fa-check-double" style="color:#10b981;flex-shrink:0"></i>
+              <span>Pakistan Federal Gazetted Calendar Synced</span>
             </div>
           </div>
 
@@ -1862,8 +1915,9 @@ const Dashboard = {
           <div class="card" style="padding:14px 16px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03);display:flex;flex-direction:column;justify-content:space-between">
             <div>
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px">
-                  <i class="fa fa-file-invoice-dollar" style="color:#10b981;font-size:13px"></i> Payroll &amp; Tax Telemetry
+                <div style="font-size:13.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+                  <span style="width:26px;height:26px;border-radius:6px;background:rgba(16,185,129,0.12);color:#10b981;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0"><i class="fa fa-file-invoice-dollar"></i></span>
+                  <span>Payroll &amp; Tax Telemetry</span>
                 </div>
                 <button class="btn btn-ghost btn-xs" onclick="App.navigate('payroll')" style="color:#10b981;font-weight:700;font-size:10.5px">Payroll Run</button>
               </div>
@@ -1906,8 +1960,8 @@ const Dashboard = {
                 </div>
               </div>
             </div>
-            <div style="font-size:9px;color:var(--text-3);margin-top:8px;display:flex;align-items:center;justify-content:space-between">
-              <span><i class="fa fa-shield-halved" style="color:#10b981"></i> FBR Statutory Compliant</span>
+            <div style="font-size:9.5px;color:var(--text-3);margin-top:10px;display:flex;align-items:center;justify-content:space-between">
+              <span style="display:flex;align-items:center;gap:5px"><i class="fa fa-shield-halved" style="color:#10b981;flex-shrink:0"></i><span>FBR Statutory Compliant</span></span>
               <span style="color:var(--text-3)">Audited Aug 31</span>
             </div>
           </div>
@@ -2380,14 +2434,14 @@ const Dashboard = {
             <div style="text-align:center;padding:12px;color:var(--text-3);font-size:12px">No pending items in this category.</div>
           ` : filteredActions.map(act => `
             <div class="action-inbox-item-row" style="display:flex;justify-content:space-between;align-items:center;padding:7px 11px;background:var(--surface);border:1px solid var(--border);border-radius:8px;gap:10px;transition:all .18s ease">
-              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
-                <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;min-width:24px;border-radius:6px;background:rgba(99,102,241,0.1);color:${act.color};font-size:11px">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+                <span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-width:26px;border-radius:6px;background:rgba(99,102,241,0.1);color:${act.color};font-size:11.5px;flex-shrink:0">
                   <i class="fa ${act.icon}"></i>
                 </span>
-                <div style="min-width:0;flex:1;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                  <span class="badge badge-secondary" style="font-size:9px;letter-spacing:0.3px;font-weight:700;padding:1px 5px">${act.tag}</span>
+                <div style="min-width:0;flex:1;display:flex;align-items:center;gap:8px;overflow:hidden">
+                  <span class="badge badge-secondary" style="font-size:9px;letter-spacing:0.3px;font-weight:700;padding:2px 6px;flex-shrink:0">${act.tag}</span>
                   <span style="font-weight:700;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${act.title}">${act.title}</span>
-                  <span style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${act.sub}">• ${act.sub}</span>
+                  <span style="font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1" title="${act.sub}">• ${act.sub}</span>
                 </div>
               </div>
 
@@ -2531,27 +2585,27 @@ const Dashboard = {
     });
 
     // ── 4. Late Arrivals by Department (Selected Month) ──
-    const deptLabels = ['IT & Dev', 'HR & Admin', 'Finance', 'Sales', 'Operations', 'Support'];
+    const deptLabels = ['IT & Dev', 'HR/Admin', 'Finance', 'Sales', 'Ops', 'Support'];
     const deptLateCounts = [14, 4, 6, 12, 9, 5];
     this.makeChart('chart-late-arrivals', 'bar', deptLabels, [
       {
         label: 'Late Arrivals',
         data: deptLateCounts,
         backgroundColor: '#f59e0b',
-        borderRadius: 6,
+        borderRadius: 5,
         borderSkipped: false,
-        barThickness: 24,
+        barThickness: 18,
       }
     ], gridColor, textColor, {
       plugins: { legend: { display: false } },
       scales: {
         y: {
           beginAtZero: true,
-          ticks: { stepSize: 3, color: textColor, font: { size: 10 } },
+          ticks: { stepSize: 3, color: textColor, font: { size: 9.5 } },
           grid: { color: gridColor }
         },
         x: {
-          ticks: { color: textColor, font: { size: 10 } },
+          ticks: { color: textColor, font: { size: 9 }, maxRotation: 0, minRotation: 0, autoSkip: false },
           grid: { display: false }
         }
       }

@@ -216,6 +216,7 @@ async function runCIAudit() {
         const overflow = sw > (iw + 2);
         
         let hasUndef = false;
+        let undefDetail = null;
         try {
           if (document.body) {
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
@@ -224,6 +225,7 @@ async function runCIAudit() {
               const p = n.parentElement;
               if (p && p.tagName !== 'SCRIPT' && /\\b(undefined|NaN)\\b/i.test(n.nodeValue)) {
                 hasUndef = true;
+                undefDetail = { text: n.nodeValue, parent: p.outerHTML.slice(0, 150) };
                 break;
               }
               n = walker.nextNode();
@@ -231,7 +233,7 @@ async function runCIAudit() {
           }
         } catch(e) {}
         
-        return { overflow, hasUndef, scrollWidth: sw, innerWidth: iw };
+        return { overflow, hasUndef, undefDetail, scrollWidth: sw, innerWidth: iw };
       })()`,
       returnByValue: true
     });
@@ -243,6 +245,7 @@ async function runCIAudit() {
     }
     if (res.hasUndef) {
       console.error(`❌ [UNDEFINED_TEXT] Route ${r} contains literal 'undefined' or 'NaN' text`);
+      if (res.undefDetail) console.error(`   Detail:`, JSON.stringify(res.undefDetail));
       undefinedStringCount++;
     }
     if (!res.overflow && !res.hasUndef) {

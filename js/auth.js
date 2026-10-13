@@ -174,6 +174,7 @@ const Auth = {
     { id: 4, username: 'fatima.raza', role: 'employee', name: 'Fatima Raza', roleLabel: 'Regular Employee', icon: 'fa-user', color: '#f59e0b', badge: 'Self-Service', description: 'Standard employee: personal punch clock, leave requests, expense claim lodging, and payslip downloads.' },
     { id: 5, username: 'saad.ibrahim', role: 'onboarding', name: 'Saad Ibrahim', roleLabel: 'Onboarding Hire', icon: 'fa-user-plus', color: '#8b5cf6', badge: 'Induction', description: 'New recruit: onboarding checklists, document uploads, and company handbook verification.' },
     { id: 6, username: 'junior.hr', role: 'hr_manager', name: 'Zain Ali', roleLabel: 'Junior HR (Restricted)', icon: 'fa-user-lock', color: '#ec4899', badge: 'Partial Permissions', description: 'Restricted Junior HR: Can view & apply leaves/attendance, but approvals, salary processing, and quota adjustments are revoked.' },
+    { id: 7, username: 'tariq.finance', role: 'payroll_accountant', name: 'Tariq Mahmood', roleLabel: 'Payroll & Tax Accountant', icon: 'fa-file-invoice-dollar', color: '#059669', badge: 'Finance & Tax', description: 'Corporate finance controller: salary processing, FBR progressive tax slabs, 1Link bank batches, and expense claim settlements.' },
   ],
 
   switchPersona(target) {
@@ -233,6 +234,10 @@ const Auth = {
       const teamModules = ['dashboard', 'employees', 'attendance', 'leaves', 'performance', 'recruitment', 'reports', 'approvals', 'assets', 'expenses', 'helpdesk'];
       return teamModules.includes(module) ? this.SCOPES.TEAM : this.SCOPES.NONE;
     }
+    if (role === 'payroll_accountant') {
+      const allModules = ['dashboard', 'payroll', 'settlement', 'expenses', 'reports'];
+      return allModules.includes(module) ? this.SCOPES.ALL : this.SCOPES.SELF;
+    }
     if (role === 'employee' || role === 'onboarding') {
       const selfModules = ['dashboard', 'profile', 'attendance', 'leaves', 'payroll', 'performance', 'reports', 'assets', 'expenses', 'helpdesk', 'events', 'holidays'];
       return selfModules.includes(module) ? this.SCOPES.SELF : this.SCOPES.NONE;
@@ -288,6 +293,14 @@ const Auth = {
         teamEmps = teamEmps.filter(e => String(e.companyId) === String(userCompanyId));
       }
       return teamEmps;
+    }
+
+    if (role === 'payroll_accountant') {
+      if (userCompanyId && userCompanyId !== 'all') {
+        return emps.filter(e => String(e.companyId) === String(userCompanyId));
+      }
+      if (activeCompanyId === 'all') return emps;
+      return emps.filter(e => String(e.companyId) === String(activeCompanyId));
     }
 
     if (role === 'employee' || role === 'onboarding') {
@@ -441,6 +454,7 @@ const Auth = {
       superadmin: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','companies','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','settings','backup','training','documents','shifts'],
       hr_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','administration','training','documents','shifts'],
       dept_manager: ['dashboard','chat','employees','attendance','leaves','payroll','settlement','performance','recruitment','assets','expenses','helpdesk','events','reports','training','documents','shifts'],
+      payroll_accountant: ['dashboard','chat','payroll','settlement','expenses','attendance','leaves','reports','profile'],
       employee: ['dashboard','chat','attendance','leaves','payroll','settlement','profile','performance','assets','expenses','helpdesk','events','holidays','reports','training','documents','shifts'],
       onboarding: ['dashboard','chat','profile','attendance','leaves','events','holidays','training','documents'],
     };
@@ -449,18 +463,18 @@ const Auth = {
 
   getSidebarItems() {
     const all = [
-      { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
+      { id: 'dashboard', label: 'Dashboard', icon: 'fa-gauge-high', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee','onboarding'] },
       { id: 'profile', label: 'My Profile & Onboarding', icon: 'fa-id-card-clip', roles: ['onboarding'] },
       { id: 'employees', label: 'Employees & e-DMS', icon: 'fa-users', roles: ['superadmin','hr_manager','dept_manager'] },
-      { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
-      { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','employee','onboarding'] },
-      { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'attendance', label: 'Attendance & Shifts', icon: 'fa-clock', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee','onboarding'] },
+      { id: 'leaves', label: 'Leaves', icon: 'fa-calendar-xmark', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee','onboarding'] },
+      { id: 'payroll', label: 'Payroll & Taxes', icon: 'fa-money-bill-wave', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee'] },
       { id: 'performance', label: 'Performance & OKRs', icon: 'fa-chart-line', roles: ['superadmin','hr_manager','dept_manager','employee'] },
       { id: 'recruitment', label: 'Recruitment (ATS)', icon: 'fa-briefcase', roles: ['superadmin','hr_manager','dept_manager'] },
       { id: 'assets', label: 'Assets & Inventory', icon: 'fa-laptop-file', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','employee'] },
-      { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','employee'] },
+      { id: 'expenses', label: 'Expense Claims', icon: 'fa-receipt', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee'] },
+      { id: 'helpdesk', label: 'Helpdesk & Grievance', icon: 'fa-headset', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee'] },
+      { id: 'reports', label: 'Reports & Analytics', icon: 'fa-file-chart-column', roles: ['superadmin','hr_manager','dept_manager','payroll_accountant','employee'] },
       { id: 'administration', label: 'Administration', icon: 'fa-gear', roles: ['superadmin','hr_manager'] },
     ];
     return all.filter(item => {
@@ -474,6 +488,7 @@ const Auth = {
     return [
       { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Ahmed Khan', icon: 'fa-crown', color: '#f59e0b' },
       { username: 'sara.malik', password: 'hr123', role: 'HR Manager', name: 'Sara Malik', icon: 'fa-user-tie', color: '#6366f1' },
+      { username: 'tariq.finance', password: 'fin123', role: 'Finance & Tax', name: 'Tariq Mahmood', icon: 'fa-file-invoice-dollar', color: '#059669' },
       { username: 'usman.baig', password: 'mgr123', role: 'Dept Manager', name: 'Usman Baig', icon: 'fa-users-gear', color: '#14b8a6' },
       { username: 'fatima.raza', password: 'emp123', role: 'Employee', name: 'Fatima Raza', icon: 'fa-user', color: '#ec4899' },
     ];

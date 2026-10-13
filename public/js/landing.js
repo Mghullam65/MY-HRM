@@ -87,7 +87,7 @@ const Landing = {
     attendance: {
       id: 'attendance',
       title: 'Biometric Attendance & Shift Rostering',
-      subtitle: 'Real-time biometric clock-ins, grace period validations, overtime tracking, and shift rosters.',
+      subtitle: 'Real-time biometric clock-ins, hardware terminal simulator, offline PWA queue, monthly statutory muster roll, and GPS geofencing.',
       category: 'Core Workforce',
       icon: 'fa-clock',
       color: '#10b981',
@@ -95,24 +95,24 @@ const Landing = {
       recommendedRole: 'manager',
       capabilities: [
         {
-          title: 'Biometric Hardware Gateway',
-          desc: 'Integrate directly with physical biometric fingerprint/facial scanners and digital web clock-in terminals.',
+          title: 'Biometric Hardware Gateway & Simulator',
+          desc: 'Integrate directly with physical ZKTeco, SilkID, TCP/IP biometric machines and built-in interactive machine simulator.',
           icon: 'fa-fingerprint'
         },
         {
-          title: 'Grace Period & Late Penalties',
-          desc: 'Configurable arrival buffers (e.g. 15 mins) with automated late-coming counters and automated half-day deductions.',
-          icon: 'fa-stopwatch'
+          title: 'Offline PWA Punch Queue & Auto-Sync',
+          desc: 'Log clock-ins offline with cryptographic queue verification, auto-syncing seamlessly to cloud database upon reconnect.',
+          icon: 'fa-cloud-arrow-up'
         },
         {
-          title: 'Dynamic Shift Rosters',
-          desc: 'Assign morning, evening, rotational, and weekend shifts with automated notification to affected employees.',
-          icon: 'fa-calendar-week'
+          title: 'Monthly Statutory Muster Roll',
+          desc: 'Generate complete month-long employee muster rolls with shift code tracking, overtime flags, and late markers.',
+          icon: 'fa-calendar-days'
         },
         {
-          title: 'Overtime Token Computations',
-          desc: 'Calculate approved overtime hours automatically and feed approved tokens directly into statutory payroll.',
-          icon: 'fa-bolt'
+          title: 'GPS Geofencing & Grace Buffers',
+          desc: 'Enforce strict radius checks for remote/mobile punches with configurable grace arrival buffers and half-day rules.',
+          icon: 'fa-location-dot'
         }
       ],
       roleMatrix: [
@@ -207,7 +207,7 @@ const Landing = {
     payroll: {
       id: 'payroll',
       title: 'Automated Statutory Payroll & Salary Slips',
-      subtitle: 'FBR progressive tax slabs, EOBI, provident funds, advance salary amortizations, and digital payslips.',
+      subtitle: 'FBR progressive tax slabs (2025-27), EOBI, provident funds, 6 bank disbursal batch formats, and digital payslips.',
       category: 'Payroll & Performance',
       icon: 'fa-money-bill-wave',
       color: '#9333ea',
@@ -215,23 +215,23 @@ const Landing = {
       recommendedRole: 'hr',
       capabilities: [
         {
-          title: 'FBR Tax Engine Calculation',
-          desc: 'Automated withholding tax deductions according to progressive financial year taxable income slabs.',
+          title: 'FBR 2025-27 Progressive Tax Engine',
+          desc: 'Automated withholding tax deductions according to progressive financial year taxable income slabs (0% to 35%) with mid-year adjustments.',
           icon: 'fa-calculator'
         },
         {
           title: 'Statutory Funds (EOBI & PF)',
-          desc: 'Calculates employer and employee contributions for EOBI, Social Security, and corporate Provident Funds.',
+          desc: 'Calculates employer and employee contributions for EOBI, Social Security, and corporate Provident Funds with cumulative ledgers.',
           icon: 'fa-vault'
         },
         {
-          title: 'Advance Salary & Loan Ledgers',
-          desc: 'Manages company loans with automated monthly installment deductions and remaining principal tracking.',
-          icon: 'fa-hand-holding-dollar'
+          title: '6 Pakistani Bank Disbursal Batch Formats',
+          desc: 'Generate 1-click batch payment files for 1Link, PayPak, Commercial CSV/Excel, HBL, Meezan, and Alfalah with audit checksums.',
+          icon: 'fa-building-columns'
         },
         {
-          title: 'Single-Click Payslips & Bank Advice',
-          desc: 'Generate printable and downloadable electronic salary slips and export batch bank payment CSV files.',
+          title: 'Electronic Payslips & Salary Ledgers',
+          desc: 'Generate printable and downloadable electronic salary slips, detailed deduction breakdowns, and statutory tax certificates.',
           icon: 'fa-file-invoice'
         }
       ],
@@ -567,7 +567,7 @@ const Landing = {
     dashboard: {
       id: 'dashboard',
       title: 'Executive Dashboard & Workforce Intelligence',
-      subtitle: 'Real-time enterprise metrics, live attendance stream, organizational KPIs, and executive reporting.',
+      subtitle: 'Executive command center with live punch clock timer, action priority inbox, KPI sparkline glow rings, and multi-company telemetry.',
       category: 'Governance & Intelligence',
       icon: 'fa-gauge-high',
       color: '#2563eb',
@@ -575,24 +575,24 @@ const Landing = {
       recommendedRole: 'admin',
       capabilities: [
         {
-          title: 'Real-Time Workforce Telemetry',
-          desc: 'Instant view of total active headcount, branch breakdown, department distribution, and probation statuses.',
-          icon: 'fa-users'
+          title: 'Command Center & Live Punch Clock',
+          desc: 'Real-time biometric punch clock widget with live running timer, audio chimes, and instant punch trigger.',
+          icon: 'fa-stopwatch'
         },
         {
-          title: 'Live Attendance Stream',
-          desc: 'Real-time monitor tracking on-time arrivals, biometric check-ins, late penalties, and active shift leaves.',
-          icon: 'fa-chart-column'
+          title: 'Action Priority Inbox & Ticker Controls',
+          desc: '1-tap quick action inbox with multi-stage sign-offs and customizable real-time headline ticker speed.',
+          icon: 'fa-inbox'
         },
         {
-          title: 'Financial & Payroll Summary',
-          desc: 'Executive totals of monthly salary liabilities, tax witholdings, advance amortizations, and pending requests.',
-          icon: 'fa-coins'
+          title: 'KPI Sparklines & Workforce Telemetry',
+          desc: 'Dynamic sparkline trend indicators with glowing rings, department staff distribution, and punctuality rates.',
+          icon: 'fa-chart-line'
         },
         {
-          title: 'Priority Notification Center',
-          desc: 'Audio-chime notifications for pending leave approvals, asset requests, ticket escalations, and official events.',
-          icon: 'fa-bell'
+          title: 'Holding Portfolio & Global Switcher',
+          desc: 'Consolidated telemetry across corporate subsidiaries with instant subsidiary-level filtering.',
+          icon: 'fa-building-shield'
         }
       ],
       roleMatrix: [
@@ -624,12 +624,12 @@ const Landing = {
           icon: 'fa-arrows-rotate'
         },
         {
-          title: 'Smart Scoping & Role Isolation',
+          title: 'Model A Scoping & Role Isolation',
           desc: 'Subsidiary HR managers are strictly scoped to their assigned legal entity, while Super Admins command consolidated holding-wide authority.',
           icon: 'fa-shield-halved'
         },
         {
-          title: 'Consolidated Executive Telemetry',
+          title: 'Consolidated Holding Telemetry',
           desc: 'Executive portfolio cards summarizing cross-subsidiary workforce headcounts, attendance rates, and combined monthly payroll liabilities.',
           icon: 'fa-chart-pie'
         }
@@ -681,6 +681,86 @@ const Landing = {
         { role: 'Employee', access: 'Transparent Statement', desc: 'View itemized breakdown of final dues, gratuity calculation, and clearance progress.' }
       ],
       related: ['payroll', 'leaves', 'assets', 'company']
+    },
+
+    chat: {
+      id: 'chat',
+      title: 'Team Chatbox & Enterprise Collaboration Hub',
+      subtitle: 'Microsoft Teams-style collaboration featuring dedicated department channels, 1-on-1 direct messaging, meeting room launcher, document tab vault, and dual entrance portal gateway.',
+      category: 'Team Collaboration & Chat',
+      icon: 'fa-comments',
+      color: '#6366f1',
+      bgLight: '#eef2ff',
+      recommendedRole: 'all',
+      capabilities: [
+        {
+          title: 'Departmental Channels & Direct Messaging',
+          desc: 'Organized public and private team channels (#general, #hr-announcements, #tech-team) and real-time 1-on-1 private messaging with emoji reactions.',
+          icon: 'fa-hashtag'
+        },
+        {
+          title: 'Instant Video Meeting Launcher',
+          desc: 'Launch synchronous video conferences and team huddles directly from channels with zero external software downloads.',
+          icon: 'fa-video'
+        },
+        {
+          title: 'Shared Document Tab Vault',
+          desc: 'Pin, preview, and exchange company policies, spreadsheets, and PDF documents within dedicated channel tabs.',
+          icon: 'fa-folder-open'
+        },
+        {
+          title: 'Dual Entrance Portal Gateway',
+          desc: 'Instant 1-click access via dedicated Team Chatbox portal entrance or seamless switcher inside the HRM Pro Suite.',
+          icon: 'fa-door-open'
+        }
+      ],
+      roleMatrix: [
+        { role: 'Super Admin', access: 'Global Governance', desc: 'Create channels, configure retention policies, and manage enterprise security.' },
+        { role: 'HR Director', access: 'Broadcast & Townhalls', desc: 'Post organization-wide announcements and manage departmental team rooms.' },
+        { role: 'Dept Manager', access: 'Team Collaboration', desc: 'Host agile standups, manage project channels, and share operational files.' },
+        { role: 'Employee', access: 'Daily Chat & Meetings', desc: 'Collaborate with teammates, join scheduled meetings, and exchange files.' }
+      ],
+      related: ['dashboard', 'employees', 'events']
+    },
+
+    ai_assistant: {
+      id: 'ai_assistant',
+      title: 'Google Gemini 3.5 Flash-Lite HR Co-Pilot',
+      subtitle: 'Autonomous AI intelligence assistant featuring rapid ~1.3s response times, real-time Pakistan statutory labor law guidance, automated resume ATS parsing, and resilient offline fallback.',
+      category: 'Autonomous AI Intelligence',
+      icon: 'fa-robot',
+      color: '#8b5cf6',
+      bgLight: '#f5f3ff',
+      recommendedRole: 'all',
+      capabilities: [
+        {
+          title: 'Ultra-Fast Gemini 3.5 Flash-Lite Engine',
+          desc: 'Rapid sub-1.5s AI inference with intelligent multi-model failover routing across 7 high-availability Google AI tiers.',
+          icon: 'fa-bolt'
+        },
+        {
+          title: 'Statutory Labor & Tax Q&A Copilot',
+          desc: 'Instant conversational guidance on FBR 2025-27 tax brackets, EOBI calculations, maternity leaves, and 30/26 gratuity formulas.',
+          icon: 'fa-scale-balanced'
+        },
+        {
+          title: 'Intelligent Resume ATS Parser',
+          desc: 'Automated candidate CV parsing, skills extraction, and rank ordering against custom job rubrics with zero human bias.',
+          icon: 'fa-file-lines'
+        },
+        {
+          title: 'Zero-Downtime Local Fallback',
+          desc: 'Automatic failover to offline localized HR knowledge bases if cloud connection is interrupted, ensuring continuous operations.',
+          icon: 'fa-shield-halved'
+        }
+      ],
+      roleMatrix: [
+        { role: 'Super Admin', access: 'AI Model & Key Control', desc: 'Configure Google AI Studio API keys and model routing priorities.' },
+        { role: 'HR Director', access: 'Executive Co-Pilot', desc: 'Draft policy updates, synthesize exit interviews, and analyze sentiment trends.' },
+        { role: 'Dept Manager', access: 'Review Assistant', desc: 'Generate objective performance review summaries and interview question rubrics.' },
+        { role: 'Employee', access: 'Self-Service Assistant', desc: 'Ask questions regarding leave entitlements, payslip deductions, and company benefits.' }
+      ],
+      related: ['dashboard', 'recruitment', 'payroll']
     },
 
   },
@@ -1049,10 +1129,10 @@ const Landing = {
               <a href="#roles" class="landing-nav-link" onclick="Landing.scrollTo('roles');return false;">Roles</a>
               <a href="#values" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('values');return false;">Values</a>
               <a href="#modules-catalog" class="landing-nav-link" onclick="Landing.scrollTo('modules-catalog');return false;">
-                16 Modules + LMS <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
+                19 Modules + AI <span style="font-size:10px;padding:2px 6px;border-radius:9999px;background:var(--color-primary);color:#FFFFFF;margin-left:4px">New</span>
               </a>
               <a href="#compare" class="landing-nav-link" onclick="Landing.scrollTo('compare');return false;">Compare</a>
-              <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">Pillars</a>
+              <a href="#features" class="landing-nav-link" onclick="Landing.scrollTo('features');return false;">10 Pillars</a>
               <a href="#tax-calc" class="landing-nav-link" onclick="Landing.scrollTo('tax-calc');return false;">Tax Engine</a>
               <a href="#integrations" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('integrations');return false;">Integrations</a>
               <a href="#faq" class="landing-nav-link nav-link-secondary" onclick="Landing.scrollTo('faq');return false;">FAQ</a>
@@ -1093,9 +1173,9 @@ const Landing = {
               <a href="#why-us" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('why-us');return false;"><i class="fa fa-bullseye"></i> Why HRM Pro</a>
               <a href="#roles" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('roles');return false;"><i class="fa fa-users-viewfinder"></i> Roles & Personas</a>
               <a href="#values" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('values');return false;"><i class="fa fa-gem"></i> Core Values</a>
-              <a href="#modules-catalog" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('modules-catalog');return false;"><i class="fa fa-cubes"></i> 16 Modules + LMS</a>
+              <a href="#modules-catalog" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('modules-catalog');return false;"><i class="fa fa-cubes"></i> 19 Enterprise Modules + AI</a>
               <a href="#compare" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('compare');return false;"><i class="fa fa-table-list"></i> Market Benchmark</a>
-              <a href="#features" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('features');return false;"><i class="fa fa-network-wired"></i> 8 Core Pillars</a>
+              <a href="#features" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('features');return false;"><i class="fa fa-network-wired"></i> 10 Platform Pillars</a>
               <a href="#tax-calc" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('tax-calc');return false;"><i class="fa fa-calculator"></i> Tax Calculator</a>
               <a href="#integrations" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('integrations');return false;"><i class="fa fa-puzzle-piece"></i> Integrations</a>
               <a href="#faq" class="landing-mobile-nav-link" onclick="Landing.navigateMobile('faq');return false;"><i class="fa fa-circle-question"></i> FAQ</a>
@@ -1171,6 +1251,9 @@ const Landing = {
               <div class="hero-ai-badge">
                 <i class="fa fa-robot"></i> Google Gemini AI Dual Copilots
               </div>
+              <div class="hero-collab-badge" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:9999px;background:rgba(99,102,241,0.12);color:#6366f1;font-size:12px;font-weight:700;border:1px solid rgba(99,102,241,0.25);">
+                <i class="fa fa-comments"></i> MS Teams Collaboration Hub
+              </div>
             </div>
 
             <h1 class="landing-hero-title hasHighlight">
@@ -1183,15 +1266,18 @@ const Landing = {
             </h1>
 
             <p class="landing-hero-subtitle">
-              The complete automated workforce system designed to manage personnel master files, biometric punch fleets, multi-company holdings, and 100% compliant statutory FBR tax & 30/26 gratuity settlements — all in one unified cloud hub.
+              The complete automated workforce system designed to manage personnel master files, biometric punch fleets, multi-company holdings, Microsoft Teams-style collaboration, and 100% compliant statutory FBR tax & 30/26 gratuity settlements — all in one unified cloud hub.
             </p>
 
             <div class="landing-hero-actions">
               <button class="btn-automark-primary" onclick="Trial.show()">
                 <i class="fa fa-rocket"></i> Start Your 14-Day Free Trial
               </button>
-              <button class="btn-automark-outline" onclick="App.showLogin()">
-                <i class="fa fa-shield-halved"></i> Access Portal Demo
+              <button class="btn-automark-outline" onclick="App.showLogin(true, 'hrm')" title="Sign In to HRM Suite">
+                <i class="fa fa-shield-halved"></i> Access HRM Suite
+              </button>
+              <button class="btn-automark-outline" onclick="App.showLogin(true, 'chat')" style="border-color:rgba(99,102,241,0.5);color:#6366f1;" title="Launch Team Chatbox directly">
+                <i class="fa fa-comments"></i> Launch Team Chatbox
               </button>
             </div>
           </div>
@@ -1538,34 +1624,37 @@ const Landing = {
         <!-- Luminous Section Divider -->
         <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
-        <!-- ─── 6. ALL 16 ENTERPRISE MODULES & DETAILED FEATURE CATALOG ─── -->
+        <!-- ─── 6. ALL 19 ENTERPRISE MODULES & DETAILED FEATURE CATALOG ─── -->
         <section class="modules-catalog-section" id="modules-catalog">
           <div class="section-intro-automark">
             <div class="badge-automark"><i class="fa fa-cubes"></i> Complete System Inventory</div>
-            <h2 class="hasHighlight">16 Core Modules + Integrated LMS & <strong>Feature Details</strong></h2>
-            <p>Our platform delivers 16 interconnected operational modules plus a dedicated training LMS engine with role-based governance. Click any module below to inspect full capabilities and workflows.</p>
+            <h2 class="hasHighlight">19 Interconnected Modules + AI Co-Pilot & <strong>Feature Details</strong></h2>
+            <p>Our platform delivers 19 interconnected operational modules including Microsoft Teams-style collaboration, autonomous Gemini AI, and an integrated training LMS engine with role-based governance. Click any module below to inspect full capabilities and workflows.</p>
           </div>
 
           <!-- Category Filter Bar -->
           <div class="catalog-filter-bar">
             <button class="catalog-filter-btn active" data-cat="all" onclick="Landing.filterModulesCatalog('all')">
-              All Modules (17)
+              All Modules (19)
             </button>
             <button class="catalog-filter-btn" data-cat="workforce" onclick="Landing.filterModulesCatalog('workforce')">
               Core Workforce
             </button>
             <button class="catalog-filter-btn" data-cat="finance" onclick="Landing.filterModulesCatalog('finance')">
-              Compensation & Talent
+              Payroll & Finance
             </button>
             <button class="catalog-filter-btn" data-cat="operations" onclick="Landing.filterModulesCatalog('operations')">
-              Operations & BI
+              Operations & Assets
             </button>
             <button class="catalog-filter-btn" data-cat="governance" onclick="Landing.filterModulesCatalog('governance')">
               Holdings & Legal
             </button>
+            <button class="catalog-filter-btn" data-cat="collab_ai" onclick="Landing.filterModulesCatalog('collab_ai')">
+              Chat & AI Intelligence
+            </button>
           </div>
 
-          <!-- Dynamic 16 Modules Cards Grid -->
+          <!-- Dynamic 19 Modules Cards Grid -->
           <div class="modules-catalog-grid" id="modules-catalog-grid">
             ${this.getModulesCatalogHtml('all')}
           </div>
@@ -1635,6 +1724,18 @@ const Landing = {
                   <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Basic FAQ Bot</span></td>
                   <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Dual Gemini Agents (Web + App)</span></td>
                 </tr>
+                <tr>
+                  <td><strong>Microsoft Teams-Style Collaboration Hub</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Unsupported</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Paid 3rd-Party Add-on</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Built-in Native Channels & DMs</span></td>
+                </tr>
+                <tr>
+                  <td><strong>Biometric Simulator & Offline PWA Queue</strong></td>
+                  <td><span class="cross-fail"><i class="fa fa-circle-xmark"></i> Manual USB Logs</span></td>
+                  <td><span class="warn-partial"><i class="fa fa-triangle-exclamation"></i> Limited / Extra Fee</span></td>
+                  <td class="col-hrm"><span class="check-win"><i class="fa fa-circle-check"></i> Offline Cryptographic Queue + Geofence</span></td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1643,10 +1744,10 @@ const Landing = {
         <!-- Luminous Section Divider -->
         <div class="landing-section-divider"><div class="divider-node"><i class="fa fa-sparkles"></i></div></div>
 
-        <!-- ─── 7. INTERACTIVE 8-PILLAR CORE HR SHOWCASE ─── -->
+        <!-- ─── 7. INTERACTIVE 10-PILLAR CORE PLATFORM SHOWCASE ─── -->
         <section class="pillar-tabs-container" id="features">
           <div class="section-intro-automark">
-            <div class="badge-automark"><i class="fa fa-layer-group"></i> 8 Enterprise Pillars</div>
+            <div class="badge-automark"><i class="fa fa-layer-group"></i> 10 Platform Pillars</div>
             <h2 class="hasHighlight">Explore The <strong>Core Platform Pillars</strong></h2>
             <p>Inspect live telemetry metrics, security access gates, and architectural workflows for our signature engines.</p>
           </div>
@@ -1660,6 +1761,12 @@ const Landing = {
             </button>
             <button class="pillar-tab-btn ${Landing.activePillar === 'payroll' ? 'active' : ''}" onclick="Landing.switchPillar('payroll')">
               <i class="fa fa-money-bill-wave"></i> SPMS Payroll & Tax
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'chat' ? 'active' : ''}" onclick="Landing.switchPillar('chat')">
+              <i class="fa fa-comments"></i> Team Chatbox
+            </button>
+            <button class="pillar-tab-btn ${Landing.activePillar === 'ai_copilot' ? 'active' : ''}" onclick="Landing.switchPillar('ai_copilot')">
+              <i class="fa fa-robot"></i> Gemini AI Copilot
             </button>
             <button class="pillar-tab-btn ${Landing.activePillar === 'multi_company' ? 'active' : ''}" onclick="Landing.switchPillar('multi_company')">
               <i class="fa fa-building-shield"></i> Multi-Company Holdings
@@ -2117,18 +2224,20 @@ const Landing = {
             </div>
 
             <div class="landing-footer-col">
-              <h4>Core Platforms</h4>
+              <h3 class="landing-footer-heading">Core Platforms</h3>
               <ul>
                 <li><a href="#" onclick="Landing.showModule('employees');return false;">People & e-DMS</a></li>
                 <li><a href="#" onclick="Landing.showModule('attendance');return false;">Biometric Fleet</a></li>
-                <li><a href="#" onclick="Landing.showModule('payroll');return false;">SPMS Payroll</a></li>
-                <li><a href="#" onclick="Landing.showModule('company');return false;">Multi-Company</a></li>
+                <li><a href="#" onclick="Landing.showModule('payroll');return false;">SPMS Payroll & Tax</a></li>
+                <li><a href="#" onclick="Landing.showModule('chat');return false;">Team Chatbox</a></li>
+                <li><a href="#" onclick="Landing.showModule('ai_assistant');return false;">Gemini AI Copilot</a></li>
+                <li><a href="#" onclick="Landing.showModule('company');return false;">Multi-Company Holdings</a></li>
                 <li><a href="#" onclick="Landing.showModule('settlement');return false;">Exit Settlements</a></li>
               </ul>
             </div>
 
             <div class="landing-footer-col">
-              <h4>Governance</h4>
+              <h3 class="landing-footer-heading">Governance</h3>
               <ul>
                 <li><a href="#security" onclick="Landing.scrollTo('security');return false;">Role-Based Matrix</a></li>
                 <li><a href="#security" onclick="Landing.scrollTo('security');return false;">AES-256 Encryption</a></li>
@@ -2139,12 +2248,12 @@ const Landing = {
             </div>
 
             <div class="landing-footer-col">
-              <h4>Portals</h4>
+              <h3 class="landing-footer-heading">Portals</h3>
               <ul>
-                <li><a href="#" onclick="App.showLogin();return false;">Super Admin Command</a></li>
-                <li><a href="#" onclick="App.showLogin();return false;">HR Director Workspace</a></li>
-                <li><a href="#" onclick="App.showLogin();return false;">Finance & Accounts</a></li>
-                <li><a href="#" onclick="App.showLogin();return false;">Employee Self-Service</a></li>
+                <li><a href="#" onclick="App.showLogin(true, 'hrm');return false;">Super Admin Command</a></li>
+                <li><a href="#" onclick="App.showLogin(true, 'hrm');return false;">HR Director Workspace</a></li>
+                <li><a href="#" onclick="App.showLogin(true, 'chat');return false;">Team Chatbox Entrance</a></li>
+                <li><a href="#" onclick="App.showLogin(true, 'hrm');return false;">Employee Self-Service</a></li>
                 <li><a href="#" onclick="Trial.show();return false;">Start Free Trial</a></li>
               </ul>
             </div>
@@ -2191,6 +2300,8 @@ const Landing = {
       { text: 'Modern Enterprises', theme: 'cyan' },
       { text: 'Multi-Branch Holdings', theme: 'violet' },
       { text: 'Statutory FBR Payroll', theme: 'emerald' },
+      { text: 'Team Chatbox & Collab', theme: 'sky' },
+      { text: 'Gemini 3.5 AI Copilot', theme: 'purple' },
       { text: 'Biometric Punch Fleets', theme: 'amber' },
       { text: 'High-Growth Startups', theme: 'rose' },
       { text: 'Distributed Teams', theme: 'indigo' }
@@ -2472,6 +2583,40 @@ const Landing = {
         ],
         stat: '100% Tracking',
         statSub: 'Skills Matrix'
+      },
+      chat: {
+        title: 'Team Chatbox & Enterprise Collaboration Hub',
+        tagline: 'MS Teams-Style Channels, 1-on-1 Direct Messaging, Meeting Launcher & File Vault',
+        desc: 'Empower workforce communication with structured department channels, real-time private messages, instant video meeting launch, and embedded document hubs—backed by a dual entrance portal login.',
+        color: '#6366f1',
+        bg: '#eef2ff',
+        badge: 'Enterprise Collab',
+        modId: 'chat',
+        caps: [
+          { title: 'Department Channels & DMs', desc: 'Pre-configured public and private channels with typing indicators, emoji reactions, and thread replies.', icon: 'fa-hashtag' },
+          { title: 'One-Click Meeting Launcher', desc: 'Launch instant team syncs and video conference rooms directly from channels with zero downloads.', icon: 'fa-video' },
+          { title: 'Channel Document Vault', desc: 'Pin critical operational handbooks, policy PDFs, and Excel trackers directly in channel tabs.', icon: 'fa-folder-open' },
+          { title: 'Dual Entrance Gateway', desc: 'Direct access via dedicated Team Chatbox portal entrance or unified HRM Suite switcher.', icon: 'fa-door-open' }
+        ],
+        stat: 'Real-Time Sync',
+        statSub: 'MS Teams Flow'
+      },
+      ai_copilot: {
+        title: 'Autonomous Google Gemini 3.5 HR Intelligence',
+        tagline: 'Rapid ~1.3s Policy Inquiries, Resume ATS Parser, Contract Analysis & Offline Guard',
+        desc: 'Enterprise generative AI powered by Google Gemini 3.5 Flash-lite. Instantly answers statutory labor questions, evaluates job applications against scoring rubrics, and falls back to local knowledge bases if offline.',
+        color: '#8b5cf6',
+        bg: '#f5f3ff',
+        badge: 'AI HR Intelligence',
+        modId: 'ai_assistant',
+        caps: [
+          { title: 'Google Gemini 3.5 Flash-Lite', desc: 'Lightning-fast sub-1.5s AI responses with fallback routing across 7 high-availability model tiers.', icon: 'fa-bolt' },
+          { title: 'Statutory FBR & Labor Copilot', desc: 'Conversational guidance on tax calculations, notice periods, EOBI pensions, and maternity rights.', icon: 'fa-scale-balanced' },
+          { title: 'Intelligent Resume ATS Parser', desc: 'Automates candidate CV parsing, skills extraction, and rank ordering against custom job rubrics.', icon: 'fa-file-lines' },
+          { title: 'Resilient Offline Knowledge Base', desc: 'Instant seamless failover to built-in local knowledge bases ensures zero disruption even when offline.', icon: 'fa-shield-halved' }
+        ],
+        stat: '~1.3s Latency',
+        statSub: 'Gemini 3.5 Flash'
       }
     };
 
@@ -3518,6 +3663,9 @@ const Landing = {
           }
           if (activeCategory === 'governance') {
             return ['Governance & Intelligence', 'Governance & Holding Structure', 'Exit & Statutory Compliance', 'Multi-Company Holdings', 'Legal & Settlements', 'Governance', 'System Administration'].includes(m.category) || ['reports', 'administration', 'settings', 'dashboard', 'company', 'settlement'].includes(m.id);
+          }
+          if (activeCategory === 'collab_ai') {
+            return ['Team Collaboration & Chat', 'Autonomous AI Intelligence'].includes(m.category) || ['chat', 'ai_assistant'].includes(m.id);
           }
           return m.category === activeCategory;
         });

@@ -290,12 +290,12 @@ const Helpdesk = {
                   <tr style="${t.priority === 'urgent' && t.status !== 'closed' ? 'background:rgba(239,68,68,0.04)' : ''}">
                     <td>
                       <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--secondary);background:rgba(20,184,166,0.1);padding:3px 7px;border-radius:6px">
-                        ${t.ticketNumber}
+                        ${t.ticketNumber || t.ticketNo || ('TKT-' + (t.id || '001'))}
                       </span>
                     </td>
                     <td>
                       <div style="font-weight:700;font-size:13px;color:var(--text);cursor:pointer" onclick="Helpdesk.openTicketWorkspace(${t.id})">
-                        ${t.title}
+                        ${t.title || t.subject || 'Helpdesk Ticket'}
                         ${isAnonymous ? '<span class="badge badge-danger" style="margin-left:6px;font-size:9.5px"><i class="fa fa-user-secret"></i> Protected Whistleblower</span>' : ''}
                       </div>
                       <div style="font-size:11.5px;color:var(--text-3);margin-top:2px;max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
@@ -320,7 +320,7 @@ const Helpdesk = {
                           <div class="avatar avatar-sm" style="background:${Utils.avatarColor(t.reporterId)};width:22px;height:22px;font-size:9px;border-radius:50%;overflow:hidden">
                             ${requester?.photo ? `<img src="${requester.photo}" style="width:100%;height:100%;object-fit:cover">` : Utils.avatarInitials(requester?.fullName || 'Staff')}
                           </div>
-                          <span style="font-size:12px;font-weight:600;color:var(--text)">${requester?.fullName || 'Employee #' + t.reporterId}</span>
+                          <span style="font-size:12px;font-weight:600;color:var(--text)">${requester?.fullName || (t.reporterId ? 'Employee #' + t.reporterId : 'Internal Staff')}</span>
                         </div>
                       `}
                     </td>
@@ -335,7 +335,7 @@ const Helpdesk = {
                       `}
                     </td>
                     <td>
-                      <span style="font-size:11.5px;color:var(--text-3)">${t.createdAt.split('T')[0]}</span>
+                      <span style="font-size:11.5px;color:var(--text-3)">${(t.createdAt || new Date().toISOString()).split('T')[0]}</span>
                     </td>
                     <td>${this.getStatusBadge(t.status)}</td>
                     <td style="text-align:right;white-space:nowrap">

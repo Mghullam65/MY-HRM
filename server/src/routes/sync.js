@@ -1,21 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const store = require('../services/store');
+const { authenticate, authorize } = require('../middleware/auth');
 
 // Ensure store is ready
 store.init();
 
-// GET all tables and current server version
-router.get('/all', (req, res) => {
+// Helper to strip sensitive credentials from synchronized table payloads
+function sanitizeTableData(tableName, records) {
+  if (tableName === 'users' && Array.isArray(records)) {
+    return records.map(u => {
+      const { password, ...clean } = u;
+      return clean;
+    });
+  }
+  return records;
+}
+
+// GET all tables and current server version (Restricted to Superadmin)
+router.get('/all', authenticate, authorize('superadmin'), (req, res) => {
   try {
     const data = store.getAll();
+    if (data && data.tables && data.tables.users) {
+      data.tables.users = sanitizeTableData('users', data.tables.users);
+    }
     res.json(data);
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// GET current version & status (ultra-lightweight polling check)
+// GET current version & status (ultra-lightweight public polling check)
 router.get(['/version', '/status'], (req, res) => {
   try {
     res.json({ success: true, ...store.getVersion() });
@@ -24,11 +39,14 @@ router.get(['/version', '/status'], (req, res) => {
   }
 });
 
-// GET specific tables by comma-separated names
-router.get('/tables', (req, res) => {
+// GET specific tables by comma-separated names (Restricted to Superadmin)
+router.get('/tables', authenticate, authorize('superadmin'), (req, res) => {
   try {
     const names = (req.query.names || '').split(',').map(s => s.trim()).filter(Boolean);
     const tables = store.getTables(names);
+    if (tables && tables.users) {
+      tables.users = sanitizeTableData('users', tables.users);
+    }
     const ver = store.getVersion();
     res.json({ success: true, ...ver, tables });
   } catch (err) {
@@ -36,12 +54,22 @@ router.get('/tables', (req, res) => {
   }
 });
 
-// POST update a single table
-router.post('/set', (req, res) => {
+// POST update a single table (Restricted to Superadmin)
+router.post('/set', authenticate, authorize('superadmin'), (req, res) => {
   try {
-    const { table, data, clientId } = req.body;
+    let { table, data, clientId } = req.body;
     if (!table) {
       return res.status(400).json({ success: false, message: 'Missing table name' });
+    }
+    if (table === 'users' && Array.isArray(data)) {
+      const existing = store.getTable('users') || [];
+      data = data.map(u => {
+        const prev = existing.find(ex => ex.id === u.id || ex.username === u.username);
+        return {
+          ...u,
+          password: u.password || prev?.password
+        };
+      });
     }
     const result = store.setTable(table, data, clientId);
     res.json(result);
@@ -50,12 +78,22 @@ router.post('/set', (req, res) => {
   }
 });
 
-// POST update multiple tables in one request
-router.post('/batch', (req, res) => {
+// POST update multiple tables in one request (Restricted to Superadmin)
+router.post('/batch', authenticate, authorize('superadmin'), (req, res) => {
   try {
-    const { tables, clientId } = req.body;
+    let { tables, clientId } = req.body;
     if (!tables || typeof tables !== 'object') {
       return res.status(400).json({ success: false, message: 'Missing tables object' });
+    }
+    if (tables.users && Array.isArray(tables.users)) {
+      const existing = store.getTable('users') || [];
+      tables.users = tables.users.map(u => {
+        const prev = existing.find(ex => ex.id === u.id || ex.username === u.username);
+        return {
+          ...u,
+          password: u.password || prev?.password
+        };
+      });
     }
     const result = store.setBatch(tables, clientId);
     res.json(result);

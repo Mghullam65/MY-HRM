@@ -6426,14 +6426,14 @@ const employees = [
     experience: [{ company: 'CallCo', designation: 'CSR', from: '2015', to: '2023' }],
   },
   {
-    id: 17, empNo: 'EMP-017', firstName: 'Faisal', lastName: 'Mahmood', fullName: 'Faisal Mahmood',
-    email: 'faisal.mahmood@company.com', phone: '0323-9876543', cnic: '42201-9876543-1',
+    id: 17, empNo: 'EMP-017', firstName: 'Tariq', lastName: 'Mahmood', fullName: 'Tariq Mahmood',
+    email: 'tariq.mahmood@company.com', phone: '0323-9876543', cnic: '42201-9876543-1',
     dob: '1990-08-05', gender: 'Male', maritalStatus: 'Married',
     address: 'House 23, Gulberg, Lahore',
-    departmentId: 3, designationId: 6, branchId: 2, shiftId: 1,
+    departmentId: 3, designationId: 6, branchId: 1, shiftId: 1,
     joiningDate: '2022-05-01', confirmationDate: '2022-08-01',
-    employmentType: 'Permanent', status: 'active', role: 'employee',
-    salary: 78000, photo: null, managerId: 5, reportingTo: 5,
+    employmentType: 'Permanent', status: 'active', role: 'payroll_accountant',
+    salary: 145000, photo: null, managerId: 1, reportingTo: 1,
     bloodGroup: 'O+', nationality: 'Pakistani', religion: 'Islam',
     bankName: 'UBL', accountNo: '2222333344445', iban: 'PK36UNIL0000002222333344',
     emergencyContact: { name: 'Sana Mahmood', relation: 'Wife', phone: '0323-1234567' },
@@ -7071,6 +7071,7 @@ const users = [
   { id: 3, employeeId: 3, username: 'usman.baig', password: 'mgr123', role: 'dept_manager', status: 'active', lastLogin: null },
   { id: 4, employeeId: 4, username: 'fatima.raza', password: 'emp123', role: 'employee', status: 'active', lastLogin: null },
   { id: 5, employeeId: 26, username: 'saad.ibrahim', password: 'emp123', role: 'onboarding', status: 'active', lastLogin: null },
+  { id: 6, employeeId: 17, username: 'tariq.finance', password: 'fin123', role: 'payroll_accountant', status: 'active', lastLogin: null },
 ];
 
 const assets = [

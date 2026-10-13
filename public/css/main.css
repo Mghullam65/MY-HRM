@@ -20389,18 +20389,24 @@ body.chat-workspace-active #teams-workspace-container {
   color: #475569 !important;
 }
 
-#login-page .portal-capsule-pill.active {
-  background: #eff6ff !important;
-  border-color: #bfdbfe !important;
-  color: #1e40af !important;
+#login-page .portal-capsule-pill.portal-hrm.active {
+  background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%) !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35) !important;
 }
 
-#login-page .portal-capsule-pill .pill-title {
-  color: #1e293b !important;
+#login-page .portal-capsule-pill.portal-chat.active {
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
+  border-color: #6366f1 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35) !important;
 }
 
-#login-page .portal-capsule-pill .pill-subtitle {
-  color: #64748b !important;
+#login-page .portal-capsule-pill.active .pill-title,
+#login-page .portal-capsule-pill.active .pill-subtitle,
+#login-page .portal-capsule-pill.active .pill-icon {
+  color: #ffffff !important;
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -20852,6 +20858,16 @@ body.login-view-active {
   box-shadow: 0 12px 28px -4px rgba(234, 88, 12, 0.55);
 }
 
+.card-submit-btn.btn-portal-chat {
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%) !important;
+  box-shadow: 0 8px 22px -4px rgba(99, 102, 241, 0.45) !important;
+}
+
+.card-submit-btn.btn-portal-chat:hover {
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 100%) !important;
+  box-shadow: 0 12px 28px -4px rgba(99, 102, 241, 0.55) !important;
+}
+
 /* OR Divider */
 .card-or-divider {
   display: flex;
@@ -20931,6 +20947,12 @@ body.login-view-active {
   background: #ffedd5;
   color: #ea580c;
   border-color: #fdba74;
+}
+
+.card-demo-pill.active {
+  background: #ea580c !important;
+  color: #ffffff !important;
+  border-color: #ea580c !important;
 }
 
 .card-help-footer {

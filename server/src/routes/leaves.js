@@ -60,8 +60,8 @@ router.get('/requests', authenticate, async (req, res) => {
   }
 });
 
-// Apply for leave (employees restricted to self-apply)
-router.post('/requests', authenticate, async (req, res) => {
+// Apply for leave (employees restricted to self-apply, aliased to /requests and /apply)
+router.post(['/requests', '/apply'], authenticate, async (req, res) => {
   try {
     const { leaveTypeId, startDate, endDate, days, reason } = req.body;
     const targetId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
@@ -77,48 +77,76 @@ router.post('/requests', authenticate, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required leave fields.' });
     }
 
+    // Strict chronological date validation
+    if (new Date(endDate) < new Date(startDate)) {
+      return res.status(400).json({
+        success: false,
+        message: 'End date cannot be earlier than start date.'
+      });
+    }
+
     const numDays = parseFloat(days) || 1;
     const year = new Date(startDate).getFullYear();
 
-    // Verify balance
-    const balance = await prisma.leaveBalance.findUnique({
-      where: {
-        employeeId_leaveTypeId_year: {
+    try {
+      // Verify balance with Prisma
+      const balance = await prisma.leaveBalance.findUnique({
+        where: {
+          employeeId_leaveTypeId_year: {
+            employeeId,
+            leaveTypeId: parseInt(leaveTypeId),
+            year
+          }
+        }
+      });
+
+      if (balance && balance.available < numDays) {
+        return res.status(400).json({ success: false, message: `Insufficient leave balance. Available: ${balance.available}, Requested: ${numDays}` });
+      }
+
+      const request = await prisma.leaveRequest.create({
+        data: {
           employeeId,
           leaveTypeId: parseInt(leaveTypeId),
-          year
+          startDate,
+          endDate,
+          days: numDays,
+          reason: reason || '',
+          status: 'pending'
         }
+      });
+
+      // Update pending balance
+      if (balance) {
+        await prisma.leaveBalance.update({
+          where: { id: balance.id },
+          data: {
+            pending: balance.pending + numDays,
+            available: Math.max(0, balance.available - numDays)
+          }
+        });
       }
-    });
 
-    if (balance && balance.available < numDays) {
-      return res.status(400).json({ success: false, message: `Insufficient leave balance. Available: ${balance.available}, Requested: ${numDays}` });
-    }
-
-    const request = await prisma.leaveRequest.create({
-      data: {
+      return res.status(201).json({ success: true, message: 'Leave application submitted successfully.', data: request });
+    } catch (dbErr) {
+      // Prisma offline -> fallback to live StoreService
+      const store = require('../services/store');
+      const leaves = store.getTable('leaves') || [];
+      const newLeave = {
+        id: Date.now(),
         employeeId,
         leaveTypeId: parseInt(leaveTypeId),
         startDate,
         endDate,
         days: numDays,
         reason: reason || '',
-        status: 'pending'
-      }
-    });
-
-    // Update pending balance
-    if (balance) {
-      await prisma.leaveBalance.update({
-        where: { id: balance.id },
-        data: {
-          pending: balance.pending + numDays,
-          available: Math.max(0, balance.available - numDays)
-        }
-      });
+        status: 'pending',
+        appliedOn: new Date().toISOString()
+      };
+      leaves.unshift(newLeave);
+      store.setTable('leaves', leaves);
+      return res.status(201).json({ success: true, message: 'Leave application submitted successfully.', data: newLeave });
     }
-
-    res.status(201).json({ success: true, message: 'Leave application submitted successfully.', data: request });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || 'Failed to submit leave application.' });
   }

@@ -303,7 +303,7 @@ const Assets = {
                   <tr style="${isMyAsset ? 'background:rgba(99,102,241,0.06)' : ''}">
                     <td>
                       <span style="font-family:monospace;font-weight:700;font-size:12px;color:var(--primary);background:rgba(99,102,241,0.1);padding:3px 8px;border-radius:6px">
-                        ${a.assetTag}
+                        ${a.assetTag || a.code || ('ASSET-' + (a.id || '001'))}
                       </span>
                     </td>
                     <td>

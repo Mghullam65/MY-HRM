@@ -5,11 +5,11 @@
 
 const DEFAULT_TAX_SLABS = [
   { id: 1, payroll_type: 1, range_from: 0, range_to: 600000, fixed_tax: 0, percentage_over: 0, effective_date: '2025-07-01' },
-  { id: 2, payroll_type: 1, range_from: 600000, range_to: 1200000, fixed_tax: 0, percentage_over: 0.01, effective_date: '2025-07-01' },
-  { id: 3, payroll_type: 1, range_from: 1200000, range_to: 2200000, fixed_tax: 6000, percentage_over: 0.11, effective_date: '2025-07-01' },
-  { id: 4, payroll_type: 1, range_from: 2200000, range_to: 3200000, fixed_tax: 116000, percentage_over: 0.23, effective_date: '2025-07-01' },
-  { id: 5, payroll_type: 1, range_from: 3200000, range_to: 4100000, fixed_tax: 346000, percentage_over: 0.30, effective_date: '2025-07-01' },
-  { id: 6, payroll_type: 1, range_from: 4100000, range_to: 999999999, fixed_tax: 616000, percentage_over: 0.35, effective_date: '2025-07-01' }
+  { id: 2, payroll_type: 1, range_from: 600000, range_to: 1200000, fixed_tax: 0, percentage_over: 0.05, effective_date: '2025-07-01' },
+  { id: 3, payroll_type: 1, range_from: 1200000, range_to: 2200000, fixed_tax: 30000, percentage_over: 0.15, effective_date: '2025-07-01' },
+  { id: 4, payroll_type: 1, range_from: 2200000, range_to: 3200000, fixed_tax: 180000, percentage_over: 0.25, effective_date: '2025-07-01' },
+  { id: 5, payroll_type: 1, range_from: 3200000, range_to: 4100000, fixed_tax: 430000, percentage_over: 0.30, effective_date: '2025-07-01' },
+  { id: 6, payroll_type: 1, range_from: 4100000, range_to: 999999999, fixed_tax: 700000, percentage_over: 0.35, effective_date: '2025-07-01' }
 ];
 
 const TaxEngine = {

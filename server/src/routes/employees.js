@@ -43,8 +43,25 @@ router.get('/', authenticate, async (req, res) => {
 
     res.json({ success: true, count: employees.length, data: employees });
   } catch (err) {
-    console.error('Error fetching employees:', err);
-    res.status(500).json({ success: false, message: 'Failed to retrieve employees.' });
+    try {
+      const store = require('../services/store');
+      let employees = store.getTable('employees') || [];
+      const scopedIds = await getScopedEmployeeIds(req.user);
+      if (scopedIds !== null) {
+        employees = employees.filter(e => scopedIds.includes(e.id));
+      }
+      const depts = store.getTable('departments') || [];
+      const desigs = store.getTable('designations') || [];
+      employees = employees.map(e => ({
+        ...e,
+        department: depts.find(d => d.id === (e.departmentId || e.department)),
+        designation: desigs.find(d => d.id === (e.designationId || e.designation))
+      }));
+      res.json({ success: true, count: employees.length, data: employees });
+    } catch (storeErr) {
+      console.error('Error fetching employees:', err);
+      res.status(500).json({ success: false, message: 'Failed to retrieve employees.' });
+    }
   }
 });
 
@@ -74,7 +91,19 @@ router.get('/:id', authenticate, async (req, res) => {
     if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
     res.json({ success: true, data: employee });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'Failed to retrieve employee.' });
+    try {
+      const store = require('../services/store');
+      const employees = store.getTable('employees') || [];
+      const employee = employees.find(e => e.id === parseInt(req.params.id));
+      if (!employee) return res.status(404).json({ success: false, message: 'Employee not found.' });
+      const depts = store.getTable('departments') || [];
+      const desigs = store.getTable('designations') || [];
+      employee.department = depts.find(d => d.id === (employee.departmentId || employee.department));
+      employee.designation = desigs.find(d => d.id === (employee.designationId || employee.designation));
+      res.json({ success: true, data: employee });
+    } catch (storeErr) {
+      res.status(500).json({ success: false, message: 'Failed to retrieve employee.' });
+    }
   }
 });
 

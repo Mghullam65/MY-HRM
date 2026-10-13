@@ -26,7 +26,7 @@ const Payroll = {
       `;
       return;
     }
-    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager', 'payroll_accountant'].includes(Auth.role);
     const isEmp = !isHrOrAdmin; // Managers, employees, and onboarding only see their personal finances
 
     // Auto-scope personal users to slips if on an admin view

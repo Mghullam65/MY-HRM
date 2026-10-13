@@ -159,4 +159,28 @@ router.post('/:id/clearance', authenticate, async (req, res) => {
   }
 });
 
+// 7. Calculate Statutory Gratuity (30/26 Formula with strict 2-decimal rounding)
+router.post('/calculate-gratuity', authenticate, (req, res) => {
+  try {
+    const { lastGrossSalary, serviceYears } = req.body;
+    const salary = parseFloat(lastGrossSalary) || 0;
+    const years = parseFloat(serviceYears) || 0;
+    if (salary < 0 || years < 0) {
+      return res.status(400).json({ success: false, message: 'Invalid salary or service years.' });
+    }
+    const rawGratuity = (salary / 26 * 30) * years;
+    const gratuity = Math.round(rawGratuity * 100) / 100;
+    res.json({
+      success: true,
+      lastGrossSalary: salary,
+      serviceYears: years,
+      formula: '(Last Gross Salary ÷ 26 × 30) × Years of Service',
+      gratuityAmount: gratuity,
+      formatted: 'PKR ' + gratuity.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to calculate gratuity.' });
+  }
+});
+
 module.exports = router;

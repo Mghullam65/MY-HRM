@@ -130,8 +130,8 @@ router.get('/today-summary', authenticate, async (req, res) => {
   }
 });
 
-// Punch In / Punch Out (protected against punching for other staff)
-router.post('/punch', authenticate, async (req, res) => {
+// Punch In / Punch Out (protected against punching for other staff, aliased to /punch and /log)
+router.post(['/punch', '/log'], authenticate, async (req, res) => {
   try {
     const targetId = req.body.employeeId ? parseInt(req.body.employeeId) : req.user.employeeId;
     const hasAccess = await assertEmployeeAccess(req, res, targetId);
@@ -141,49 +141,83 @@ router.post('/punch', authenticate, async (req, res) => {
     const now = new Date();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    let record = await prisma.attendance.findUnique({
-      where: {
-        employeeId_date: {
-          employeeId,
-          date: today
+    try {
+      let record = await prisma.attendance.findUnique({
+        where: {
+          employeeId_date: {
+            employeeId,
+            date: today
+          }
         }
+      });
+
+      if (!record) {
+        // Clock in
+        const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
+        const lateMinutes = isLate ? Math.max(0, (now.getHours() - 9) * 60 + (now.getMinutes() - 30)) : 0;
+
+        record = await prisma.attendance.create({
+          data: {
+            employeeId,
+            date: today,
+            checkIn: currentTime,
+            status: isLate ? 'late' : 'present',
+            lateMinutes
+          }
+        });
+
+        return res.json({ success: true, action: 'check_in', message: `Clocked in at ${currentTime}`, data: record });
+      } else if (!record.checkOut) {
+        // Clock out
+        const [inH, inM] = record.checkIn.split(':').map(Number);
+        const workHours = Math.round((((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60) * 10) / 10;
+        const overtimeHours = Math.max(0, Math.round((workHours - 8) * 10) / 10);
+
+        record = await prisma.attendance.update({
+          where: { id: record.id },
+          data: {
+            checkOut: currentTime,
+            workHours,
+            overtimeHours
+          }
+        });
+
+        return res.json({ success: true, action: 'check_out', message: `Clocked out at ${currentTime}. Worked: ${workHours} hrs`, data: record });
+      } else {
+        return res.status(400).json({ success: false, message: 'Already completed attendance for today.' });
       }
-    });
+    } catch (dbErr) {
+      // Prisma offline -> fallback to StoreService
+      const store = require('../services/store');
+      const att = store.getTable('attendance') || [];
+      let record = att.find(a => a.employeeId === employeeId && (a.date === today || a.date?.startsWith(today)));
 
-    if (!record) {
-      // Clock in
-      const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
-      const lateMinutes = isLate ? Math.max(0, (now.getHours() - 9) * 60 + (now.getMinutes() - 30)) : 0;
-
-      record = await prisma.attendance.create({
-        data: {
+      if (!record) {
+        const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() > 30);
+        const lateMinutes = isLate ? Math.max(0, (now.getHours() - 9) * 60 + (now.getMinutes() - 30)) : 0;
+        const newRecord = {
+          id: Date.now(),
           employeeId,
           date: today,
           checkIn: currentTime,
+          checkOut: null,
           status: isLate ? 'late' : 'present',
-          lateMinutes
-        }
-      });
-
-      return res.json({ success: true, action: 'check_in', message: `Clocked in at ${currentTime}`, data: record });
-    } else if (!record.checkOut) {
-      // Clock out
-      const [inH, inM] = record.checkIn.split(':').map(Number);
-      const workHours = Math.round((((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60) * 10) / 10;
-      const overtimeHours = Math.max(0, Math.round((workHours - 8) * 10) / 10);
-
-      record = await prisma.attendance.update({
-        where: { id: record.id },
-        data: {
-          checkOut: currentTime,
-          workHours,
-          overtimeHours
-        }
-      });
-
-      return res.json({ success: true, action: 'check_out', message: `Clocked out at ${currentTime}. Worked: ${workHours} hrs`, data: record });
-    } else {
-      return res.status(400).json({ success: false, message: 'Already completed attendance for today.' });
+          lateMinutes,
+          workHours: 0
+        };
+        att.unshift(newRecord);
+        store.setTable('attendance', att);
+        return res.json({ success: true, action: 'check_in', message: `Clocked in at ${currentTime}`, data: newRecord });
+      } else if (!record.checkOut) {
+        const [inH, inM] = (record.checkIn || '09:00').split(':').map(Number);
+        const workHours = Math.round((((now.getHours() * 60 + now.getMinutes()) - (inH * 60 + inM)) / 60) * 10) / 10;
+        record.checkOut = currentTime;
+        record.workHours = workHours;
+        store.setTable('attendance', att);
+        return res.json({ success: true, action: 'check_out', message: `Clocked out at ${currentTime}. Worked: ${workHours} hrs`, data: record });
+      } else {
+        return res.status(400).json({ success: false, message: 'Already completed attendance for today.' });
+      }
     }
   } catch (err) {
     res.status(500).json({ success: false, message: err.message || 'Error processing punch.' });

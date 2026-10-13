@@ -13,10 +13,27 @@ async function authenticate(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.userId },
-      include: { employee: true }
-    });
+    let user = null;
+
+    try {
+      user = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        include: { employee: true }
+      });
+    } catch (dbErr) {
+      // Prisma / PostgreSQL unavailable -> Fallback to live StoreService JSON database
+      try {
+        const store = require('../services/store');
+        const users = store.getTable('users') || [];
+        user = users.find(u => u.id === decoded.userId || u.username === decoded.username) || null;
+        if (user) {
+          const employees = store.getTable('employees') || [];
+          user.employee = employees.find(e => e.id === user.employeeId) || null;
+        }
+      } catch (storeErr) {
+        user = null;
+      }
+    }
 
     if (!user || user.status !== 'active') {
       return res.status(401).json({ success: false, message: 'Invalid or inactive user account.' });
@@ -72,7 +89,24 @@ async function getScopedEmployeeIds(user) {
       }
       return Array.from(teamIds);
     } catch (e) {
-      return [myEmpId];
+      try {
+        const store = require('../services/store');
+        const allEmps = store.getTable('employees') || [];
+        const teamIds = new Set([myEmpId]);
+        let added = true;
+        while (added) {
+          added = false;
+          for (const emp of allEmps) {
+            if (!teamIds.has(emp.id) && emp.managerId && teamIds.has(emp.managerId)) {
+              teamIds.add(emp.id);
+              added = true;
+            }
+          }
+        }
+        return Array.from(teamIds);
+      } catch (storeErr) {
+        return [myEmpId];
+      }
     }
   }
 

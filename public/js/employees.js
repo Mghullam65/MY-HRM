@@ -378,7 +378,7 @@ const Employees = {
                   <td><span style="font-family:monospace;font-size:12px;color:var(--primary)">${e.empNo}</span></td>
                   <td>${Utils.getDeptName(e.departmentId)}</td>
                   <td>${Utils.getDesigName(e.designationId)}</td>
-                  <td style="font-size:12px">${e.phone}</td>
+                  <td style="font-size:12px">${e.phone || '—'}</td>
                   <td style="font-size:12px">${Utils.formatDate(e.joiningDate)}</td>
                   <td>
                     ${e.status === 'inactive' 

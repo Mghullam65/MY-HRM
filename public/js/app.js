@@ -307,10 +307,10 @@ const App = {
     if (typeof Chat !== 'undefined' && Chat.closeDrawer) Chat.closeDrawer();
 
     const agentBtn = document.getElementById('landing-agent-launcher');
-    if (agentBtn) agentBtn.style.display = 'none';
+    if (agentBtn) agentBtn.style.display = 'flex';
     const waBtn = document.getElementById('landing-whatsapp-launcher');
     if (waBtn) waBtn.style.display = 'none';
-    if (typeof LandingAgent !== 'undefined' && LandingAgent.close) LandingAgent.close();
+    if (typeof LandingAgent !== 'undefined' && LandingAgent.init) LandingAgent.init();
 
     Login.render();
     if (targetPortal) {
@@ -614,19 +614,54 @@ const App = {
 
     const renderedTabs = refTabs.map(t => {
       const isOps = t.id === 'operations';
+      const role = Auth.role;
+      if (t.id === 'recruitment' && !['superadmin', 'hr_manager', 'dept_manager'].includes(role)) return '';
+      if (t.id === 'administration' && !['superadmin', 'hr_manager'].includes(role)) return '';
+      if (t.id === 'settings' && !['superadmin', 'hr_manager'].includes(role)) return '';
+      if (t.id === 'employees' && ['employee', 'onboarding'].includes(role)) return '';
+
       if (!isOps && !allowed.has(t.id) && t.id !== 'dashboard') return '';
-      const subs = tabSubMenus[t.id] || [];
+      
+      const rawSubs = tabSubMenus[t.id] || [];
+      const subs = rawSubs.filter(s => {
+        // Operations sub-modules
+        if (s.id === 'settlement' && !Auth.can('settlement.view')) return false;
+        if (s.id === 'companies' && !['superadmin', 'hr_manager'].includes(role)) return false;
+        if (s.id === 'administration' && !['superadmin', 'hr_manager'].includes(role)) return false;
+
+        // Attendance sub-views
+        if (s.id === 'attendance' && s.view === 'machine' && !Auth.isAdmin()) return false;
+        if (s.id === 'attendance' && s.view === 'roster' && !['superadmin', 'hr_manager', 'dept_manager'].includes(role)) return false;
+
+        // Reports sub-views
+        if (s.id === 'reports' && s.view === 'tax' && !['superadmin', 'hr_manager', 'payroll_accountant'].includes(role)) return false;
+        if (s.id === 'reports' && s.view === 'bank' && !['superadmin', 'hr_manager', 'payroll_accountant'].includes(role)) return false;
+        if (s.id === 'reports' && s.view === 'workforce' && !['superadmin', 'hr_manager', 'dept_manager'].includes(role)) return false;
+
+        // Recruitment
+        if (s.id === 'recruitment' && !['superadmin', 'hr_manager', 'dept_manager'].includes(role)) return false;
+
+        // Employees
+        if (s.id === 'employees' && ['employee', 'onboarding'].includes(role)) return false;
+
+        return true;
+      });
+
+      if (t.id === 'reports' && subs.length === 0 && ['employee', 'onboarding'].includes(role)) return '';
+
       const isSubActive = subs.some(s => s.id === currentMod);
       const isActive = currentMod === t.id || (t.id === 'administration' && currentMod === 'master') || (isOps && ['assets', 'expenses', 'helpdesk', 'events', 'settlement'].includes(currentMod)) || isSubActive;
+      const hasChevron = t.chevron && subs.length > 0;
+      const navTarget = (t.id === 'payroll' && role === 'employee') ? "App.navigate('payroll', 'slips')" : (hasChevron ? "App.navigate('" + (subs[0]?.id || t.id) + "', '" + (subs[0]?.view || '') + "')" : "App.navigate('" + t.id + "')");
 
       return `
         <div class="nav-tab-dropdown-wrap" style="position:relative;display:inline-flex;align-items:center">
           <div class="nav-item nav-tab-item ${isActive ? 'active' : ''}" data-module="${t.id}"
-            onclick="${t.chevron ? "/* Toggle or navigate */ App.navigate('" + (subs[0]?.id || t.id) + "', '" + (subs[0]?.view || '') + "');" : "App.navigate('" + t.id + "');"} App.closeMobileSidebar();"
+            onclick="${navTarget}; App.closeMobileSidebar();"
             style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;font-size:12.5px;font-weight:${isActive ? '700' : '500'};color:${isActive ? '#ea580c' : 'var(--text-2,#475569)'};background:${isActive ? '#fff7ed' : 'transparent'};border:${isActive ? '1px solid #fed7aa' : '1px solid transparent'};white-space:nowrap;transition:all 0.15s">
             <i class="fa ${t.icon}" style="font-size:13px;color:${isActive ? '#f97316' : 'var(--text-3,#64748b)'}"></i>
             <span>${t.label}</span>
-            ${t.chevron ? '<i class="fa fa-chevron-down" style="font-size:8px;opacity:0.6;margin-left:2px"></i>' : ''}
+            ${hasChevron ? '<i class="fa fa-chevron-down" style="font-size:8px;opacity:0.6;margin-left:2px"></i>' : ''}
           </div>
 
           ${subs.length > 0 ? `
@@ -813,6 +848,7 @@ const App = {
           <!-- User Menu Dropdown Popover -->
           <div id="user-menu-dropdown" class="user-menu-popover" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 10px 25px rgba(0,0,0,0.12);min-width:180px;z-index:1050;padding:6px 0">
             <a href="javascript:void(0)" onclick="App.navigate('profile')" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-circle-user" style="color:var(--primary)"></i> My Profile</a>
+            <a href="javascript:void(0)" onclick="App.showPersonaSwitcherModal()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-users-viewfinder" style="color:#059669"></i> Switch Persona / Role</a>
             <a href="javascript:void(0)" onclick="App.showChangePasswordModal()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-key" style="color:#0284c7"></i> Change Password</a>
             <a href="javascript:void(0)" onclick="typeof HRMTour !== 'undefined' ? HRMTour.start(true) : null" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-wand-magic-sparkles" style="color:#a855f7"></i> Product Tour</a>
             <a href="javascript:void(0)" onclick="App.toggleTableDensity()" style="display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--text);font-size:12.5px;font-weight:600;text-decoration:none"><i class="fa fa-table-cells" style="color:#f59e0b"></i> Table Density</a>
@@ -838,6 +874,55 @@ const App = {
       if (!e.target.closest('.nav-pillar-dropdown')) {
         App.closeNavPillars();
       }
+    });
+  },
+
+  showPersonaSwitcherModal() {
+    const personas = (typeof Auth !== 'undefined' && Auth.DEMO_PERSONAS) ? Auth.DEMO_PERSONAS : [];
+    const activeUsername = Auth.user?.username;
+    
+    Modal.show(`
+      <div style="padding:10px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div style="width:40px;height:40px;border-radius:10px;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px">
+            <i class="fa fa-users-viewfinder"></i>
+          </div>
+          <div>
+            <h3 style="margin:0;font-size:17px;font-weight:800;color:var(--text)">Live Persona &amp; Role Switcher</h3>
+            <div style="font-size:12px;color:var(--text-3);margin-top:2px">Test enterprise RBAC &amp; dashboard views instantly across personas</div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto;padding-right:4px">
+          ${personas.map(p => {
+            const isActive = p.username === activeUsername;
+            return `
+              <div onclick="Modal.close('dynamic-modal'); Auth.switchPersona('${p.username}');"
+                style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:${isActive ? 'rgba(37,99,235,0.06)' : 'var(--card)'};border:1.5px solid ${isActive ? '#2563eb' : 'var(--border)'};border-radius:10px;cursor:pointer;transition:all 0.15s"
+                onmouseover="this.style.borderColor='#2563eb'" onmouseout="if(!${isActive})this.style.borderColor='var(--border)'">
+                <div style="display:flex;align-items:center;gap:12px">
+                  <div style="width:36px;height:36px;border-radius:10px;background:${p.color}20;color:${p.color};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">
+                    <i class="fa ${p.icon}"></i>
+                  </div>
+                  <div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <strong style="font-size:13px;color:var(--text)">${p.name}</strong>
+                      <span style="font-size:10px;font-weight:700;background:${p.color}15;color:${p.color};padding:2px 6px;border-radius:4px">${p.roleLabel}</span>
+                      ${isActive ? '<span style="font-size:9.5px;font-weight:800;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px"><i class="fa fa-check"></i> Active</span>' : ''}
+                    </div>
+                    <div style="font-size:11px;color:var(--text-3);margin-top:2px">${p.description}</div>
+                  </div>
+                </div>
+                <button class="btn btn-xs ${isActive ? 'btn-primary' : 'btn-ghost'}" style="flex-shrink:0;font-weight:700">
+                  ${isActive ? 'Current' : 'Switch'}
+                </button>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `, {
+      footer: '<button class="btn btn-secondary btn-sm" onclick="Modal.close(\'dynamic-modal\')">Close</button>'
     });
   },
 
@@ -3020,11 +3105,11 @@ const Login = {
 
     if (btn) {
       if (this.activePortal === 'chat') {
-        btn.className = 'split-submit-btn btn-portal-chat';
-        btn.innerHTML = '<span>Sign In to Pro Teams</span> <i class="fa fa-arrow-right"></i>';
+        btn.className = 'card-submit-btn btn-portal-chat';
+        btn.innerHTML = '<span>Sign In to Chatbox</span> <i class="fa fa-arrow-right"></i>';
       } else {
-        btn.className = 'split-submit-btn btn-orange';
-        btn.innerHTML = '<span>Sign In</span> <i class="fa fa-arrow-right"></i>';
+        btn.className = 'card-submit-btn';
+        btn.innerHTML = '<span>Sign In to HR Dashboard</span> <i class="fa fa-arrow-right"></i>';
       }
     }
 
@@ -3097,6 +3182,16 @@ const Login = {
       scope: 'Partial Permissions • Leaves & Attendance view/apply, Approvals & Salary restricted',
       avatar: 'assets/avatars/omar_farhan.jpg',
       badgeColor: '#ec4899'
+    },
+    finance: {
+      name: 'Tariq Mahmood',
+      role: 'Corporate Payroll & Tax Accountant',
+      email: 'tariq.finance',
+      pass: 'fin123',
+      portal: 'Finance & Payroll Operations Portal',
+      scope: 'Segregation of Duties • Monthly Payroll Run, FBR Tax Slabs, 1Link Bank Advice & Settlements',
+      avatar: 'assets/avatars/ahmed_khan.jpg',
+      badgeColor: '#059669'
     }
   },
 
@@ -3215,12 +3310,49 @@ const Login = {
           <!-- ── CENTER FLOATING WHITE LOGIN CARD ── -->
           <div class="login-center-col">
             <div class="login-card-modern">
-              <!-- Pill Badge -->
-              <div class="card-hrm-pill">HRM SYSTEM</div>
+              <!-- Two-Option Segmented Capsule: HR Dashboard vs Chatbox Login -->
+              <div class="login-portal-capsule" role="radiogroup" aria-label="Choose Login Destination" style="margin-bottom:14px">
+                <button type="button" 
+                        class="portal-capsule-pill portal-hrm ${this.activePortal==='hrm'?'active':''}" 
+                        id="portal-pill-hrm" 
+                        onclick="Login.setPortal('hrm')" 
+                        role="radio" 
+                        aria-checked="${this.activePortal==='hrm'}"
+                        title="Access Enterprise HRM Dashboard & Management Suite">
+                  <i class="fa fa-chart-pie pill-icon"></i>
+                  <div class="pill-text">
+                    <span class="pill-title">HR Dashboard</span>
+                    <span class="pill-subtitle">HR Suite & Analytics</span>
+                  </div>
+                </button>
+                <button type="button" 
+                        class="portal-capsule-pill portal-chat ${this.activePortal==='chat'?'active':''}" 
+                        id="portal-pill-chat" 
+                        onclick="Login.setPortal('chat')" 
+                        role="radio" 
+                        aria-checked="${this.activePortal==='chat'}"
+                        title="Access Pro Teams Workspace & Chatbox Channels">
+                  <i class="fa fa-comments pill-icon"></i>
+                  <div class="pill-text">
+                    <span class="pill-title">Chatbox Login</span>
+                    <span class="pill-subtitle">Pro Teams & Channels</span>
+                  </div>
+                </button>
+              </div>
 
               <!-- Title & Subtitle -->
               <h2 class="card-title">Welcome Back</h2>
-              <p class="card-subtitle" id="login-portal-subtitle">Sign in to your HRM account</p>
+              <p class="card-subtitle" id="login-portal-subtitle">${this.activePortal==='chat' ? 'Sign in to access Pro Teams Workspace & Chatbox Channels' : 'Sign in to access your HRM Pro account'}</p>
+
+              <!-- Demo Quick Account Selector -->
+              <div class="card-demo-presets" style="margin-bottom:14px">
+                <span style="font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;margin-right:2px">Demo:</span>
+                <button type="button" class="card-demo-pill ${this.activeAccount==='admin'?'active':''}" data-role="admin" onclick="Login.selectAccount('admin')">Admin</button>
+                <button type="button" class="card-demo-pill ${this.activeAccount==='hr'?'active':''}" data-role="hr" onclick="Login.selectAccount('hr')">HR</button>
+                <button type="button" class="card-demo-pill ${this.activeAccount==='finance'?'active':''}" data-role="finance" onclick="Login.selectAccount('finance')">Finance</button>
+                <button type="button" class="card-demo-pill ${this.activeAccount==='manager'?'active':''}" data-role="manager" onclick="Login.selectAccount('manager')">Manager</button>
+                <button type="button" class="card-demo-pill ${this.activeAccount==='employee'?'active':''}" data-role="employee" onclick="Login.selectAccount('employee')">Employee</button>
+              </div>
 
               <!-- Error Banner -->
               <div id="login-error" class="alert alert-danger hidden" style="margin-bottom:14px;border-radius:10px;font-size:12.5px;padding:8px 12px">
@@ -3253,14 +3385,16 @@ const Login = {
                 </div>
 
                 <!-- Submit Button -->
-                <button type="submit" id="login-btn" class="card-submit-btn">
-                  <span>Sign In</span> <i class="fa fa-arrow-right"></i>
+                <button type="submit" id="login-btn" class="${this.activePortal==='chat' ? 'card-submit-btn btn-portal-chat' : 'card-submit-btn'}">
+                  <span>${this.activePortal==='chat' ? 'Sign In to Chatbox' : 'Sign In to HR Dashboard'}</span> <i class="fa fa-arrow-right"></i>
                 </button>
               </form>
 
               <!-- Help Footer -->
               <div class="card-help-footer">
                 Need help? <a href="#" onclick="Login.contactSupport();return false;">Contact IT Support</a>
+                <span style="margin:0 6px;color:#cbd5e1">•</span>
+                <a href="#" onclick="if(typeof LandingAgent!=='undefined'&&LandingAgent.open){LandingAgent.open();}return false;"><i class="fa fa-robot"></i> Ask AI Assistant</a>
               </div>
             </div>
           </div>
@@ -3383,6 +3517,9 @@ const Login = {
     // Update Active Chip
     document.querySelectorAll('.split-account-chip').forEach(chip => {
       chip.classList.toggle('active', chip.dataset.role === roleKey);
+    });
+    document.querySelectorAll('.card-demo-pill').forEach(pill => {
+      pill.classList.toggle('active', pill.dataset.role === roleKey);
     });
   },
 

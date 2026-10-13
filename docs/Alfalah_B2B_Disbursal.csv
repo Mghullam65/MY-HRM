@@ -1,5 +1,5 @@
 Batch_Ref,Timestamp,Total_Records,Total_Amount_PKR,Corporate_NTN
-BATCH-931440,2026-10-12T12:08:51.440Z,26,2500264,1234567-8
+BATCH-938471,2026-10-13T09:48:58.471Z,26,2500264,1234567-8
 
 Emp_No,Beneficiary_Name,IBAN_Account,Amount_PKR,Narrative
 "EMP-001","Ahmed Khan","PK36HABB0000000100000001",145559,"Salary Disbursal Oct 2026"
@@ -14,7 +14,7 @@ Emp_No,Beneficiary_Name,IBAN_Account,Amount_PKR,Narrative
 "EMP-010","Amna Sheikh","PK36HABB0000000100000010",92159,"Salary Disbursal Oct 2026"
 "EMP-012","Rabia Nawaz","PK36HABB0000000100000012",92159,"Salary Disbursal Oct 2026"
 "EMP-016","Ayesha Zafar","PK36HABB0000000100000016",92159,"Salary Disbursal Oct 2026"
-"EMP-017","Faisal Mahmood","PK36HABB0000000100000017",92159,"Salary Disbursal Oct 2026"
+"EMP-017","Tariq Mahmood","PK36HABB0000000100000017",92159,"Salary Disbursal Oct 2026"
 "EMP-018","Hina Pervaiz","PK36HABB0000000100000018",92159,"Salary Disbursal Oct 2026"
 "EMP-019","Junaid Alam","PK36HABB0000000100000019",92159,"Salary Disbursal Oct 2026"
 "EMP-020","Kiran Iqbal","PK36HABB0000000100000020",92159,"Salary Disbursal Oct 2026"
