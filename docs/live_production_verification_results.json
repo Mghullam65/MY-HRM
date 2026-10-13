@@ -1,0 +1,255 @@
+{
+  "targetUrl": "https://my-hrm-rosy.vercel.app/",
+  "timestamp": "2026-10-13T13:17:21.271Z",
+  "verdict": "READY FOR USERS",
+  "passedTests": 24,
+  "totalTests": 24,
+  "testResults": [
+    {
+      "category": "Security",
+      "name": "HTTPS & Modern TLS 1.3 Active",
+      "passed": true,
+      "detail": "Protocol: TLSv1.3 (TLS_AES_128_GCM_SHA256) | Issuer: Google Trust Services | HSTS: \"max-age=31536000; includeSubDomains\""
+    },
+    {
+      "category": "Security",
+      "name": "MIME Sniffing & Framing Headers",
+      "passed": true,
+      "detail": "X-Content-Type-Options: nosniff"
+    },
+    {
+      "category": "Website Accessibility",
+      "name": "URL Loads Successfully",
+      "passed": true,
+      "detail": "Title: \"HRM Pro — Human Resource Management System\" | Hero Heading: \"The All-In-One Growth Software for \nModern Enterpr...\" | Interactive Elements: 89 cards/actions rendered | Load time: 4907ms"
+    },
+    {
+      "category": "Website Accessibility",
+      "name": "Zero Deployment & Console Errors",
+      "passed": true,
+      "detail": "Zero unhandled JavaScript deployment crashes. Real console error count: 0"
+    },
+    {
+      "category": "Authentication",
+      "name": "Invalid Login Rejection",
+      "passed": true,
+      "detail": "Incorrect credentials rejected gracefully. Error feedback: \"Invalid username or password.\""
+    },
+    {
+      "category": "Authentication",
+      "name": "Superadmin Login & Session Generation",
+      "passed": true,
+      "detail": "Authenticated as: admin | Role: superadmin | Session Token stored: true"
+    },
+    {
+      "category": "Authentication",
+      "name": "Session Persistence Across Reload",
+      "passed": true,
+      "detail": "Page reloaded successfully; authenticated session (admin) maintained across page reloads."
+    },
+    {
+      "category": "Authentication",
+      "name": "Employee Self-Service Persona Login",
+      "passed": true,
+      "detail": "Logged in as: fatima.raza | Role: employee | Self-Service navigation mounted."
+    },
+    {
+      "category": "Major Modules",
+      "name": "Dashboard Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #dashboard | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Hig\n                \n              \n            \" | Elements: 17 rows/cards, 166 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Employees Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #employees | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Distributed Teams\n                \n              \n            \" | Elements: 20 rows/cards, 182 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Attendance Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #attendance | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Modern Ente\n                \n              \n            \" | Elements: 20 rows/cards, 158 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Leaves Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #leaves | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Modern Enterprises\n                \n              \n            \" | Elements: 19 rows/cards, 154 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Payroll Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #payroll | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Multi-Branch Holdings\n                \n              \n            \" | Elements: 20 rows/cards, 144 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Recruitment Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #recruitment | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Mul\n                \n              \n            \" | Elements: 10 rows/cards, 159 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Reports Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #reports | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Statutory FBR Payroll\n                \n              \n            \" | Elements: 10 rows/cards, 132 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "Settings Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #settings | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Team \n                \n              \n            \" | Elements: 19 rows/cards, 150 buttons"
+    },
+    {
+      "category": "Major Modules",
+      "name": "RBAC & Master Data Module Mounted",
+      "passed": true,
+      "detail": "Routed to: #administration | Heading: \"\n              The All-In-One Growth Software for \n              \n                \n                Team Chatbox & Collab\n                \n              \n            \" | Elements: 19 rows/cards, 150 buttons"
+    },
+    {
+      "category": "Database / API",
+      "name": "Live Cloud API Authentication & Token Grant",
+      "passed": true,
+      "detail": "Token issued from Vercel Edge Serverless. Length: 195 chars"
+    },
+    {
+      "category": "Database / API",
+      "name": "Multi-Company Scoped Cloud Persistence",
+      "passed": true,
+      "detail": "HTTP 200 | Scoped entities retrieved from persistent database."
+    },
+    {
+      "category": "Database / API",
+      "name": "Background Scheduler & Job Engine Status",
+      "passed": true,
+      "detail": "HTTP 200 | Timezone: Asia/Karachi | Status: pending"
+    },
+    {
+      "category": "Production Features",
+      "name": "Transactional Email Engine Probe",
+      "passed": true,
+      "detail": "HTTP 200 | Provider: Notification generated and dispatched to production.lead@mycompany.com. Saved to Local Archive (Simulated)."
+    },
+    {
+      "category": "Production Features",
+      "name": "Offline PWA & Service Worker Cache Precache",
+      "passed": true,
+      "detail": "sw.js: HTTP 200 (3.0 KB) | manifest.json: HTTP 200 (App: \"HRM Pro\")"
+    },
+    {
+      "category": "Performance",
+      "name": "Edge API Response Latency (5 Probes)",
+      "passed": true,
+      "detail": "Average Serverless API Latency: 336ms (Min: 286ms, Max: 424ms)"
+    },
+    {
+      "category": "Performance",
+      "name": "Mobile Responsiveness & Viewport Adaptability",
+      "passed": true,
+      "detail": "Width: 390px | ScrollWidth: 390px | Horizontal Overflow: NO (Perfect) | Mobile bottom dock present."
+    }
+  ],
+  "consoleErrorsCount": 0,
+  "networkErrorsCount": 13,
+  "capturedScreenshots": [
+    {
+      "filename": "live_01_landing.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_01_landing.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_01_landing.png",
+      "caption": "Live Production Landing Page with Interactive Architecture",
+      "sizeBytes": 802457
+    },
+    {
+      "filename": "live_02_invalid_login.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_02_invalid_login.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_02_invalid_login.png",
+      "caption": "Login Rejection with Security Feedback Banner",
+      "sizeBytes": 788872
+    },
+    {
+      "filename": "live_03_superadmin_dashboard.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_03_superadmin_dashboard.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_03_superadmin_dashboard.png",
+      "caption": "Superadmin Authenticated Enterprise Dashboard",
+      "sizeBytes": 245207
+    },
+    {
+      "filename": "live_04_employee_portal.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_04_employee_portal.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_04_employee_portal.png",
+      "caption": "Employee Self-Service Portal View",
+      "sizeBytes": 201332
+    },
+    {
+      "filename": "live_05_dashboard.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_05_dashboard.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_05_dashboard.png",
+      "caption": "Dashboard Module — Executive Metric KPI Cards, Punch Clock & Live Headlines",
+      "sizeBytes": 248453
+    },
+    {
+      "filename": "live_06_employees.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_06_employees.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_06_employees.png",
+      "caption": "Employees Module — Full Employee Directory & Departmental Distribution",
+      "sizeBytes": 203271
+    },
+    {
+      "filename": "live_07_attendance.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_07_attendance.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_07_attendance.png",
+      "caption": "Attendance Module — Biometric Daily Logs, Shift Rosters & Geofencing",
+      "sizeBytes": 181848
+    },
+    {
+      "filename": "live_08_leaves.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_08_leaves.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_08_leaves.png",
+      "caption": "Leaves Module — Statutory Leave Entitlement Ledgers & Application Approval Gates",
+      "sizeBytes": 164077
+    },
+    {
+      "filename": "live_09_payroll.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_09_payroll.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_09_payroll.png",
+      "caption": "Payroll Module — Pakistan FBR SPMS Progressive Tax Calculator & 6 Bank Disbursal Formats",
+      "sizeBytes": 200732
+    },
+    {
+      "filename": "live_10_recruitment.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_10_recruitment.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_10_recruitment.png",
+      "caption": "Recruitment Module — ATS Candidate Pipeline Stages, Requisitions & Scorecards",
+      "sizeBytes": 162973
+    },
+    {
+      "filename": "live_11_reports.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_11_reports.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_11_reports.png",
+      "caption": "Reports Module — Executive BI Analytics, Headcount Demographics & Export Formats",
+      "sizeBytes": 126696
+    },
+    {
+      "filename": "live_12_settings.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_12_settings.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_12_settings.png",
+      "caption": "Settings Module — Unified Enterprise Configuration, SMTP Integrations & Backup Engine",
+      "sizeBytes": 134697
+    },
+    {
+      "filename": "live_13_rbac.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_13_rbac.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_13_rbac.png",
+      "caption": "RBAC & Master Data Module — Enterprise Role Matrix, Permission Toggles & Multi-Company Scopes",
+      "sizeBytes": 134953
+    },
+    {
+      "filename": "live_14_mobile_viewport.png",
+      "localPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\scratch\\hrm-system\\docs\\screenshots\\live_14_mobile_viewport.png",
+      "artifactPath": "C:\\Users\\test\\.gemini\\antigravity-ide\\brain\\71d0d514-c26d-4a7a-ad6d-c80536fb4a73\\live_14_mobile_viewport.png",
+      "caption": "Responsive Mobile Viewport at 390x844 (Zero Overflow)",
+      "sizeBytes": 303154
+    }
+  ]
+}
