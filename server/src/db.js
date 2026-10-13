@@ -6,25 +6,80 @@ if (dbUrl) {
   process.env.DATABASE_URL = process.env.DATABASE_URL || dbUrl;
 }
 
-let prisma;
+let basePrisma;
+let isDbAvailable = null; // null = untested, true = online, false = offline
+
 try {
   const { PrismaClient } = require('@prisma/client');
-  prisma = new PrismaClient({
+  basePrisma = new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error']
   });
 } catch (err) {
   console.warn('[DB] Prisma initialization warning (falling back to graceful proxy):', err.message);
-  prisma = new Proxy({}, {
-    get(target, prop) {
-      if (prop === '$queryRaw') return async () => { throw new Error('Database not connected: ' + err.message); };
-      if (prop === '$disconnect') return async () => {};
+  isDbAvailable = false;
+}
+
+function withTimeout(promise, ms = 800) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Database query timed out')), ms))
+  ]);
+}
+
+const prisma = new Proxy(basePrisma || {}, {
+  get(target, prop) {
+    if (!basePrisma) {
       return new Proxy({}, {
-        get(mTarget, mProp) {
-          return async () => { throw new Error(`Database unavailable: ${String(prop)}.${String(mProp)}`); };
+        get() {
+          return async () => { throw new Error('Database unavailable'); };
         }
       });
     }
-  });
-}
+
+    if (prop === '$queryRaw' || prop === '$executeRaw') {
+      return async (...args) => {
+        if (isDbAvailable === false) throw new Error('Database offline');
+        try {
+          const res = await withTimeout(basePrisma[prop](...args));
+          isDbAvailable = true;
+          return res;
+        } catch (e) {
+          isDbAvailable = false;
+          throw e;
+        }
+      };
+    }
+
+    if (prop === '$disconnect' || prop === '$connect') {
+      return basePrisma[prop]?.bind(basePrisma);
+    }
+
+    const model = basePrisma[prop];
+    if (!model || typeof model !== 'object') {
+      return model;
+    }
+
+    return new Proxy(model, {
+      get(mTarget, mProp) {
+        const fn = mTarget[mProp];
+        if (typeof fn !== 'function') return fn;
+        return async (...args) => {
+          if (isDbAvailable === false) {
+            throw new Error('Database offline (fast fallback)');
+          }
+          try {
+            const result = await withTimeout(fn.apply(mTarget, args));
+            isDbAvailable = true;
+            return result;
+          } catch (e) {
+            isDbAvailable = false;
+            throw e;
+          }
+        };
+      }
+    });
+  }
+});
 
 module.exports = prisma;
+

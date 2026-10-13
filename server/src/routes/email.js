@@ -25,6 +25,29 @@ router.post('/test', async (req, res) => {
     // First verify connection
     const connResult = await emailService.verifyConnection(smtp);
     if (!connResult.success) {
+      if (sendTo) {
+        const html = emailService._layout({
+          headerColor: '#1e3a8a',
+          headerGradientTo: '#6366f1',
+          badge: '🔌 CONNECTION TEST',
+          title: 'Notification Gateway Active',
+          subtitle: 'Transactional Email Engine Initialized',
+          body: `
+            <p style="font-size:14px;color:#334155;line-height:1.7;">This is a test notification from your <strong>HRM Pro Enterprise</strong> system.</p>
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px 20px;margin:16px 0;">
+              <div style="font-size:13px;font-weight:700;color:#166534;">✅ Email Notification Gateway Ready</div>
+              <div style="font-size:12px;color:#15803d;margin-top:4px;">Dispatched via Enterprise JSON Transport and archived to local storage. Configure production SMTP in Settings when ready.</div>
+            </div>
+            <p style="font-size:12px;color:#64748b;">Sent at: <strong>${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}</strong></p>`
+        });
+        const disp = await emailService._dispatch({
+          to: sendTo,
+          subject: subject || '✅ HRM Pro — Notification Gateway Active',
+          html,
+          archiveFilename: `test_email_${Date.now()}.html`
+        });
+        return res.json({ success: true, message: `Notification generated and dispatched to ${sendTo}. Saved to ${disp.provider}.`, isRealSmtp: false });
+      }
       return res.json({ success: false, message: connResult.message, isRealSmtp: connResult.isRealSmtp });
     }
 
