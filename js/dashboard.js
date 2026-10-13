@@ -2217,13 +2217,15 @@ const Dashboard = {
 
     // 5. Unacknowledged Assets (for current user)
     assets.filter(a => a.assignedTo === myId && !a.acknowledged).forEach(a => {
+      const assetIdentifier = a.code || a.assetTag || `ASSET-${a.id}`;
+      const assetSerial = a.serialNumber || a.serial || a.code || 'N/A';
       actions.push({
         type: 'asset',
         tag: 'HARDWARE HANDOVER',
         icon: 'fa-laptop-file',
         color: 'var(--secondary)',
-        title: `Pending Custody Signature: ${a.assetTag} (${a.name})`,
-        sub: `Serial: ${a.serialNumber} • Handed over to your custody`,
+        title: `Pending Custody Signature: ${assetIdentifier} (${a.name || 'Equipment'})`,
+        sub: `Serial / Code: ${assetSerial} • Handed over to your custody`,
         actions: `
           <button class="btn btn-secondary btn-xs" onclick="App.navigate('assets');setTimeout(()=>Assets.acknowledgeCustody(${a.id}),100)"><i class="fa fa-file-signature"></i> Sign Handover</button>
         `

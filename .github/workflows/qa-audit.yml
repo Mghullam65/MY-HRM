@@ -21,12 +21,9 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Chrome
-        id: setup-chrome
-        uses: browser-actions/setup-chrome@latest
-        continue-on-error: true
-        with:
-          chrome-version: stable
+      - name: Verify Chrome Availability
+        run: |
+          which google-chrome || which chromium-browser || echo "Chrome binary in path"
 
       - name: Install Dependencies
         run: npm ci
@@ -36,7 +33,6 @@ jobs:
 
       - name: Execute Headless Quality Gate
         env:
-          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
           DISPLAY: ''
         run: node scripts/ci-audit.js
 

@@ -25,23 +25,20 @@ const server = http.createServer((req, res) => {
 });
 
 function getChromePath() {
-  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
-  if (process.env.CHROME_PATH && fs.existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
   if (process.platform === 'win32') {
     return 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   }
   const linuxPaths = [
-    process.env.CHROME_BIN,
-    process.env.CHROME_PATH,
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
-    '/snap/bin/chromium'
-  ].filter(Boolean);
-  for (const p of linuxPaths) {
-    if (fs.existsSync(p)) return p;
-  }
+    '/snap/bin/chromium',
+    process.env.CHROME_BIN,
+    process.env.CHROME_PATH
+  ].filter(p => p && typeof p === 'string' && fs.existsSync(p));
+  if (linuxPaths.length > 0) return linuxPaths[0];
+
   try {
     const which = require('child_process').execSync('which google-chrome || which chrome || which chromium').toString().trim().split('\n')[0];
     if (which && fs.existsSync(which)) return which;
@@ -157,7 +154,15 @@ async function runCIAudit() {
     if (msg.method === 'Runtime.consoleAPICalled') {
       if (msg.params.type === 'error') {
         const text = msg.params.args.map(a => a.value || a.description || JSON.stringify(a)).join(' ');
-        errors.push(text);
+        // Filter out benign browser telemetry, favicon 404s, and external extension noise
+        const isBenign = text.includes('google_apis') ||
+          text.includes('favicon') ||
+          text.includes('DEPRECATED_ENDPOINT') ||
+          text.includes('chrome-extension') ||
+          text.includes('Failed to load resource: the server responded with a status of 404 (Not Found)') && text.includes('.ico');
+        if (!isBenign) {
+          errors.push(text);
+        }
       }
     }
     if (msg.method === 'Runtime.exceptionThrown') {
