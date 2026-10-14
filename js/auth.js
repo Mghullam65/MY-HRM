@@ -179,13 +179,15 @@ const Auth = {
 
   switchPersona(target) {
     const users = DB.get('users') || [];
-    const matched = users.find(u => u.username === target || u.id === Number(target) || u.email === target) 
-      || this.DEMO_PERSONAS.find(p => p.username === target || p.id === Number(target));
+    const matched = users.find(u => u.username === target) 
+      || this.DEMO_PERSONAS.find(p => p.username === target)
+      || users.find(u => u.id === Number(target))
+      || this.DEMO_PERSONAS.find(p => p.id === Number(target));
     if (!matched) {
       if (typeof Toast !== 'undefined') Toast.show('Persona not found', 'error');
       return;
     }
-    const userInDb = users.find(u => u.username === matched.username || u.id === matched.id) || matched;
+    const userInDb = users.find(u => u.username === matched.username) || matched;
     const employee = DB.find('employees', userInDb.employeeId) || { id: userInDb.employeeId || 1, fullName: userInDb.fullName || userInDb.username, role: userInDb.role };
     
     const safeUser = { ...userInDb };

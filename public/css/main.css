@@ -20113,10 +20113,26 @@ body.chat-workspace-active #teams-workspace-container {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
+.hero-punch-clock-widget .punch-card-white.punch-clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hero-punch-clock-widget .punch-card-white.punch-clickable:hover {
+  border-color: #38bdf8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
 [data-theme="dark"] .hero-punch-clock-widget .punch-card-white {
   background: #1e293b;
   border: 1px solid #334155;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] .hero-punch-clock-widget .punch-card-white.punch-clickable:hover {
+  border-color: #38bdf8;
+  background: #24344d;
 }
 
 .hero-punch-clock-widget .punch-badge-btn {

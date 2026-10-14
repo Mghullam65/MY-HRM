@@ -799,9 +799,9 @@ const App = {
       </div>
 
       <!-- Center-Right: Subsidiary / Office Switcher Pill matching Reference Image -->
-      <div onclick="typeof Company !== 'undefined' ? Company.showWorkspaceSwitchModal() : null" style="display:flex;align-items:center;gap:8px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,0.02)" title="Switch Subsidiary / Office">
-        <i class="fa fa-building" style="color:#2563eb;font-size:13px"></i>
-        <span>${companyName}</span>
+      <div id="topbar-company-pill" onclick="typeof Company !== 'undefined' ? Company.showWorkspaceSwitchModal() : null" style="display:flex;align-items:center;gap:8px;background:var(--card,#ffffff);border:1.5px solid ${activeCo?.primaryColor || 'var(--border,#e2e8f0)'};border-radius:8px;padding:6px 14px;font-size:12.5px;font-weight:700;color:var(--text);cursor:pointer;white-space:nowrap;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.04)" title="Switch Corporate Workspace / Entity">
+        <span id="topbar-logo-badge" style="width:20px;height:20px;border-radius:5px;background:${activeCo?.primaryColor || '#4f46e5'};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:900">${activeCo?.logoText || 'AG'}</span>
+        <span id="topbar-company-name">${companyName}</span>
         <i class="fa fa-chevron-down" style="font-size:9px;color:var(--text-3)"></i>
       </div>
 
@@ -862,6 +862,9 @@ const App = {
     this.refreshNotifications();
     if (typeof Chat !== 'undefined' && Chat.updateTopbarBadge) {
       Chat.updateTopbarBadge();
+    }
+    if (typeof Company !== 'undefined' && Company.applyBrandTokens) {
+      Company.applyBrandTokens();
     }
 
     document.addEventListener('click', (e) => {

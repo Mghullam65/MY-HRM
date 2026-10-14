@@ -119,7 +119,7 @@ const Payroll = {
       App.navigate('settlement');
       return;
     }
-    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager'].includes(Auth.role);
+    const isHrOrAdmin = Auth.can('payroll.create') || Auth.can('payroll.edit') || Auth.can('payroll.approve') || ['superadmin', 'hr_manager', 'payroll_accountant'].includes(Auth.role);
     const adminOnlyViews = ['salary', 'allowances', 'deductions', 'bank_advice', 'statutory', 'structures', 'budget'];
     if (!isHrOrAdmin && adminOnlyViews.includes(view)) {
       Toast.show('Access Denied: This payroll section is restricted to HR & Admin.', 'error');
@@ -1820,6 +1820,15 @@ const Payroll = {
     const safeSrc = src => (src ? String(src).replace(/"/g, '&quot;') : '');
     const companyLogo = safeSrc(settings.companyLogo || '');
 
+    // Resolve subsidiary white-label profile
+    const companies = DB.get('companies') || [];
+    const empComp = companies.find(c => Number(c.id) === Number(emp.companyId)) || (typeof Company !== 'undefined' ? Company.getActive() : null) || companies[0] || {};
+    const compPrimary = empComp.primaryColor || '#4f46e5';
+    const compSecondary = empComp.secondaryColor || '#06b6d4';
+    const compTrade = empComp.tradeName || empComp.name || settings.companyName || 'Apex Technologies';
+    const compTagline = empComp.tagline || settings.companyTagline || 'Enterprise Cloud Intelligence & Next-Gen Automation';
+    const compMonogram = empComp.logoText || 'AT';
+
     const pfEmployee = rec.pfEmployee !== undefined ? rec.pfEmployee : Math.round(rec.basic * (pfSettings.employeeRate / 100));
     const pfEmployer = rec.pfEmployer !== undefined ? rec.pfEmployer : Math.round(rec.basic * (pfSettings.employerRate / 100));
     const loanDeduction = rec.loanDeduction || 0;
@@ -1828,18 +1837,26 @@ const Payroll = {
 
     Modal.show(`Payslip — ${emp.fullName} — ${monthLabel}`, `
       <div style="background:white;color:#1a1a1a;border-radius:12px;overflow:hidden">
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg,hsl(221,83%,25%),hsl(262,83%,30%));color:white;padding:20px 22px;display:flex;justify-content:space-between;align-items:center">
-          <div style="display:flex;align-items:center;gap:12px">
-            ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain;filter:brightness(0) invert(1)">` : ''}
+        <!-- Header with Subsidiary White-Label Branding -->
+        <div style="background:linear-gradient(135deg,${compPrimary},${compSecondary});color:white;padding:20px 22px;display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:14px">
+            <div style="width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,0.2);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;letter-spacing:1px;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.15)">
+              ${compMonogram}
+            </div>
             <div>
-              <div style="font-size:22px;font-weight:800">${settings.companyName || 'HRM Pro'}</div>
-              <div style="font-size:12px;opacity:0.85">${settings.companyTagline || 'Human Resource Management & Payroll'}</div>
+              <div style="font-size:20px;font-weight:900;letter-spacing:-0.2px">${compTrade}</div>
+              <div style="font-size:11.5px;opacity:0.9;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span>${compTagline}</span>
+                <span style="opacity:0.6">•</span>
+                <span style="font-family:monospace;background:rgba(255,255,255,0.18);padding:1px 6px;border-radius:4px;font-size:10.5px">NTN: ${empComp.ntn || '—'}</span>
+                ${empComp.secpRegNo ? `<span style="font-family:monospace;background:rgba(255,255,255,0.18);padding:1px 6px;border-radius:4px;font-size:10.5px">SECP: ${empComp.secpRegNo}</span>` : ''}
+              </div>
             </div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:18px;font-weight:700">PAYSLIP</div>
-            <div style="font-size:12px;opacity:0.85">${monthLabel}</div>
+            <div style="font-size:18px;font-weight:800;letter-spacing:1px">SALARY PAYSLIP</div>
+            <div style="font-size:12px;opacity:0.9">${monthLabel}</div>
+            <div style="font-size:10px;opacity:0.8;font-family:monospace">REF: SLIP-${emp.id}-${month.replace('-','')}</div>
           </div>
         </div>
 
@@ -1849,13 +1866,13 @@ const Payroll = {
             <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">EMPLOYEE DETAILS</div>
             <div style="font-size:16px;font-weight:700;color:#0f172a">${emp.fullName}</div>
             <div style="font-size:13px;color:#475569">${Utils.getDesigName(emp.designationId)}</div>
-            <div style="font-size:12px;color:#64748b">${Utils.getDeptName(emp.departmentId)}</div>
+            <div style="font-size:12px;color:#64748b">${Utils.getDeptName(emp.departmentId)} • <strong style="color:${compPrimary}">${compTrade}</strong></div>
           </div>
           <div style="text-align:right">
-            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">PAYMENT INFORMATION</div>
+            <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:4px">PAYMENT & STATUTORY INFO</div>
             <div style="font-size:13px;color:#334155"><strong>Emp #:</strong> ${emp.empNo}</div>
-            <div style="font-size:13px;color:#334155"><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate)}</div>
-            <div style="font-size:13px;color:#334155"><strong>Bank:</strong> ${emp.bankName || 'HBL'} | ${emp.accountNo || '—'}</div>
+            <div style="font-size:13px;color:#334155"><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate || emp.joinDate)}</div>
+            <div style="font-size:13px;color:#334155"><strong>Disbursement Bank:</strong> ${emp.bankName || empComp.disbursementBank?.split(' ')[0] || 'HBL'} | ${emp.accountNo || '—'}</div>
           </div>
         </div>
 
@@ -1932,8 +1949,23 @@ const Payroll = {
           <span style="color:white;font-size:26px;font-weight:800">PKR ${rec.netSalary.toLocaleString()}</span>
         </div>
 
-        <div style="padding:12px 24px;background:#f8fafc;font-size:11px;color:#94a3b8;text-align:center">
-          System generated payslip • Status: ${rec.status.toUpperCase()} • Generated on ${Utils.formatDate(rec.paidOn || Utils.today())} • No signature required
+        <!-- Subsidiary Digital Authorization Seal & Statutory Compliance -->
+        <div style="padding:14px 22px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="border:2px dashed ${compPrimary};border-radius:50%;width:56px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:6.5px;color:${compPrimary};font-weight:800;text-transform:uppercase;transform:rotate(-8deg);padding:2px;text-align:center;line-height:1.1;flex-shrink:0">
+              <span>★ VERIFIED ★</span>
+              <strong style="font-size:7.5px">${compMonogram}</strong>
+              <span style="font-size:5.5px">${empComp.ntn || 'SECP'}</span>
+            </div>
+            <div style="font-size:11px;color:#64748b;line-height:1.4">
+              <strong>Official Corporate Disbursal Voucher</strong> • Authorized by ${empComp.signatoryName || 'Sara Malik'} (${empComp.signatoryTitle || 'Director of Operations'})<br>
+              <span style="font-size:9.5px;color:#94a3b8">${empComp.letterheadFooter || 'Registered with SECP under Companies Act 2017 • Confidential Statutory Document'}</span>
+            </div>
+          </div>
+          <div style="font-size:10.5px;color:#94a3b8;font-family:monospace;text-align:right">
+            DISBURSED VIA: ${empComp.disbursementBank?.split(' ')[0] || 'BANK'}<br>
+            AUDIT HASH: PK-${emp.id}-${(rec.netSalary * 7).toString(16).toUpperCase()}
+          </div>
         </div>
       </div>
     `, {
@@ -3350,18 +3382,28 @@ const Payroll = {
     const companyLogo = safeSrc(settings.companyLogo || '');
     const signatorySignature = safeSrc(settings.signatorySignature || '');
 
+    // Resolve subsidiary white-label profile
+    const companies = DB.get('companies') || [];
+    const empComp = companies.find(c => Number(c.id) === Number(emp.companyId)) || (typeof Company !== 'undefined' ? Company.getActive() : null) || companies[0] || {};
+    const compPrimary = empComp.primaryColor || '#4f46e5';
+    const compTrade = empComp.tradeName || empComp.name || settings.companyName || 'Apex Technologies';
+    const compTagline = empComp.tagline || settings.companyTagline || 'Enterprise Cloud Intelligence & Next-Gen Automation';
+    const compMonogram = empComp.logoText || 'AT';
+
     const html = `
-      <div class="doc-header">
-        <div style="display:flex;align-items:center;gap:12px">
-          ${companyLogo ? `<img src="${companyLogo}" style="max-height:46px;max-width:80px;object-fit:contain">` : ''}
+      <div class="doc-header" style="border-bottom:2px solid ${compPrimary};padding-bottom:14px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:46px;height:46px;border-radius:10px;background:${compPrimary};color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900">
+            ${compMonogram}
+          </div>
           <div>
-            <div class="brand-title">${settings.companyName || 'HRM Pro'}</div>
-            <div class="brand-sub">${settings.companyTagline || 'Human Resource Management & Payroll Services'}</div>
+            <div class="brand-title" style="font-size:18px;font-weight:800;color:#0f172a">${empComp.name || compTrade}</div>
+            <div class="brand-sub" style="font-size:11px;color:#64748b">${compTagline} • NTN: ${empComp.ntn || '—'} • SECP: ${empComp.secpRegNo || '—'}${empComp.strn ? ' • STRN: ' + empComp.strn : ''}</div>
           </div>
         </div>
-        <div class="doc-type">
-          <div class="doc-type-title">SALARY PAYSLIP</div>
-          <div class="doc-date">${monthLabel}</div>
+        <div class="doc-type" style="text-align:right">
+          <div class="doc-type-title" style="font-size:16px;font-weight:800;color:${compPrimary}">SALARY PAYSLIP</div>
+          <div class="doc-date" style="font-size:12px;color:#475569">${monthLabel}</div>
         </div>
       </div>
 
@@ -3370,11 +3412,11 @@ const Payroll = {
           <p><strong>Employee:</strong> ${emp.fullName}</p>
           <p><strong>Employee No:</strong> ${emp.empNo}</p>
           <p><strong>Designation:</strong> ${Utils.getDesigName(emp.designationId)}</p>
-          <p><strong>Department:</strong> ${Utils.getDeptName(emp.departmentId)}</p>
+          <p><strong>Department:</strong> ${Utils.getDeptName(emp.departmentId)} • <strong style="color:${compPrimary}">${compTrade}</strong></p>
         </div>
         <div class="info-col" style="text-align:right">
-          <p><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate)}</p>
-          <p><strong>Bank Account:</strong> ${emp.bankName || 'HBL'} • ${emp.accountNo || '—'}</p>
+          <p><strong>Joining Date:</strong> ${Utils.formatDate(emp.joiningDate || emp.joinDate)}</p>
+          <p><strong>Disbursement Bank:</strong> ${emp.bankName || empComp.disbursementBank?.split(' ')[0] || 'HBL'} • ${emp.accountNo || '—'}</p>
           <p><strong>Payment Status:</strong> <span class="text-green font-bold">${(rec.status || 'processed').toUpperCase()}</span></p>
           <p><strong>Payment Date:</strong> ${Utils.formatDate(rec.paidOn || Utils.today())}</p>
         </div>
@@ -3438,18 +3480,24 @@ const Payroll = {
         <div class="total-banner-val" style="font-size:22px;font-weight:800;color:#4ade80">${Utils.formatCurrency(rec.netSalary)}</div>
       </div>
 
-      <div class="sig-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:25px">
-        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Prepared By (Payroll Officer)</div>
+      <div class="sig-section" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;margin-top:25px;align-items:center">
+        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Prepared By (Payroll Controller)</div>
         <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">
+          <div style="margin-bottom:4px;display:flex;justify-content:center">
+            <div style="border:1.5px dashed ${compPrimary};border-radius:50%;width:50px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:6.5px;color:${compPrimary};font-weight:800;text-transform:uppercase;transform:rotate(-8deg)">
+              <span>★ SEAL ★</span>
+              <span>${compMonogram}</span>
+            </div>
+          </div>
           ${signatorySignature ? `<div style="margin-bottom:2px"><img src="${signatorySignature}" style="max-height:36px;max-width:120px;object-fit:contain"></div>` : ''}
-          <strong>${settings.signatoryName || 'Sara Malik'}</strong><br>
-          <span style="font-size:9.5px;color:#64748b">${settings.signatoryTitle || 'Head of HR / Finance'}</span>
+          <strong>${empComp.signatoryName || settings.signatoryName || 'Sara Malik'}</strong><br>
+          <span style="font-size:9.5px;color:#64748b">${empComp.signatoryTitle || settings.signatoryTitle || 'Director of Operations'}</span>
         </div>
-        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Employee Signature / Confirmation</div>
+        <div class="sig-box" style="border-top:1px dashed #94a3b8;padding-top:6px;font-size:11px;text-align:center">Employee Signature / Acknowledgment</div>
       </div>
 
-      <div class="footer-note">
-        System generated payslip. No physical signature is required. Confidential corporate document.
+      <div class="footer-note" style="margin-top:20px;font-size:10px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:8px">
+        ${empComp.letterheadFooter || 'Registered with SECP under Companies Act 2017 • Confidential Corporate Record • System Generated Payslip'}
       </div>
     `;
 

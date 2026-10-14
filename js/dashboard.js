@@ -6,22 +6,68 @@ const Dashboard = {
   charts: {},
   inboxCollapsed: typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_inbox_collapsed') === 'true' : false,
   inboxFilter: 'all',
-  tickerSpeeds: ['0.5x', '0.4x', '0.3x', '0.2x', '0.1x'],
+  tickerSpeeds: ['0.1x', '0.2x', '0.3x', '0.4x', '0.5x'],
   tickerSpeed: (function() {
-    const valid = ['0.5x', '0.4x', '0.3x', '0.2x', '0.1x'];
+    const valid = ['0.1x', '0.2x', '0.3x', '0.4x', '0.5x'];
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('hrm_ticker_speed') : null;
     return valid.includes(saved) ? saved : '0.3x';
   })(),
+  activeOperationsTab: typeof localStorage !== 'undefined' ? (localStorage.getItem('hrm_operations_tab') || 'attendance') : 'attendance',
 
   getTickerDuration(speed) {
     const durations = {
-      '0.5x': '22s',
+      '0.1x': '110s',
+      '0.2x': '75s',
+      '0.3x': '50s',
       '0.4x': '32s',
-      '0.3x': '48s',
-      '0.2x': '72s',
-      '0.1x': '105s'
+      '0.5x': '20s'
     };
-    return durations[speed] || '48s';
+    return durations[speed] || '50s';
+  },
+
+  switchOperationsTab(tab) {
+    const valid = ['attendance', 'leaves', 'recruitment'];
+    if (!valid.includes(tab)) tab = 'attendance';
+    this.activeOperationsTab = tab;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('hrm_operations_tab', tab);
+    }
+
+    valid.forEach(t => {
+      const btn = document.getElementById(`op-tab-btn-${t}`);
+      const pane = document.getElementById(`op-pane-${t}`);
+      const link = document.getElementById(`op-link-${t}`);
+      const isActive = (t === tab);
+      if (btn) {
+        if (isActive) {
+          btn.style.background = 'var(--primary, #2563eb)';
+          btn.style.color = '#ffffff';
+          btn.style.borderColor = 'var(--primary, #2563eb)';
+          btn.style.fontWeight = '800';
+          btn.style.boxShadow = '0 1px 4px rgba(37,99,235,0.3)';
+        } else {
+          btn.style.background = 'transparent';
+          btn.style.color = 'var(--text-2, #475569)';
+          btn.style.borderColor = 'transparent';
+          btn.style.fontWeight = '600';
+          btn.style.boxShadow = 'none';
+        }
+      }
+      if (pane) {
+        pane.style.display = isActive ? 'block' : 'none';
+      }
+      if (link) {
+        link.style.display = isActive ? 'inline-flex' : 'none';
+      }
+    });
+
+    // Re-render charts for newly visible pane with proper canvas dimensions
+    setTimeout(() => {
+      const att = (typeof DB !== 'undefined' && DB.get ? (DB.get('attendance') || []) : []);
+      const emps = (typeof DB !== 'undefined' && DB.get ? (DB.get('employees') || []) : []);
+      const leaves = (typeof DB !== 'undefined' && DB.get ? (DB.get('leave_requests') || DB.get('leaves') || []) : []);
+      this.renderCharts(att, emps, leaves, (typeof Auth !== 'undefined' && Auth.role === 'dept_manager'));
+    }, 40);
   },
 
   toggleInboxCollapse() {
@@ -280,23 +326,20 @@ const Dashboard = {
 
         <!-- Animated Ticker Viewport & Continuous Moving Track -->
         <div class="ticker-track-wrap" style="flex:1;overflow:hidden;position:relative;white-space:nowrap;padding:4px 0">
-          <div id="dash-ticker-track" class="ticker-track" style="display:inline-flex;align-items:center;gap:20px;animation:tickerMarquee 40s linear infinite;will-change:transform">
+          <div id="dash-ticker-track" class="ticker-track" style="display:inline-flex;align-items:center;gap:20px;animation:tickerMarquee ${this.getTickerDuration(this.tickerSpeed || '0.3x')} linear infinite;will-change:transform">
             ${loopingContent}
           </div>
         </div>
 
-        <!-- Right Controls: Speed Controller (Single Adjustment Selector: 0.1x - 0.5x) + Pause/Play + View All -->
+        <!-- Right Controls: 1-Click Speed Button (0.1x to 0.5x) + Pause/Play + View All -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <div class="ticker-speed-single" style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);border:1px solid var(--border,#e2e8f0);border-radius:7px;padding:2px 6px;gap:4px" title="Headline Speed Adjustment (0.1x to 0.5x)">
-            <i class="fa fa-gauge-high" style="font-size:10.5px;color:#ea580c"></i>
-            <select id="ticker-speed-select" onchange="Dashboard.setTickerSpeed(this.value)" style="border:none;background:transparent;font-size:10.5px;font-weight:800;color:var(--text,#1e293b);cursor:pointer;outline:none;padding:1px 0" title="Adjust headlines scroll speed">
-              ${['0.1x', '0.2x', '0.3x', '0.4x', '0.5x'].map(sp => `
-                <option value="${sp}" ${(this.tickerSpeed === sp || (!this.tickerSpeed && sp === '0.2x')) ? 'selected' : ''}>${sp}</option>
-              `).join('')}
-            </select>
-          </div>
+          <button id="ticker-speed-btn" type="button" onclick="Dashboard.toggleTickerSpeed()" class="btn btn-xs" style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);border:1.5px solid var(--border,#e2e8f0);border-radius:8px;padding:3px 9px;gap:5px;cursor:pointer;font-weight:800;color:var(--text,#1e293b);transition:all .15s" title="Current Speed: ${this.tickerSpeed || '0.3x'} — Click to cycle speed (0.1x to 0.5x)">
+            <i class="fa fa-gauge-high" style="font-size:11px;color:#ea580c"></i>
+            <span style="font-size:10px;font-weight:700;color:var(--text-3,#64748b)">Speed:</span>
+            <span id="ticker-speed-val" style="background:#ea580c;color:#ffffff;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:900">${this.tickerSpeed || '0.3x'}</span>
+          </button>
 
-          <button id="ticker-play-btn" type="button" onclick="Dashboard.toggleTickerPlay()" class="btn btn-ghost btn-xs" style="padding:3px 7px;color:var(--text-3);border-radius:6px;cursor:pointer;border:1px solid var(--border,#e2e8f0);background:var(--card,#ffffff)" title="Pause Headlines">
+          <button id="ticker-play-btn" type="button" onclick="Dashboard.toggleTickerPlay()" class="btn btn-ghost btn-xs" style="padding:4px 8px;color:var(--text-3);border-radius:7px;cursor:pointer;border:1px solid var(--border,#e2e8f0);background:var(--card,#ffffff)" title="Pause Headlines">
             <i class="fa fa-pause" style="font-size:11px"></i>
           </button>
           <a href="javascript:void(0)" onclick="Dashboard.showAllHeadlinesModal()" style="color:#2563eb;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap;margin-left:2px" title="View All Events & Notices">
@@ -338,17 +381,25 @@ const Dashboard = {
     const isCheckedIn = !!rawIn;
     const isCheckedOut = isCheckedIn && !!rawOut;
 
+    // Break lifecycle telemetry
+    const rawBreakOut = myTodayAtt?.breakOut || (myTodayAtt?.breaks && myTodayAtt.breaks[0]?.breakOut) || (isCheckedIn && !myTodayAtt?.breakOut && (myTodayAtt?.hrs || now.getHours() >= 14) ? '13:00' : null);
+    const rawBreakIn = myTodayAtt?.breakIn || (myTodayAtt?.breaks && myTodayAtt.breaks[0]?.breakIn) || (isCheckedIn && !myTodayAtt?.breakIn && (myTodayAtt?.hrs || now.getHours() >= 14) ? '13:45' : null);
+    const isOnBreak = Boolean(rawBreakOut && !rawBreakIn);
+
     let initialTimerStr = '--H --M';
     let initialCenterTimer = '--H --M';
+    let dutyPct = 0;
     const offlineQueue = (typeof PWA !== 'undefined' && PWA.getOfflineQueue) ? PWA.getOfflineQueue() : [];
     const settings = (typeof DB !== 'undefined' && DB.getObj) ? DB.getObj('settings') : {};
     const geofences = (typeof DB !== 'undefined' && DB.get) ? DB.get('branch_geofences') : [];
     const isGeofenceActive = settings.geofenceEnabled !== false && geofences.some(g => g.enforceGeo !== false);
     let shiftStatusHtml = 'Regular Shift: 09:00 - 18:00 (8h Duty)';
+    const standardDutySecs = 8 * 3600;
 
     if (isCheckedOut) {
       initialTimerStr = myTodayAtt.hrs || (typeof Attendance !== 'undefined' && Attendance.calcHours ? Attendance.calcHours(rawIn, rawOut) : '8h 23m');
       initialCenterTimer = initialTimerStr;
+      dutyPct = 100;
       shiftStatusHtml = '<span style="color:#059669"><i class="fa fa-flag-checkered"></i> Daily Shift Completed</span>';
     } else if (isCheckedIn) {
       const [inH, inM, inS] = rawIn.split(':').map(Number);
@@ -361,8 +412,8 @@ const Dashboard = {
         const es = diffSecs % 60;
         initialTimerStr = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M ${String(es).padStart(2, '0')}S`;
         initialCenterTimer = `${String(eh).padStart(2, '0')}H ${String(em).padStart(2, '0')}M`;
+        dutyPct = Math.min(100, Math.round((diffSecs / standardDutySecs) * 100));
 
-        const standardDutySecs = 8 * 3600;
         if (diffSecs >= standardDutySecs) {
           const otSecs = diffSecs - standardDutySecs;
           const otH = Math.floor(otSecs / 3600);
@@ -384,11 +435,44 @@ const Dashboard = {
       shiftStatusHtml = `<span style="color:#d97706"><i class="fa fa-champagne-glasses"></i> Public Holiday: ${todayHoliday.name}</span>`;
     }
 
+    // Determine break total duration summary
+    let breakTotalSummary = myTodayAtt?.breakTotal;
+    if (!breakTotalSummary && rawBreakOut && rawBreakIn) {
+      const [bOH, bOM] = rawBreakOut.split(':').map(Number);
+      const [bIH, bIM] = rawBreakIn.split(':').map(Number);
+      if (!isNaN(bOH) && !isNaN(bOM) && !isNaN(bIH) && !isNaN(bIM)) {
+        const bMins = Math.max(0, (bIH * 60 + bIM) - (bOH * 60 + bOM));
+        const bH = Math.floor(bMins / 60);
+        const bM = bMins % 60;
+        breakTotalSummary = bH > 0 ? `${bH}h ${bM}m` : `${bM}m`;
+      }
+    }
+    if (!breakTotalSummary) {
+      breakTotalSummary = isOnBreak ? 'In Progress' : (isCheckedIn ? '45m' : '—');
+    }
+
     const checkInVal = rawIn || '—';
     const checkOutVal = rawOut || '—';
-    const breakVal = myTodayAtt?.breakTotal || (isCheckedIn ? (myTodayAtt?.breakOut && !myTodayAtt?.breakIn ? 'On Break' : '45m') : '—');
-    const officeHoursVal = isCheckedIn ? (myTodayAtt?.hrs || initialCenterTimer) : '—';
+    const breakOutVal = rawBreakOut || '—';
+    const breakInVal = rawBreakIn || (isOnBreak ? 'In Progress' : '—');
     const deviceName = myTodayAtt?.device || 'ZKTeco Hardware Terminal';
+
+    const canPunchIn = !isCheckedIn;
+    const canPunchBreakOut = isCheckedIn && !isCheckedOut && !myTodayAtt?.breakOut;
+    const canPunchBreakIn = isCheckedIn && !isCheckedOut && isOnBreak;
+    const canPunchCheckOut = isCheckedIn && !isCheckedOut;
+
+    const breakOutTooltip = myTodayAtt?.breakOut 
+      ? `Break Out recorded at ${myTodayAtt.breakOut}` 
+      : (rawBreakOut ? `Break Out: ${rawBreakOut}` : (canPunchBreakOut ? 'Click to record Break Out' : (isCheckedOut ? 'Shift Completed' : 'Check in first')));
+    
+    const breakInTooltip = myTodayAtt?.breakIn 
+      ? `Break In recorded at ${myTodayAtt.breakIn}` 
+      : (isOnBreak ? 'Click to record Break In (Resume Shift)' : (rawBreakIn ? `Break In: ${rawBreakIn}` : (!myTodayAtt?.breakOut ? 'Break Out required first' : 'Shift Completed')));
+
+    const checkOutTooltip = isCheckedOut 
+      ? `Shift completed at ${checkOutVal}` 
+      : (canPunchCheckOut ? 'Click to Check Out & complete shift' : 'Check in first');
 
     const isActiveDuty = isCheckedIn && !isCheckedOut;
 
@@ -418,8 +502,8 @@ const Dashboard = {
             <line id="punch-clock-sec-hand" x1="50" y1="50" x2="50" y2="13" stroke="#f97316" stroke-width="1.2" stroke-linecap="round" transform="rotate(${secAngle} 50 50)"/>
             <circle cx="50" cy="50" r="3.5" fill="#38bdf8"/>
             <circle cx="50" cy="50" r="1.5" fill="#ffffff"/>
-            <text x="50" y="68" font-size="6.5" font-weight="700" fill="${isCheckedIn ? (isCheckedOut ? '#38bdf8' : '#10b981') : (myApprovedLeave ? '#3b82f6' : (todayHoliday ? '#f59e0b' : '#64748b'))}" text-anchor="middle" letter-spacing="0.8">
-              ${isCheckedIn ? (isCheckedOut ? 'DONE' : 'ON DUTY') : (myApprovedLeave ? 'LEAVE' : (todayHoliday ? 'HOLIDAY' : 'NOT IN'))}
+            <text x="50" y="68" font-size="6.5" font-weight="700" fill="${isCheckedIn ? (isCheckedOut ? '#38bdf8' : (isOnBreak ? '#f59e0b' : '#10b981')) : (myApprovedLeave ? '#3b82f6' : (todayHoliday ? '#f59e0b' : '#64748b'))}" text-anchor="middle" letter-spacing="0.8">
+              ${isCheckedIn ? (isCheckedOut ? 'DONE' : (isOnBreak ? 'ON BREAK' : 'ON DUTY')) : (myApprovedLeave ? 'LEAVE' : (todayHoliday ? 'HOLIDAY' : 'NOT IN'))}
             </text>
           </svg>
 
@@ -442,6 +526,10 @@ const Dashboard = {
                 <span class="punch-badge-btn" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;cursor:default" title="Shift completed at ${checkOutVal}">
                   <i class="fa fa-flag-checkered" style="color:#10b981;font-size:9.5px"></i> Shift Completed
                 </span>
+              ` : (isOnBreak ? `
+                <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('b_in')" style="background:#fffbeb;color:#b45309;border:1px solid #fde68a;cursor:pointer" title="Currently on Break (Out at ${rawBreakOut}). Click to Resume Duty">
+                  <i class="fa fa-mug-hot" style="color:#d97706;font-size:9.5px"></i> On Break · Resume Shift
+                </span>
               ` : (isCheckedIn ? `
                 <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('out')" style="background:#ecfdf5;color:#059669;border:1px solid #a7f3d0;cursor:pointer" title="Checked In at ${checkInVal} via ${deviceName}. Click to Check Out">
                   <i class="fa fa-circle-check" style="color:#10b981;font-size:9.5px"></i> Checked In · Check Out
@@ -458,80 +546,86 @@ const Dashboard = {
                 <span class="punch-badge-btn" onclick="Dashboard.quickSelfPunch('in')" style="cursor:pointer" title="Click to Check In immediately">
                   <i class="fa fa-arrow-right-to-bracket" style="font-size:9px"></i> Not checked in yet
                 </span>
-              `)))}
+              `))))}
             </div>
           </div>
         </div>
 
-        <!-- Section 2 (Center): Office Time Today Box & Check In/Out Times -->
-        <div class="punch-card-white" style="border-radius:12px;padding:8px 16px;min-width:180px;flex:1;max-width:275px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">
+        <!-- Section 2 (Center): Office Time Today & Shift Telemetry (Zero Duplication) -->
+        <div class="punch-card-white" style="border-radius:12px;padding:8px 16px;min-width:185px;flex:1;max-width:275px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
             <span style="font-size:9.5px;font-weight:800;color:var(--text-3,#64748b);letter-spacing:0.5px">OFFICE TIME TODAY</span>
-            <strong id="hero-punch-center-timer" style="font-size:14px;font-weight:900;color:#0284c7;font-variant-numeric:tabular-nums">${initialCenterTimer}</strong>
+            <strong id="hero-punch-center-timer" style="font-size:14.5px;font-weight:900;color:#0284c7;font-variant-numeric:tabular-nums">${initialCenterTimer}</strong>
           </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;font-size:11.5px;font-weight:700;color:var(--text);margin:2px 0">
-            <span id="punch-clock-checkin-time" data-time="${rawIn || ''}">${checkInVal !== '—' ? checkInVal : '- : - -'}</span>
-            <span id="punch-clock-checkout-time" data-time="${rawOut || ''}">${checkOutVal !== '—' ? checkOutVal : '- : - -'}</span>
+
+          <!-- Real-Time Shift Duty Progress Bar (8h Target) -->
+          <div style="margin:4px 0 5px">
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;color:var(--text-3,#64748b);margin-bottom:3px">
+              <span>Shift Progress (8h Goal)</span>
+              <span id="hero-punch-progress-pct" style="font-weight:800;color:#0284c7">${dutyPct}%</span>
+            </div>
+            <div style="width:100%;height:6px;background:var(--border,#e2e8f0);border-radius:999px;overflow:hidden">
+              <div id="hero-punch-progress-bar" style="width:${dutyPct}%;height:100%;background:linear-gradient(90deg, #0284c7, #38bdf8);border-radius:999px;transition:width 0.4s ease"></div>
+            </div>
           </div>
-          <div style="border-bottom:1.5px dotted var(--border,#cbd5e1);margin:4px 0"></div>
-          <div style="display:flex;align-items:center;justify-content:space-between;font-size:8.5px;font-weight:700;color:var(--text-3,#94a3b8);letter-spacing:0.4px">
-            <span>CHECK IN</span>
-            <span>CHECK OUT</span>
-          </div>
-          <!-- Real-Time Shift Countdown & Overtime Alert Badge -->
-          <div id="punch-shift-status-badge" style="margin-top:4px;font-size:9.5px;font-weight:700;color:var(--text-3);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${shiftStatusHtml}
+
+          <!-- Real-Time Shift Countdown & Break Total Telemetry -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px">
+            <div id="punch-shift-status-badge" style="font-size:9.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${shiftStatusHtml}
+            </div>
+            <span style="font-size:9px;font-weight:700;color:var(--text-3,#64748b);display:inline-flex;align-items:center;gap:3px;flex-shrink:0" title="Total break duration">
+              <i class="fa fa-mug-hot" style="color:#d97706;font-size:8.5px"></i> ${breakTotalSummary}
+            </span>
           </div>
         </div>
 
-        <!-- Section 3 (Right): 2x2 Mini KPI Cards with Click Actions -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;flex-shrink:0;min-width:210px">
+        <!-- Section 3 (Right): 2x2 Attendance Lifecycle Punch Cards (Check In, Break Out, Break In, Check Out) -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;flex-shrink:0;min-width:215px">
           <!-- 1. Check In -->
-          <div class="punch-card-white" onclick="${!isCheckedIn ? "Dashboard.quickSelfPunch('in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${!isCheckedIn ? 'pointer' : 'default'}" title="${!isCheckedIn ? 'Click to Check In' : 'Checked In at ' + checkInVal}">
+          <div class="punch-card-white ${canPunchIn ? 'punch-clickable' : ''}" onclick="${canPunchIn ? "Dashboard.quickSelfPunch('in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchIn ? 'pointer' : 'default'}" title="${canPunchIn ? 'Click to Check In' : 'Checked In at ' + checkInVal}">
             <div style="width:24px;height:24px;border-radius:6px;background:#cffafe;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-to-bracket"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
               <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Check In</div>
-              <div style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkInVal}</div>
+              <div id="punch-clock-checkin-time" data-time="${rawIn || ''}" style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkInVal !== '—' ? checkInVal : '- : - -'}</div>
             </div>
           </div>
 
-          <!-- 2. Check Out -->
-          <div class="punch-card-white" onclick="${isCheckedIn && !isCheckedOut ? "Dashboard.quickSelfPunch('out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${isCheckedIn && !isCheckedOut ? 'pointer' : 'default'}" title="${isCheckedIn && !isCheckedOut ? 'Click to Check Out' : (isCheckedOut ? 'Checked Out at ' + checkOutVal : 'Check in first')}">
+          <!-- 2. Break Out -->
+          <div class="punch-card-white ${canPunchBreakOut ? 'punch-clickable' : ''}" onclick="${canPunchBreakOut ? "Dashboard.quickSelfPunch('b_out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakOut ? 'pointer' : 'default'};${isOnBreak ? 'border-color:#f59e0b;background:rgba(245,158,11,0.06);' : ''}" title="${breakOutTooltip}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+              <i class="fa fa-mug-hot"></i>
+            </div>
+            <div style="min-width:0;line-height:1.15">
+              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600;display:flex;align-items:center;gap:3px">
+                <span>Break Out</span>
+                ${isOnBreak ? '<span style="width:5px;height:5px;border-radius:50%;background:#f59e0b;display:inline-block"></span>' : ''}
+              </div>
+              <div id="punch-clock-breakout-time" style="font-size:10.5px;font-weight:800;color:${isOnBreak ? '#d97706' : 'var(--text)'};white-space:nowrap">${breakOutVal !== '—' ? breakOutVal : '- : - -'}</div>
+            </div>
+          </div>
+
+          <!-- 3. Break In -->
+          <div class="punch-card-white ${canPunchBreakIn ? 'punch-clickable' : ''}" onclick="${canPunchBreakIn ? "Dashboard.quickSelfPunch('b_in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakIn ? 'pointer' : 'default'};${canPunchBreakIn ? 'border-color:#6366f1;box-shadow:0 0 0 1px #6366f1;' : ''}" title="${breakInTooltip}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#e0e7ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+              <i class="fa fa-utensils"></i>
+            </div>
+            <div style="min-width:0;line-height:1.15">
+              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Break In</div>
+              <div id="punch-clock-breakin-time" style="font-size:10.5px;font-weight:800;color:${canPunchBreakIn ? '#4f46e5' : 'var(--text)'};white-space:nowrap">${breakInVal !== '—' ? breakInVal : (canPunchBreakIn ? 'Resume ↵' : '- : - -')}</div>
+            </div>
+          </div>
+
+          <!-- 4. Check Out -->
+          <div class="punch-card-white ${canPunchCheckOut ? 'punch-clickable' : ''}" onclick="${canPunchCheckOut ? "Dashboard.quickSelfPunch('out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchCheckOut ? 'pointer' : 'default'}" title="${checkOutTooltip}">
             <div style="width:24px;height:24px;border-radius:6px;background:#ffe4e6;color:#e11d48;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-from-bracket"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
               <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Check Out</div>
-              <div style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkOutVal}</div>
-            </div>
-          </div>
-
-          <!-- 3. Break Time -->
-          <div class="punch-card-white" onclick="${isCheckedIn && !isCheckedOut ? "Dashboard.quickSelfPunch(myTodayAtt?.breakOut && !myTodayAtt?.breakIn ? 'ot_in' : 'ot_out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${isCheckedIn && !isCheckedOut ? 'pointer' : 'default'}" title="${isCheckedIn && !isCheckedOut ? 'Click to toggle Break In / Out' : ''}">
-            <div style="width:24px;height:24px;border-radius:6px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
-              <i class="fa fa-mug-hot"></i>
-            </div>
-            <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Break Time</div>
-              <div style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${breakVal}</div>
-            </div>
-          </div>
-
-          <!-- 4. Office Hours -->
-          <div class="punch-card-white" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px">
-            <div style="width:24px;height:24px;border-radius:6px;background:#f3e8ff;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
-              <i class="fa fa-building"></i>
-            </div>
-            <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Office Hours</div>
-              <div style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${officeHoursVal}</div>
-              ${isGeofenceActive ? `
-                <div style="font-size:8px;color:#059669;font-weight:700;margin-top:2px;display:flex;align-items:center;gap:3px">
-                  <i class="fa fa-shield-halved" style="font-size:7.5px"></i> Geofence Enforced
-                </div>
-              ` : ''}
+              <div id="punch-clock-checkout-time" data-time="${rawOut || ''}" style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkOutVal !== '—' ? checkOutVal : '- : - -'}</div>
             </div>
           </div>
         </div>
@@ -598,10 +692,17 @@ const Dashboard = {
           const timerDisp2 = document.getElementById('hero-punch-center-timer');
           if (timerDisp2) timerDisp2.textContent = centerTimeStr;
 
+          // Update shift duty progress bar
+          const standardDutySecs = 8 * 3600;
+          const pct = Math.min(100, Math.round((diffSecs / standardDutySecs) * 100));
+          const pBar = document.getElementById('hero-punch-progress-bar');
+          if (pBar) pBar.style.width = pct + '%';
+          const pPct = document.getElementById('hero-punch-progress-pct');
+          if (pPct) pPct.textContent = pct + '%';
+
           // Update shift countdown & overtime alert pill
           const statusBadge = document.getElementById('punch-shift-status-badge');
           if (statusBadge) {
-            const standardDutySecs = 8 * 3600;
             if (diffSecs >= standardDutySecs) {
               const otSecs = diffSecs - standardDutySecs;
               const otH = Math.floor(otSecs / 3600);
@@ -792,6 +893,16 @@ const Dashboard = {
       }
       this.playPunchChime('in');
       rec.breakIn = timeStr;
+      if (rec.breakOut && rec.breakIn) {
+        const [oH, oM] = rec.breakOut.split(':').map(Number);
+        const [iH, iM] = rec.breakIn.split(':').map(Number);
+        if (!isNaN(oH) && !isNaN(oM) && !isNaN(iH) && !isNaN(iM)) {
+          const totalMins = Math.max(0, (iH * 60 + iM) - (oH * 60 + oM));
+          const bH = Math.floor(totalMins / 60);
+          const bM = totalMins % 60;
+          rec.breakTotal = bH > 0 ? `${bH}h ${bM}m` : `${bM}m`;
+        }
+      }
       DB.set('attendance', allAtt);
     } else if (type === 'out' || type === 'check_out') {
       if (!rec || (!rec.timeIn && !rec.checkIn)) {
@@ -882,6 +993,8 @@ const Dashboard = {
     if (myTodayLogs.length > 0) {
       const inLog = myTodayLogs.find(l => l.punchType === 'check_in' || l.type === 'check_in');
       const outLog = [...myTodayLogs].reverse().find(l => l.punchType === 'check_out' || l.type === 'check_out');
+      const bOutLog = myTodayLogs.find(l => l.punchType === 'break_out' || l.type === 'break_out');
+      const bInLog = myTodayLogs.find(l => l.punchType === 'break_in' || l.type === 'break_in');
       if (!myTodayAtt) {
         myTodayAtt = {
           id: 'live_log_' + (inLog?.id || Date.now()),
@@ -891,6 +1004,8 @@ const Dashboard = {
           checkIn: inLog?.time || '',
           timeOut: outLog?.time || '',
           checkOut: outLog?.time || '',
+          breakOut: bOutLog?.time || '',
+          breakIn: bInLog?.time || '',
           status: 'present',
           device: inLog?.device || 'ZKTeco Hardware Terminal'
         };
@@ -899,6 +1014,8 @@ const Dashboard = {
         if (!myTodayAtt.checkIn && inLog) myTodayAtt.checkIn = inLog.time;
         if (!myTodayAtt.timeOut && outLog) myTodayAtt.timeOut = outLog.time;
         if (!myTodayAtt.checkOut && outLog) myTodayAtt.checkOut = outLog.time;
+        if (!myTodayAtt.breakOut && bOutLog) myTodayAtt.breakOut = bOutLog.time;
+        if (!myTodayAtt.breakIn && bInLog) myTodayAtt.breakIn = bInLog.time;
       }
     }
     const container = document.querySelector('.hero-punch-clock-widget');
@@ -1299,6 +1416,8 @@ const Dashboard = {
     if (myTodayLogs.length > 0) {
       const inLog = myTodayLogs.find(l => l.punchType === 'check_in' || l.type === 'check_in');
       const outLog = [...myTodayLogs].reverse().find(l => l.punchType === 'check_out' || l.type === 'check_out');
+      const bOutLog = myTodayLogs.find(l => l.punchType === 'break_out' || l.type === 'break_out');
+      const bInLog = myTodayLogs.find(l => l.punchType === 'break_in' || l.type === 'break_in');
       if (!myTodayAtt) {
         myTodayAtt = {
           id: 'live_log_' + (inLog?.id || Date.now()),
@@ -1308,6 +1427,8 @@ const Dashboard = {
           checkIn: inLog?.time || '',
           timeOut: outLog?.time || '',
           checkOut: outLog?.time || '',
+          breakOut: bOutLog?.time || '',
+          breakIn: bInLog?.time || '',
           status: 'present',
           device: inLog?.device || 'ZKTeco Hardware Terminal'
         };
@@ -1316,6 +1437,8 @@ const Dashboard = {
         if (!myTodayAtt.checkIn && inLog) myTodayAtt.checkIn = inLog.time;
         if (!myTodayAtt.timeOut && outLog) myTodayAtt.timeOut = outLog.time;
         if (!myTodayAtt.checkOut && outLog) myTodayAtt.checkOut = outLog.time;
+        if (!myTodayAtt.breakOut && bOutLog) myTodayAtt.breakOut = bOutLog.time;
+        if (!myTodayAtt.breakIn && bInLog) myTodayAtt.breakIn = bInLog.time;
       }
     }
 
@@ -1339,8 +1462,8 @@ const Dashboard = {
             </div>
           </div>
 
-          <!-- Headlines Ticker (Moved to Row 1) -->
-          <div style="flex:1;min-width:320px;max-width:880px;display:flex;align-items:center">
+          <!-- Headlines Ticker (Moved to Row 1 - fills available space) -->
+          <div style="flex:1;min-width:320px;display:flex;align-items:center">
             ${this.renderHeadlinesTicker(tickerItemsHtml)}
           </div>
         </div>
@@ -1489,328 +1612,321 @@ const Dashboard = {
         </div>
 
         <!-- ══════════════════════════════════════════════════════
-             6. FULL SPACE: MONTHLY JOINING TRENDS, RECRUITMENT PIPELINE & DEPARTMENT STAFF
+             6. UNIFIED OPERATIONS & WORKFORCE TELEMETRY HUB
+                (3-TAB MODULAR WORKBENCH: ATTENDANCE | LEAVES | RECRUITMENT)
         ══════════════════════════════════════════════════════ -->
-        <div class="card" style="padding:14px 18px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:30px;height:30px;border-radius:8px;background:#f0fdf4;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px">
-                <i class="fa fa-user-plus"></i>
+        <div class="card" style="padding:16px 20px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.03)">
+          <!-- Unified Tab Header -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid var(--border,#e2e8f0);padding-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:34px;height:34px;border-radius:9px;background:rgba(37,99,235,0.1);color:var(--primary,#2563eb);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">
+                <i class="fa fa-chart-line"></i>
               </div>
               <div>
-                <div style="font-size:14px;font-weight:800;color:var(--text)">Monthly Joining Trends, Recruitment Pipeline &amp; Department Staff</div>
-                <div style="font-size:10.5px;color:var(--text-3)">Enterprise talent acquisition funnel &bull; 6-month onboardings &bull; Headcount by department</div>
+                <div style="font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.2px">Operations &amp; Workforce Telemetry</div>
+                <div style="font-size:11px;color:var(--text-3)">Interactive real-time pulse &bull; Click any tab below to switch metrics</div>
               </div>
             </div>
-            <button class="btn btn-ghost btn-xs" onclick="App.navigate('recruitment')" style="color:#16a34a;font-weight:700;font-size:11px">
-              <i class="fa fa-arrow-up-right-from-square"></i> View Pipeline
-            </button>
-          </div>
 
-          <!-- Top: Recruitment Pipeline Summary Badges (5 badges across full width) -->
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#15803d;text-transform:uppercase">Open Jobs</div>
-              <div style="font-size:17px;font-weight:900;color:#16a34a;margin-top:1px">5</div>
-              <div style="font-size:9px;color:#166534">Active Positions</div>
-            </div>
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#1d4ed8;text-transform:uppercase">Applicants</div>
-              <div style="font-size:17px;font-weight:900;color:#2563eb;margin-top:1px">67</div>
-              <div style="font-size:9px;color:#1e40af">Under Evaluation</div>
-            </div>
-            <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#7e22ce;text-transform:uppercase">Interviewing</div>
-              <div style="font-size:17px;font-weight:900;color:#9333ea;margin-top:1px">8</div>
-              <div style="font-size:9px;color:#6b21a8">Shortlisted</div>
-            </div>
-            <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#a16207;text-transform:uppercase">Offers Extended</div>
-              <div style="font-size:17px;font-weight:900;color:#ca8a04;margin-top:1px">3</div>
-              <div style="font-size:9px;color:#854d0e">Awaiting Sign</div>
-            </div>
-            <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#0e7490;text-transform:uppercase">New Joiners</div>
-              <div style="font-size:17px;font-weight:900;color:#0891b2;margin-top:1px">${newJoiners || 6}</div>
-              <div style="font-size:9px;color:#155e75">Last 30 Days</div>
+            <!-- Tab Switcher Navigation Buttons + Quick Module Link -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <div style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);padding:3px;border-radius:9px;border:1px solid var(--border,#e2e8f0);gap:4px">
+                <button id="op-tab-btn-attendance" type="button" onclick="Dashboard.switchOperationsTab('attendance')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'attendance' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+                  <i class="fa fa-clock" style="margin-right:5px"></i> Attendance
+                </button>
+                <button id="op-tab-btn-leaves" type="button" onclick="Dashboard.switchOperationsTab('leaves')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'leaves' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+                  <i class="fa fa-calendar-check" style="margin-right:5px"></i> Leaves
+                </button>
+                <button id="op-tab-btn-recruitment" type="button" onclick="Dashboard.switchOperationsTab('recruitment')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'recruitment' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+                  <i class="fa fa-user-plus" style="margin-right:5px"></i> Recruitment
+                </button>
+              </div>
+
+              <!-- Contextual module action link -->
+              <button id="op-link-attendance" class="btn btn-ghost btn-xs" onclick="App.navigate('attendance')" style="color:#2563eb;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'attendance' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
+                <i class="fa fa-arrow-up-right-from-square"></i> Full Register
+              </button>
+              <button id="op-link-leaves" class="btn btn-ghost btn-xs" onclick="App.navigate('leaves')" style="color:#2563eb;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'leaves' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
+                <i class="fa fa-arrow-up-right-from-square"></i> Full Leaves
+              </button>
+              <button id="op-link-recruitment" class="btn btn-ghost btn-xs" onclick="App.navigate('recruitment')" style="color:#16a34a;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'recruitment' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
+                <i class="fa fa-arrow-up-right-from-square"></i> Full Pipeline
+              </button>
             </div>
           </div>
 
-          <!-- Bottom Split: 6-Month Hiring Chart (Left 58%) + Department Progress Bars (Right 42%) -->
-          <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:stretch">
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                    <i class="fa fa-chart-simple" style="color:#3b82f6"></i> 6-Month Joining Trend
-                  </span>
-                  <span style="font-size:10px;color:var(--text-3);font-weight:600">Past 2 Quarters</span>
-                </div>
-              </div>
-              <div style="height:175px;position:relative">
-                <canvas id="chart-monthly-joining" height="175"></canvas>
-              </div>
+          <!-- ── PANE 1: ATTENDANCE & TIMESHEETS ── -->
+          <div id="op-pane-attendance" style="display:${this.activeOperationsTab === 'attendance' ? 'block' : 'none'}">
+            <!-- Attendance 6 Badges across full width -->
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;background:var(--surface,#f8fafc);padding:6px 8px;border-radius:8px;border:1px solid var(--border,#e2e8f0)">
+              ${this.attBadge('Present', present || 92, 'fa-circle-check', '#10b981')}
+              ${this.attBadge('Absent', absent || 8, 'fa-circle-xmark', '#ef4444')}
+              ${this.attBadge('Late', late || 12, 'fa-clock', '#f59e0b')}
+              ${this.attBadge('Half Day', halfDay || 6, 'fa-circle-half-stroke', '#8b5cf6')}
+              ${this.attBadge('On Leave', onLeave || 18, 'fa-calendar-days', '#06b6d4')}
+              ${this.attBadge('Overtime', todayAtt.filter(a=>a.overtime>0).length || 4, 'fa-hourglass-half', '#6366f1')}
             </div>
 
-            <!-- Department Wise Employees Progress Bars -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                  <i class="fa fa-sitemap" style="color:#2563eb"></i> Staff by Department
-                </span>
-                <span style="font-size:10px;color:var(--text-3);font-weight:700">Total: ${totalEmps} Staff</span>
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6.5px;margin-top:2px">
-                ${[
-                  { name: 'IT & Dev', count: 32, max: 40, color: '#3b82f6' },
-                  { name: 'HR & Admin', count: 18, max: 40, color: '#f97316' },
-                  { name: 'Finance', count: 15, max: 40, color: '#10b981' },
-                  { name: 'Sales', count: 22, max: 40, color: '#8b5cf6' },
-                  { name: 'Operations', count: 28, max: 40, color: '#06b6d4' },
-                  { name: 'Support', count: 13, max: 40, color: '#ec4899' },
-                ].map(d => `
-                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                    <span style="font-size:10.5px;color:var(--text-2);min-width:75px;white-space:nowrap">${d.name}</span>
-                    <div style="flex:1;height:7px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:4px;overflow:hidden">
-                      <div style="width:${Math.round((d.count/d.max)*100)}%;height:100%;background:${d.color};border-radius:4px"></div>
-                    </div>
-                    <strong style="font-size:10.5px;color:var(--text);min-width:20px;text-align:right">${d.count}</strong>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════════
-             7. FULL SPACE: LEAVE SUMMARY & STATISTICS
-        ══════════════════════════════════════════════════════ -->
-        <div class="card" style="padding:14px 18px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:30px;height:30px;border-radius:8px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px">
-                <i class="fa fa-calendar-check"></i>
-              </div>
-              <div>
-                <div style="font-size:14px;font-weight:800;color:var(--text)">Leave Summary &amp; Statistics</div>
-                <div style="font-size:10.5px;color:var(--text-3)">Statutory leave utilization &bull; Category distributions &bull; Approval queue telemetry</div>
-              </div>
-            </div>
-            <button class="btn btn-ghost btn-xs" onclick="App.navigate('leaves')" style="color:#2563eb;font-weight:700;font-size:11px">
-              <i class="fa fa-arrow-up-right-from-square"></i> View Full Leaves
-            </button>
-          </div>
-
-          <!-- Top: Leave KPI Badges across full width -->
-          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
-            <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#c2410c;text-transform:uppercase">Pending Requests</div>
-              <div style="font-size:17px;font-weight:900;color:#ea580c;margin-top:1px">${pendingLeaves || 24}</div>
-              <div style="font-size:9px;color:#9a3412">Requires Action</div>
-            </div>
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#15803d;text-transform:uppercase">Approved YTD</div>
-              <div style="font-size:17px;font-weight:900;color:#16a34a;margin-top:1px">${approvedLeaves || 38}</div>
-              <div style="font-size:9px;color:#166534">Processed</div>
-            </div>
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#b91c1c;text-transform:uppercase">Rejected</div>
-              <div style="font-size:17px;font-weight:900;color:#dc2626;margin-top:1px">${rejectedLeaves || 5}</div>
-              <div style="font-size:9px;color:#991b1b">Declined</div>
-            </div>
-            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#1d4ed8;text-transform:uppercase">On Leave Today</div>
-              <div style="font-size:17px;font-weight:900;color:#2563eb;margin-top:1px">${onLeave || 18}</div>
-              <div style="font-size:9px;color:#1e40af">Absent from Duty</div>
-            </div>
-            <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:6px 10px;text-align:center">
-              <div style="font-size:9px;font-weight:700;color:#7e22ce;text-transform:uppercase">Avg Annual Balance</div>
-              <div style="font-size:17px;font-weight:900;color:#9333ea;margin-top:1px">14.5d</div>
-              <div style="font-size:9px;color:#6b21a8">Per Employee</div>
-            </div>
-          </div>
-
-          <!-- Bottom: Donut Chart + Category Breakdown + Department Utilization Matrix (3 Columns) -->
-          <div style="display:grid;grid-template-columns:1fr 1.2fr 1.3fr;gap:16px;align-items:stretch">
-            <!-- Col 1: Donut Chart -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-                <i class="fa fa-chart-pie" style="color:#3b82f6"></i> Leave Utilization
-              </div>
-              <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:130px">
-                <div style="position:relative;width:125px;height:125px">
-                  <canvas id="chart-leave-stats" width="125" height="125"></canvas>
-                  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
-                    <div style="font-size:18px;font-weight:900;color:var(--text);line-height:1">${onLeave || 18}</div>
-                    <div style="font-size:9px;color:var(--text-3);font-weight:700">On Leave</div>
-                  </div>
-                </div>
-              </div>
-              <div style="font-size:9.5px;color:var(--text-3);text-align:center;margin-top:6px;font-weight:600">Active Daily Absences</div>
-            </div>
-
-            <!-- Col 2: Leave Categories breakdown -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-                <i class="fa fa-layer-group" style="color:#10b981"></i> Leave Category Split
-              </div>
-              <div style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
-                <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6"></span><span style="font-size:11px;color:var(--text-2)">Annual Leave</span></div><strong style="font-size:11px;color:var(--text)">10 (55%)</strong></div>
-                <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#10b981"></span><span style="font-size:11px;color:var(--text-2)">Sick Leave</span></div><strong style="font-size:11px;color:var(--text)">4 (22%)</strong></div>
-                <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b"></span><span style="font-size:11px;color:var(--text-2)">Casual Leave</span></div><strong style="font-size:11px;color:var(--text)">2 (11%)</strong></div>
-                <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444"></span><span style="font-size:11px;color:var(--text-2)">Unpaid Leave</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
-                <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#8b5cf6"></span><span style="font-size:11px;color:var(--text-2)">Others</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
-              </div>
-              <div style="font-size:9.5px;color:var(--text-3);text-align:right;margin-top:6px;font-weight:600">Total: 18 Requests</div>
-            </div>
-
-            <!-- Col 3: Department Absence Distribution & Policies -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                    <i class="fa fa-sitemap" style="color:#8b5cf6"></i> Absence by Department
-                  </span>
-                  <span style="font-size:9.5px;color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe">Statutory Policy</span>
-                </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10.5px">
-                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">IT &amp; Dev</span><strong style="color:#ef4444">6 Away</strong></div>
-                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Operations</span><strong style="color:#f97316">5 Away</strong></div>
-                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">HR &amp; Admin</span><strong style="color:#10b981">3 Away</strong></div>
-                  <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Sales</span><strong style="color:#8b5cf6">2 Away</strong></div>
-                </div>
-              </div>
-              <div style="font-size:9.5px;color:var(--text-3);margin-top:8px;line-height:1.3;display:flex;align-items:center;gap:6px">
-                <i class="fa fa-info-circle" style="color:#3b82f6;flex-shrink:0"></i>
-                <span>Pakistan Labor Law: 14 consecutive days earned annual leave entitlement applies to confirmed personnel.</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ══════════════════════════════════════════════════════
-             8. FULL SPACE: TODAY'S ATTENDANCE, RECENT ATTENDANCE & LATE ARRIVALS
-                (WITH BREAK IN/OUT, TOTAL BREAK TIME, WORKING HOURS & REMARKS)
-        ══════════════════════════════════════════════════════ -->
-        <div class="card" style="padding:14px 18px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.03)">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:30px;height:30px;border-radius:8px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px">
-                <i class="fa fa-clock"></i>
-              </div>
-              <div>
-                <div style="font-size:14px;font-weight:800;color:var(--text)">Today's Attendance, Recent Attendance &amp; Late Arrivals</div>
-                <div style="font-size:10.5px;color:var(--text-3)">${Utils.formatDate(today)} &bull; Biometric gateway sync &bull; Break times, net duty hours &amp; punctuality remarks</div>
-              </div>
-            </div>
-            <button class="btn btn-ghost btn-xs" onclick="App.navigate('attendance')" style="color:#2563eb;font-weight:700;font-size:11px">
-              <i class="fa fa-arrow-up-right-from-square"></i> View Attendance Register
-            </button>
-          </div>
-
-          <!-- Top: Today's Attendance 6 Badges across full width -->
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;background:var(--surface,#f8fafc);padding:6px 8px;border-radius:8px;border:1px solid var(--border,#e2e8f0)">
-            ${this.attBadge('Present', present || 92, 'fa-circle-check', '#10b981')}
-            ${this.attBadge('Absent', absent || 8, 'fa-circle-xmark', '#ef4444')}
-            ${this.attBadge('Late', late || 12, 'fa-clock', '#f59e0b')}
-            ${this.attBadge('Half Day', halfDay || 6, 'fa-circle-half-stroke', '#8b5cf6')}
-            ${this.attBadge('On Leave', onLeave || 18, 'fa-calendar-days', '#06b6d4')}
-            ${this.attBadge('Overtime', todayAtt.filter(a=>a.overtime>0).length || 4, 'fa-hourglass-half', '#6366f1')}
-          </div>
-
-          <!-- Bottom Split: Attendance Table with Break In/Out & Remarks (Left) + Late Arrivals Chart (Right) -->
-          <div style="display:grid;grid-template-columns:minmax(0, 1fr) 320px;gap:12px;align-items:stretch">
-            <!-- Full Space Recent Attendance Table -->
-            <div class="table-responsive" style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px 10px;overflow-x:auto;height:100%;display:flex;flex-direction:column">
-              <table class="table" style="font-size:11px;margin:0;width:100%;min-width:640px">
-                <thead>
-                  <tr style="border-bottom:1.5px solid var(--border,#e2e8f0);color:var(--text-3);font-size:9.5px;text-transform:uppercase;letter-spacing:0.2px">
-                    <th style="padding:6px 6px;font-weight:700;white-space:nowrap;text-align:left">Employee</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">In</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break Out</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break In</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Out</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Total Break</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Duty Hours</th>
-                    <th style="padding:6px 6px;font-weight:700;text-align:left;white-space:nowrap">Remarks</th>
-                    <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${[
-                    { name: 'Ahmed Khan', title: 'Software Engineer', in: '09:02 AM', breakOut: '01:05 PM', breakIn: '01:50 PM', out: '06:10 PM', breakTotal: '45m', hrs: '8h 23m', remarks: 'Normal Shift · On Time', status: 'Present', color: '#10b981' },
-                    { name: 'Sara Malik', title: 'HR Executive', in: '09:15 AM', breakOut: '01:10 PM', breakIn: '01:55 PM', out: '06:05 PM', breakTotal: '45m', hrs: '8h 05m', remarks: 'Late Arrival (+15m)', status: 'Late', color: '#f59e0b' },
-                    { name: 'Usman Ali', title: 'Accountant', in: '09:38 AM', breakOut: '01:20 PM', breakIn: '02:10 PM', out: '06:30 PM', breakTotal: '50m', hrs: '8h 02m', remarks: 'Late (+38m) · Client Meet', status: 'Late', color: '#f59e0b' },
-                    { name: 'Fatima Noor', title: 'UI/UX Designer', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Annual Approved', status: 'On Leave', color: '#06b6d4' },
-                    { name: 'Bilal Siddiqui', title: 'DevOps Lead', in: '08:52 AM', breakOut: '01:00 PM', breakIn: '01:40 PM', out: '06:15 PM', breakTotal: '40m', hrs: '8h 43m', remarks: 'Normal Shift · Early Punch', status: 'Present', color: '#10b981' },
-                    { name: 'Zainab Qureshi', title: 'Talent Acquisition', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Casual (Day 1/2)', status: 'On Leave', color: '#06b6d4' }
-                  ].map(r => `
-                    <tr style="border-bottom:1px solid var(--border,#e2e8f0)">
-                      <td style="padding:6px 6px;white-space:nowrap">
-                        <div style="display:flex;align-items:center;gap:6px">
-                          <div style="width:24px;height:24px;border-radius:50%;background:${Utils.avatarColor(r.name.length)};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:700;flex-shrink:0">${Utils.avatarInitials(r.name)}</div>
-                          <div style="min-width:0">
-                            <div style="font-weight:700;color:var(--text);font-size:11px">${r.name}</div>
-                            <div style="font-size:9px;color:var(--text-3)">${r.title}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.in}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakOut}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakIn}</td>
-                      <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.out}</td>
-                      <td style="padding:6px 4px;color:var(--text-2);font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakTotal}</td>
-                      <td style="padding:6px 4px;color:#2563eb;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.hrs}</td>
-                      <td style="padding:6px 6px;white-space:nowrap" title="${r.remarks}">
-                        <span style="font-size:9.5px;color:var(--text-2);font-weight:600;display:inline-flex;align-items:center;gap:6px">
-                          <span style="width:14px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
-                            ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#06b6d4"></i>' : '<i class="fa fa-circle-check" style="color:#10b981"></i>'}
-                          </span>
-                          <span>${r.remarks}</span>
-                        </span>
-                      </td>
-                      <td style="padding:6px 4px;text-align:center;white-space:nowrap">
-                        <span style="background:${r.color}15;color:${r.color};font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:4px;border:1px solid ${r.color}30;display:inline-block;min-width:64px;text-align:center">${r.status}</span>
-                      </td>
+            <!-- Bottom Split: Attendance Table (Left) + Late Arrivals Chart (Right) -->
+            <div style="display:grid;grid-template-columns:minmax(0, 1fr) 320px;gap:12px;align-items:stretch">
+              <!-- Full Space Recent Attendance Table -->
+              <div class="table-responsive" style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px 10px;overflow-x:auto;height:100%;display:flex;flex-direction:column">
+                <table class="table" style="font-size:11px;margin:0;width:100%;min-width:640px">
+                  <thead>
+                    <tr style="border-bottom:1.5px solid var(--border,#e2e8f0);color:var(--text-3);font-size:9.5px;text-transform:uppercase;letter-spacing:0.2px">
+                      <th style="padding:6px 6px;font-weight:700;white-space:nowrap;text-align:left">Employee</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">In</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break Out</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break In</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Out</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Total Break</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Duty Hours</th>
+                      <th style="padding:6px 6px;font-weight:700;text-align:left;white-space:nowrap">Remarks</th>
+                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Status</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${[
+                      { name: 'Ahmed Khan', title: 'Software Engineer', in: '09:02 AM', breakOut: '01:05 PM', breakIn: '01:50 PM', out: '06:10 PM', breakTotal: '45m', hrs: '8h 23m', remarks: 'Normal Shift · On Time', status: 'Present', color: '#10b981' },
+                      { name: 'Sara Malik', title: 'HR Executive', in: '09:15 AM', breakOut: '01:10 PM', breakIn: '01:55 PM', out: '06:05 PM', breakTotal: '45m', hrs: '8h 05m', remarks: 'Late Arrival (+15m)', status: 'Late', color: '#f59e0b' },
+                      { name: 'Usman Ali', title: 'Accountant', in: '09:38 AM', breakOut: '01:20 PM', breakIn: '02:10 PM', out: '06:30 PM', breakTotal: '50m', hrs: '8h 02m', remarks: 'Late (+38m) · Client Meet', status: 'Late', color: '#f59e0b' },
+                      { name: 'Fatima Noor', title: 'UI/UX Designer', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Annual Approved', status: 'On Leave', color: '#06b6d4' },
+                      { name: 'Bilal Siddiqui', title: 'DevOps Lead', in: '08:52 AM', breakOut: '01:00 PM', breakIn: '01:40 PM', out: '06:15 PM', breakTotal: '40m', hrs: '8h 43m', remarks: 'Normal Shift · Early Punch', status: 'Present', color: '#10b981' },
+                      { name: 'Zainab Qureshi', title: 'Talent Acquisition', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Casual (Day 1/2)', status: 'On Leave', color: '#06b6d4' }
+                    ].map(r => `
+                      <tr style="border-bottom:1px solid var(--border,#e2e8f0)">
+                        <td style="padding:6px 6px;white-space:nowrap">
+                          <div style="display:flex;align-items:center;gap:6px">
+                            <div style="width:24px;height:24px;border-radius:50%;background:${Utils.avatarColor(r.name.length)};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:700;flex-shrink:0">${Utils.avatarInitials(r.name)}</div>
+                            <div style="min-width:0">
+                              <div style="font-weight:700;color:var(--text);font-size:11px">${r.name}</div>
+                              <div style="font-size:9px;color:var(--text-3)">${r.title}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.in}</td>
+                        <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakOut}</td>
+                        <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakIn}</td>
+                        <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.out}</td>
+                        <td style="padding:6px 4px;color:var(--text-2);font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakTotal}</td>
+                        <td style="padding:6px 4px;color:#2563eb;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.hrs}</td>
+                        <td style="padding:6px 6px;white-space:nowrap" title="${r.remarks}">
+                          <span style="font-size:9.5px;color:var(--text-2);font-weight:600;display:inline-flex;align-items:center;gap:6px">
+                            <span style="width:14px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+                              ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#06b6d4"></i>' : '<i class="fa fa-circle-check" style="color:#10b981"></i>'}
+                            </span>
+                            <span>${r.remarks}</span>
+                          </span>
+                        </td>
+                        <td style="padding:6px 4px;text-align:center;white-space:nowrap">
+                          <span style="background:${r.color}15;color:${r.color};font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:4px;border:1px solid ${r.color}30;display:inline-block;min-width:64px;text-align:center">${r.status}</span>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Late Arrivals by Department Chart & Telemetry -->
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                      <i class="fa fa-business-time" style="color:#f59e0b"></i> Late Arrivals by Dept
+                    </span>
+                    <span style="font-size:9.5px;font-weight:700;color:#d97706;background:#fffbeb;padding:1px 6px;border-radius:4px;border:1px solid #fde68a">
+                      Aug 2026
+                    </span>
+                  </div>
+                  <div style="height:155px;position:relative">
+                    <canvas id="chart-late-arrivals" height="155"></canvas>
+                  </div>
+                </div>
+
+                <!-- Punctuality Telemetry seamlessly positioned below chart -->
+                <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e2e8f0);display:flex;flex-direction:column;gap:5px">
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+                    <span style="color:var(--text-3);font-weight:600">Punctuality Rate</span>
+                    <strong style="color:#10b981;font-weight:800">91.4% Punctual</strong>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+                    <span style="color:var(--text-3);font-weight:600">Average Delay</span>
+                    <strong style="color:#f59e0b;font-weight:800">22 mins</strong>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+                    <span style="color:var(--text-3);font-weight:600">Grace Policy</span>
+                    <span style="color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 5px;border-radius:3px;font-size:9px">15m Applied</span>
+                  </div>
+                  <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+                    <span style="color:var(--text-3);font-weight:600">Top Late Dept</span>
+                    <strong style="color:#ef4444;font-weight:800">IT &amp; Dev (14)</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── PANE 2: LEAVES & ABSENCES ── -->
+          <div id="op-pane-leaves" style="display:${this.activeOperationsTab === 'leaves' ? 'block' : 'none'}">
+            <!-- Leave KPI Badges across full width -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+              <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#c2410c;text-transform:uppercase">Pending Requests</div>
+                <div style="font-size:17px;font-weight:900;color:#ea580c;margin-top:1px">${pendingLeaves || 24}</div>
+                <div style="font-size:9px;color:#9a3412">Requires Action</div>
+              </div>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#15803d;text-transform:uppercase">Approved YTD</div>
+                <div style="font-size:17px;font-weight:900;color:#16a34a;margin-top:1px">${approvedLeaves || 38}</div>
+                <div style="font-size:9px;color:#166534">Processed</div>
+              </div>
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#b91c1c;text-transform:uppercase">Rejected</div>
+                <div style="font-size:17px;font-weight:900;color:#dc2626;margin-top:1px">${rejectedLeaves || 5}</div>
+                <div style="font-size:9px;color:#991b1b">Declined</div>
+              </div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#1d4ed8;text-transform:uppercase">On Leave Today</div>
+                <div style="font-size:17px;font-weight:900;color:#2563eb;margin-top:1px">${onLeave || 18}</div>
+                <div style="font-size:9px;color:#1e40af">Absent from Duty</div>
+              </div>
+              <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#7e22ce;text-transform:uppercase">Avg Annual Balance</div>
+                <div style="font-size:17px;font-weight:900;color:#9333ea;margin-top:1px">14.5d</div>
+                <div style="font-size:9px;color:#6b21a8">Per Employee</div>
+              </div>
             </div>
 
-            <!-- Late Arrivals by Department Chart & Telemetry -->
-            <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
-              <div>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                    <i class="fa fa-business-time" style="color:#f59e0b"></i> Late Arrivals by Dept
-                  </span>
-                  <span style="font-size:9.5px;font-weight:700;color:#d97706;background:#fffbeb;padding:1px 6px;border-radius:4px;border:1px solid #fde68a">
-                    Aug 2026
-                  </span>
+            <!-- Bottom: Donut Chart + Category Breakdown + Department Utilization Matrix (3 Columns) -->
+            <div style="display:grid;grid-template-columns:1fr 1.2fr 1.3fr;gap:16px;align-items:stretch">
+              <!-- Col 1: Donut Chart -->
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                  <i class="fa fa-chart-pie" style="color:#3b82f6"></i> Leave Utilization
                 </div>
-                <div style="height:155px;position:relative">
-                  <canvas id="chart-late-arrivals" height="155"></canvas>
+                <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;min-height:130px">
+                  <div style="position:relative;width:125px;height:125px">
+                    <canvas id="chart-leave-stats" width="125" height="125"></canvas>
+                    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none">
+                      <div style="font-size:18px;font-weight:900;color:var(--text);line-height:1">${onLeave || 18}</div>
+                      <div style="font-size:9px;color:var(--text-3);font-weight:700">On Leave</div>
+                    </div>
+                  </div>
+                </div>
+                <div style="font-size:9.5px;color:var(--text-3);text-align:center;margin-top:6px;font-weight:600">Active Daily Absences</div>
+              </div>
+
+              <!-- Col 2: Leave Categories breakdown -->
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div style="font-size:11.5px;font-weight:700;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+                  <i class="fa fa-layer-group" style="color:#10b981"></i> Leave Category Split
+                </div>
+                <div style="display:flex;flex-direction:column;gap:6px;flex:1;justify-content:center">
+                  <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#3b82f6"></span><span style="font-size:11px;color:var(--text-2)">Annual Leave</span></div><strong style="font-size:11px;color:var(--text)">10 (55%)</strong></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#10b981"></span><span style="font-size:11px;color:var(--text-2)">Sick Leave</span></div><strong style="font-size:11px;color:var(--text)">4 (22%)</strong></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#f59e0b"></span><span style="font-size:11px;color:var(--text-2)">Casual Leave</span></div><strong style="font-size:11px;color:var(--text)">2 (11%)</strong></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#ef4444"></span><span style="font-size:11px;color:var(--text-2)">Unpaid Leave</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
+                  <div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:#8b5cf6"></span><span style="font-size:11px;color:var(--text-2)">Others</span></div><strong style="font-size:11px;color:var(--text)">1 (6%)</strong></div>
+                </div>
+                <div style="font-size:9.5px;color:var(--text-3);text-align:right;margin-top:6px;font-weight:600">Total: 18 Requests</div>
+              </div>
+
+              <!-- Col 3: Department Absence Distribution & Policies -->
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                      <i class="fa fa-sitemap" style="color:#8b5cf6"></i> Absence by Department
+                    </span>
+                    <span style="font-size:9.5px;color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe">Statutory Policy</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:10.5px">
+                    <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">IT &amp; Dev</span><strong style="color:#ef4444">6 Away</strong></div>
+                    <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Operations</span><strong style="color:#f97316">5 Away</strong></div>
+                    <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">HR &amp; Admin</span><strong style="color:#10b981">3 Away</strong></div>
+                    <div style="background:var(--card,#ffffff);padding:5px 8px;border-radius:6px;border:1px solid var(--border,#e2e8f0);display:flex;justify-content:space-between"><span style="color:var(--text-2)">Sales</span><strong style="color:#8b5cf6">2 Away</strong></div>
+                  </div>
+                </div>
+                <div style="font-size:9.5px;color:var(--text-3);margin-top:8px;line-height:1.3;display:flex;align-items:center;gap:6px">
+                  <i class="fa fa-info-circle" style="color:#3b82f6;flex-shrink:0"></i>
+                  <span>Pakistan Labor Law: 14 consecutive days earned annual leave entitlement applies to confirmed personnel.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ── PANE 3: RECRUITMENT PIPELINE ── -->
+          <div id="op-pane-recruitment" style="display:${this.activeOperationsTab === 'recruitment' ? 'block' : 'none'}">
+            <!-- Recruitment Pipeline Summary Badges (5 badges across full width) -->
+            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#15803d;text-transform:uppercase">Open Jobs</div>
+                <div style="font-size:17px;font-weight:900;color:#16a34a;margin-top:1px">5</div>
+                <div style="font-size:9px;color:#166534">Active Positions</div>
+              </div>
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#1d4ed8;text-transform:uppercase">Applicants</div>
+                <div style="font-size:17px;font-weight:900;color:#2563eb;margin-top:1px">67</div>
+                <div style="font-size:9px;color:#1e40af">Under Evaluation</div>
+              </div>
+              <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#7e22ce;text-transform:uppercase">Interviewing</div>
+                <div style="font-size:17px;font-weight:900;color:#9333ea;margin-top:1px">8</div>
+                <div style="font-size:9px;color:#6b21a8">Shortlisted</div>
+              </div>
+              <div style="background:#fefce8;border:1px solid #fef08a;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#a16207;text-transform:uppercase">Offers Extended</div>
+                <div style="font-size:17px;font-weight:900;color:#ca8a04;margin-top:1px">3</div>
+                <div style="font-size:9px;color:#854d0e">Awaiting Sign</div>
+              </div>
+              <div style="background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:6px 10px;text-align:center">
+                <div style="font-size:9px;font-weight:700;color:#0e7490;text-transform:uppercase">New Joiners</div>
+                <div style="font-size:17px;font-weight:900;color:#0891b2;margin-top:1px">${newJoiners || 6}</div>
+                <div style="font-size:9px;color:#155e75">Last 30 Days</div>
+              </div>
+            </div>
+
+            <!-- Bottom Split: 6-Month Hiring Chart (Left 58%) + Department Progress Bars (Right 42%) -->
+            <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:16px;align-items:stretch">
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                      <i class="fa fa-chart-simple" style="color:#3b82f6"></i> 6-Month Joining Trend
+                    </span>
+                    <span style="font-size:10px;color:var(--text-3);font-weight:600">Past 2 Quarters</span>
+                  </div>
+                </div>
+                <div style="height:175px;position:relative">
+                  <canvas id="chart-monthly-joining" height="175"></canvas>
                 </div>
               </div>
 
-              <!-- Punctuality Telemetry seamlessly positioned below chart -->
-              <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border,#e2e8f0);display:flex;flex-direction:column;gap:5px">
-                <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-                  <span style="color:var(--text-3);font-weight:600">Punctuality Rate</span>
-                  <strong style="color:#10b981;font-weight:800">91.4% Punctual</strong>
+              <!-- Department Wise Employees Progress Bars -->
+              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                    <i class="fa fa-sitemap" style="color:#2563eb"></i> Staff by Department
+                  </span>
+                  <span style="font-size:10px;color:var(--text-3);font-weight:700">Total: ${totalEmps} Staff</span>
                 </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-                  <span style="color:var(--text-3);font-weight:600">Average Delay</span>
-                  <strong style="color:#f59e0b;font-weight:800">22 mins</strong>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-                  <span style="color:var(--text-3);font-weight:600">Grace Policy</span>
-                  <span style="color:#2563eb;font-weight:700;background:#eff6ff;padding:1px 5px;border-radius:3px;font-size:9px">15m Applied</span>
-                </div>
-                <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
-                  <span style="color:var(--text-3);font-weight:600">Top Late Dept</span>
-                  <strong style="color:#ef4444;font-weight:800">IT &amp; Dev (14)</strong>
+                <div style="display:flex;flex-direction:column;gap:6.5px;margin-top:2px">
+                  ${[
+                    { name: 'IT & Dev', count: 32, max: 40, color: '#3b82f6' },
+                    { name: 'HR & Admin', count: 18, max: 40, color: '#f97316' },
+                    { name: 'Finance', count: 15, max: 40, color: '#10b981' },
+                    { name: 'Sales', count: 22, max: 40, color: '#8b5cf6' },
+                    { name: 'Operations', count: 28, max: 40, color: '#06b6d4' },
+                    { name: 'Support', count: 13, max: 40, color: '#ec4899' },
+                  ].map(d => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                      <span style="font-size:10.5px;color:var(--text-2);min-width:75px;white-space:nowrap">${d.name}</span>
+                      <div style="flex:1;height:7px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:4px;overflow:hidden">
+                        <div style="width:${Math.round((d.count/d.max)*100)}%;height:100%;background:${d.color};border-radius:4px"></div>
+                      </div>
+                      <strong style="font-size:10.5px;color:var(--text);min-width:20px;text-align:right">${d.count}</strong>
+                    </div>
+                  `).join('')}
                 </div>
               </div>
             </div>
@@ -2655,17 +2771,20 @@ const Dashboard = {
       localStorage.setItem('hrm_ticker_speed', this.tickerSpeed);
     }
     const track = document.getElementById('dash-ticker-track');
+    const valBadge = document.getElementById('ticker-speed-val');
     const btn = document.getElementById('ticker-speed-btn');
     if (track) {
       track.style.animationDuration = this.getTickerDuration(speed);
       track.classList.remove('fast', 'slow', 'speed-0-5x', 'speed-0-4x', 'speed-0-3x', 'speed-0-2x', 'speed-0-1x');
       track.classList.add('speed-' + speed.replace('.', '-'));
     }
+    if (valBadge) {
+      valBadge.textContent = speed;
+    }
     if (btn) {
-      btn.innerHTML = `<i class="fa fa-gauge"></i> ${speed}`;
       const nextIdx = (this.tickerSpeeds.indexOf(speed) + 1) % this.tickerSpeeds.length;
       const nextSpeed = this.tickerSpeeds[nextIdx];
-      btn.title = `Current Speed: ${speed} (Click for ${nextSpeed})`;
+      btn.title = `Current Speed: ${speed} — Click to switch to ${nextSpeed}`;
       btn.setAttribute('aria-label', `Speed ${speed}. Click to switch to ${nextSpeed}`);
     }
     const sel = document.getElementById('ticker-speed-select');
@@ -2973,7 +3092,7 @@ const Dashboard = {
               ${new Date().toLocaleDateString('en-PK', { weekday:'long', month:'long', day:'numeric', year:'numeric' })} • Welcome back, ${Auth.employee.fullName}!
             </div>
           </div>
-          <div style="flex:1;min-width:320px;max-width:880px">
+          <div style="flex:1;min-width:320px">
             ${this.renderHeadlinesTicker(tickerItemsHtml)}
           </div>
         </div>
