@@ -3517,6 +3517,10 @@ const Login = {
     if (uInput) uInput.value = acc.email;
     if (pInput) pInput.value = acc.pass;
 
+    // Clear any previous error banner
+    const errEl = document.getElementById('login-error');
+    if (errEl) errEl.classList.add('hidden');
+
     // Update Active Chip
     document.querySelectorAll('.split-account-chip').forEach(chip => {
       chip.classList.toggle('active', chip.dataset.role === roleKey);

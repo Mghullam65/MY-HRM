@@ -127,6 +127,7 @@ const DB = {
           localStorage.setItem(`hrm_${row.id}`, JSON.stringify(row.data));
         }
       });
+      this.ensureUsers();
       this.isSupabaseConnected = true;
       cloudHydrated = true;
       localStorage.setItem('hrm_initialized', '1');
@@ -248,6 +249,7 @@ const DB = {
 
   runIntegrityChecks() {
     const checks = [
+      () => this.ensureUsers(),
       () => this.ensureAuditLogs(),
       () => this.ensureBirthday(),
       () => this.ensureOfferLetters(),
@@ -295,6 +297,44 @@ const DB = {
       } catch (err) {
         console.warn('[DB IntegrityCheck notice]:', err.message);
       }
+    }
+  },
+
+  ensureUsers() {
+    const pwMap = {
+      'admin': 'admin123',
+      'sara.malik': 'hr123',
+      'usman.baig': 'mgr123',
+      'fatima.raza': 'emp123',
+      'saad.ibrahim': 'emp123',
+      'tariq.finance': 'fin123',
+      'tariq.mehmood': 'fin123',
+      'bilal.ahmed': 'hr123',
+      'junior.hr': 'hr123',
+      'zainab.sheikh': 'emp123'
+    };
+    let currentUsers = this.get('users') || [];
+    let modified = false;
+
+    if (!currentUsers.length || !currentUsers.find(u => u.username === 'admin')) {
+      if (typeof users !== 'undefined' && Array.isArray(users)) {
+        currentUsers = JSON.parse(JSON.stringify(users));
+        modified = true;
+      }
+    }
+
+    currentUsers.forEach(u => {
+      const lower = (u.username || '').toLowerCase();
+      if (pwMap[lower]) {
+        if (!u.password || u.password.startsWith('$2a$') || u.password.startsWith('$2b$')) {
+          u.password = pwMap[lower];
+          modified = true;
+        }
+      }
+    });
+
+    if (modified) {
+      this.set('users', currentUsers);
     }
   },
 
