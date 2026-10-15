@@ -106,12 +106,11 @@ async function main() {
   // Hover over the WhatsApp launcher
   await send('Runtime.evaluate', {
     expression: `(function() {
-      const popup = document.getElementById('whatsapp-hover-popup');
-      if (popup) {
-        popup.style.opacity = '1';
-        popup.style.visibility = 'visible';
-        popup.style.transform = 'translateX(0) scale(1)';
-        popup.style.pointerEvents = 'auto';
+      const tooltip = document.getElementById('whatsapp-tooltip');
+      if (tooltip) {
+        tooltip.style.opacity = '1';
+        tooltip.style.visibility = 'visible';
+        tooltip.style.transform = 'translateX(0)';
       }
     })()`
   });

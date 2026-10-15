@@ -21197,66 +21197,46 @@ body:not([data-landing-theme]) #landing-whatsapp-launcher {
   100% { transform: scale(1.38); opacity: 0; }
 }
 
-.whatsapp-hover-popup {
+.whatsapp-tooltip {
   position: absolute;
-  left: 66px;
-  bottom: 0;
-  width: 220px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  padding: 12px 14px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  left: 64px;
+  white-space: nowrap;
+  background: #0f172a;
+  color: #ffffff;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.1);
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-8px) scale(0.95);
+  transform: translateX(-6px);
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
   z-index: 10;
-  color: #0f172a;
-}
-
-.whatsapp-btn-link:hover .whatsapp-hover-popup,
-.whatsapp-btn-link:focus .whatsapp-hover-popup,
-.whatsapp-btn-link:focus-within .whatsapp-hover-popup {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(0) scale(1);
-  pointer-events: auto;
-}
-
-.whatsapp-popup-header {
   display: flex;
   align-items: center;
   gap: 7px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #128C7E;
-  margin-bottom: 3px;
 }
 
-.whatsapp-popup-desc {
-  font-size: 11px;
-  color: #64748b;
-  line-height: 1.35;
-  margin-bottom: 6px;
+.whatsapp-tooltip::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  border-width: 5px 5px 5px 0;
+  border-style: solid;
+  border-color: transparent #0f172a transparent transparent;
 }
 
-.whatsapp-popup-number {
-  font-size: 14px;
-  font-weight: 800;
-  color: #0f172a;
-  letter-spacing: 0.3px;
-  margin-bottom: 6px;
-}
-
-.whatsapp-popup-action {
-  font-size: 11px;
-  font-weight: 700;
-  color: #25D366;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+.whatsapp-btn-link:hover .whatsapp-tooltip,
+.whatsapp-btn-link:focus .whatsapp-tooltip,
+.whatsapp-btn-link:focus-within .whatsapp-tooltip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
 }
 
 @media (max-width: 600px) {
@@ -21264,9 +21244,8 @@ body:not([data-landing-theme]) #landing-whatsapp-launcher {
     bottom: 20px;
     left: 16px;
   }
-  .whatsapp-hover-popup {
-    left: 0;
-    bottom: 62px;
+  .whatsapp-tooltip {
+    display: none !important;
   }
 }
 

@@ -39,19 +39,17 @@ assert(!appJs.includes('title="${isDark ? \'Switch to Light Mode\' : \'Switch to
 // 3. WhatsApp widget in index.html
 assert(indexHtml.includes('id="landing-whatsapp-launcher"'), 'WhatsApp launcher widget container present in index.html');
 assert(indexHtml.includes('https://wa.me/923482354146'), 'WhatsApp chat link properly targets wa.me/923482354146');
-assert(indexHtml.includes('0348-2354146') || indexHtml.includes('03482354146'), 'Phone number 03482354146 present inside widget');
-assert(indexHtml.includes('whatsapp-hover-popup'), 'Hover popup card wrapper present for deferred number display');
+assert(indexHtml.includes('whatsapp-tooltip'), 'Direct WhatsApp tooltip wrapper present');
 
-// 4. Raw number privacy: number only in hover popup
-assert(indexHtml.includes('<div class="whatsapp-popup-number">0348-2354146</div>'), 'Number isolated specifically in hover popup element');
+// 4. Raw number privacy: raw phone number is NOT rendered in the DOM
+assert(!indexHtml.includes('0348-2354146') && !indexHtml.includes('03482354146'), 'Raw phone number hidden from page; direct connection to WhatsApp enabled');
 
 // 5. CSS definitions for WhatsApp widget
 assert(css.includes('.landing-whatsapp-launcher'), 'CSS contains .landing-whatsapp-launcher rule');
 assert(css.includes('.whatsapp-icon-circle'), 'CSS contains .whatsapp-icon-circle rule');
 assert(css.includes('.whatsapp-badge-pulse'), 'CSS contains .whatsapp-badge-pulse rule');
-assert(css.includes('.whatsapp-hover-popup'), 'CSS contains .whatsapp-hover-popup rule');
-assert(css.includes('opacity: 0;\n  visibility: hidden;'), 'Hover popup hidden by default with opacity 0 and visibility hidden');
-assert(css.includes('.whatsapp-btn-link:hover .whatsapp-hover-popup'), 'Hover popup revealed on hover/focus');
+assert(css.includes('.whatsapp-tooltip'), 'CSS contains .whatsapp-tooltip rule');
+assert(css.includes('.whatsapp-btn-link:hover .whatsapp-tooltip'), 'Tooltip revealed on hover/focus');
 assert(css.includes('body.app-workspace-active #landing-whatsapp-launcher'), 'WhatsApp launcher hidden in app workspace');
 assert(css.includes('body.login-view-active #landing-whatsapp-launcher'), 'WhatsApp launcher hidden on login view');
 
