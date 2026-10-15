@@ -13310,7 +13310,10 @@ html.compact-mode .nav-item {
   #app[data-sidebar-pos="top"] .page-content {
     flex: 1 !important;
     overflow: visible !important;
-    padding: 20px 24px !important;
+    padding: 14px 20px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
     height: auto !important;
   }
 
@@ -20094,8 +20097,7 @@ body.chat-workspace-active #teams-workspace-container {
   padding: 8px 18px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
   width: 100%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   transition: all 0.2s ease;
@@ -20203,23 +20205,28 @@ body.chat-workspace-active #teams-workspace-container {
    3. Landing Page supports BOTH Light and Dark Mode
    ============================================================ */
 
-/* ── 1. Strict Light Mode for Dashboard ── */
+/* ── 1. Strict Light Mode for Dashboard (Enterprise Royal Blue & Slate Theme) ── */
 .dashboard-reference-layout,
 .dashboard-reference-layout * {
   --bg: #f8fafc !important;
   --surface: #f1f5f9 !important;
   --card: #ffffff !important;
   --card-bg: #ffffff !important;
-  --border: #e2e8f0 !important;
-  --border-subtle: #f1f5f9 !important;
-  --text: #0f172a !important;
-  --text-2: #334155 !important;
-  --text-3: #64748b !important;
+  --border: #cbd5e1 !important;   /* Clean Slate-300 borders */
+  --border-subtle: #e2e8f0 !important;
+  --text: #0f172a !important;     /* Deep slate charcoal (high legibility) */
+  --text-2: #334155 !important;   /* High-contrast body text */
+  --text-3: #64748b !important;   /* Subtle slate label */
+  --primary: #2563eb !important;  /* Enterprise Royal Blue */
+  --primary-hover: #1d4ed8 !important;
 }
 
 .dashboard-reference-layout {
   background: #f8fafc !important;
   color: #0f172a !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .dashboard-reference-layout .card,
@@ -20228,84 +20235,172 @@ body.chat-workspace-active #teams-workspace-container {
 .dashboard-reference-layout .dash-ref-kpi-card,
 .dashboard-reference-layout .dash-ref-att-pill,
 .dashboard-reference-layout .hero-punch-clock-widget,
-.dashboard-reference-layout .punch-card-white {
+.dashboard-reference-layout .punch-card-white,
+.dashboard-reference-layout .dash-quick-actions-toolbar,
+.dashboard-reference-layout .table-responsive {
   background: #ffffff !important;
-  border-color: #e2e8f0 !important;
+  border: 1px solid #cbd5e1 !important;
   color: #0f172a !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02) !important;
 }
 
 .dashboard-reference-layout .hero-punch-clock-widget {
-  background: linear-gradient(135deg, #eefdf5 0%, #e0f2fe 100%) !important;
-  border: 1.5px solid #a7f3d0 !important;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.09) !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04) !important;
   transition: all 0.25s ease !important;
 }
 
 .hero-punch-clock-widget.is-active,
 .dashboard-reference-layout .hero-punch-clock-widget.is-active {
-  background: linear-gradient(135deg, #ecfdf5 0%, #e0f7fa 100%) !important;
-  border-color: #34d399 !important;
-  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25), 0 8px 24px -4px rgba(16, 185, 129, 0.22) !important;
-  animation: heroPulseGlow 3s ease-in-out infinite;
-}
-
-@keyframes heroPulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25), 0 8px 24px -4px rgba(16, 185, 129, 0.22);
-  }
-  50% {
-    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.45), 0 12px 28px -4px rgba(16, 185, 129, 0.32);
-  }
+  background: #ffffff !important;
+  border: 1.5px solid #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15), 0 4px 14px rgba(37, 99, 235, 0.1) !important;
+  animation: none !important;
 }
 
 .dashboard-reference-layout .dash-ref-kpi-card {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 20px -4px rgba(0, 0, 0, 0.03) !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04) !important;
+  border: 1px solid #cbd5e1 !important;
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.2s ease !important;
 }
 
 .dashboard-reference-layout .dash-ref-kpi-card:hover {
-  transform: translateY(-3px) !important;
-  box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.08), 0 12px 28px -6px rgba(0, 0, 0, 0.04) !important;
-  border-color: #cbd5e1 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08) !important;
+  border-color: #2563eb !important;
 }
 
 .dashboard-reference-layout .dash-ref-att-pill {
+  border: 1px solid #cbd5e1 !important;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
 .dashboard-reference-layout .dash-ref-att-pill:hover {
   transform: translateY(-2px) !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
-  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06) !important;
+  border-color: #2563eb !important;
 }
 
 .action-inbox-item-row {
+  border: 1px solid #e2e8f0 !important;
   transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .action-inbox-item-row:hover {
-  background: #ffffff !important;
-  border-color: #94a3b8 !important;
+  background: #f8fafc !important;
+  border-color: #2563eb !important;
   transform: translateX(2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
 }
 
 .dashboard-reference-layout .punch-card-white {
   background: #ffffff !important;
-  border: 1px solid #d1fae5 !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
 }
 
 .dashboard-reference-layout .punch-badge-btn {
-  background: #ecfdf5 !important;
-  border-color: #6ee7b7 !important;
-  color: #047857 !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
 }
 
 .dashboard-reference-layout .punch-badge-btn:hover {
-  background: #d1fae5 !important;
-  border-color: #34d399 !important;
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+/* ── Executive Quick Workflows Toolbar & Harmonized Profile Card ── */
+.dash-user-profile-card {
+  border: 1px solid #cbd5e1 !important;
+}
+
+.dash-user-profile-card:hover {
+  border-color: #2563eb !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.08) !important;
+  transform: translateY(-1px);
+}
+
+.dash-quick-actions-toolbar {
+  border: 1px solid #cbd5e1 !important;
+  transition: all 0.2s ease;
+}
+
+.dash-quick-actions-toolbar .dash-workflow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+  user-select: none;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.02);
+}
+
+.dash-quick-actions-toolbar .dash-workflow-pill:hover {
+  background: #ffffff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.08);
+}
+
+.dash-inbox-chip {
+  cursor: pointer;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  padding: 3px 9px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+.dash-inbox-chip:hover {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  transform: translateY(-1px);
+}
+
+.dash-inbox-chip .chip-count {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+}
+
+[data-theme="dark"] .dash-user-profile-card:hover {
+  border-color: rgba(96, 165, 250, 0.4) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
+}
+
+[data-theme="dark"] .dash-quick-actions-toolbar {
+  background: var(--card, #1e293b) !important;
+  border-color: var(--border, #334155) !important;
+}
+
+[data-theme="dark"] .dash-quick-actions-toolbar .dash-workflow-pill {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--text, #f1f5f9) !important;
+}
+
+[data-theme="dark"] .dash-quick-actions-toolbar .dash-workflow-pill:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3) !important;
 }
 
 .dashboard-reference-layout table th {

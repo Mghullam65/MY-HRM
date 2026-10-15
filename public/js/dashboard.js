@@ -317,15 +317,15 @@ const Dashboard = {
     const loopingContent = baseContent + ' ' + baseContent;
 
     return `
-      <div style="background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:8px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(0,0,0,0.04);width:100%;height:62px;min-height:62px;overflow:hidden">
-        <!-- Orange Headlines Label -->
-        <div style="display:flex;align-items:center;gap:6px;color:#ea580c;font-weight:800;font-size:13px;flex-shrink:0">
-          <i class="fa fa-bullhorn" style="font-size:13.5px"></i>
+      <div style="background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:12px;padding:8px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 3px rgba(15,23,42,0.03);width:100%;height:62px;min-height:62px;overflow:hidden">
+        <!-- Headlines Label -->
+        <div style="display:flex;align-items:center;gap:6px;color:#0f172a;font-weight:800;font-size:13px;flex-shrink:0">
+          <i class="fa fa-bullhorn" style="font-size:13.5px;color:#2563eb"></i>
           <span>Headlines</span>
         </div>
 
-        <!-- Animated Ticker Viewport & Continuous Moving Track -->
-        <div class="ticker-track-wrap" style="flex:1;overflow:hidden;position:relative;white-space:nowrap;padding:4px 0">
+        <!-- Animated Ticker Viewport & Continuous Moving Track (With Smooth Edge Fade Mask) -->
+        <div class="ticker-track-wrap" style="flex:1;overflow:hidden;position:relative;white-space:nowrap;padding:4px 0;-webkit-mask-image:linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent);mask-image:linear-gradient(to right, transparent, black 16px, black calc(100% - 16px), transparent)">
           <div id="dash-ticker-track" class="ticker-track" style="display:inline-flex;align-items:center;gap:20px;animation:tickerMarquee ${this.getTickerDuration(this.tickerSpeed || '0.3x')} linear infinite;will-change:transform">
             ${loopingContent}
           </div>
@@ -333,13 +333,13 @@ const Dashboard = {
 
         <!-- Right Controls: 1-Click Speed Button (0.1x to 0.5x) + Pause/Play + View All -->
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-          <button id="ticker-speed-btn" type="button" onclick="Dashboard.toggleTickerSpeed()" class="btn btn-xs" style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);border:1.5px solid var(--border,#e2e8f0);border-radius:8px;padding:3px 9px;gap:5px;cursor:pointer;font-weight:800;color:var(--text,#1e293b);transition:all .15s" title="Current Speed: ${this.tickerSpeed || '0.3x'} — Click to cycle speed (0.1x to 0.5x)">
-            <i class="fa fa-gauge-high" style="font-size:11px;color:#ea580c"></i>
-            <span style="font-size:10px;font-weight:700;color:var(--text-3,#64748b)">Speed:</span>
-            <span id="ticker-speed-val" style="background:#ea580c;color:#ffffff;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:900">${this.tickerSpeed || '0.3x'}</span>
+          <button id="ticker-speed-btn" type="button" onclick="Dashboard.toggleTickerSpeed()" class="btn btn-xs" style="display:inline-flex;align-items:center;background:var(--surface,#f8fafc);border:1px solid var(--border,#cbd5e1);border-radius:8px;padding:3px 9px;gap:5px;cursor:pointer;font-weight:800;color:#0f172a;transition:all .15s" title="Current Speed: ${this.tickerSpeed || '0.3x'} — Click to cycle speed (0.1x to 0.5x)">
+            <i class="fa fa-gauge-high" style="font-size:11px;color:#2563eb"></i>
+            <span style="font-size:10px;font-weight:700;color:#64748b">Speed:</span>
+            <span id="ticker-speed-val" style="background:#2563eb;color:#ffffff;padding:1px 6px;border-radius:5px;font-size:10px;font-weight:900">${this.tickerSpeed || '0.3x'}</span>
           </button>
 
-          <button id="ticker-play-btn" type="button" onclick="Dashboard.toggleTickerPlay()" class="btn btn-ghost btn-xs" style="padding:4px 8px;color:var(--text-3);border-radius:7px;cursor:pointer;border:1px solid var(--border,#e2e8f0);background:var(--card,#ffffff)" title="Pause Headlines">
+          <button id="ticker-play-btn" type="button" onclick="Dashboard.toggleTickerPlay()" class="btn btn-ghost btn-xs" style="padding:4px 8px;color:#64748b;border-radius:7px;cursor:pointer;border:1px solid var(--border,#cbd5e1);background:var(--card,#ffffff)" title="Pause Headlines">
             <i class="fa fa-pause" style="font-size:11px"></i>
           </button>
           <a href="javascript:void(0)" onclick="Dashboard.showAllHeadlinesModal()" style="color:#2563eb;font-weight:700;font-size:12px;text-decoration:none;white-space:nowrap;margin-left:2px" title="View All Events & Notices">
@@ -479,7 +479,7 @@ const Dashboard = {
     return `
       <div class="hero-punch-clock-widget ${isActiveDuty ? 'is-active' : ''}">
         <!-- Section 1 (Left): Analog Clock & Live Timer / Status Badge -->
-        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;min-width:200px">
           <svg width="60" height="60" viewBox="0 0 100 100" style="flex-shrink:0;filter:drop-shadow(0 2px 5px rgba(0,0,0,0.22))">
             <circle cx="50" cy="50" r="48" fill="#0b1120" stroke="#1e293b" stroke-width="2.5"/>
             <circle cx="50" cy="50" r="45" fill="#070c18" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
@@ -551,81 +551,81 @@ const Dashboard = {
           </div>
         </div>
 
-        <!-- Section 2 (Center): Office Time Today & Shift Telemetry (Zero Duplication) -->
-        <div class="punch-card-white" style="border-radius:12px;padding:8px 16px;min-width:185px;flex:1;max-width:275px">
+        <!-- Section 2 (Center): Office Time Today & Shift Telemetry (Zero Duplication & No Gaps) -->
+        <div class="punch-card-white" style="border:1px solid #cbd5e1;background:#f8fafc;border-radius:12px;padding:8px 18px;min-width:240px;flex:1">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
-            <span style="font-size:9.5px;font-weight:800;color:var(--text-3,#64748b);letter-spacing:0.5px">OFFICE TIME TODAY</span>
-            <strong id="hero-punch-center-timer" style="font-size:14.5px;font-weight:900;color:#0284c7;font-variant-numeric:tabular-nums">${initialCenterTimer}</strong>
+            <span style="font-size:10.5px;font-weight:800;color:#334155;letter-spacing:0.5px">OFFICE TIME TODAY</span>
+            <strong id="hero-punch-center-timer" style="font-size:15px;font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums">${initialCenterTimer}</strong>
           </div>
 
           <!-- Real-Time Shift Duty Progress Bar (8h Target) -->
           <div style="margin:4px 0 5px">
-            <div style="display:flex;align-items:center;justify-content:space-between;font-size:9px;font-weight:700;color:var(--text-3,#64748b);margin-bottom:3px">
-              <span>Shift Progress (8h Goal)</span>
-              <span id="hero-punch-progress-pct" style="font-weight:800;color:#0284c7">${dutyPct}%</span>
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:9.5px;font-weight:700;color:#475569;margin-bottom:3px">
+              <span>Shift Progress (8h Target)</span>
+              <span id="hero-punch-progress-pct" style="font-weight:800;color:#2563eb">${dutyPct}%</span>
             </div>
-            <div style="width:100%;height:6px;background:var(--border,#e2e8f0);border-radius:999px;overflow:hidden">
-              <div id="hero-punch-progress-bar" style="width:${dutyPct}%;height:100%;background:linear-gradient(90deg, #0284c7, #38bdf8);border-radius:999px;transition:width 0.4s ease"></div>
+            <div style="width:100%;height:6px;background:#e2e8f0;border-radius:999px;overflow:hidden">
+              <div id="hero-punch-progress-bar" style="width:${dutyPct}%;height:100%;background:#2563eb;border-radius:999px;transition:width 0.4s ease"></div>
             </div>
           </div>
 
           <!-- Real-Time Shift Countdown & Break Total Telemetry -->
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:4px">
-            <div id="punch-shift-status-badge" style="font-size:9.5px;font-weight:700;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px">
+            <div id="punch-shift-status-badge" style="font-size:10px;font-weight:700;color:#334155;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
               ${shiftStatusHtml}
             </div>
-            <span style="font-size:9px;font-weight:700;color:var(--text-3,#64748b);display:inline-flex;align-items:center;gap:3px;flex-shrink:0" title="Total break duration">
-              <i class="fa fa-mug-hot" style="color:#d97706;font-size:8.5px"></i> ${breakTotalSummary}
+            <span style="font-size:9.5px;font-weight:700;color:#475569;display:inline-flex;align-items:center;gap:3px;flex-shrink:0" title="Total break duration">
+              <i class="fa fa-mug-hot" style="color:#d97706;font-size:9px"></i> ${breakTotalSummary}
             </span>
           </div>
         </div>
 
         <!-- Section 3 (Right): 2x2 Attendance Lifecycle Punch Cards (Check In, Break Out, Break In, Check Out) -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;flex-shrink:0;min-width:215px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;flex-shrink:0;min-width:220px">
           <!-- 1. Check In -->
-          <div class="punch-card-white ${canPunchIn ? 'punch-clickable' : ''}" onclick="${canPunchIn ? "Dashboard.quickSelfPunch('in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchIn ? 'pointer' : 'default'}" title="${canPunchIn ? 'Click to Check In' : 'Checked In at ' + checkInVal}">
-            <div style="width:24px;height:24px;border-radius:6px;background:#cffafe;color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+          <div class="punch-card-white ${canPunchIn ? 'punch-clickable' : ''}" onclick="${canPunchIn ? "Dashboard.quickSelfPunch('in')" : ''}" style="border:1px solid #cbd5e1;background:#ffffff;border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchIn ? 'pointer' : 'default'}" title="${canPunchIn ? 'Click to Check In' : 'Checked In at ' + checkInVal}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-to-bracket"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Check In</div>
-              <div id="punch-clock-checkin-time" data-time="${rawIn || ''}" style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkInVal !== '—' ? checkInVal : '- : - -'}</div>
+              <div style="font-size:8.5px;color:#475569;font-weight:700">Check In</div>
+              <div id="punch-clock-checkin-time" data-time="${rawIn || ''}" style="font-size:10.5px;font-weight:800;color:#0f172a;white-space:nowrap">${checkInVal !== '—' ? checkInVal : '- : - -'}</div>
             </div>
           </div>
 
           <!-- 2. Break Out -->
-          <div class="punch-card-white ${canPunchBreakOut ? 'punch-clickable' : ''}" onclick="${canPunchBreakOut ? "Dashboard.quickSelfPunch('b_out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakOut ? 'pointer' : 'default'};${isOnBreak ? 'border-color:#f59e0b;background:rgba(245,158,11,0.06);' : ''}" title="${breakOutTooltip}">
-            <div style="width:24px;height:24px;border-radius:6px;background:#fef3c7;color:#d97706;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+          <div class="punch-card-white ${canPunchBreakOut ? 'punch-clickable' : ''}" onclick="${canPunchBreakOut ? "Dashboard.quickSelfPunch('b_out')" : ''}" style="border:1px solid #cbd5e1;background:#ffffff;border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakOut ? 'pointer' : 'default'};${isOnBreak ? 'border-color:#d97706;background:#fffbeb;' : ''}" title="${breakOutTooltip}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#fffbeb;color:#d97706;border:1px solid #fde68a;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-mug-hot"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600;display:flex;align-items:center;gap:3px">
+              <div style="font-size:8.5px;color:#475569;font-weight:700;display:flex;align-items:center;gap:3px">
                 <span>Break Out</span>
-                ${isOnBreak ? '<span style="width:5px;height:5px;border-radius:50%;background:#f59e0b;display:inline-block"></span>' : ''}
+                ${isOnBreak ? '<span style="width:5px;height:5px;border-radius:50%;background:#d97706;display:inline-block"></span>' : ''}
               </div>
-              <div id="punch-clock-breakout-time" style="font-size:10.5px;font-weight:800;color:${isOnBreak ? '#d97706' : 'var(--text)'};white-space:nowrap">${breakOutVal !== '—' ? breakOutVal : '- : - -'}</div>
+              <div id="punch-clock-breakout-time" style="font-size:10.5px;font-weight:800;color:#0f172a;white-space:nowrap">${breakOutVal !== '—' ? breakOutVal : '- : - -'}</div>
             </div>
           </div>
 
           <!-- 3. Break In -->
-          <div class="punch-card-white ${canPunchBreakIn ? 'punch-clickable' : ''}" onclick="${canPunchBreakIn ? "Dashboard.quickSelfPunch('b_in')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakIn ? 'pointer' : 'default'};${canPunchBreakIn ? 'border-color:#6366f1;box-shadow:0 0 0 1px #6366f1;' : ''}" title="${breakInTooltip}">
-            <div style="width:24px;height:24px;border-radius:6px;background:#e0e7ff;color:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+          <div class="punch-card-white ${canPunchBreakIn ? 'punch-clickable' : ''}" onclick="${canPunchBreakIn ? "Dashboard.quickSelfPunch('b_in')" : ''}" style="border:1px solid #cbd5e1;background:#ffffff;border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchBreakIn ? 'pointer' : 'default'};${canPunchBreakIn ? 'border-color:#2563eb;box-shadow:0 0 0 1px #2563eb;' : ''}" title="${breakInTooltip}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#eef2ff;color:#4f46e5;border:1px solid #c7d2fe;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-utensils"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Break In</div>
-              <div id="punch-clock-breakin-time" style="font-size:10.5px;font-weight:800;color:${canPunchBreakIn ? '#4f46e5' : 'var(--text)'};white-space:nowrap">${breakInVal !== '—' ? breakInVal : (canPunchBreakIn ? 'Resume ↵' : '- : - -')}</div>
+              <div style="font-size:8.5px;color:#475569;font-weight:700">Break In</div>
+              <div id="punch-clock-breakin-time" style="font-size:10.5px;font-weight:800;color:#0f172a;white-space:nowrap">${breakInVal !== '—' ? breakInVal : (canPunchBreakIn ? 'Resume ↵' : '- : - -')}</div>
             </div>
           </div>
 
           <!-- 4. Check Out -->
-          <div class="punch-card-white ${canPunchCheckOut ? 'punch-clickable' : ''}" onclick="${canPunchCheckOut ? "Dashboard.quickSelfPunch('out')" : ''}" style="border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchCheckOut ? 'pointer' : 'default'}" title="${checkOutTooltip}">
-            <div style="width:24px;height:24px;border-radius:6px;background:#ffe4e6;color:#e11d48;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
+          <div class="punch-card-white ${canPunchCheckOut ? 'punch-clickable' : ''}" onclick="${canPunchCheckOut ? "Dashboard.quickSelfPunch('out')" : ''}" style="border:1px solid #cbd5e1;background:#ffffff;border-radius:9px;padding:3px 9px;display:flex;align-items:center;gap:7px;cursor:${canPunchCheckOut ? 'pointer' : 'default'}" title="${checkOutTooltip}">
+            <div style="width:24px;height:24px;border-radius:6px;background:#fef2f2;color:#dc2626;border:1px solid #fecaca;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0">
               <i class="fa fa-arrow-right-from-bracket"></i>
             </div>
             <div style="min-width:0;line-height:1.15">
-              <div style="font-size:8.5px;color:var(--text-3,#64748b);font-weight:600">Check Out</div>
-              <div id="punch-clock-checkout-time" data-time="${rawOut || ''}" style="font-size:10.5px;font-weight:800;color:var(--text);white-space:nowrap">${checkOutVal !== '—' ? checkOutVal : '- : - -'}</div>
+              <div style="font-size:8.5px;color:#475569;font-weight:700">Check Out</div>
+              <div id="punch-clock-checkout-time" data-time="${rawOut || ''}" style="font-size:10.5px;font-weight:800;color:#0f172a;white-space:nowrap">${checkOutVal !== '—' ? checkOutVal : '- : - -'}</div>
             </div>
           </div>
         </div>
@@ -1025,72 +1025,40 @@ const Dashboard = {
   },
 
   
-  kpiCard(label, value, icon, color, change, changeDir, sparklinePoints) {
+  kpiCard(label, value, icon, color, change, changeDir) {
     const isUp = changeDir === 'up';
-    const trendColor = isUp ? '#10b981' : '#ef4444';
-    const trendBg = isUp ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-    const trendBorder = isUp ? 'rgba(16, 185, 129, 0.22)' : 'rgba(239, 68, 68, 0.22)';
+    const trendColor = isUp ? '#15803d' : '#b91c1c';
+    const trendBg = isUp ? '#f0fdf4' : '#fef2f2';
+    const trendBorder = isUp ? '#86efac' : '#fca5a5';
     const arrowIcon = isUp ? '↑' : '↓';
-    const gradId = 'kpi-grad-' + Math.random().toString(36).substr(2, 9);
-    
-    // Generate smooth SVG sparkline path
-    const w = 74, h = 28;
-    const min = Math.min(...sparklinePoints);
-    const max = Math.max(...sparklinePoints);
-    const range = (max - min) || 1;
-    const coords = sparklinePoints.map((pt, i) => {
-      const x = (i / (sparklinePoints.length - 1)) * w;
-      const y = h - ((pt - min) / range) * (h - 8) - 4;
-      return [x, y];
-    });
-    const linePath = coords.reduce((acc, curr, i, arr) => {
-      if (i === 0) return `M ${curr[0].toFixed(1)},${curr[1].toFixed(1)}`;
-      const prev = arr[i - 1];
-      const mx = ((prev[0] + curr[0]) / 2).toFixed(1);
-      return `${acc} C ${mx},${prev[1].toFixed(1)} ${mx},${curr[1].toFixed(1)} ${curr[0].toFixed(1)},${curr[1].toFixed(1)}`;
-    }, '');
-
-    const lastCoord = coords[coords.length - 1];
-    const firstCoord = coords[0];
-    const areaPath = `${linePath} L ${lastCoord[0].toFixed(1)},${h} L ${firstCoord[0].toFixed(1)},${h} Z`;
+    const brandColor = color || '#2563eb';
 
     return `
-      <div class="dash-ref-kpi-card" style="background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,0.05),0 8px 20px -4px rgba(0,0,0,0.03);display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden">
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:10px;background:${color}18;color:${color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:inset 0 0 0 1px ${color}28">
+      <div class="dash-ref-kpi-card" style="background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:14px;padding:14px 16px;box-shadow:0 1px 3px rgba(15,23,42,0.04);display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden;transition:all .2s ease;cursor:default" onmouseenter="this.style.transform='translateY(-2px)';this.style.borderColor='#2563eb';this.style.boxShadow='0 4px 14px rgba(37,99,235,0.08)'" onmouseleave="this.style.transform='none';this.style.borderColor='var(--border,#cbd5e1)';this.style.boxShadow='0 1px 3px rgba(15,23,42,0.04)'">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${brandColor}"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="font-size:11.5px;font-weight:700;color:#475569;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:${brandColor}15;color:${brandColor};display:flex;align-items:center;justify-content:center;font-size:13.5px;flex-shrink:0;border:1px solid ${brandColor}33">
             <i class="fa ${icon}"></i>
           </div>
-          <div style="min-width:0;flex:1">
-            <div style="font-size:11.5px;font-weight:600;color:var(--text-3,#64748b);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
-            <div style="font-size:24px;font-weight:800;color:var(--text,#1e293b);line-height:1.1;margin-top:2px" class="animate-count-up" data-target="${value}">${value}</div>
-          </div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
-          <span style="font-size:10.5px;font-weight:700;color:${trendColor};background:${trendBg};border:1px solid ${trendBorder};padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:3px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:6px">
+          <div style="font-size:26px;font-weight:900;color:#0f172a;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-0.5px" class="animate-count-up" data-target="${value}">${value}</div>
+          <span style="font-size:10.5px;font-weight:700;color:${trendColor};background:${trendBg};border:1px solid ${trendBorder};padding:2px 8px;border-radius:20px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap">
             <span>${arrowIcon}</span> ${change}
           </span>
-          <svg width="${w}" height="${h}" style="overflow:visible">
-            <defs>
-              <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="${color}" stop-opacity="0.32"/>
-                <stop offset="100%" stop-color="${color}" stop-opacity="0.0"/>
-              </linearGradient>
-            </defs>
-            <path d="${areaPath}" fill="url(#${gradId})"/>
-            <path d="${linePath}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            <circle cx="${lastCoord[0].toFixed(1)}" cy="${lastCoord[1].toFixed(1)}" r="3" fill="#ffffff" stroke="${color}" stroke-width="2"/>
-          </svg>
         </div>
       </div>
     `;
   },
 
   attBadge(label, count, icon, color) {
+    const badgeColor = color || '#2563eb';
     return `
-      <div class="dash-ref-att-pill" style="background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:12px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,0.03)">
-        <div style="font-size:15px;color:${color};margin-bottom:2px"><i class="fa ${icon}"></i></div>
-        <div style="font-size:11px;font-weight:600;color:var(--text-3,#64748b)">${label}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--text,#1e293b);line-height:1" class="animate-count-up" data-target="${count}">${count}</div>
+      <div class="dash-ref-att-pill" style="background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:10px;padding:10px 6px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(15,23,42,0.03);transition:all .15s ease" onmouseenter="this.style.borderColor='#2563eb';this.style.transform='translateY(-1px)'" onmouseleave="this.style.borderColor='var(--border,#cbd5e1)';this.style.transform='none'">
+        <div style="font-size:14px;color:${badgeColor};margin-bottom:1px"><i class="fa ${icon}"></i></div>
+        <div style="font-size:10.5px;font-weight:700;color:#475569">${label}</div>
+        <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1;font-variant-numeric:tabular-nums" class="animate-count-up" data-target="${count}">${count}</div>
       </div>
     `;
   },
@@ -1383,11 +1351,11 @@ const Dashboard = {
     }
 
     const tickerItemsHtml = headlines.map(h => {
-      const bg = h.type === 'birthday' ? '#ec4899' : h.type === 'holiday' ? '#4f46e5' : h.type === 'announcement' ? '#0284c7' : h.type === 'anniversary' ? '#8b5cf6' : '#ea580c';
+      const tagBg = h.type === 'birthday' ? '#e11d48' : h.type === 'holiday' ? '#2563eb' : h.type === 'announcement' ? '#0284c7' : '#d97706';
       return `
         <span class="ticker-item ${h.type}" onclick="${h.action}" title="Click to view details" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;flex-shrink:0">
-          <span style="background:${bg};color:#ffffff;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:5px;line-height:1.2;white-space:nowrap"><i class="fa ${h.icon}"></i> ${h.tag}</span>
-          <span style="font-size:12px;font-weight:600;color:var(--text,#1e293b);white-space:nowrap">${h.text}</span>
+          <span style="background:${tagBg};color:#ffffff;font-size:10.5px;font-weight:700;padding:2.5px 8px;border-radius:5px;line-height:1.2;white-space:nowrap"><i class="fa ${h.icon}"></i> ${h.tag}</span>
+          <span style="font-size:12px;font-weight:600;color:#0f172a;white-space:nowrap">${h.text}</span>
         </span>
         <span style="color:#cbd5e1;font-size:11px;flex-shrink:0">•</span>
       `;
@@ -1444,12 +1412,12 @@ const Dashboard = {
 
     content.setAttribute('data-theme', 'light');
     content.innerHTML = `
-      <div class="animate-fade-in dashboard-reference-layout" data-theme="light" style="display:flex;flex-direction:column;gap:12px">
+      <div class="animate-fade-in dashboard-reference-layout" data-theme="light" style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:100%">
 
         <!-- ══════════════════════════════════════════════════════
              1. DASHBOARD OVERVIEW & HEADLINES TICKER
         ══════════════════════════════════════════════════════ -->
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;width:100%">
           <div style="flex-shrink:0">
             <div style="display:flex;align-items:center;gap:8px">
               <h2 style="font-size:19px;font-weight:800;color:var(--text);letter-spacing:-0.4px;margin:0">Dashboard Overview</h2>
@@ -1471,21 +1439,24 @@ const Dashboard = {
         <!-- ══════════════════════════════════════════════════════
              2. AHMED KHAN PROFILE CARD & HERO PUNCH CLOCK WIDGET
         ══════════════════════════════════════════════════════ -->
-        <div class="dash-ref-hero-row" style="display:flex;align-items:stretch;gap:10px;flex-wrap:wrap">
-          <!-- Left: Ahmed Khan User Profile Card (Increased size + Shows Employee ID Code) -->
-          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="View My Profile" style="cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--card,#ffffff);border:1.5px solid var(--border,#e2e8f0);border-radius:12px;padding:6px 16px;min-height:68px;min-width:240px;flex-shrink:0;box-shadow:0 2px 5px rgba(0,0,0,0.04);transition:all .15s">
-            <div style="width:42px;height:42px;min-width:42px;border-radius:50%;overflow:hidden;background:#2563eb;flex-shrink:0;border:2px solid var(--border,#e2e8f0)">
-              ${curPhoto ? '<img src="'+curPhoto+'" style="width:100%;height:100%;object-fit:cover" alt="'+curFullName+'">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800">'+curInitials+'</div>'}
+        <div class="dash-ref-hero-row" style="display:flex;align-items:stretch;gap:12px;flex-wrap:wrap;width:100%">
+          <!-- Left: Ahmed Khan User Profile Card (Harmonized 16px radius, matching elevation & active pulse) -->
+          <div class="dash-user-profile-card" onclick="App.navigate('profile')" title="View My Profile" style="cursor:pointer;display:flex;align-items:center;gap:12px;background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:16px;padding:8px 18px;min-height:78px;min-width:250px;flex-shrink:0;box-shadow:0 1px 3px rgba(15,23,42,0.04);transition:all .2s ease">
+            <div style="position:relative">
+              <div style="width:44px;height:44px;min-width:44px;border-radius:50%;overflow:hidden;background:#2563eb;flex-shrink:0;border:2px solid #2563eb;box-shadow:0 2px 6px rgba(37,99,235,0.2)">
+                ${curPhoto ? '<img src="'+curPhoto+'" style="width:100%;height:100%;object-fit:cover" alt="'+curFullName+'">' : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:800">'+curInitials+'</div>'}
+              </div>
+              <span style="position:absolute;bottom:0;right:0;width:11px;height:11px;border-radius:50%;background:#16a34a;border:2px solid #ffffff;box-shadow:0 0 0 1px rgba(22,163,74,0.3)"></span>
             </div>
             <div style="min-width:0">
               <div style="display:flex;align-items:center;gap:6px">
-                <span style="font-size:14px;font-weight:800;color:var(--text,#0f172a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${curFullName}</span>
-                <span style="font-size:10px;font-weight:800;color:#2563eb;background:#eff6ff;padding:1.5px 6px;border-radius:4px;border:1px solid #bfdbfe;letter-spacing:0.3px">${curEmpCode}</span>
+                <span style="font-size:14.5px;font-weight:800;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${curFullName}</span>
+                <span style="font-size:10px;font-weight:800;color:#1e40af;background:#eff6ff;padding:1.5px 6px;border-radius:4px;border:1px solid #bfdbfe;letter-spacing:0.3px">${curEmpCode}</span>
               </div>
-              <div style="font-size:11px;color:var(--text-3,#64748b);margin-top:2px;display:flex;align-items:center;gap:5px">
+              <div style="font-size:11.5px;color:#475569;margin-top:2px;display:flex;align-items:center;gap:5px;font-weight:600">
                 <span>${curDesignation}</span>
-                <span style="width:3px;height:3px;border-radius:50%;background:var(--text-3,#64748b)"></span>
-                <span style="color:#10b981;font-weight:700">Active</span>
+                <span style="width:3px;height:3px;border-radius:50%;background:#64748b"></span>
+                <span style="color:#16a34a;font-weight:700">Active</span>
               </div>
             </div>
           </div>
@@ -1530,114 +1501,120 @@ const Dashboard = {
         </div>
 
         <!-- ══════════════════════════════════════════════════════
-             5. QUICK ACTIONS IN 6-COLUMN GRID (LIKE EMPLOYEES DETAILS ABOVE)
+             5. EXECUTIVE QUICK WORKFLOWS TOOLBAR (DE-CLUTTERED ROW)
         ══════════════════════════════════════════════════════ -->
-        <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px">
-          ${Auth.role === 'dept_manager' ? `
-            <div onclick="App.navigate('attendance')" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Team Attendance">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-clock"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Team Attendance</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Daily Register</div></div>
-            </div>
-            <div onclick="App.navigate('leaves')" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="Review Leave Requests">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-calendar-check"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Review Leaves</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">Endorse Team</div></div>
-            </div>
-            <div onclick="App.navigate('attendance', 'roster')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="Duty Rosters">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-business-time"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Duty Roster</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">Shift Schedule</div></div>
-            </div>
-            <div onclick="App.navigate('expenses')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Team Expense Claims">
-              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-receipt"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Review Claims</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Team Expenses</div></div>
-            </div>
-            <div onclick="App.navigate('employees', 'orgchart')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Org Chart & Hierarchy">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-sitemap"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Team Hierarchy</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Org Chart</div></div>
-            </div>
-            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
-            </div>
-          ` : Auth.role === 'payroll_accountant' ? `
-            <div onclick="App.navigate('payroll')" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Salary Processing">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-credit-card"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Payroll Run</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Salary Processing</div></div>
-            </div>
-            <div onclick="App.navigate('payroll', 'bank_advice')" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="1Link Bank Advice Batches">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-building-columns"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Bank Advice</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">1Link Disbursals</div></div>
-            </div>
-            <div onclick="App.navigate('payroll', 'tax')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="FBR Tax Slabs & Form 16">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-scale-balanced"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Tax Slabs</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">FBR 2025-27</div></div>
-            </div>
-            <div onclick="App.navigate('reports', 'bank')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Audit Checksums">
-              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-shield-halved"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Audit Batches</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Disbursal Checksums</div></div>
-            </div>
-            <div onclick="App.navigate('expenses')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Expense Claim Audits">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-receipt"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Expense Audit</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Claim Clearances</div></div>
-            </div>
-            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
-            </div>
-          ` : `
-            <div onclick="App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" class="card" style="padding:10px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(37,99,235,0.06);transition:transform .15s" title="Add New Employee">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dbeafe;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-user-plus"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#1e40af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Add Employee</div><div style="font-size:9.5px;color:#3b82f6;margin-top:1px">Onboard Staff</div></div>
-            </div>
-            <div onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" class="card" style="padding:10px 12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(22,163,74,0.06);transition:transform .15s" title="Submit Leave Request">
-              <div style="width:32px;height:32px;border-radius:8px;background:#dcfce7;color:#16a34a;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-file-lines"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#166534;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Apply Leave</div><div style="font-size:9.5px;color:#15803d;margin-top:1px">Submit Request</div></div>
-            </div>
-            <div onclick="App.navigate('attendance')" class="card" style="padding:10px 12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(234,88,12,0.06);transition:transform .15s" title="Attendance Log & Machine Sync">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ffedd5;color:#ea580c;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-clock"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#9a3412;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Attendance</div><div style="font-size:9.5px;color:#c2410c;margin-top:1px">Daily Register</div></div>
-            </div>
-            <div onclick="App.navigate('payroll')" class="card" style="padding:10px 12px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(147,51,234,0.06);transition:transform .15s" title="Salary Processing & Disbursals">
-              <div style="width:32px;height:32px;border-radius:8px;background:#f3e8ff;color:#9333ea;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-credit-card"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#6b21a8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Payroll</div><div style="font-size:9.5px;color:#7e22ce;margin-top:1px">Disbursements</div></div>
-            </div>
-            <div onclick="App.navigate('reports')" class="card" style="padding:10px 12px;background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(13,148,136,0.06);transition:transform .15s" title="Enterprise Reports & Exports">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ccfbf1;color:#0d9488;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-file-chart-column"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#115e59;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Reports</div><div style="font-size:9.5px;color:#0f766e;margin-top:1px">Analytics & Export</div></div>
-            </div>
-            <div onclick="Dashboard.openAgent()" class="card" style="padding:10px 12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:10px;box-shadow:0 1px 3px rgba(124,58,237,0.06);transition:transform .15s" title="Ask AI HR Assistant">
-              <div style="width:32px;height:32px;border-radius:8px;background:#ede9fe;color:#7c3aed;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fa fa-robot"></i></div>
-              <div style="min-width:0"><div style="font-size:12px;font-weight:800;color:#5b21b6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">AI Assistant</div><div style="font-size:9.5px;color:#6d28d9;margin-top:1px">Ask Co-Pilot</div></div>
-            </div>
-          `}
+        <div class="dash-quick-actions-toolbar" style="background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:12px;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;box-shadow:0 1px 3px rgba(15,23,42,0.04)">
+          <div style="display:inline-flex;align-items:center;gap:6px;padding-right:10px;border-right:1px solid #cbd5e1;font-size:11px;font-weight:800;color:#0f172a;letter-spacing:0.4px;text-transform:uppercase;flex-shrink:0">
+            <i class="fa fa-bolt" style="color:#2563eb"></i>
+            <span>Workflows</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex:1;flex-wrap:wrap">
+            ${Auth.role === 'dept_manager' ? `
+              <div onclick="App.navigate('attendance')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Team Daily Attendance">
+                <i class="fa fa-clock" style="color:#2563eb"></i>
+                <span>Team Attendance</span>
+              </div>
+              <div onclick="App.navigate('leaves')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Review Team Leaves">
+                <i class="fa fa-calendar-check" style="color:#16a34a"></i>
+                <span>Review Leaves</span>
+              </div>
+              <div onclick="App.navigate('attendance', 'roster')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Duty Rosters">
+                <i class="fa fa-business-time" style="color:#7c3aed"></i>
+                <span>Duty Roster</span>
+              </div>
+              <div onclick="App.navigate('expenses')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Review Team Claims">
+                <i class="fa fa-receipt" style="color:#ea580c"></i>
+                <span>Review Claims</span>
+              </div>
+              <div onclick="App.navigate('employees', 'orgchart')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Org Chart & Hierarchy">
+                <i class="fa fa-sitemap" style="color:#0284c7"></i>
+                <span>Org Chart</span>
+              </div>
+              <div onclick="Dashboard.openAgent()" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;margin-left:auto" title="Ask Assistant">
+                <i class="fa fa-robot" style="color:#2563eb"></i>
+                <span>Assistant</span>
+              </div>
+            ` : Auth.role === 'payroll_accountant' ? `
+              <div onclick="App.navigate('payroll')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Salary Processing">
+                <i class="fa fa-credit-card" style="color:#2563eb"></i>
+                <span>Payroll Run</span>
+              </div>
+              <div onclick="App.navigate('payroll', 'bank_advice')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="1Link Bank Advice Batches">
+                <i class="fa fa-building-columns" style="color:#16a34a"></i>
+                <span>Bank Advice</span>
+              </div>
+              <div onclick="App.navigate('payroll', 'tax')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="FBR Tax Slabs & Form 16">
+                <i class="fa fa-scale-balanced" style="color:#dc2626"></i>
+                <span>Tax Slabs</span>
+              </div>
+              <div onclick="App.navigate('reports', 'bank')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Disbursal Checksums">
+                <i class="fa fa-shield-halved" style="color:#7c3aed"></i>
+                <span>Audit Batches</span>
+              </div>
+              <div onclick="App.navigate('expenses')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Expense Claim Audits">
+                <i class="fa fa-receipt" style="color:#ea580c"></i>
+                <span>Expense Audit</span>
+              </div>
+              <div onclick="Dashboard.openAgent()" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;margin-left:auto" title="Ask Assistant">
+                <i class="fa fa-robot" style="color:#2563eb"></i>
+                <span>Assistant</span>
+              </div>
+            ` : `
+              <div onclick="App.navigate('employees');setTimeout(()=>Employees.showAddForm(),100)" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Add New Employee">
+                <i class="fa fa-user-plus" style="color:#2563eb"></i>
+                <span>Add Employee</span>
+              </div>
+              <div onclick="App.navigate('leaves');setTimeout(()=>Leaves.showApplyForm(),100)" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Submit Leave Request">
+                <i class="fa fa-file-lines" style="color:#16a34a"></i>
+                <span>Apply Leave</span>
+              </div>
+              <div onclick="App.navigate('attendance')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Attendance Log & Machine Sync">
+                <i class="fa fa-clock" style="color:#2563eb"></i>
+                <span>Attendance Log</span>
+              </div>
+              <div onclick="App.navigate('payroll')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Salary Processing & Disbursals">
+                <i class="fa fa-credit-card" style="color:#2563eb"></i>
+                <span>Payroll</span>
+              </div>
+              <div onclick="App.navigate('reports')" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b" title="Enterprise Reports & Exports">
+                <i class="fa fa-file-chart-column" style="color:#0284c7"></i>
+                <span>Reports</span>
+              </div>
+              <div onclick="Dashboard.openAgent()" class="dash-workflow-pill" style="background:#f8fafc;border:1px solid #cbd5e1;color:#1e293b;margin-left:auto" title="Ask Assistant">
+                <i class="fa fa-robot" style="color:#2563eb"></i>
+                <span>Assistant</span>
+              </div>
+            `}
+          </div>
         </div>
 
         <!-- ══════════════════════════════════════════════════════
              6. UNIFIED OPERATIONS & WORKFORCE TELEMETRY HUB
                 (3-TAB MODULAR WORKBENCH: ATTENDANCE | LEAVES | RECRUITMENT)
         ══════════════════════════════════════════════════════ -->
-        <div class="card" style="padding:16px 20px;background:var(--card,#ffffff);border:1px solid var(--border,#e2e8f0);border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,0.03)">
+        <div class="card" style="padding:16px 20px;background:var(--card,#ffffff);border:1px solid var(--border,#cbd5e1);border-radius:12px;box-shadow:0 1px 4px rgba(15,23,42,0.04)">
           <!-- Unified Tab Header -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid var(--border,#e2e8f0);padding-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px;border-bottom:1px solid #cbd5e1;padding-bottom:12px">
             <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:34px;height:34px;border-radius:9px;background:rgba(37,99,235,0.1);color:var(--primary,#2563eb);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">
+              <div style="width:34px;height:34px;border-radius:8px;background:#2563eb;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">
                 <i class="fa fa-chart-line"></i>
               </div>
               <div>
-                <div style="font-size:15px;font-weight:800;color:var(--text);letter-spacing:-0.2px">Operations &amp; Workforce Telemetry</div>
-                <div style="font-size:11px;color:var(--text-3)">Interactive real-time pulse &bull; Click any tab below to switch metrics</div>
+                <div style="font-size:15px;font-weight:800;color:#0f172a;letter-spacing:-0.2px">Operations &amp; Workforce Telemetry</div>
+                <div style="font-size:11.5px;color:#475569;font-weight:500">Interactive real-time pulse &bull; Click any tab below to switch metrics</div>
               </div>
             </div>
 
             <!-- Tab Switcher Navigation Buttons + Quick Module Link -->
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-              <div style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);padding:3px;border-radius:9px;border:1px solid var(--border,#e2e8f0);gap:4px">
-                <button id="op-tab-btn-attendance" type="button" onclick="Dashboard.switchOperationsTab('attendance')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'attendance' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+              <div style="display:inline-flex;align-items:center;background:var(--surface,#f1f5f9);padding:3px;border-radius:9px;border:1px solid #cbd5e1;gap:4px">
+                <button id="op-tab-btn-attendance" type="button" onclick="Dashboard.switchOperationsTab('attendance')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'attendance' ? 'background:#2563eb;color:#ffffff;font-weight:800;border:1px solid #2563eb;box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:#334155;font-weight:700;border:1px solid transparent'}">
                   <i class="fa fa-clock" style="margin-right:5px"></i> Attendance
                 </button>
-                <button id="op-tab-btn-leaves" type="button" onclick="Dashboard.switchOperationsTab('leaves')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'leaves' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+                <button id="op-tab-btn-leaves" type="button" onclick="Dashboard.switchOperationsTab('leaves')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'leaves' ? 'background:#2563eb;color:#ffffff;font-weight:800;border:1px solid #2563eb;box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:#334155;font-weight:700;border:1px solid transparent'}">
                   <i class="fa fa-calendar-check" style="margin-right:5px"></i> Leaves
                 </button>
-                <button id="op-tab-btn-recruitment" type="button" onclick="Dashboard.switchOperationsTab('recruitment')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'recruitment' ? 'background:var(--primary,#2563eb);color:#ffffff;font-weight:800;border:1px solid var(--primary,#2563eb);box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:var(--text-2);font-weight:600;border:1px solid transparent'}">
+                <button id="op-tab-btn-recruitment" type="button" onclick="Dashboard.switchOperationsTab('recruitment')" class="btn btn-xs" style="padding:5px 12px;border-radius:7px;font-size:11px;transition:all .15s;${this.activeOperationsTab === 'recruitment' ? 'background:#2563eb;color:#ffffff;font-weight:800;border:1px solid #2563eb;box-shadow:0 1px 4px rgba(37,99,235,0.3)' : 'background:transparent;color:#334155;font-weight:700;border:1px solid transparent'}">
                   <i class="fa fa-user-plus" style="margin-right:5px"></i> Recruitment
                 </button>
               </div>
@@ -1649,7 +1626,7 @@ const Dashboard = {
               <button id="op-link-leaves" class="btn btn-ghost btn-xs" onclick="App.navigate('leaves')" style="color:#2563eb;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'leaves' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
                 <i class="fa fa-arrow-up-right-from-square"></i> Full Leaves
               </button>
-              <button id="op-link-recruitment" class="btn btn-ghost btn-xs" onclick="App.navigate('recruitment')" style="color:#16a34a;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'recruitment' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
+              <button id="op-link-recruitment" class="btn btn-ghost btn-xs" onclick="App.navigate('recruitment')" style="color:#2563eb;font-weight:700;font-size:11px;display:${this.activeOperationsTab === 'recruitment' ? 'inline-flex' : 'none'};align-items:center;gap:4px">
                 <i class="fa fa-arrow-up-right-from-square"></i> Full Pipeline
               </button>
             </div>
@@ -1658,7 +1635,7 @@ const Dashboard = {
           <!-- ── PANE 1: ATTENDANCE & TIMESHEETS ── -->
           <div id="op-pane-attendance" style="display:${this.activeOperationsTab === 'attendance' ? 'block' : 'none'}">
             <!-- Attendance 6 Badges across full width -->
-            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;background:var(--surface,#f8fafc);padding:6px 8px;border-radius:8px;border:1px solid var(--border,#e2e8f0)">
+            <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:12px;background:#f8fafc;padding:6px 8px;border-radius:8px;border:1px solid #cbd5e1">
               ${this.attBadge('Present', present || 92, 'fa-circle-check', '#10b981')}
               ${this.attBadge('Absent', absent || 8, 'fa-circle-xmark', '#ef4444')}
               ${this.attBadge('Late', late || 12, 'fa-clock', '#f59e0b')}
@@ -1670,71 +1647,77 @@ const Dashboard = {
             <!-- Bottom Split: Attendance Table (Left) + Late Arrivals Chart (Right) -->
             <div style="display:grid;grid-template-columns:minmax(0, 1fr) 320px;gap:12px;align-items:stretch">
               <!-- Full Space Recent Attendance Table -->
-              <div class="table-responsive" style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:8px 10px;overflow-x:auto;height:100%;display:flex;flex-direction:column">
+              <div class="table-responsive" style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;overflow-x:auto;height:100%;display:flex;flex-direction:column">
                 <table class="table" style="font-size:11px;margin:0;width:100%;min-width:640px">
                   <thead>
-                    <tr style="border-bottom:1.5px solid var(--border,#e2e8f0);color:var(--text-3);font-size:9.5px;text-transform:uppercase;letter-spacing:0.2px">
-                      <th style="padding:6px 6px;font-weight:700;white-space:nowrap;text-align:left">Employee</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">In</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break Out</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Break In</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Out</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Total Break</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Duty Hours</th>
-                      <th style="padding:6px 6px;font-weight:700;text-align:left;white-space:nowrap">Remarks</th>
-                      <th style="padding:6px 4px;font-weight:700;text-align:center;white-space:nowrap">Status</th>
+                    <tr style="border-bottom:1px solid #cbd5e1;color:#475569;font-size:9.5px;text-transform:uppercase;letter-spacing:0.4px">
+                      <th style="padding:6px 6px;font-weight:800;white-space:nowrap;text-align:left">Employee</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">In</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Break Out</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Break In</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Out</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Total Break</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Duty Hours</th>
+                      <th style="padding:6px 6px;font-weight:800;text-align:left;white-space:nowrap">Remarks</th>
+                      <th style="padding:6px 4px;font-weight:800;text-align:center;white-space:nowrap">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${[
-                      { name: 'Ahmed Khan', title: 'Software Engineer', in: '09:02 AM', breakOut: '01:05 PM', breakIn: '01:50 PM', out: '06:10 PM', breakTotal: '45m', hrs: '8h 23m', remarks: 'Normal Shift · On Time', status: 'Present', color: '#10b981' },
-                      { name: 'Sara Malik', title: 'HR Executive', in: '09:15 AM', breakOut: '01:10 PM', breakIn: '01:55 PM', out: '06:05 PM', breakTotal: '45m', hrs: '8h 05m', remarks: 'Late Arrival (+15m)', status: 'Late', color: '#f59e0b' },
-                      { name: 'Usman Ali', title: 'Accountant', in: '09:38 AM', breakOut: '01:20 PM', breakIn: '02:10 PM', out: '06:30 PM', breakTotal: '50m', hrs: '8h 02m', remarks: 'Late (+38m) · Client Meet', status: 'Late', color: '#f59e0b' },
-                      { name: 'Fatima Noor', title: 'UI/UX Designer', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Annual Approved', status: 'On Leave', color: '#06b6d4' },
-                      { name: 'Bilal Siddiqui', title: 'DevOps Lead', in: '08:52 AM', breakOut: '01:00 PM', breakIn: '01:40 PM', out: '06:15 PM', breakTotal: '40m', hrs: '8h 43m', remarks: 'Normal Shift · Early Punch', status: 'Present', color: '#10b981' },
-                      { name: 'Zainab Qureshi', title: 'Talent Acquisition', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Casual (Day 1/2)', status: 'On Leave', color: '#06b6d4' }
-                    ].map(r => `
-                      <tr style="border-bottom:1px solid var(--border,#e2e8f0)">
+                      { name: 'Ahmed Khan', title: 'Software Engineer', in: '09:02 AM', breakOut: '01:05 PM', breakIn: '01:50 PM', out: '06:10 PM', breakTotal: '45m', hrs: '8h 23m', remarks: 'Normal Shift · On Time', status: 'Present', color: '#15803d' },
+                      { name: 'Sara Malik', title: 'HR Executive', in: '09:15 AM', breakOut: '01:10 PM', breakIn: '01:55 PM', out: '06:05 PM', breakTotal: '45m', hrs: '8h 05m', remarks: 'Late Arrival (+15m)', status: 'Late', color: '#b45309' },
+                      { name: 'Usman Ali', title: 'Accountant', in: '09:38 AM', breakOut: '01:20 PM', breakIn: '02:10 PM', out: '06:30 PM', breakTotal: '50m', hrs: '8h 02m', remarks: 'Late (+38m) · Client Meet', status: 'Late', color: '#b45309' },
+                      { name: 'Fatima Noor', title: 'UI/UX Designer', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Annual Approved', status: 'On Leave', color: '#1d4ed8' },
+                      { name: 'Bilal Siddiqui', title: 'DevOps Lead', in: '08:52 AM', breakOut: '01:00 PM', breakIn: '01:40 PM', out: '06:15 PM', breakTotal: '40m', hrs: '8h 43m', remarks: 'Normal Shift · Early Punch', status: 'Present', color: '#15803d' },
+                      { name: 'Zainab Qureshi', title: 'Talent Acquisition', in: '--', breakOut: '--', breakIn: '--', out: '--', breakTotal: '--', hrs: '--', remarks: 'On Leave · Casual (Day 1/2)', status: 'On Leave', color: '#1d4ed8' }
+                    ].map(r => {
+                      const pillStyle = r.status === 'Present' 
+                        ? 'background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0;' 
+                        : (r.status === 'Late' 
+                            ? 'background:#fffbeb;color:#b45309;border:1px solid #fde68a;' 
+                            : 'background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;');
+                      return `
+                      <tr style="border-bottom:1px solid #f1f5f9">
                         <td style="padding:6px 6px;white-space:nowrap">
                           <div style="display:flex;align-items:center;gap:6px">
-                            <div style="width:24px;height:24px;border-radius:50%;background:${Utils.avatarColor(r.name.length)};display:flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:700;flex-shrink:0">${Utils.avatarInitials(r.name)}</div>
+                            <div style="width:24px;height:24px;border-radius:50%;background:#2563eb;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9.5px;font-weight:800;flex-shrink:0">${Utils.avatarInitials(r.name)}</div>
                             <div style="min-width:0">
-                              <div style="font-weight:700;color:var(--text);font-size:11px">${r.name}</div>
-                              <div style="font-size:9px;color:var(--text-3)">${r.title}</div>
+                              <div style="font-weight:800;color:#0f172a;font-size:11px">${r.name}</div>
+                              <div style="font-size:9.5px;color:#64748b;font-weight:600">${r.title}</div>
                             </div>
                           </div>
                         </td>
-                        <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.in}</td>
-                        <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakOut}</td>
-                        <td style="padding:6px 4px;color:var(--text-2);text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakIn}</td>
-                        <td style="padding:6px 4px;color:var(--text);font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.out}</td>
-                        <td style="padding:6px 4px;color:var(--text-2);font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakTotal}</td>
-                        <td style="padding:6px 4px;color:#2563eb;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.hrs}</td>
+                        <td style="padding:6px 4px;color:#0f172a;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.in}</td>
+                        <td style="padding:6px 4px;color:#475569;font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakOut}</td>
+                        <td style="padding:6px 4px;color:#475569;font-weight:600;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakIn}</td>
+                        <td style="padding:6px 4px;color:#0f172a;font-weight:800;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.out}</td>
+                        <td style="padding:6px 4px;color:#475569;font-weight:700;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.breakTotal}</td>
+                        <td style="padding:6px 4px;color:#0f172a;font-weight:900;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums">${r.hrs}</td>
                         <td style="padding:6px 6px;white-space:nowrap" title="${r.remarks}">
-                          <span style="font-size:9.5px;color:var(--text-2);font-weight:600;display:inline-flex;align-items:center;gap:6px">
+                          <span style="font-size:9.5px;color:#475569;font-weight:600;display:inline-flex;align-items:center;gap:6px">
                             <span style="width:14px;text-align:center;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
-                              ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#f59e0b"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#06b6d4"></i>' : '<i class="fa fa-circle-check" style="color:#10b981"></i>'}
+                              ${r.status === 'Late' ? '<i class="fa fa-triangle-exclamation" style="color:#b45309"></i>' : r.status === 'On Leave' ? '<i class="fa fa-calendar-xmark" style="color:#1d4ed8"></i>' : '<i class="fa fa-circle-check" style="color:#15803d"></i>'}
                             </span>
                             <span>${r.remarks}</span>
                           </span>
                         </td>
                         <td style="padding:6px 4px;text-align:center;white-space:nowrap">
-                          <span style="background:${r.color}15;color:${r.color};font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:4px;border:1px solid ${r.color}30;display:inline-block;min-width:64px;text-align:center">${r.status}</span>
+                          <span style="${pillStyle}font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:4px;display:inline-block;min-width:64px;text-align:center">${r.status}</span>
                         </td>
                       </tr>
-                    `).join('')}
+                    `;}).join('')}
                   </tbody>
                 </table>
               </div>
 
               <!-- Late Arrivals by Department Chart & Telemetry -->
-              <div style="background:var(--surface,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
+              <div style="background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;height:100%">
                 <div>
                   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <span style="font-size:11.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
-                      <i class="fa fa-business-time" style="color:#f59e0b"></i> Late Arrivals by Dept
+                    <span style="font-size:11.5px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px">
+                      <i class="fa fa-business-time" style="color:#2563eb"></i> Late Arrivals by Dept
                     </span>
-                    <span style="font-size:9.5px;font-weight:700;color:#d97706;background:#fffbeb;padding:1px 6px;border-radius:4px;border:1px solid #fde68a">
+                    <span style="font-size:9.5px;font-weight:800;color:#1e40af;background:#eff6ff;padding:1px 6px;border-radius:4px;border:1px solid #bfdbfe">
                       Aug 2026
                     </span>
                   </div>
@@ -2474,74 +2457,69 @@ const Dashboard = {
     }
 
     return `
-      <div id="dashboard-action-inbox" class="card" style="border:1.5px solid rgba(99,102,241,0.25);border-radius:12px;padding:16px 20px;margin-bottom:18px;background:var(--card);box-shadow:0 2px 10px rgba(99,102,241,0.06);transition:all .2s ease">
+      <div id="dashboard-action-inbox" class="card" style="border:1px solid var(--border,#cbd5e1);border-radius:14px;padding:12px 18px;background:var(--card,#ffffff);box-shadow:0 1px 4px rgba(15,23,42,0.04);transition:all .2s ease;width:100%;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#2563eb"></div>
         <!-- Header Bar -->
-        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;${isCollapsed ? '' : 'margin-bottom:12px'}">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <div style="width:32px;height:32px;border-radius:8px;background:rgba(99,102,241,0.12);color:var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px">
-              <i class="fa fa-stamp"></i>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;${isCollapsed ? '' : 'margin-bottom:12px'}">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;min-width:0">
+            <div style="width:38px;height:38px;border-radius:9px;background:#2563eb;color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(37,99,235,0.25);flex-shrink:0">
+              <i class="fa fa-clipboard-check"></i>
             </div>
-            <div>
-              <div style="font-size:14.5px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-                Approval Requests Queue &amp; Executive Priority Action Inbox
-                <span class="badge badge-warning" style="font-size:10px;font-weight:700;padding:2px 7px">
-                  ${actions.length} Pending Actions
+            <div style="min-width:0">
+              <div style="font-size:15px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:8px;letter-spacing:-0.2px;flex-wrap:wrap">
+                <span>Priority Approval Requests Queue</span>
+                <span style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:6px;display:inline-flex;align-items:center;gap:4px">
+                  <i class="fa fa-bolt" style="font-size:9.5px;color:#d97706"></i> ${actions.length} Pending Actions
                 </span>
               </div>
-              <div style="font-size:11px;color:var(--text-3)">Integrated multi-gate approval workflows, statutory sign-offs &amp; attendance requests</div>
+              <div style="font-size:11.5px;color:#475569;margin-top:2px;font-weight:500">Multi-gate approval workflows, statutory sign-offs &amp; workforce attendance requests</div>
             </div>
-            ${isCollapsed ? `
-              <span style="font-size:11px;color:var(--text-3);margin-left:4px">
-                (${summaryParts.join(' &bull; ')})
-              </span>
-            ` : ''}
           </div>
 
+          <!-- Middle / Right: Category Micro-Chips + Expand Action Button -->
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            ${!isCollapsed && categories.length > 2 ? `
-              <div style="display:flex;gap:3px;background:var(--surface);padding:2px 4px;border-radius:8px;border:1px solid var(--border)">
-                ${categories.map(c => `
-                  <button type="button" class="btn btn-xs ${currentFilter === c.id ? 'btn-primary' : 'btn-ghost'}" 
-                    style="padding:2px 7px;font-size:10.5px;border-radius:5px;${currentFilter === c.id ? 'font-weight:700;' : 'color:var(--text-3);'}" 
-                    onclick="Dashboard.setInboxFilter('${c.id}')">
-                    ${c.label}
-                  </button>
-                `).join('')}
-              </div>
-            ` : ''}
-            <button type="button" class="btn btn-ghost btn-xs" onclick="Dashboard.toggleInboxCollapse()" title="${isCollapsed ? 'Expand inbox to review approvals' : 'Minimize inbox to save space'}" style="display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border:1px solid var(--border);border-radius:6px">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${execCount ? `<span onclick="Dashboard.setInboxFilter('executive'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Executive Sign-Offs"><span>Executive</span><span class="chip-count">${execCount}</span></span>` : ''}
+              ${leaveCount ? `<span onclick="Dashboard.setInboxFilter('leave'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Leave Requests"><span>Leaves</span><span class="chip-count">${leaveCount}</span></span>` : ''}
+              ${otCount ? `<span onclick="Dashboard.setInboxFilter('overtime'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Overtime Claims"><span>Overtime</span><span class="chip-count">${otCount}</span></span>` : ''}
+              ${regCount ? `<span onclick="Dashboard.setInboxFilter('regularization'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Regularizations"><span>Regularize</span><span class="chip-count">${regCount}</span></span>` : ''}
+              ${expenseCount ? `<span onclick="Dashboard.setInboxFilter('expense'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Finance Claims"><span>Finance</span><span class="chip-count">${expenseCount}</span></span>` : ''}
+              ${complianceCount ? `<span onclick="Dashboard.setInboxFilter('compliance'); if (Dashboard.inboxCollapsed) Dashboard.toggleInboxCollapse();" class="dash-inbox-chip" title="Filter Compliance Items"><span>Compliance</span><span class="chip-count">${complianceCount}</span></span>` : ''}
+            </div>
+
+            <button type="button" class="btn btn-xs" onclick="Dashboard.toggleInboxCollapse()" title="${isCollapsed ? 'Expand inbox to review approvals' : 'Minimize inbox to save space'}" style="background:#2563eb;color:#ffffff;font-size:11px;font-weight:800;padding:5px 14px;border-radius:8px;border:1px solid #2563eb;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 4px rgba(37,99,235,0.25);cursor:pointer;transition:all .15s">
               <i class="fa ${isCollapsed ? 'fa-chevron-down' : 'fa-chevron-up'}"></i>
-              <span>${isCollapsed ? `Expand (${actions.length})` : 'Minimize'}</span>
+              <span>${isCollapsed ? `Review All (${actions.length})` : 'Collapse'}</span>
             </button>
           </div>
         </div>
 
-        <!-- Integrated Summary Badges on Top (matching Leave Summary & Statistics) -->
+        <!-- Integrated Summary Badges on Top -->
         ${!isCollapsed ? `
-          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px;background:var(--surface,#f8fafc);padding:8px 10px;border-radius:10px;border:1px solid var(--border,#e2e8f0)">
-            <div onclick="Dashboard.setInboxFilter('executive')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'executive' ? 'background:#f5f3ff;border:1.5px solid #8b5cf6;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#7c3aed;text-transform:uppercase">Executive Sign-Offs</div>
-              <div style="font-size:16px;font-weight:900;color:#6d28d9;line-height:1.2;margin-top:2px">${execCount}</div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:12px;background:#f8fafc;padding:8px 10px;border-radius:10px;border:1px solid #cbd5e1">
+            <div onclick="Dashboard.setInboxFilter('executive')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'executive' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'executive' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Executive Sign-Offs</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'executive' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${execCount}</div>
             </div>
-            <div onclick="Dashboard.setInboxFilter('leave')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'leave' ? 'background:#fff7ed;border:1.5px solid #ea580c;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#c2410c;text-transform:uppercase">Leave Approvals</div>
-              <div style="font-size:16px;font-weight:900;color:#ea580c;line-height:1.2;margin-top:2px">${leaveCount}</div>
+            <div onclick="Dashboard.setInboxFilter('leave')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'leave' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'leave' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Leave Approvals</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'leave' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${leaveCount}</div>
             </div>
-            <div onclick="Dashboard.setInboxFilter('overtime')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'overtime' ? 'background:#eef2ff;border:1.5px solid #6366f1;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#4338ca;text-transform:uppercase">Overtime Claims</div>
-              <div style="font-size:16px;font-weight:900;color:#4f46e5;line-height:1.2;margin-top:2px">${otCount}</div>
+            <div onclick="Dashboard.setInboxFilter('overtime')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'overtime' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'overtime' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Overtime Claims</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'overtime' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${otCount}</div>
             </div>
-            <div onclick="Dashboard.setInboxFilter('regularization')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'regularization' ? 'background:#fffbeb;border:1.5px solid #f59e0b;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#b45309;text-transform:uppercase">Regularizations</div>
-              <div style="font-size:16px;font-weight:900;color:#d97706;line-height:1.2;margin-top:2px">${regCount}</div>
+            <div onclick="Dashboard.setInboxFilter('regularization')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'regularization' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'regularization' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Regularizations</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'regularization' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${regCount}</div>
             </div>
-            <div onclick="Dashboard.setInboxFilter('expense')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'expense' ? 'background:#f0fdf4;border:1.5px solid #10b981;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#15803d;text-transform:uppercase">Finance Claims</div>
-              <div style="font-size:16px;font-weight:900;color:#16a34a;line-height:1.2;margin-top:2px">${expenseCount}</div>
+            <div onclick="Dashboard.setInboxFilter('expense')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'expense' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'expense' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Finance Claims</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'expense' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${expenseCount}</div>
             </div>
-            <div onclick="Dashboard.setInboxFilter('compliance')" style="cursor:pointer;text-align:center;padding:5px 4px;border-radius:8px;transition:all .15s;${currentFilter === 'compliance' ? 'background:#eff6ff;border:1.5px solid #2563eb;' : 'border:1.5px solid transparent;'}">
-              <div style="font-size:9.5px;font-weight:700;color:#1d4ed8;text-transform:uppercase">Compliance &amp; SLA</div>
-              <div style="font-size:16px;font-weight:900;color:#2563eb;line-height:1.2;margin-top:2px">${complianceCount}</div>
+            <div onclick="Dashboard.setInboxFilter('compliance')" style="cursor:pointer;text-align:center;padding:6px 4px;border-radius:8px;transition:all .15s;background:${currentFilter === 'compliance' ? '#eff6ff' : '#ffffff'};border:${currentFilter === 'compliance' ? '1.5px solid #2563eb' : '1px solid #e2e8f0'};">
+              <div style="font-size:9.5px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.4px">Compliance &amp; SLA</div>
+              <div style="font-size:18px;font-weight:900;color:${currentFilter === 'compliance' ? '#1e40af' : '#0f172a'};line-height:1.2;margin-top:2px">${complianceCount}</div>
             </div>
           </div>
         ` : ''}
